@@ -60,19 +60,19 @@ interface ScrapedMetrics {
  */
 async function expandShortenedUrl(url: string): Promise<string> {
   try {
-    console.log('🔗 Expanding shortened URL:', url);
+    console.log("🔗 Expanding shortened URL:", url);
     const response = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'follow'
+      method: "HEAD",
+      redirect: "follow",
     });
     const expandedUrl = response.url;
-    console.log('✅ Expanded to:', expandedUrl);
+    console.log("✅ Expanded to:", expandedUrl);
     return expandedUrl;
   } catch (error) {
-    console.error('❌ Failed to expand URL:', error);
+    console.error("❌ Failed to expand URL:", error);
     throw new Error(
-      'Failed to expand shortened URL. The link may be expired or invalid. ' +
-      'Please provide the full TikTok URL format: https://www.tiktok.com/@username/video/VIDEO_ID'
+      "Failed to expand shortened URL. The link may be expired or invalid. " +
+        "Please provide the full TikTok URL format: https://www.tiktok.com/@username/video/VIDEO_ID"
     );
   }
 }
@@ -104,7 +104,7 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     // Extract aweme_id from TikTok URL
     // TikTok URLs can come in various formats:
     // - https://www.tiktok.com/@user/video/1234567890
-    // - https://tiktok.com/@user/video/1234567890  
+    // - https://tiktok.com/@user/video/1234567890
     // - https://m.tiktok.com/@user/video/1234567890
     // - tiktok.com/@user/video/1234567890 (no protocol)
     // - https://vm.tiktok.com/ABC123/ (shortened - will need to handle differently)
@@ -112,46 +112,61 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
 
     // Normalize URL - ensure it has a protocol for parsing
     let normalizedUrl = postUrl.trim();
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+    if (
+      !normalizedUrl.startsWith("http://") &&
+      !normalizedUrl.startsWith("https://")
+    ) {
       normalizedUrl = `https://${normalizedUrl}`;
     }
 
     // Auto-expand shortened URLs before extraction
-    if (normalizedUrl.includes('vm.tiktok.com') || normalizedUrl.includes('vt.tiktok.com')) {
-      console.log('📍 Detected shortened TikTok URL, expanding...');
+    if (
+      normalizedUrl.includes("vm.tiktok.com") ||
+      normalizedUrl.includes("vt.tiktok.com")
+    ) {
+      console.log("📍 Detected shortened TikTok URL, expanding...");
       try {
         normalizedUrl = await expandShortenedUrl(normalizedUrl);
-        console.log('🎯 Expanded URL format:', normalizedUrl);
-        console.log('🎯 URL pathname:', new URL(normalizedUrl).pathname);
+        console.log("🎯 Expanded URL format:", normalizedUrl);
+        console.log("🎯 URL pathname:", new URL(normalizedUrl).pathname);
       } catch (expandError) {
-        console.warn('⚠️ Failed to expand shortened URL, continuing with original:', expandError);
+        console.warn(
+          "⚠️ Failed to expand shortened URL, continuing with original:",
+          expandError
+        );
         // Continue with original URL - might still be parseable
       }
     }
 
     // Check if expanded URL is still in /t/ short format and needs second expansion
-    if (normalizedUrl.includes('/t/') && normalizedUrl.includes('tiktok.com')) {
+    if (normalizedUrl.includes("/t/") && normalizedUrl.includes("tiktok.com")) {
       try {
         const urlCheck = new URL(normalizedUrl);
         // Only expand if /t/ is in the pathname (not just anywhere in the URL)
-        if (urlCheck.pathname.includes('/t/')) {
-          console.log('🔄 Detected /t/ short format, expanding again...');
+        if (urlCheck.pathname.includes("/t/")) {
+          console.log("🔄 Detected /t/ short format, expanding again...");
           normalizedUrl = await expandShortenedUrl(normalizedUrl);
-          console.log('✅ Final expanded URL:', normalizedUrl);
+          console.log("✅ Final expanded URL:", normalizedUrl);
         }
       } catch (secondExpandError) {
-        console.warn('⚠️ Failed to expand /t/ format URL, continuing:', secondExpandError);
+        console.warn(
+          "⚠️ Failed to expand /t/ format URL, continuing:",
+          secondExpandError
+        );
       }
     }
 
     // Log the URL we're trying to parse (for debugging)
     console.log("🔍 Parsing TikTok URL:", normalizedUrl);
     console.log("🔍 URL length:", normalizedUrl.length);
-    console.log("🔍 Contains 'video':", normalizedUrl.includes('video'));
-    console.log("🔍 Contains 'tiktok':", normalizedUrl.toLowerCase().includes('tiktok'));
+    console.log("🔍 Contains 'video':", normalizedUrl.includes("video"));
+    console.log(
+      "🔍 Contains 'tiktok':",
+      normalizedUrl.toLowerCase().includes("tiktok")
+    );
 
     let urlObj: URL | null = null;
-    let pathname: string = '';
+    let pathname: string = "";
 
     // Try to parse URL, but continue even if it fails
     try {
@@ -161,7 +176,10 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       console.log("🔍 Parsed search params:", urlObj.search);
       console.log("🔍 Parsed hash:", urlObj.hash);
     } catch (urlParseError) {
-      console.warn("⚠️ URL parsing failed, will try raw string extraction:", urlParseError);
+      console.warn(
+        "⚠️ URL parsing failed, will try raw string extraction:",
+        urlParseError
+      );
       // Continue - we'll try patterns that work on raw strings
     }
 
@@ -176,18 +194,37 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
 
     // Pattern 2: /@username/video/(\d+) from pathname
     if (!awemeId && pathname) {
-      const videoPattern2 = pathname.match(/\/@[^\/]+\/video\/(\d+)(?:\/|$|\?|#)/i);
+      const videoPattern2 = pathname.match(
+        /\/@[^\/]+\/video\/(\d+)(?:\/|$|\?|#)/i
+      );
       if (videoPattern2 && videoPattern2[1]) {
         awemeId = videoPattern2[1];
-        console.log("✅ Matched Pattern 2: /@username/video/(\\d+) from pathname");
+        console.log(
+          "✅ Matched Pattern 2: /@username/video/(\\d+) from pathname"
+        );
       }
     }
 
     // Pattern 3: /username/video/(\d+) - without @ symbol
     if (!awemeId && pathname) {
-      const videoPattern3 = pathname.match(/\/([^\/]+)\/video\/(\d+)(?:\/|$|\?|#)/i);
-      if (videoPattern3 && videoPattern3[2] && !videoPattern3[1].startsWith('@')) {
-        const reservedPaths = ['embed', 'share', 'watch', 'user', 'video', 'p', 'reel', 't'];
+      const videoPattern3 = pathname.match(
+        /\/([^\/]+)\/video\/(\d+)(?:\/|$|\?|#)/i
+      );
+      if (
+        videoPattern3 &&
+        videoPattern3[2] &&
+        !videoPattern3[1].startsWith("@")
+      ) {
+        const reservedPaths = [
+          "embed",
+          "share",
+          "watch",
+          "user",
+          "video",
+          "p",
+          "reel",
+          "t",
+        ];
         if (!reservedPaths.includes(videoPattern3[1].toLowerCase())) {
           awemeId = videoPattern3[2];
           console.log("✅ Matched Pattern 3: /username/video/(\\d+) without @");
@@ -198,7 +235,11 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     // Pattern 4: Try query parameters for video ID
     if (!awemeId && urlObj) {
       const queryParams = urlObj.searchParams;
-      const videoIdParam = queryParams.get('video_id') || queryParams.get('id') || queryParams.get('aweme_id') || queryParams.get('v');
+      const videoIdParam =
+        queryParams.get("video_id") ||
+        queryParams.get("id") ||
+        queryParams.get("aweme_id") ||
+        queryParams.get("v");
       if (videoIdParam && /^\d+$/.test(videoIdParam)) {
         awemeId = videoIdParam;
         console.log("✅ Matched Pattern 4: Query parameter");
@@ -243,7 +284,9 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
 
     // Pattern 9: Fallback - any 10+ digit number near "video"
     if (!awemeId) {
-      const videoContextPattern = normalizedUrl.match(/video[\/\?\:\=\-]?[^0-9]*(\d{10,})/i);
+      const videoContextPattern = normalizedUrl.match(
+        /video[\/\?\:\=\-]?[^0-9]*(\d{10,})/i
+      );
       if (videoContextPattern && videoContextPattern[1]) {
         awemeId = videoContextPattern[1];
         console.log("✅ Matched Pattern 9: Video context pattern");
@@ -254,14 +297,16 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     // This is very aggressive and should be last
     if (!awemeId) {
       // Remove domain to avoid matching port numbers or other numeric parts
-      const cleanUrl = normalizedUrl.replace(/^https?:\/\/[^\/]+/, ''); // Remove domain
+      const cleanUrl = normalizedUrl.replace(/^https?:\/\/[^\/]+/, ""); // Remove domain
       const anyNumberPattern = cleanUrl.match(/(\d{10,})/);
       if (anyNumberPattern && anyNumberPattern[1]) {
         const candidateId = anyNumberPattern[1];
         // TikTok IDs are usually 19 digits, but can be 10-20 digits
         if (candidateId.length >= 10 && candidateId.length <= 20) {
           awemeId = candidateId;
-          console.log("✅ Matched Pattern 10: Aggressive numeric extraction from path");
+          console.log(
+            "✅ Matched Pattern 10: Aggressive numeric extraction from path"
+          );
         }
       }
     }
@@ -274,18 +319,24 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
         // Only use if it's not obviously part of a timestamp or port number
         // Check if it's followed by something that suggests it's not an ID
         const matchIndex = finalFallbackPattern.index || 0;
-        const afterMatch = normalizedUrl.substring(matchIndex + candidateId.length, matchIndex + candidateId.length + 5);
+        const afterMatch = normalizedUrl.substring(
+          matchIndex + candidateId.length,
+          matchIndex + candidateId.length + 5
+        );
         // Avoid matching if it looks like part of a timestamp or port, but allow if followed by /video or similar
         if (!afterMatch.match(/^[:\/]/) || afterMatch.match(/^\/video/)) {
           awemeId = candidateId;
-          console.log("✅ Matched Final Fallback Pattern: Any 10-20 digit number");
+          console.log(
+            "✅ Matched Final Fallback Pattern: Any 10-20 digit number"
+          );
         }
       }
     }
 
     if (!awemeId) {
       // Enhanced logging for debugging
-      const urlForLog = postUrl.length > 200 ? postUrl.substring(0, 200) + '...' : postUrl;
+      const urlForLog =
+        postUrl.length > 200 ? postUrl.substring(0, 200) + "..." : postUrl;
       console.error("=== TIKTOK URL EXTRACTION FAILED ===");
       console.error("Original URL:", urlForLog);
       console.error("Normalized URL:", normalizedUrl);
@@ -311,12 +362,17 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       console.error("  - https://www.tiktok.com/t/XXXXX/ (will auto-expand)");
       throw new Error(
         "Could not extract video ID (aweme_id) from TikTok URL. " +
-        "Please ensure the URL is in the format: https://www.tiktok.com/@username/video/VIDEO_ID " +
-        `Received URL: ${urlForLog}`
+          "Please ensure the URL is in the format: https://www.tiktok.com/@username/video/VIDEO_ID " +
+          `Received URL: ${urlForLog}`
       );
     }
 
-    console.log(`Successfully extracted aweme_id: ${awemeId} from URL: ${normalizedUrl.substring(0, 100)}...`);
+    console.log(
+      `Successfully extracted aweme_id: ${awemeId} from URL: ${normalizedUrl.substring(
+        0,
+        100
+      )}...`
+    );
     const tiktokApiUrl = `${TIKTOK_API_BASE_URL}${TIKTOK_API_ENDPOINT}?aweme_id=${awemeId}`;
     console.log("TikTok API URL:", tiktokApiUrl);
     console.log("Extracted aweme_id:", awemeId);
@@ -526,15 +582,21 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
 
     // Validate that we actually extracted some metrics
     // If all metrics are zero, it's likely the parsing failed
-    const totalMetrics = metrics.views + metrics.likes + metrics.comments + metrics.shares;
+    const totalMetrics =
+      metrics.views + metrics.likes + metrics.comments + metrics.shares;
     if (totalMetrics === 0) {
       console.error("=== TIKTOK PARSING FAILED ===");
-      console.error("All metrics are zero - response structure may not match expected format");
-      console.error("Full response structure:", JSON.stringify(data, null, 2).substring(0, 3000));
+      console.error(
+        "All metrics are zero - response structure may not match expected format"
+      );
+      console.error(
+        "Full response structure:",
+        JSON.stringify(data, null, 2).substring(0, 3000)
+      );
       throw new Error(
         "Failed to extract metrics from TikTok API response. " +
-        "The API response structure may have changed. " +
-        "Please check the edge function logs for the actual response structure."
+          "The API response structure may have changed. " +
+          "Please check the edge function logs for the actual response structure."
       );
     }
 
