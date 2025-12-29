@@ -50,3 +50,4 @@ supabase/.temp/
 .DS_Store
 .AppleDouble
 .LSOverride
+.vercel
