@@ -205,9 +205,14 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                     <div>
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-white group-hover:text-primary transition-colors mb-1.5 truncate">
+                          <h3 className="font-semibold text-white group-hover:text-primary transition-colors mb-1 truncate">
                             {campaign.name}
                           </h3>
+                          {campaign.brand_name && (
+                            <p className="text-sm text-slate-400 mb-1.5 truncate">
+                              {campaign.brand_name}
+                            </p>
+                          )}
                           <StatusBadge status={campaign.status} />
                         </div>
                         
