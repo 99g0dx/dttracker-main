@@ -68,3 +68,4 @@ If the migration doesn't work, you can run the full schema:
 - Verify your environment variables point to the right project
 - Contact Supabase support if schema cache doesn't refresh after 5 minutes
 
+

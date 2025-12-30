@@ -3,10 +3,23 @@
 // TypeScript interfaces matching Supabase database schema
 // ============================================================
 
-export type Platform = 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'facebook';
-export type CampaignStatus = 'active' | 'paused' | 'completed' | 'archived';
-export type PostStatus = 'pending' | 'scraped' | 'failed' | 'manual' | 'scraping';
-export type MemberRole = 'owner' | 'editor' | 'viewer';
+export type Platform =
+  | "tiktok"
+  | "instagram"
+  | "youtube"
+  | "twitter"
+  | "facebook";
+export type CampaignStatus = "active" | "paused" | "completed" | "archived";
+export type PostStatus =
+  | "pending"
+  | "scraped"
+  | "failed"
+  | "manual"
+  | "scraping";
+export type MemberRole = "owner" | "editor" | "viewer";
+export type TeamRole = "owner" | "admin" | "member" | "viewer";
+export type MemberStatus = "active" | "pending";
+export type ScopeType = "workspace" | "campaign" | "calendar";
 
 // ============================================================
 // DATABASE TABLES
@@ -33,7 +46,7 @@ export interface Creator {
   phone: string | null;
   niche: string | null;
   location: string | null;
-  source_type: 'manual' | 'csv_import' | 'scraper_extraction' | null;
+  source_type: "manual" | "csv_import" | "scraper_extraction" | null;
   imported_by_user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -97,6 +110,51 @@ export interface CampaignCreator {
   created_at: string;
 }
 
+export interface TeamMember {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  role: TeamRole;
+  status: MemberStatus;
+  invited_by: string;
+  invited_at: string;
+  joined_at: string | null;
+  created_at: string;
+}
+
+export interface TeamInvite {
+  id: string;
+  workspace_id: string;
+  email: string;
+  invited_by: string;
+  role: TeamRole;
+  invite_token: string;
+  expires_at: string;
+  accepted_at: string | null;
+  message: string | null;
+  created_at: string;
+}
+
+export interface MemberScope {
+  id: string;
+  team_member_id: string;
+  scope_type: ScopeType;
+  scope_value: string; // 'editor'/'viewer' or campaign_id UUID
+  created_at: string;
+}
+
+export interface CampaignShareLink {
+  id: string;
+  campaign_id: string;
+  share_token: string;
+  password_hash: string | null;
+  is_password_protected: boolean;
+  created_by: string;
+  expires_at: string | null;
+  created_at: string;
+  last_accessed_at: string | null;
+}
+
 // ============================================================
 // INSERT TYPES (for creating new records)
 // ============================================================
@@ -119,7 +177,7 @@ export interface CreatorInsert {
   phone?: string | null;
   niche?: string | null;
   location?: string | null;
-  source_type?: 'manual' | 'csv_import' | 'scraper_extraction' | null;
+  source_type?: "manual" | "csv_import" | "scraper_extraction" | null;
   imported_by_user_id?: string | null;
 }
 
@@ -163,6 +221,40 @@ export interface CampaignMemberInsert {
   role?: MemberRole;
 }
 
+export interface TeamMemberInsert {
+  workspace_id: string;
+  user_id: string;
+  role?: TeamRole;
+  status?: MemberStatus;
+  invited_by: string;
+  joined_at?: string | null;
+}
+
+export interface TeamInviteInsert {
+  workspace_id: string;
+  email: string;
+  invited_by: string;
+  role: TeamRole;
+  invite_token: string;
+  expires_at: string;
+  message?: string | null;
+}
+
+export interface MemberScopeInsert {
+  team_member_id: string;
+  scope_type: ScopeType;
+  scope_value: string;
+}
+
+export interface CampaignShareLinkInsert {
+  campaign_id: string;
+  share_token: string;
+  password_hash?: string | null;
+  is_password_protected: boolean;
+  created_by: string;
+  expires_at?: string | null;
+}
+
 // ============================================================
 // UPDATE TYPES (for updating existing records)
 // ============================================================
@@ -183,7 +275,7 @@ export interface CreatorUpdate {
   phone?: string | null;
   niche?: string | null;
   location?: string | null;
-  source_type?: 'manual' | 'csv_import' | 'scraper_extraction' | null;
+  source_type?: "manual" | "csv_import" | "scraper_extraction" | null;
 }
 
 export interface CampaignUpdate {
@@ -209,6 +301,23 @@ export interface PostUpdate {
 
 export interface CampaignMemberUpdate {
   role?: MemberRole;
+}
+
+export interface TeamMemberUpdate {
+  role?: TeamRole;
+  status?: MemberStatus;
+  joined_at?: string | null;
+}
+
+export interface TeamInviteUpdate {
+  accepted_at?: string | null;
+}
+
+export interface CampaignShareLinkUpdate {
+  password_hash?: string | null;
+  is_password_protected?: boolean;
+  expires_at?: string | null;
+  last_accessed_at?: string | null;
 }
 
 // ============================================================
@@ -239,6 +348,15 @@ export interface CampaignWithPosts extends Campaign {
 
 export interface CampaignWithMembers extends Campaign {
   members: CampaignMember[];
+}
+
+export interface TeamMemberWithScopes extends TeamMember {
+  scopes: MemberScope[];
+}
+
+export interface TeamInviteWithInviter extends TeamInvite {
+  inviter_name: string | null;
+  inviter_email: string | null;
 }
 
 // ============================================================

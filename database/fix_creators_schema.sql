@@ -89,3 +89,4 @@ END $$;
 -- Success message
 SELECT 'Migration completed successfully! All columns have been added to the creators table.' AS status;
 
+

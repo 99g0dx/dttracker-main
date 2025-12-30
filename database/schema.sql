@@ -247,6 +247,56 @@ CREATE TABLE IF NOT EXISTS public.campaign_creators (
   UNIQUE(campaign_id, creator_id)
 );
 
+-- Team members table (for workspace team management)
+CREATE TABLE IF NOT EXISTS public.team_members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL, -- For now, this will be the owner's user_id
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending')),
+  invited_by UUID NOT NULL REFERENCES auth.users(id),
+  invited_at TIMESTAMPTZ DEFAULT NOW(),
+  joined_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(workspace_id, user_id)
+);
+
+-- Team invites table (for pending invitations)
+CREATE TABLE IF NOT EXISTS public.team_invites (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL,
+  email TEXT NOT NULL,
+  invited_by UUID NOT NULL REFERENCES auth.users(id),
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  invite_token TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Member scopes table (for granular permissions)
+CREATE TABLE IF NOT EXISTS public.member_scopes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_member_id UUID NOT NULL REFERENCES public.team_members(id) ON DELETE CASCADE,
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('workspace', 'campaign', 'calendar')),
+  scope_value TEXT NOT NULL, -- 'editor'/'viewer' or campaign_id UUID
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Campaign share links table (for public/password-protected sharing)
+CREATE TABLE IF NOT EXISTS public.campaign_share_links (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id UUID NOT NULL REFERENCES public.campaigns(id) ON DELETE CASCADE,
+  share_token TEXT NOT NULL UNIQUE,
+  password_hash TEXT,
+  is_password_protected BOOLEAN NOT NULL DEFAULT false,
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_accessed_at TIMESTAMPTZ
+);
+
 -- ============================================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
 -- ============================================================
@@ -317,6 +367,14 @@ CREATE INDEX IF NOT EXISTS idx_campaign_members_campaign_id ON public.campaign_m
 CREATE INDEX IF NOT EXISTS idx_campaign_members_user_id ON public.campaign_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_creators_campaign_id ON public.campaign_creators(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_creators_creator_id ON public.campaign_creators(creator_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_workspace_id ON public.team_members(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON public.team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_team_invites_workspace_id ON public.team_invites(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_team_invites_email ON public.team_invites(email);
+CREATE INDEX IF NOT EXISTS idx_team_invites_token ON public.team_invites(invite_token);
+CREATE INDEX IF NOT EXISTS idx_member_scopes_team_member_id ON public.member_scopes(team_member_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_share_links_campaign_id ON public.campaign_share_links(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_share_links_token ON public.campaign_share_links(share_token);
 
 -- ============================================================
 -- ROW LEVEL SECURITY - ENABLE
@@ -328,6 +386,10 @@ ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.post_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_creators ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_scopes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_share_links ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- ROW LEVEL SECURITY - CREATORS POLICIES
@@ -781,6 +843,305 @@ BEGIN
         EXISTS (
           SELECT 1 FROM public.campaigns
           WHERE campaigns.id = campaign_members.campaign_id
+          AND campaigns.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ROW LEVEL SECURITY - TEAM_MEMBERS POLICIES
+-- ============================================================
+
+-- SELECT (users can view team members in their workspace)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_members'
+      AND policyname='Users can view team members in their workspace'
+  ) THEN
+    CREATE POLICY "Users can view team members in their workspace"
+      ON public.team_members FOR SELECT
+      USING (workspace_id = auth.uid() OR user_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- INSERT (workspace owner can add team members)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_members'
+      AND policyname='Workspace owner can add team members'
+  ) THEN
+    CREATE POLICY "Workspace owner can add team members"
+      ON public.team_members FOR INSERT
+      WITH CHECK (workspace_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- UPDATE (workspace owner can update team members)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_members'
+      AND policyname='Workspace owner can update team members'
+  ) THEN
+    CREATE POLICY "Workspace owner can update team members"
+      ON public.team_members FOR UPDATE
+      USING (workspace_id = auth.uid())
+      WITH CHECK (workspace_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- DELETE (workspace owner can remove team members)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_members'
+      AND policyname='Workspace owner can remove team members'
+  ) THEN
+    CREATE POLICY "Workspace owner can remove team members"
+      ON public.team_members FOR DELETE
+      USING (workspace_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ROW LEVEL SECURITY - TEAM_INVITES POLICIES
+-- ============================================================
+
+-- SELECT (users can view invites for their workspace or their own invites)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_invites'
+      AND policyname='Users can view invites for their workspace'
+  ) THEN
+    CREATE POLICY "Users can view invites for their workspace"
+      ON public.team_invites FOR SELECT
+      USING (workspace_id = auth.uid() OR email = (SELECT email FROM auth.users WHERE id = auth.uid()));
+  END IF;
+END
+$$;
+
+-- INSERT (workspace owner can create invites)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_invites'
+      AND policyname='Workspace owner can create invites'
+  ) THEN
+    CREATE POLICY "Workspace owner can create invites"
+      ON public.team_invites FOR INSERT
+      WITH CHECK (workspace_id = auth.uid() AND invited_by = auth.uid());
+  END IF;
+END
+$$;
+
+-- UPDATE (workspace owner can update invites, public can accept)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_invites'
+      AND policyname='Workspace owner can update invites or public can accept'
+  ) THEN
+    CREATE POLICY "Workspace owner can update invites or public can accept"
+      ON public.team_invites FOR UPDATE
+      USING (workspace_id = auth.uid() OR accepted_at IS NULL);
+  END IF;
+END
+$$;
+
+-- DELETE (workspace owner can delete invites)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_invites'
+      AND policyname='Workspace owner can delete invites'
+  ) THEN
+    CREATE POLICY "Workspace owner can delete invites"
+      ON public.team_invites FOR DELETE
+      USING (workspace_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ROW LEVEL SECURITY - MEMBER_SCOPES POLICIES
+-- ============================================================
+
+-- SELECT (users can view scopes for team members in their workspace)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='member_scopes'
+      AND policyname='Users can view scopes for team members in their workspace'
+  ) THEN
+    CREATE POLICY "Users can view scopes for team members in their workspace"
+      ON public.member_scopes FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.team_members
+          WHERE team_members.id = member_scopes.team_member_id
+          AND (team_members.workspace_id = auth.uid() OR team_members.user_id = auth.uid())
+        )
+      );
+  END IF;
+END
+$$;
+
+-- INSERT (workspace owner can add scopes)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='member_scopes'
+      AND policyname='Workspace owner can add scopes'
+  ) THEN
+    CREATE POLICY "Workspace owner can add scopes"
+      ON public.member_scopes FOR INSERT
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.team_members
+          WHERE team_members.id = member_scopes.team_member_id
+          AND team_members.workspace_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- DELETE (workspace owner can remove scopes)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='member_scopes'
+      AND policyname='Workspace owner can remove scopes'
+  ) THEN
+    CREATE POLICY "Workspace owner can remove scopes"
+      ON public.member_scopes FOR DELETE
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.team_members
+          WHERE team_members.id = member_scopes.team_member_id
+          AND team_members.workspace_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ROW LEVEL SECURITY - CAMPAIGN_SHARE_LINKS POLICIES
+-- ============================================================
+
+-- SELECT (public can view share links by token, owners can view their share links)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='campaign_share_links'
+      AND policyname='Public can view share links by token or owners can view their links'
+  ) THEN
+    CREATE POLICY "Public can view share links by token or owners can view their links"
+      ON public.campaign_share_links FOR SELECT
+      USING (
+        -- Public access (no auth required) - this will be handled by service role in API
+        true
+        OR
+        -- Owners can view their own share links
+        created_by = auth.uid()
+        OR
+        -- Campaign owners can view share links for their campaigns
+        EXISTS (
+          SELECT 1 FROM public.campaigns
+          WHERE campaigns.id = campaign_share_links.campaign_id
+          AND campaigns.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- INSERT (campaign owners can create share links)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='campaign_share_links'
+      AND policyname='Campaign owners can create share links'
+  ) THEN
+    CREATE POLICY "Campaign owners can create share links"
+      ON public.campaign_share_links FOR INSERT
+      WITH CHECK (
+        created_by = auth.uid()
+        AND EXISTS (
+          SELECT 1 FROM public.campaigns
+          WHERE campaigns.id = campaign_share_links.campaign_id
+          AND campaigns.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- UPDATE (campaign owners can update their share links)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='campaign_share_links'
+      AND policyname='Campaign owners can update their share links'
+  ) THEN
+    CREATE POLICY "Campaign owners can update their share links"
+      ON public.campaign_share_links FOR UPDATE
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.campaigns
+          WHERE campaigns.id = campaign_share_links.campaign_id
+          AND campaigns.user_id = auth.uid()
+        )
+      )
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.campaigns
+          WHERE campaigns.id = campaign_share_links.campaign_id
+          AND campaigns.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- DELETE (campaign owners can delete their share links)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='campaign_share_links'
+      AND policyname='Campaign owners can delete their share links'
+  ) THEN
+    CREATE POLICY "Campaign owners can delete their share links"
+      ON public.campaign_share_links FOR DELETE
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.campaigns
+          WHERE campaigns.id = campaign_share_links.campaign_id
           AND campaigns.user_id = auth.uid()
         )
       );
