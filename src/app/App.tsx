@@ -25,7 +25,7 @@ import { Home } from "./components/home";
 import { Login } from "./components/login";
 import { Signup } from "./components/signup";
 import { Verification } from "./components/verification";
-import { CampaignShareView } from "./components/campaign-share-view";
+import { SharedCampaignDashboard } from "./components/shared-campaign-dashboard";
 import { TeamInviteAccept } from "./components/team-invite-accept";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -101,7 +101,7 @@ function AppRoutes() {
               />
               <Route
                 path="/share/campaign/:token"
-                element={<CampaignShareView />}
+                element={<SharedCampaignDashboard />}
               />
               <Route
                 path="/team/invite/:token"

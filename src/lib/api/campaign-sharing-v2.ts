@@ -1,0 +1,417 @@
+import { supabase } from "../supabase";
+import type { ApiResponse } from "../types/database";
+
+// Generate a secure random token (48 characters)
+function generateShareToken(): string {
+  const array = new Uint8Array(24); // 24 bytes = 48 hex characters
+  crypto.getRandomValues(array);
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// Hash password using SHA-256
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+interface EnableShareParams {
+  campaignId: string;
+  expiresInHours?: number | null; // null = never expires
+  allowExport?: boolean;
+  password?: string | null; // Optional password for password-protected links
+}
+
+interface ShareLinkResponse {
+  shareToken: string;
+  shareUrl: string;
+}
+
+/**
+ * Enable sharing for a campaign
+ */
+export async function enableCampaignShare(
+  params: EnableShareParams
+): Promise<ApiResponse<ShareLinkResponse>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: new Error("Not authenticated") };
+    }
+
+    // Verify user owns the campaign
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("id, user_id")
+      .eq("id", params.campaignId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (campaignError || !campaign) {
+      return {
+        data: null,
+        error: new Error("Campaign not found or access denied"),
+      };
+    }
+
+    // Generate new token
+    const shareToken = generateShareToken();
+
+    // Calculate expiry date if specified
+    let shareExpiresAt: string | null = null;
+    if (params.expiresInHours !== null && params.expiresInHours !== undefined) {
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + params.expiresInHours);
+      shareExpiresAt = expiresAt.toISOString();
+    }
+
+    // Hash password if provided
+    let passwordHash: string | null = null;
+    const isPasswordProtected = !!params.password && params.password.trim().length > 0;
+    if (isPasswordProtected) {
+      passwordHash = await hashPassword(params.password!);
+    }
+
+    // Update campaign with share settings
+    const { data: updatedCampaign, error: updateError } = await supabase
+      .from("campaigns")
+      .update({
+        share_enabled: true,
+        share_token: shareToken,
+        share_created_at: new Date().toISOString(),
+        share_expires_at: shareExpiresAt,
+        share_allow_export: params.allowExport || false,
+        share_password_hash: passwordHash,
+        share_password_protected: isPasswordProtected,
+      })
+      .eq("id", params.campaignId)
+      .select("share_token")
+      .single();
+
+    if (updateError || !updatedCampaign) {
+      return { data: null, error: updateError || new Error("Failed to enable sharing") };
+    }
+
+    // Build share URL
+    const shareUrl = `${window.location.origin}/share/campaign/${shareToken}`;
+
+    return {
+      data: {
+        shareToken: updatedCampaign.share_token,
+        shareUrl,
+      },
+      error: null,
+    };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Regenerate share token for a campaign (invalidates old link)
+ */
+export async function regenerateCampaignShareToken(
+  campaignId: string
+): Promise<ApiResponse<ShareLinkResponse>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: new Error("Not authenticated") };
+    }
+
+    // Verify user owns the campaign and sharing is enabled
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("id, user_id, share_enabled, share_expires_at, share_allow_export")
+      .eq("id", campaignId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (campaignError || !campaign) {
+      return {
+        data: null,
+        error: new Error("Campaign not found or access denied"),
+      };
+    }
+
+    if (!campaign.share_enabled) {
+      return {
+        data: null,
+        error: new Error("Sharing is not enabled for this campaign"),
+      };
+    }
+
+    // Generate new token
+    const shareToken = generateShareToken();
+
+    // Update campaign with new token (preserve other share settings)
+    const { data: updatedCampaign, error: updateError } = await supabase
+      .from("campaigns")
+      .update({
+        share_token: shareToken,
+        share_created_at: new Date().toISOString(),
+      })
+      .eq("id", campaignId)
+      .select("share_token")
+      .single();
+
+    if (updateError || !updatedCampaign) {
+      return {
+        data: null,
+        error: updateError || new Error("Failed to regenerate token"),
+      };
+    }
+
+    // Build share URL
+    const shareUrl = `${window.location.origin}/share/campaign/${shareToken}`;
+
+    return {
+      data: {
+        shareToken: updatedCampaign.share_token,
+        shareUrl,
+      },
+      error: null,
+    };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Disable sharing for a campaign
+ */
+export async function disableCampaignShare(
+  campaignId: string
+): Promise<ApiResponse<void>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: new Error("Not authenticated") };
+    }
+
+    // Verify user owns the campaign
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("id, user_id")
+      .eq("id", campaignId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (campaignError || !campaign) {
+      return {
+        data: null,
+        error: new Error("Campaign not found or access denied"),
+      };
+    }
+
+    // Disable sharing (clear token and reset flags)
+    const { error: updateError } = await supabase
+      .from("campaigns")
+      .update({
+        share_enabled: false,
+        share_token: null,
+        share_created_at: null,
+        share_expires_at: null,
+        share_allow_export: false,
+        share_password_hash: null,
+        share_password_protected: false,
+      })
+      .eq("id", campaignId);
+
+    if (updateError) {
+      return { data: null, error: updateError };
+    }
+
+    return { data: undefined, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Get share settings for a campaign (for the owner)
+ */
+export async function getCampaignShareSettings(
+  campaignId: string
+): Promise<
+  ApiResponse<{
+    shareEnabled: boolean;
+    shareToken: string | null;
+    shareCreatedAt: string | null;
+    shareExpiresAt: string | null;
+    shareAllowExport: boolean;
+    sharePasswordProtected: boolean;
+    shareUrl: string | null;
+  }>
+> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: new Error("Not authenticated") };
+    }
+
+    // Verify user owns the campaign
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select(
+        "id, user_id, share_enabled, share_token, share_created_at, share_expires_at, share_allow_export, share_password_protected"
+      )
+      .eq("id", campaignId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (campaignError || !campaign) {
+      return {
+        data: null,
+        error: new Error("Campaign not found or access denied"),
+      };
+    }
+
+    const shareUrl = campaign.share_enabled && campaign.share_token
+      ? `${window.location.origin}/share/campaign/${campaign.share_token}`
+      : null;
+
+    return {
+      data: {
+        shareEnabled: campaign.share_enabled || false,
+        shareToken: campaign.share_token || null,
+        shareCreatedAt: campaign.share_created_at || null,
+        shareExpiresAt: campaign.share_expires_at || null,
+        shareAllowExport: campaign.share_allow_export || false,
+        sharePasswordProtected: campaign.share_password_protected || false,
+        shareUrl,
+      },
+      error: null,
+    };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Fetch shared campaign data (public endpoint via Edge Function)
+ */
+export async function fetchSharedCampaignData(
+  token: string,
+  password?: string
+): Promise<
+  ApiResponse<{
+    campaign: {
+      id: string;
+      name: string;
+      brand_name: string | null;
+      status: string;
+      coverImageUrl: string | null;
+      createdAt: string;
+    };
+    totals: {
+      views: number;
+      likes: number;
+      comments: number;
+      shares: number;
+    };
+    series: {
+      views: Array<{ date: string; value: number }>;
+      likes: Array<{ date: string; value: number }>;
+      comments: Array<{ date: string; value: number }>;
+      shares: Array<{ date: string; value: number }>;
+    };
+    posts: Array<{
+      id: string;
+      platform: string;
+      postUrl: string;
+      status: string;
+      views: number;
+      likes: number;
+      comments: number;
+      shares: number;
+      engagementRate: number;
+      postedDate: string | null;
+      createdAt: string;
+      creator: {
+        id: string;
+        name: string;
+        handle: string;
+      } | null;
+    }>;
+    share: {
+      allowExport: boolean;
+    };
+  }>
+> {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl) {
+      return {
+        data: null,
+        error: new Error("Supabase URL not configured"),
+      };
+    }
+
+    const edgeFunctionUrl = `${supabaseUrl}/functions/v1/share-campaign?token=${encodeURIComponent(token)}`;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    
+    // Edge Functions require the apikey header to identify the project
+    if (supabaseAnonKey) {
+      headers.apikey = supabaseAnonKey;
+    }
+
+    const requestOptions: RequestInit = {
+      method: password ? "POST" : "GET",
+      headers,
+    };
+
+    if (password) {
+      requestOptions.body = JSON.stringify({ password });
+    }
+
+    const response = await fetch(edgeFunctionUrl, requestOptions);
+
+    if (!response.ok) {
+      let errorMessage = "Failed to fetch shared campaign";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        // If we can't parse the error, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+
+      if (response.status === 404) {
+        return {
+          data: null,
+          error: new Error("Share link not found or expired"),
+        };
+      }
+      if (response.status === 401) {
+        return {
+          data: null,
+          error: new Error(errorMessage || "Password required"),
+        };
+      }
+      return {
+        data: null,
+        error: new Error(errorMessage),
+      };
+    }
+
+    const data = await response.json();
+    return { data, error: null };
+  } catch (err) {
+    console.error("Error fetching shared campaign data:", err);
+    const errorMessage = err instanceof Error ? err.message : "Network error";
+    return {
+      data: null,
+      error: new Error(errorMessage),
+    };
+  }
+}
+

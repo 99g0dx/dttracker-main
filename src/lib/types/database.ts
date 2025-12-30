@@ -62,6 +62,11 @@ export interface Campaign {
   start_date: string | null;
   end_date: string | null;
   notes: string | null;
+  share_enabled: boolean;
+  share_token: string | null;
+  share_created_at: string | null;
+  share_expires_at: string | null;
+  share_allow_export: boolean;
   created_at: string;
   updated_at: string;
 }
