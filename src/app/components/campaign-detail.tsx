@@ -58,7 +58,7 @@ import type { CSVImportResult } from "../../lib/types/database";
 import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
-import { CampaignShareLinkModal } from "./campaign-share-link-modal";
+import { CampaignShareModal } from "./campaign-share-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 
@@ -2056,9 +2056,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </div>
       )}
 
-      {/* Share Link Modal */}
+      {/* Share Modal */}
       {showShareLinkModal && campaign && (
-        <CampaignShareLinkModal
+        <CampaignShareModal
           campaignId={campaign.id}
           campaignName={campaign.name}
           onClose={() => setShowShareLinkModal(false)}
