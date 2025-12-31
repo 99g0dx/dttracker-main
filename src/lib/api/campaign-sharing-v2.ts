@@ -390,10 +390,11 @@ export async function fetchSharedCampaignData(
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    
-    // Edge Functions require the apikey header to identify the project
+
+    // Edge Functions require both apikey and Authorization headers
     if (supabaseAnonKey) {
       headers.apikey = supabaseAnonKey;
+      headers.Authorization = `Bearer ${supabaseAnonKey}`;
     }
 
     const requestOptions: RequestInit = {
