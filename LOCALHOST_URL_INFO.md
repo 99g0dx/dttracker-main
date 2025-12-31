@@ -58,3 +58,5 @@ http://localhost:5173/share/campaign/abc123def456...
 - Check that environment variables are set in the Edge Function settings
 - Ensure `SUPABASE_SERVICE_ROLE_KEY` is configured
 
+
+

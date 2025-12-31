@@ -31,3 +31,5 @@ CREATE INDEX IF NOT EXISTS idx_creators_source_type ON public.creators(source_ty
 CREATE INDEX IF NOT EXISTS idx_creators_location ON public.creators(location) WHERE location IS NOT NULL;
 
 
+
+

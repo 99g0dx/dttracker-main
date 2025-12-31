@@ -110,3 +110,5 @@ If it returns an error, check the Edge Function logs.
 3. Verify the token in your database matches the URL
 4. Ensure the campaign has `share_enabled = true`
 
+
+

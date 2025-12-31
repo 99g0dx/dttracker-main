@@ -59,3 +59,5 @@ Password protection for share links has been implemented. Follow these steps to 
 - Regenerating a link preserves the password protection settings
 - Password is verified on every request to the Edge Function
 
+
+
