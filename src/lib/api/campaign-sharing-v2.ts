@@ -125,7 +125,7 @@ export async function regenerateCampaignShareToken(
     // Verify user owns the campaign and sharing is enabled
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
-      .select("id, user_id, share_enabled, share_expires_at, share_allow_export")
+      .select("id, user_id, share_enabled, share_expires_at, share_created_at, share_allow_export")
       .eq("id", campaignId)
       .eq("user_id", user.id)
       .single();
@@ -147,12 +147,35 @@ export async function regenerateCampaignShareToken(
     // Generate new token
     const shareToken = generateShareToken();
 
-    // Update campaign with new token (preserve other share settings)
+    // Recalculate expiration date if one was set
+    // If the old link had an expiration, preserve the same relative time from now
+    let newExpiresAt: string | null = null;
+    if (campaign.share_expires_at) {
+      const oldExpiresAt = new Date(campaign.share_expires_at);
+      const oldCreatedAt = campaign.share_created_at 
+        ? new Date(campaign.share_created_at)
+        : new Date();
+      
+      // Calculate the original duration in hours
+      const originalDurationHours = (oldExpiresAt.getTime() - oldCreatedAt.getTime()) / (1000 * 60 * 60);
+      
+      // Only preserve expiration if it was a valid future date
+      if (originalDurationHours > 0) {
+        const newCreatedAt = new Date();
+        const newExpiresAtDate = new Date();
+        newExpiresAtDate.setHours(newExpiresAtDate.getHours() + originalDurationHours);
+        newExpiresAt = newExpiresAtDate.toISOString();
+      }
+      // If original was already expired or invalid, don't set expiration (never expires)
+    }
+
+    // Update campaign with new token (preserve other share settings, but update expiration)
     const { data: updatedCampaign, error: updateError } = await supabase
       .from("campaigns")
       .update({
         share_token: shareToken,
         share_created_at: new Date().toISOString(),
+        share_expires_at: newExpiresAt, // Update expiration to be relative to new creation time
       })
       .eq("id", campaignId)
       .select("share_token")
