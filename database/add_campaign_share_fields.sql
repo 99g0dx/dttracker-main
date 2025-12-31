@@ -20,3 +20,5 @@ COMMENT ON COLUMN public.campaigns.share_created_at IS 'Timestamp when sharing w
 COMMENT ON COLUMN public.campaigns.share_expires_at IS 'Optional expiration timestamp for share link (NULL = never expires)';
 COMMENT ON COLUMN public.campaigns.share_allow_export IS 'Whether shared view allows CSV export';
 
+
+

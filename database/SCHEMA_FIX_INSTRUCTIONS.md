@@ -69,3 +69,5 @@ If the migration doesn't work, you can run the full schema:
 - Contact Supabase support if schema cache doesn't refresh after 5 minutes
 
 
+
+

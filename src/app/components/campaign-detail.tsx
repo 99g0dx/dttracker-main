@@ -832,24 +832,26 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowShareLinkModal(true)}
-            className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
-          >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Share Link</span>
-            <span className="sm:hidden">Share</span>
-          </button>
-          <button
-            onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
-            className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
-          >
-            <Edit2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Edit Campaign</span>
-            <span className="sm:hidden">Edit</span>
-          </button>
-        </div>
+        {campaign && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setShowShareLinkModal(true)}
+              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Share Link</span>
+              <span className="sm:hidden">Share</span>
+            </button>
+            <button
+              onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
+              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+            >
+              <Edit2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Edit Campaign</span>
+              <span className="sm:hidden">Edit</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Cover Image Hero Section */}
