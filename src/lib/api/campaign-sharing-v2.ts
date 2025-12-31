@@ -114,7 +114,8 @@ export async function enableCampaignShare(
  * Regenerate share token for a campaign (invalidates old link)
  */
 export async function regenerateCampaignShareToken(
-  campaignId: string
+  campaignId: string,
+  expiresInHours?: number | null // Optional: new expiration (undefined = preserve original duration)
 ): Promise<ApiResponse<ShareLinkResponse>> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -147,33 +148,34 @@ export async function regenerateCampaignShareToken(
     // Generate new token
     const shareToken = generateShareToken();
 
-    // Recalculate expiration date if one was set
-    // If the old link had an expiration, preserve the same relative time from now
+    // Calculate new expiration
     let newExpiresAt: string | null = null;
-    if (campaign.share_expires_at) {
-      const oldExpiresAt = new Date(campaign.share_expires_at);
-      const now = new Date();
-      
-      // If the old expiration is already in the past, don't set expiration (never expires)
-      if (oldExpiresAt <= now) {
-        newExpiresAt = null;
-      } else {
-        // Old expiration is still in the future, preserve the same relative time
-        const oldCreatedAt = campaign.share_created_at 
-          ? new Date(campaign.share_created_at)
-          : new Date();
-        
-        // Calculate the original duration in hours
-        const originalDurationHours = (oldExpiresAt.getTime() - oldCreatedAt.getTime()) / (1000 * 60 * 60);
-        
-        // Only preserve expiration if it was a valid future date
+
+    if (expiresInHours !== undefined) {
+      // User explicitly chose new expiration (including null for "never")
+      if (expiresInHours !== null && expiresInHours > 0) {
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+        newExpiresAt = expiresAt.toISOString();
+      }
+      // else: expiresInHours is null, so link never expires (newExpiresAt stays null)
+    } else {
+      // No expiration specified - preserve original duration
+      if (campaign.share_expires_at && campaign.share_created_at) {
+        const originalCreatedAt = new Date(campaign.share_created_at);
+        const originalExpiresAt = new Date(campaign.share_expires_at);
+
+        // Calculate the original duration in hours (regardless of whether it's expired)
+        const originalDurationHours = (originalExpiresAt.getTime() - originalCreatedAt.getTime()) / (1000 * 60 * 60);
+
+        // Apply same duration to new link (from now)
         if (originalDurationHours > 0) {
-          const newCreatedAt = new Date();
           const newExpiresAtDate = new Date();
           newExpiresAtDate.setHours(newExpiresAtDate.getHours() + originalDurationHours);
           newExpiresAt = newExpiresAtDate.toISOString();
         }
       }
+      // else: no expiration was set originally, keep it null (never expires)
     }
 
     // Update campaign with new token (preserve other share settings, but update expiration)

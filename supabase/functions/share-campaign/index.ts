@@ -124,10 +124,16 @@ serve(async (req) => {
         error: campaignError?.message || "Campaign not found",
         code: campaignError?.code,
         hint: campaignError?.hint,
+        token: token ? `${token.substring(0, 8)}...` : "missing",
       });
-      // Return 404 to avoid leaking information
+
+      // Return different error messages based on what actually went wrong
+      const errorMessage = !campaign
+        ? "Share link not found"
+        : campaignError?.message || "Link not found or expired";
+
       return new Response(
-        JSON.stringify({ error: "Link not found or expired" }),
+        JSON.stringify({ error: errorMessage }),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -140,11 +146,21 @@ serve(async (req) => {
       const expiresAt = new Date(campaign.share_expires_at);
       const now = new Date();
       if (now > expiresAt) {
-        console.log("Share link expired:", { expiresAt, now });
-        return new Response(JSON.stringify({ error: "Link expired" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        console.log("Share link expired:", {
+          expiresAt: expiresAt.toISOString(),
+          now: now.toISOString(),
+          token: token.substring(0, 8) + "...",
         });
+        return new Response(
+          JSON.stringify({
+            error: "Link expired",
+            expiredAt: expiresAt.toISOString(), // Include expiration date for debugging
+          }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
     }
 
