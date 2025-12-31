@@ -20,7 +20,7 @@ interface CampaignShareModalProps {
   onClose: () => void;
 }
 
-type ExpiryOption = "never" | "24" | "168"; // 24 hours, 168 hours (7 days)
+type ExpiryOption = "never" | "24" | "168" | "720" | "1440" | "2160"; // 24 hours, 168 hours (7 days), 720 hours (30 days), 1440 hours (60 days), 2160 hours (90 days)
 
 export function CampaignShareModal({
   campaignId,
@@ -66,6 +66,12 @@ export function CampaignShareModal({
             setExpiryOption("24");
           } else if (hoursUntilExpiry <= 168) {
             setExpiryOption("168");
+          } else if (hoursUntilExpiry <= 720) {
+            setExpiryOption("720");
+          } else if (hoursUntilExpiry <= 1440) {
+            setExpiryOption("1440");
+          } else if (hoursUntilExpiry <= 2160) {
+            setExpiryOption("2160");
           } else {
             setExpiryOption("never");
           }
@@ -96,7 +102,15 @@ export function CampaignShareModal({
           ? null
           : expiryOption === "24"
           ? 24
-          : 168;
+          : expiryOption === "168"
+          ? 168
+          : expiryOption === "720"
+          ? 720
+          : expiryOption === "1440"
+          ? 1440
+          : expiryOption === "2160"
+          ? 2160
+          : null;
 
       const result = await sharingApi.enableCampaignShare({
         campaignId,
@@ -180,7 +194,15 @@ export function CampaignShareModal({
           ? null
           : expiryOption === "24"
           ? 24
-          : 168;
+          : expiryOption === "168"
+          ? 168
+          : expiryOption === "720"
+          ? 720
+          : expiryOption === "1440"
+          ? 1440
+          : expiryOption === "2160"
+          ? 2160
+          : null;
 
       const result = await sharingApi.enableCampaignShare({
         campaignId,
@@ -326,6 +348,9 @@ export function CampaignShareModal({
                           <SelectItem value="never">Never</SelectItem>
                           <SelectItem value="24">24 hours</SelectItem>
                           <SelectItem value="168">7 days</SelectItem>
+                          <SelectItem value="720">30 days</SelectItem>
+                          <SelectItem value="1440">60 days</SelectItem>
+                          <SelectItem value="2160">90 days</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
