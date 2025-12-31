@@ -1,9 +1,9 @@
 import { supabase } from "../supabase";
 import type { ApiResponse } from "../types/database";
 
-// Generate a secure random token (48 characters)
+// Generate a secure random token (12 characters)
 function generateShareToken(): string {
-  const array = new Uint8Array(24); // 24 bytes = 48 hex characters
+  const array = new Uint8Array(6); // 6 bytes = 12 hex characters
   crypto.getRandomValues(array);
   return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -152,21 +152,28 @@ export async function regenerateCampaignShareToken(
     let newExpiresAt: string | null = null;
     if (campaign.share_expires_at) {
       const oldExpiresAt = new Date(campaign.share_expires_at);
-      const oldCreatedAt = campaign.share_created_at 
-        ? new Date(campaign.share_created_at)
-        : new Date();
+      const now = new Date();
       
-      // Calculate the original duration in hours
-      const originalDurationHours = (oldExpiresAt.getTime() - oldCreatedAt.getTime()) / (1000 * 60 * 60);
-      
-      // Only preserve expiration if it was a valid future date
-      if (originalDurationHours > 0) {
-        const newCreatedAt = new Date();
-        const newExpiresAtDate = new Date();
-        newExpiresAtDate.setHours(newExpiresAtDate.getHours() + originalDurationHours);
-        newExpiresAt = newExpiresAtDate.toISOString();
+      // If the old expiration is already in the past, don't set expiration (never expires)
+      if (oldExpiresAt <= now) {
+        newExpiresAt = null;
+      } else {
+        // Old expiration is still in the future, preserve the same relative time
+        const oldCreatedAt = campaign.share_created_at 
+          ? new Date(campaign.share_created_at)
+          : new Date();
+        
+        // Calculate the original duration in hours
+        const originalDurationHours = (oldExpiresAt.getTime() - oldCreatedAt.getTime()) / (1000 * 60 * 60);
+        
+        // Only preserve expiration if it was a valid future date
+        if (originalDurationHours > 0) {
+          const newCreatedAt = new Date();
+          const newExpiresAtDate = new Date();
+          newExpiresAtDate.setHours(newExpiresAtDate.getHours() + originalDurationHours);
+          newExpiresAt = newExpiresAtDate.toISOString();
+        }
       }
-      // If original was already expired or invalid, don't set expiration (never expires)
     }
 
     // Update campaign with new token (preserve other share settings, but update expiration)
