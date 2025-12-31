@@ -159,13 +159,50 @@ export function CampaignShareModal({
   const handleRegenerate = async () => {
     setIsRegenerating(true);
     try {
-      const result = await sharingApi.regenerateCampaignShareToken(campaignId);
+      // Convert expiryOption to hours
+      const expiresInHours =
+        expiryOption === "never"
+          ? null
+          : expiryOption === "24"
+          ? 24
+          : expiryOption === "168"
+          ? 168
+          : expiryOption === "720"
+          ? 720
+          : expiryOption === "1440"
+          ? 1440
+          : expiryOption === "2160"
+          ? 2160
+          : null;
+
+      // Pass expiration to regenerate function
+      const result = await sharingApi.regenerateCampaignShareToken(
+        campaignId,
+        expiresInHours
+      );
 
       if (result.error) {
         toast.error(`Failed to regenerate link: ${result.error.message}`);
       } else if (result.data) {
         setShareUrl(result.data.shareUrl);
-        toast.success("Link regenerated. Old link is now invalid.");
+
+        // Show expiration-aware success message
+        const expirationMessage =
+          expiryOption === "never"
+            ? "Link regenerated. Never expires."
+            : expiryOption === "24"
+            ? "Link regenerated. Expires in 24 hours."
+            : expiryOption === "168"
+            ? "Link regenerated. Expires in 7 days."
+            : expiryOption === "720"
+            ? "Link regenerated. Expires in 30 days."
+            : expiryOption === "1440"
+            ? "Link regenerated. Expires in 60 days."
+            : expiryOption === "2160"
+            ? "Link regenerated. Expires in 90 days."
+            : "Link regenerated.";
+
+        toast.success(expirationMessage);
       }
     } catch (error) {
       toast.error("Failed to regenerate link");
@@ -353,6 +390,9 @@ export function CampaignShareModal({
                           <SelectItem value="2160">90 days</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-slate-400 mt-2">
+                        This expiration will be applied when regenerating the link
+                      </p>
                     </div>
 
                     {/* Password Protection Toggle */}
