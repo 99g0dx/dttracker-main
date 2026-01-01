@@ -143,7 +143,7 @@ This invitation will expire in 7 days.
         "Content-Type": "application/json",
       },
         body: JSON.stringify({
-          from: "DTTracker <onboarding@resend.dev>", // Use Resend's test domain or replace with your verified domain
+          from: "DTTracker <no-reply@dttracker.app>",
           to: [email],
           subject: subject,
           html: htmlBody,
