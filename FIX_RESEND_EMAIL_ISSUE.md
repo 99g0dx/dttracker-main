@@ -2,17 +2,21 @@
 
 If you're getting "Email sending failed" even after adding `RESEND_API_KEY` to Supabase, follow these steps:
 
-## Step 1: Verify Secret is Set Correctly
+## Step 1: Verify Secrets are Set Correctly
 
 1. Go to **Supabase Dashboard** → Your Project
 2. Navigate to: **Settings** (gear icon) → **Edge Functions** → **Secrets**
-3. Verify `RESEND_API_KEY` exists:
-   - **Name**: `RESEND_API_KEY` (must be exact)
-   - **Value**: Should start with `re_` (e.g., `re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5`)
-4. If it's missing or wrong:
+3. Verify these secrets exist:
+   - **`RESEND_API_KEY`**: 
+     - **Name**: `RESEND_API_KEY` (must be exact)
+     - **Value**: Should start with `re_` (e.g., `re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5`)
+   - **`RESEND_FROM_EMAIL`**:
+     - **Name**: `RESEND_FROM_EMAIL` (must be exact)
+     - **Value**: `no-reply@dttracker.app` (or your preferred sender address)
+4. If they're missing or wrong:
    - Click **"Add new secret"** or **"Edit"**
-   - Name: `RESEND_API_KEY`
-   - Value: `re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5`
+   - Add/Update `RESEND_API_KEY` = `re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5`
+   - Add/Update `RESEND_FROM_EMAIL` = `no-reply@dttracker.app`
    - Click **Save**
 
 ## Step 2: Redeploy the Edge Function
@@ -35,8 +39,9 @@ cd "/Users/apple/Downloads/DTTracker UI Design Enhancements 2"
 # Link your project (if not already linked)
 supabase link --project-ref YOUR_PROJECT_REF
 
-# Set the secret (if not already set)
+# Set the secrets (if not already set)
 supabase secrets set RESEND_API_KEY=re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5
+supabase secrets set RESEND_FROM_EMAIL=no-reply@dttracker.app
 
 # Deploy the function
 supabase functions deploy send-team-invite
@@ -98,11 +103,12 @@ If emails still fail:
 ## Quick Checklist
 
 - [ ] `RESEND_API_KEY` secret is set in Supabase Edge Functions secrets
-- [ ] Edge function `send-team-invite` has been **redeployed** after setting secret
+- [ ] `RESEND_FROM_EMAIL` secret is set in Supabase Edge Functions secrets (`no-reply@dttracker.app`)
+- [ ] Edge function `send-team-invite` has been **redeployed** after setting secrets
 - [ ] Resend API key is valid and active in Resend dashboard
+- [ ] Domain `dttracker.app` is verified in Resend dashboard (required for custom From address)
 - [ ] Test the edge function directly via curl/Postman
 - [ ] Check edge function logs for detailed error messages
-- [ ] Verify domain in Resend (if using custom domain)
 
 ## Most Common Issue
 
