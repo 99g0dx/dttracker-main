@@ -49,10 +49,61 @@ import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { supabase } from "../../lib/supabase";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
-import type { CreatorWithStats } from "../../lib/types/database";
+import type { CreatorWithStats, Platform } from "../../lib/types/database";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
+}
+
+function PlatformMultiSelect({
+  selected,
+  onChange,
+}: {
+  selected: Platform[];
+  onChange: (platforms: Platform[]) => void;
+}) {
+  const platforms: Platform[] = [
+    "tiktok",
+    "instagram",
+    "youtube",
+    "twitter",
+    "facebook",
+  ];
+
+  const platformIcons = {
+    tiktok: "🎵",
+    instagram: "📷",
+    youtube: "▶️",
+    twitter: "🐦",
+    facebook: "👥",
+  };
+
+  const togglePlatform = (platform: Platform) => {
+    if (selected.includes(platform)) {
+      onChange(selected.filter((p) => p !== platform));
+    } else {
+      onChange([...selected, platform]);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {platforms.map((platform) => (
+        <button
+          key={platform}
+          onClick={() => togglePlatform(platform)}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            selected.includes(platform)
+              ? "bg-primary text-black"
+              : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.08]"
+          }`}
+        >
+          <span className="mr-1">{platformIcons[platform]}</span>
+          {platform.charAt(0).toUpperCase() + platform.slice(1)}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function Creators({ onNavigate }: CreatorsProps) {
@@ -66,6 +117,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const deleteCreatorMutation = useDeleteCreator();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
+  const [selectedNiche, setSelectedNiche] = useState<string>("all");
+  const [selectedLocation, setSelectedLocation] = useState<string>("all");
   const [isPaidUser] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -81,6 +135,21 @@ export function Creators({ onNavigate }: CreatorsProps) {
     "platform" | "follower_count" | "niche" | "location" | null
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Extract unique niches and locations for dropdown options
+  const uniqueNiches = useMemo(() => {
+    const niches = creators
+      .map((c) => c.niche)
+      .filter((niche): niche is string => !!niche && niche.trim() !== "");
+    return ["all", ...Array.from(new Set(niches)).sort()];
+  }, [creators]);
+
+  const uniqueLocations = useMemo(() => {
+    const locations = creators
+      .map((c) => c.location)
+      .filter((location): location is string => !!location && location.trim() !== "");
+    return ["all", ...Array.from(new Set(locations)).sort()];
+  }, [creators]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -153,15 +222,39 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
   // Filter and sort creators
   const filteredAndSortedCreators = useMemo(() => {
-    let filtered = creators.filter(
-      (creator) =>
-        creator.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        creator.handle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (creator.email &&
-          creator.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (creator.location &&
-          creator.location.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    let filtered = creators;
+
+    // Platform filter (multi-select)
+    if (selectedPlatforms.length > 0) {
+      filtered = filtered.filter((creator) =>
+        selectedPlatforms.includes(creator.platform)
+      );
+    }
+
+    // Niche filter
+    if (selectedNiche !== "all") {
+      filtered = filtered.filter((creator) => creator.niche === selectedNiche);
+    }
+
+    // Location filter
+    if (selectedLocation !== "all") {
+      filtered = filtered.filter(
+        (creator) => creator.location === selectedLocation
+      );
+    }
+
+    // Text search (existing)
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (creator) =>
+          creator.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          creator.handle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (creator.email &&
+            creator.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (creator.location &&
+            creator.location.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
 
     // Apply sorting
     if (sortField) {
@@ -197,7 +290,15 @@ export function Creators({ onNavigate }: CreatorsProps) {
     }
 
     return filtered;
-  }, [creators, searchQuery, sortField, sortDirection]);
+  }, [
+    creators,
+    selectedPlatforms,
+    selectedNiche,
+    selectedLocation,
+    searchQuery,
+    sortField,
+    sortDirection,
+  ]);
 
   // Paginate creators
   const totalPages = Math.ceil(filteredAndSortedCreators.length / itemsPerPage);
@@ -212,6 +313,14 @@ export function Creators({ onNavigate }: CreatorsProps) {
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, sortField, sortDirection]);
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedPlatforms([]);
+    setSelectedNiche("all");
+    setSelectedLocation("all");
+    setSearchQuery("");
+  };
 
   const handleSort = (
     field: "platform" | "follower_count" | "niche" | "location"
@@ -492,17 +601,105 @@ export function Creators({ onNavigate }: CreatorsProps) {
             </Card>
           </div>
 
-          {/* Search and Sort */}
+          {/* Search and Filters */}
           <div className="flex flex-col gap-4">
+            {/* Search Box */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <Input
-                placeholder="Search creators..."
+                placeholder="Search creators by name, handle, email, or location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
               />
             </div>
+
+            {/* Filters Row */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Platform Multi-Select */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Platform:
+                </span>
+                <PlatformMultiSelect
+                  selected={selectedPlatforms}
+                  onChange={setSelectedPlatforms}
+                />
+              </div>
+
+              {/* Niche Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Niche:
+                </span>
+                <select
+                  value={selectedNiche}
+                  onChange={(e) => setSelectedNiche(e.target.value)}
+                  className="h-9 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                >
+                  <option value="all">All Niches</option>
+                  {uniqueNiches
+                    .filter((n) => n !== "all")
+                    .map((niche) => (
+                      <option key={niche} value={niche}>
+                        {niche}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Location Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Location:
+                </span>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="h-9 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                >
+                  <option value="all">All Locations</option>
+                  {uniqueLocations
+                    .filter((l) => l !== "all")
+                    .map((location) => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Clear Filters Button */}
+              {(selectedPlatforms.length > 0 ||
+                selectedNiche !== "all" ||
+                selectedLocation !== "all" ||
+                searchQuery) && (
+                <button
+                  onClick={clearAllFilters}
+                  className="ml-auto h-9 px-4 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] rounded-lg text-sm text-slate-400 hover:text-white transition-all"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+
+            {/* Active Filters Count */}
+            {(selectedPlatforms.length > 0 ||
+              selectedNiche !== "all" ||
+              selectedLocation !== "all") && (
+              <div className="text-sm text-slate-400">
+                Showing {filteredAndSortedCreators.length} of {creators.length}{" "}
+                creators
+                {selectedPlatforms.length > 0 &&
+                  ` • ${selectedPlatforms.length} platform${
+                    selectedPlatforms.length > 1 ? "s" : ""
+                  }`}
+                {selectedNiche !== "all" && ` • ${selectedNiche}`}
+                {selectedLocation !== "all" && ` • ${selectedLocation}`}
+              </div>
+            )}
+
+            {/* Sort By Row */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
               <span className="text-sm text-slate-400 whitespace-nowrap">
                 Sort by:
