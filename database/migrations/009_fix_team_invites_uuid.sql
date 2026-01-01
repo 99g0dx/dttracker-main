@@ -44,70 +44,47 @@ BEGIN
     );
   END IF;
 
-  -- Policy: Users can create invites in workspaces they own
+  -- Non-recursive INSERT policy: workspace owner can create invites
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
     AND tablename = 'team_invites' 
-    AND policyname = 'Users can create invites in their workspace'
+    AND policyname = 'Workspace owner can create invites'
   ) THEN
-    CREATE POLICY "Users can create invites in their workspace"
+    CREATE POLICY "Workspace owner can create invites"
     ON public.team_invites
     FOR INSERT
     TO authenticated
-    WITH CHECK (
-      workspace_id = auth.uid() OR
-      EXISTS (
-        SELECT 1 FROM public.team_members
-        WHERE team_members.workspace_id = team_invites.workspace_id
-        AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
-      )
-    );
+    WITH CHECK (workspace_id = auth.uid());
   END IF;
 
-  -- Policy: Workspace owners/admins can update invites
+  -- Non-recursive UPDATE policy
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
     AND tablename = 'team_invites' 
-    AND policyname = 'Workspace owners can update invites'
+    AND policyname = 'Workspace owner can update invites'
   ) THEN
-    CREATE POLICY "Workspace owners can update invites"
+    CREATE POLICY "Workspace owner can update invites"
     ON public.team_invites
     FOR UPDATE
     TO authenticated
-    USING (
-      workspace_id = auth.uid() OR
-      EXISTS (
-        SELECT 1 FROM public.team_members
-        WHERE team_members.workspace_id = team_invites.workspace_id
-        AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
-      )
-    );
+    USING (workspace_id = auth.uid())
+    WITH CHECK (workspace_id = auth.uid());
   END IF;
 
-  -- Policy: Workspace owners/admins can delete/revoke invites
+  -- Non-recursive DELETE policy
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
     AND tablename = 'team_invites' 
-    AND policyname = 'Workspace owners can delete invites'
+    AND policyname = 'Workspace owner can delete invites'
   ) THEN
-    CREATE POLICY "Workspace owners can delete invites"
+    CREATE POLICY "Workspace owner can delete invites"
     ON public.team_invites
     FOR DELETE
     TO authenticated
-    USING (
-      workspace_id = auth.uid() OR
-      EXISTS (
-        SELECT 1 FROM public.team_members
-        WHERE team_members.workspace_id = team_invites.workspace_id
-        AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
-      )
-    );
+    USING (workspace_id = auth.uid());
   END IF;
 END
 $$;

@@ -79,37 +79,45 @@ BEGIN
       USING (user_id = (SELECT auth.uid()));
   END IF;
 
+  -- Non-recursive INSERT policy: workspace owner can add members
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'team_members' AND policyname = 'team_members_workspace_insert'
+    WHERE schemaname = 'public' AND tablename = 'team_members' AND policyname = 'Workspace owner can add team members'
   ) THEN
-    CREATE POLICY team_members_workspace_insert ON public.team_members
+    CREATE POLICY "Workspace owner can add team members" ON public.team_members
       FOR INSERT TO authenticated
-      WITH CHECK (
-        workspace_id = (SELECT auth.uid()) OR
-        EXISTS (
-          SELECT 1 FROM public.team_members tm
-          WHERE tm.workspace_id = team_members.workspace_id
-            AND tm.user_id = (SELECT auth.uid())
-            AND tm.role IN ('owner','admin')
-        )
-      );
+      WITH CHECK (workspace_id = auth.uid());
   END IF;
 
+  -- Non-recursive SELECT policy: users can see members in their workspace or their own membership
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'team_members' AND policyname = 'team_members_workspace_read'
+    WHERE schemaname = 'public' AND tablename = 'team_members' AND policyname = 'Users can view team members in their workspace'
   ) THEN
-    CREATE POLICY team_members_workspace_read ON public.team_members
+    CREATE POLICY "Users can view team members in their workspace" ON public.team_members
       FOR SELECT TO authenticated
-      USING (
-        workspace_id = (SELECT auth.uid()) OR
-        EXISTS (
-          SELECT 1 FROM public.team_members tm
-          WHERE tm.workspace_id = public.team_members.workspace_id
-            AND tm.user_id = (SELECT auth.uid())
-        )
-      );
+      USING (workspace_id = auth.uid() OR user_id = auth.uid());
+  END IF;
+
+  -- Non-recursive UPDATE policy
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'team_members' AND policyname = 'Workspace owner can update team members'
+  ) THEN
+    CREATE POLICY "Workspace owner can update team members" ON public.team_members
+      FOR UPDATE TO authenticated
+      USING (workspace_id = auth.uid())
+      WITH CHECK (workspace_id = auth.uid());
+  END IF;
+
+  -- Non-recursive DELETE policy
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'team_members' AND policyname = 'Workspace owner can remove team members'
+  ) THEN
+    CREATE POLICY "Workspace owner can remove team members" ON public.team_members
+      FOR DELETE TO authenticated
+      USING (workspace_id = auth.uid());
   END IF;
 END$$;
 
@@ -195,67 +203,47 @@ BEGIN
     );
   END IF;
 
+  -- Non-recursive INSERT policy: workspace owner can create invites
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
     AND tablename = 'team_invites' 
-    AND policyname = 'Users can create invites in their workspace'
+    AND policyname = 'Workspace owner can create invites'
   ) THEN
-    CREATE POLICY "Users can create invites in their workspace"
+    CREATE POLICY "Workspace owner can create invites"
     ON public.team_invites
     FOR INSERT
     TO authenticated
-    WITH CHECK (
-      workspace_id = auth.uid() OR
-      EXISTS (
-        SELECT 1 FROM public.team_members
-        WHERE team_members.workspace_id = team_invites.workspace_id
-        AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
-      )
-    );
+    WITH CHECK (workspace_id = auth.uid());
   END IF;
 
+  -- Non-recursive UPDATE policy
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
     AND tablename = 'team_invites' 
-    AND policyname = 'Workspace owners can update invites'
+    AND policyname = 'Workspace owner can update invites'
   ) THEN
-    CREATE POLICY "Workspace owners can update invites"
+    CREATE POLICY "Workspace owner can update invites"
     ON public.team_invites
     FOR UPDATE
     TO authenticated
-    USING (
-      workspace_id = auth.uid() OR
-      EXISTS (
-        SELECT 1 FROM public.team_members
-        WHERE team_members.workspace_id = team_invites.workspace_id
-        AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
-      )
-    );
+    USING (workspace_id = auth.uid())
+    WITH CHECK (workspace_id = auth.uid());
   END IF;
 
+  -- Non-recursive DELETE policy
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
     AND tablename = 'team_invites' 
-    AND policyname = 'Workspace owners can delete invites'
+    AND policyname = 'Workspace owner can delete invites'
   ) THEN
-    CREATE POLICY "Workspace owners can delete invites"
+    CREATE POLICY "Workspace owner can delete invites"
     ON public.team_invites
     FOR DELETE
     TO authenticated
-    USING (
-      workspace_id = auth.uid() OR
-      EXISTS (
-        SELECT 1 FROM public.team_members
-        WHERE team_members.workspace_id = team_invites.workspace_id
-        AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
-      )
-    );
+    USING (workspace_id = auth.uid());
   END IF;
 END
 $$;
