@@ -20,58 +20,159 @@ import {
   UsersRound,
   ArrowLeft,
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import {
   getTeamMembers,
-  getCurrentUser,
-  canManageTeam,
-  createInvite,
+  getTeamInvites,
+  createTeamInvite,
   deleteTeamMember,
-  acceptInvite,
-  getMemberScopes,
-  switchUser,
-  addAuditLogEntry,
-  addActivityFeedItem,
-  type TeamMember,
-  type InviteData,
-} from '../utils/permissions';
+  revokeTeamInvite,
+  type TeamMemberWithScopes,
+  type TeamInviteWithInviter,
+} from '../../lib/api/team';
+import type { TeamRole, ScopeType } from '../../lib/types/database';
 import { BulkInviteModal } from './bulk-invite-modal';
+import { useCampaigns } from '../../hooks/useCampaigns';
+
+// Keep InviteData type for the modal
+export type InviteData = {
+  rolePreset: 'workspace_editor' | 'workspace_viewer' | 'calendar_editor' | 'calendar_viewer' | 'campaign_editor' | 'campaign_viewer';
+  email: string;
+  name: string;
+  campaignIds?: string[];
+  message?: string;
+};
 
 interface TeamManagementProps {
   onNavigate: (path: string) => void;
 }
 
+// Helper function to map rolePreset to TeamRole and scopes
+function mapRolePresetToRoleAndScopes(
+  rolePreset: InviteData['rolePreset'],
+  campaignIds?: number[]
+): { role: TeamRole; scopes: Array<{ scope_type: ScopeType; scope_value: string }> } {
+  const scopes: Array<{ scope_type: ScopeType; scope_value: string }> = [];
+  let role: TeamRole = 'viewer';
+
+  if (rolePreset === 'workspace_editor') {
+    role = 'member';
+    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
+  } else if (rolePreset === 'workspace_viewer') {
+    role = 'member';
+    scopes.push({ scope_type: 'workspace', scope_value: 'viewer' });
+  } else if (rolePreset === 'calendar_editor') {
+    role = 'viewer';
+    scopes.push({ scope_type: 'calendar', scope_value: 'editor' });
+  } else if (rolePreset === 'calendar_viewer') {
+    role = 'viewer';
+    scopes.push({ scope_type: 'calendar', scope_value: 'viewer' });
+  } else if (rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer') {
+    role = 'viewer';
+    const access = rolePreset === 'campaign_editor' ? 'editor' : 'viewer';
+    if (campaignIds && campaignIds.length > 0) {
+      // For campaign scopes, we store the campaign ID (UUID string) as the scope_value
+      campaignIds.forEach(campaignId => {
+        scopes.push({ scope_type: 'campaign', scope_value: campaignId });
+      });
+    }
+  }
+
+  return { role, scopes };
+}
+
 export function TeamManagement({ onNavigate }: TeamManagementProps) {
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  const [members, setMembers] = useState<TeamMemberWithScopes[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<TeamInviteWithInviter[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
+  const [selectedMember, setSelectedMember] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showBulkInviteModal, setShowBulkInviteModal] = useState(false);
 
-  const canManage = canManageTeam(currentUser.id);
-
   useEffect(() => {
+    loadCurrentUser();
     loadMembers();
   }, []);
 
-  const loadMembers = () => {
-    setMembers(getTeamMembers());
+  const loadCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUser({ id: user.id, email: user.email });
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error);
+    }
   };
 
-  const handleInviteComplete = () => {
-    loadMembers();
+  const loadMembers = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const [membersResult, invitesResult] = await Promise.all([
+        getTeamMembers(user.id),
+        getTeamInvites(user.id),
+      ]);
+
+      if (membersResult.data) {
+        // Fetch profile data for each member to get names
+        const membersWithProfiles = await Promise.all(
+          membersResult.data.map(async (member) => {
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, id')
+                .eq('id', member.user_id)
+                .single();
+              
+              return {
+                ...member,
+                profile_name: profile?.full_name || null,
+              };
+            } catch {
+              return {
+                ...member,
+                profile_name: null,
+              };
+            }
+          })
+        );
+        setMembers(membersWithProfiles as any);
+      }
+      if (invitesResult.data) {
+        setPendingInvites(invitesResult.data);
+      }
+    } catch (error) {
+      console.error('Error loading team members:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canManage = !!currentUser; // For now, allow if user is authenticated
+
+  const handleInviteComplete = async () => {
+    await loadMembers();
     setShowInviteModal(false);
   };
 
-  const handleDeleteMember = (memberId: number) => {
-    deleteTeamMember(memberId);
-    loadMembers();
+  const handleDeleteMember = async (memberId: string) => {
+    const result = await deleteTeamMember(memberId);
+    if (!result.error) {
+      await loadMembers();
+    }
     setShowDeleteConfirm(null);
   };
 
-  const handleAcceptInvite = (memberId: number) => {
-    acceptInvite(memberId);
-    loadMembers();
+  const handleRevokeInvite = async (inviteId: string) => {
+    const result = await revokeTeamInvite(inviteId);
+    if (!result.error) {
+      await loadMembers();
+    }
   };
 
   const getRoleBadge = (role: string) => {
@@ -84,22 +185,22 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     return badges[role as keyof typeof badges] || badges.viewer;
   };
 
-  const getScopesSummary = (userId: number) => {
-    const scopes = getMemberScopes(userId);
+  const getScopesSummary = (member: TeamMemberWithScopes) => {
+    const scopes = member.scopes || [];
     
     if (scopes.length === 0) return 'No access';
     
-    const workspaceScope = scopes.find(s => s.scopeType === 'workspace');
+    const workspaceScope = scopes.find(s => s.scope_type === 'workspace');
     if (workspaceScope) {
-      return workspaceScope.scopeValue === 'editor' ? 'Full workspace access' : 'Workspace view access';
+      return workspaceScope.scope_value === 'editor' ? 'Full workspace access' : 'Workspace view access';
     }
     
-    const calendarScope = scopes.find(s => s.scopeType === 'calendar');
-    const campaignScopes = scopes.filter(s => s.scopeType === 'campaign');
+    const calendarScope = scopes.find(s => s.scope_type === 'calendar');
+    const campaignScopes = scopes.filter(s => s.scope_type === 'campaign');
     
     const parts = [];
     if (calendarScope) {
-      parts.push(`Calendar ${calendarScope.scopeValue}`);
+      parts.push(`Calendar ${calendarScope.scope_value}`);
     }
     if (campaignScopes.length > 0) {
       parts.push(`${campaignScopes.length} campaign${campaignScopes.length !== 1 ? 's' : ''}`);
@@ -109,7 +210,16 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const activeMembers = members.filter(m => m.status === 'active');
-  const pendingMembers = members.filter(m => m.status === 'pending');
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <p className="text-slate-400">Loading team members...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -158,7 +268,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         </Card>
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-4">
-            <div className="text-2xl font-semibold text-amber-400">{pendingMembers.length}</div>
+            <div className="text-2xl font-semibold text-amber-400">{pendingInvites.length}</div>
             <p className="text-sm text-slate-400 mt-1">Pending Invites</p>
           </CardContent>
         </Card>
@@ -181,26 +291,29 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
           <div className="divide-y divide-white/[0.04]">
             {activeMembers.map(member => {
               const badge = getRoleBadge(member.role);
-              const scopesSummary = getScopesSummary(member.userId);
-              const isCurrentUser = member.userId === currentUser.id;
+              const scopesSummary = getScopesSummary(member);
+              // Get name from profile or use user_id
+              const memberName = (member as any).profile_name || 'User';
+              const memberInitial = memberName.charAt(0).toUpperCase();
+              const isCurrentUser = member.user_id === currentUser?.id;
               
               return (
                 <div key={member.id} className="p-4 hover:bg-white/[0.02] transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                        {member.name.charAt(0).toUpperCase()}
+                        {memberInitial}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium text-white">{member.name}</h4>
+                          <h4 className="font-medium text-white">{memberName}</h4>
                           {isCurrentUser && (
                             <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20">
                               You
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-slate-400 mb-2">{member.email}</p>
+                        <p className="text-sm text-slate-400 mb-2">{member.user_id}</p>
                         <div className="flex items-center gap-3 text-xs text-slate-500">
                           <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${badge.color}`}>
                             {badge.icon}
@@ -217,13 +330,6 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                           <MoreVertical className="w-4 h-4 text-slate-400" />
                         </button>
                         <div className="absolute right-0 top-full mt-1 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 min-w-[160px]">
-                          <button
-                            onClick={() => switchUser(member.userId)}
-                            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/[0.04] flex items-center gap-2 transition-colors"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            Switch to user
-                          </button>
                           <button
                             onClick={() => setShowDeleteConfirm(member.id)}
                             className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors rounded-b-lg"
@@ -243,21 +349,20 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       </Card>
 
       {/* Pending Invites */}
-      {pendingMembers.length > 0 && (
+      {pendingInvites.length > 0 && (
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-0">
             <div className="p-6 border-b border-white/[0.06]">
               <h3 className="font-medium text-white">Pending Invites</h3>
-              <p className="text-sm text-slate-500 mt-1">{pendingMembers.length} invitation{pendingMembers.length !== 1 ? 's' : ''} awaiting acceptance</p>
+              <p className="text-sm text-slate-500 mt-1">{pendingInvites.length} invitation{pendingInvites.length !== 1 ? 's' : ''} awaiting acceptance</p>
             </div>
             
             <div className="divide-y divide-white/[0.04]">
-              {pendingMembers.map(member => {
-                const badge = getRoleBadge(member.role);
-                const scopesSummary = getScopesSummary(member.userId);
+              {pendingInvites.map(invite => {
+                const badge = getRoleBadge(invite.role);
                 
                 return (
-                  <div key={member.id} className="p-4 hover:bg-white/[0.02] transition-colors">
+                  <div key={invite.id} className="p-4 hover:bg-white/[0.02] transition-colors">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1">
                         <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0">
@@ -265,36 +370,30 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-white">{member.name}</h4>
+                            <h4 className="font-medium text-white">{invite.email}</h4>
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-400/10 text-amber-400 text-xs rounded border border-amber-400/20">
                               <Clock className="w-3 h-3" />
                               Pending
                             </span>
                           </div>
-                          <p className="text-sm text-slate-400 mb-2">{member.email}</p>
+                          {invite.inviter_name && (
+                            <p className="text-sm text-slate-500 mb-2">Invited by {invite.inviter_name}</p>
+                          )}
                           <div className="flex items-center gap-3 text-xs text-slate-500">
                             <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${badge.color}`}>
                               {badge.icon}
                               {badge.label}
                             </span>
-                            <span>{scopesSummary}</span>
                           </div>
                         </div>
                       </div>
                       
                       {canManage && (
                         <div className="flex items-center gap-2">
-                          <Button
-                            onClick={() => handleAcceptInvite(member.id)}
-                            size="sm"
-                            className="h-8 px-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                            Accept (Demo)
-                          </Button>
                           <button
-                            onClick={() => setShowDeleteConfirm(member.id)}
+                            onClick={() => handleRevokeInvite(invite.id)}
                             className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors"
+                            title="Revoke invitation"
                           >
                             <X className="w-4 h-4 text-red-400" />
                           </button>
@@ -328,7 +427,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
               </p>
               <div className="flex gap-3">
                 <Button
-                  onClick={() => handleDeleteMember(showDeleteConfirm)}
+                  onClick={() => showDeleteConfirm && handleDeleteMember(showDeleteConfirm)}
                   className="flex-1 h-9 bg-red-500 hover:bg-red-500/90 text-white"
                 >
                   Remove
@@ -365,41 +464,70 @@ function InviteModal({ onClose, onComplete }: { onClose: () => void; onComplete:
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [rolePreset, setRolePreset] = useState<InviteData['rolePreset']>('workspace_viewer');
-  const [selectedCampaigns, setSelectedCampaigns] = useState<number[]>([]);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
   const [message, setMessage] = useState('');
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Load campaigns for campaign-only access
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('dttracker-campaigns');
-      if (stored) {
-        setCampaigns(JSON.parse(stored));
-      }
-    }
-  }, []);
+  // Fetch campaigns from database
+  const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!email || !name) {
-      alert('Please enter email and name');
+      setError('Please enter email and name');
       return;
     }
 
     if ((rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer') && selectedCampaigns.length === 0) {
-      alert('Please select at least one campaign');
+      setError('Please select at least one campaign');
       return;
     }
 
-    const inviteData: InviteData = {
-      email,
-      name,
-      rolePreset,
-      campaignIds: selectedCampaigns.length > 0 ? selectedCampaigns : undefined,
-      message: message || undefined,
-    };
+    setError(null);
+    setLoading(true);
 
-    createInvite(inviteData, getCurrentUser().id);
-    onComplete();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('You must be logged in to send invites');
+        setLoading(false);
+        return;
+      }
+
+      const { role, scopes } = mapRolePresetToRoleAndScopes(rolePreset, selectedCampaigns.length > 0 ? selectedCampaigns : undefined);
+      
+      const result = await createTeamInvite(
+        user.id, // workspace_id is the current user's ID
+        email,
+        role,
+        scopes,
+        message || null
+      );
+
+      if (result.error) {
+        setError(result.error.message || 'Failed to create invite');
+        setLoading(false);
+        return;
+      }
+
+      // Check if email failed (invite was created but email wasn't sent)
+      const emailError = (result as any).emailError;
+      if (emailError) {
+        setError(
+          `Invite created successfully, but email failed to send: ${emailError.message}. ` +
+          `The invite is in the database. Please check RESEND_API_KEY configuration in Supabase.`
+        );
+        setLoading(false);
+        // Don't close modal so user can see the error
+        return;
+      }
+
+      // Success - close modal and reload
+      onComplete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setLoading(false);
+    }
   };
 
   const isCampaignOnly = rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer';
@@ -424,6 +552,11 @@ function InviteModal({ onClose, onComplete }: { onClose: () => void; onComplete:
           </div>
 
           <div className="px-8 py-8 space-y-7">
+            {error && (
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
@@ -488,7 +621,14 @@ function InviteModal({ onClose, onComplete }: { onClose: () => void; onComplete:
                   Select Campaigns <span className="text-red-400">*</span>
                 </label>
                 <div className="border border-white/[0.1] rounded-lg p-4 max-h-52 overflow-y-auto space-y-2.5 bg-white/[0.02] scrollbar-thin scrollbar-thumb-white/[0.1] scrollbar-track-transparent">
-                  {campaigns.length > 0 ? (
+                  {campaignsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mb-3">
+                        <RefreshCw className="w-5 h-5 text-slate-500 animate-spin" />
+                      </div>
+                      <p className="text-sm text-slate-500">Loading campaigns...</p>
+                    </div>
+                  ) : campaigns.length > 0 ? (
                     campaigns.map(campaign => (
                       <label key={campaign.id} className="flex items-center gap-3.5 p-3 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all duration-200 group">
                         <input
@@ -536,10 +676,12 @@ function InviteModal({ onClose, onComplete }: { onClose: () => void; onComplete:
             <div className="flex gap-3">
               <Button
                 onClick={handleSubmit}
-                className="flex-1 h-12 bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-200 rounded-lg"
+                disabled={loading}
+                className="flex-1 h-12 bg-primary hover:bg-primary/90 text-black font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundClip: 'unset', WebkitBackgroundClip: 'unset' } as React.CSSProperties}
               >
                 <Mail className="w-4.5 h-4.5 mr-2.5" />
-                Send Invitation
+                {loading ? 'Sending...' : 'Send Invitation'}
               </Button>
               <Button
                 onClick={onClose}
