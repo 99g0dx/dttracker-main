@@ -152,8 +152,22 @@ This invitation will expire in 7 days.
     });
 
     if (!resendResponse.ok) {
-      const errorData = await resendResponse.json().catch(() => ({}));
-      console.error("Resend API error:", errorData);
+      const errorText = await resendResponse.text();
+      let errorData: any = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+      
+      console.error("Resend API error:", {
+        status: resendResponse.status,
+        statusText: resendResponse.statusText,
+        error: errorData,
+      });
+      
+      // Return more specific error message
+      const errorMessage = errorData.message || errorData.error?.message || "Failed to send email";
       
       // Return success even if email fails (don't block invite creation)
       return new Response(
@@ -161,7 +175,7 @@ This invitation will expire in 7 days.
           success: false,
           error: "Failed to send email",
           details: errorData,
-          message: "Invite created but email sending failed.",
+          message: `Invite created but email sending failed: ${errorMessage}`,
         }),
         {
           status: 200,
