@@ -79,6 +79,7 @@ USING (workspace_id = auth.uid());
 ## 📁 Or Use Migration Files
 
 Run these migration files in order:
+
 1. `database/migrations/010_fix_team_members_rls_recursion.sql`
 2. `database/migrations/011_fix_team_invites_rls_recursion.sql`
 
@@ -91,14 +92,15 @@ Run these migration files in order:
 ## Why This Works
 
 **Before (BAD - Recursive):**
+
 ```sql
 EXISTS (SELECT 1 FROM team_members WHERE ...)  -- Queries itself!
 ```
 
 **After (GOOD - Non-recursive):**
+
 ```sql
 workspace_id = auth.uid()  -- Direct check, no query needed
 ```
 
 This checks if the current user owns the workspace directly, without querying any tables.
-
