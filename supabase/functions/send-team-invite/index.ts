@@ -64,6 +64,9 @@ serve(async (req) => {
       );
     }
 
+    // Get From email address from environment, fallback to default
+    const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "DTTracker <no-reply@dttracker.app>";
+
     // Get role label
     const roleLabels: Record<string, string> = {
       owner: "Owner",
@@ -143,7 +146,7 @@ This invitation will expire in 7 days.
         "Content-Type": "application/json",
       },
         body: JSON.stringify({
-          from: "DTTracker <no-reply@dttracker.app>",
+          from: resendFromEmail,
           to: [email],
           subject: subject,
           html: htmlBody,
