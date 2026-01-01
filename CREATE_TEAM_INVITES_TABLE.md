@@ -9,6 +9,7 @@ The app is looking for `public.team_invites` table that doesn't exist in your da
 ### Option 1: Run the Complete Schema (Recommended)
 
 If you haven't run the full schema yet, run the entire `database/schema.sql` file:
+
 1. Go to **Supabase Dashboard → SQL Editor**
 2. Click **New Query**
 3. Copy and paste the contents of `database/schema.sql`
@@ -62,4 +63,3 @@ If you still get errors after creating the table:
 1. **Refresh schema cache**: Go to Supabase Dashboard → Database → Tables and refresh the page
 2. **Check RLS policies**: Go to Database → Tables → team_invites → Policies tab - should see 4 policies
 3. **Verify indexes**: Should see 3 indexes on the table (workspace_id, email, invite_token)
-
