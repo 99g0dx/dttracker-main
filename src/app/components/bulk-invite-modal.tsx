@@ -11,11 +11,50 @@ import {
   Download,
   AlertCircle,
 } from 'lucide-react';
-import {
-  createBulkInvites,
-  getCurrentUser,
-  type InviteData,
-} from '../utils/permissions';
+import { supabase } from '../../lib/supabase';
+import { createTeamInvite } from '../../lib/api/team';
+import type { TeamRole, ScopeType } from '../../lib/types/database';
+
+// Keep InviteData type for the modal
+type InviteData = {
+  rolePreset: 'workspace_editor' | 'workspace_viewer' | 'calendar_editor' | 'calendar_viewer' | 'campaign_editor' | 'campaign_viewer';
+  email: string;
+  name: string;
+  campaignIds?: number[];
+  message?: string;
+};
+
+// Helper function to map rolePreset to TeamRole and scopes (same as in team-management.tsx)
+function mapRolePresetToRoleAndScopes(
+  rolePreset: InviteData['rolePreset'],
+  campaignIds?: number[]
+): { role: TeamRole; scopes: Array<{ scope_type: ScopeType; scope_value: string }> } {
+  const scopes: Array<{ scope_type: ScopeType; scope_value: string }> = [];
+  let role: TeamRole = 'viewer';
+
+  if (rolePreset === 'workspace_editor') {
+    role = 'member';
+    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
+  } else if (rolePreset === 'workspace_viewer') {
+    role = 'member';
+    scopes.push({ scope_type: 'workspace', scope_value: 'viewer' });
+  } else if (rolePreset === 'calendar_editor') {
+    role = 'viewer';
+    scopes.push({ scope_type: 'calendar', scope_value: 'editor' });
+  } else if (rolePreset === 'calendar_viewer') {
+    role = 'viewer';
+    scopes.push({ scope_type: 'calendar', scope_value: 'viewer' });
+  } else if (rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer') {
+    role = 'viewer';
+    if (campaignIds && campaignIds.length > 0) {
+      campaignIds.forEach(campaignId => {
+        scopes.push({ scope_type: 'campaign', scope_value: campaignId.toString() });
+      });
+    }
+  }
+
+  return { role, scopes };
+}
 
 interface BulkInviteModalProps {
   onClose: () => void;
@@ -38,7 +77,8 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
   ]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<number, string>>({});
-  const currentUser = getCurrentUser();
+  const [loading, setLoading] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -98,14 +138,64 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
     return isValid;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateInvites()) {
       return;
     }
 
-    const inviteData = invites.map(({ tempId, ...rest }) => rest);
-    createBulkInvites({ invites: inviteData }, currentUser.id);
-    onComplete();
+    setLoading(true);
+    setGlobalError(null);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setGlobalError('You must be logged in to send invites');
+        setLoading(false);
+        return;
+      }
+
+      const inviteData = invites.map(({ tempId, ...rest }) => rest);
+      const workspaceId = user.id;
+
+      // Create invites one by one
+      const results = await Promise.allSettled(
+        inviteData.map(async (invite) => {
+          const { role, scopes } = mapRolePresetToRoleAndScopes(
+            invite.rolePreset,
+            invite.campaignIds && invite.campaignIds.length > 0 ? invite.campaignIds : undefined
+          );
+
+          return createTeamInvite(
+            workspaceId,
+            invite.email,
+            role,
+            scopes,
+            invite.message || null
+          );
+        })
+      );
+
+      // Check for errors
+      const failures = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error));
+      if (failures.length > 0) {
+        const failureCount = failures.length;
+        const successCount = results.length - failureCount;
+        setGlobalError(
+          `Sent ${successCount} invitation${successCount !== 1 ? 's' : ''}, but ${failureCount} failed. Check console for details.`
+        );
+        console.error('Some invites failed:', failures);
+      }
+
+      // Close modal and reload on success (even if some failed)
+      if (results.length > failures.length) {
+        onComplete();
+      } else {
+        setLoading(false);
+      }
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setLoading(false);
+    }
   };
 
   const downloadTemplate = () => {
@@ -150,6 +240,14 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
 
           {/* Content */}
           <div className="px-8 py-6 max-h-[calc(90vh-220px)] overflow-y-auto">
+            {globalError && (
+              <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                  <p className="text-sm text-red-400">{globalError}</p>
+                </div>
+              </div>
+            )}
             <div className="space-y-3">
               {invites.map((invite, index) => (
                 <div key={invite.tempId}>
@@ -287,10 +385,11 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  className="h-11 px-6 bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-200"
+                  disabled={loading}
+                  className="h-11 px-6 bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Mail className="w-4 h-4 mr-2" />
-                  Send Invitations
+                  {loading ? 'Sending...' : 'Send Invitations'}
                 </Button>
               </div>
             </div>
