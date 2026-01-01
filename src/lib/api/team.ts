@@ -181,10 +181,96 @@ export async function createTeamInvite(
       return { data: null, error };
     }
 
+    // Send invitation email via Edge Function
+    // Don't fail invite creation if email fails, but return error info
+    let emailError: Error | null = null;
+    try {
+      // Get inviter's name from profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      const inviterName = profile?.full_name || null;
+
+      // Construct invite URL
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const inviteUrl = `${origin}/team/invite/${inviteToken}`;
+
+      if (supabaseUrl && supabaseAnonKey && origin) {
+        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/send-team-invite`;
+
+        const emailResponse = await fetch(edgeFunctionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": supabaseAnonKey,
+            "Authorization": `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            email: invite.email,
+            inviteToken: inviteToken,
+            inviterName: inviterName,
+            role: invite.role,
+            message: invite.message,
+            inviteUrl: inviteUrl,
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          const errorText = await emailResponse.text();
+          console.warn("Failed to send invitation email:", errorText);
+          let errorMessage = "Failed to send invitation email";
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.error === "Email service not configured") {
+              errorMessage = "Email service not configured. Please set RESEND_API_KEY in Supabase Edge Functions secrets.";
+            } else if (errorData.message) {
+              errorMessage = errorData.message;
+            } else if (errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch {
+            // If parsing fails, use the error text as-is
+            if (errorText) errorMessage = errorText;
+          }
+          emailError = new Error(errorMessage);
+        } else {
+          const emailResult = await emailResponse.json();
+          console.log("Invitation email sent:", emailResult);
+          if (emailResult.success === false) {
+            // Edge function returned success:false in body
+            emailError = new Error(emailResult.message || emailResult.error || "Email sending failed");
+          }
+        }
+      } else {
+        emailError = new Error("Missing Supabase configuration (URL, key, or origin)");
+      }
+    } catch (err) {
+      // Log but don't fail - invite is already created
+      emailError = err instanceof Error ? err : new Error("Unknown error sending email");
+      console.warn("Error sending invitation email:", emailError);
+    }
+
     // Note: Member scopes will be added when the invite is accepted
     // We can store them temporarily or add them to the invite acceptance flow
 
-    return { data: invite, error: null };
+    // Return the invite with any email error info attached
+    // The invite is created successfully, but email may have failed
+    const result: ApiResponse<TeamInvite> & { emailError?: Error | null } = { 
+      data: invite, 
+      error: null 
+    };
+    
+    if (emailError) {
+      // Attach email error as a property so UI can check it
+      (result as any).emailError = emailError;
+    }
+    
+    return result;
   } catch (err) {
     return { data: null, error: err as Error };
   }
