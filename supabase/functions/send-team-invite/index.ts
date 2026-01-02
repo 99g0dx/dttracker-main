@@ -65,7 +65,7 @@ serve(async (req) => {
     }
 
     // Get From email address from environment, fallback to default
-    const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "DTTracker <no-reply@dttracker.app>";
+    const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "DTTracker <invites@dttracker.app>";
 
     // Get role label
     const roleLabels: Record<string, string> = {

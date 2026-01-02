@@ -7,16 +7,16 @@ If you're getting "Email sending failed" even after adding `RESEND_API_KEY` to S
 1. Go to **Supabase Dashboard** → Your Project
 2. Navigate to: **Settings** (gear icon) → **Edge Functions** → **Secrets**
 3. Verify these secrets exist:
-   - **`RESEND_API_KEY`**: 
+   - **`RESEND_API_KEY`**:
      - **Name**: `RESEND_API_KEY` (must be exact)
      - **Value**: Should start with `re_` (e.g., `re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5`)
    - **`RESEND_FROM_EMAIL`**:
      - **Name**: `RESEND_FROM_EMAIL` (must be exact)
-     - **Value**: `no-reply@dttracker.app` (or your preferred sender address)
+     - **Value**: `DTTracker <invites@dttracker.app>` (or your preferred sender address)
 4. If they're missing or wrong:
    - Click **"Add new secret"** or **"Edit"**
    - Add/Update `RESEND_API_KEY` = `re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5`
-   - Add/Update `RESEND_FROM_EMAIL` = `no-reply@dttracker.app`
+   - Add/Update `RESEND_FROM_EMAIL` = `DTTracker <invites@dttracker.app>`
    - Click **Save**
 
 ## Step 2: Redeploy the Edge Function
@@ -41,7 +41,7 @@ supabase link --project-ref YOUR_PROJECT_REF
 
 # Set the secrets (if not already set)
 supabase secrets set RESEND_API_KEY=re_Vqp1hySh_LiG5XYNoHh2H7ScGR16qfyk5
-supabase secrets set RESEND_FROM_EMAIL=no-reply@dttracker.app
+supabase secrets set RESEND_FROM_EMAIL="DTTracker <invites@dttracker.app>"
 
 # Deploy the function
 supabase functions deploy send-team-invite
@@ -68,21 +68,21 @@ curl -X POST \
 ```
 
 Replace:
+
 - `YOUR_PROJECT_REF` with your Supabase project reference ID
 - `YOUR_ANON_KEY` with your Supabase anon key
 
 ## Step 4: Check Resend API Domain
 
-The edge function currently uses Resend's test domain: `onboarding@resend.dev`
+The edge function uses `invites@dttracker.app` which requires the `dttracker.app` domain to be verified in Resend.
 
 If emails still fail:
+
 1. Go to **Resend Dashboard** → **Domains**
-2. Add and verify your own domain (recommended for production)
-3. Update the `from` address in `supabase/functions/send-team-invite/index.ts`:
-   ```typescript
-   from: "DTTracker <noreply@yourdomain.com>",
-   ```
-4. Redeploy the edge function
+2. Verify that `dttracker.app` is added and verified
+3. If not verified, add the domain and follow DNS verification steps
+4. Once verified, the `DTTracker <invites@dttracker.app>` address will work
+5. Redeploy the edge function if you made any changes
 
 ## Step 5: Check Edge Function Logs
 
@@ -103,7 +103,7 @@ If emails still fail:
 ## Quick Checklist
 
 - [ ] `RESEND_API_KEY` secret is set in Supabase Edge Functions secrets
-- [ ] `RESEND_FROM_EMAIL` secret is set in Supabase Edge Functions secrets (`no-reply@dttracker.app`)
+- [ ] `RESEND_FROM_EMAIL` secret is set in Supabase Edge Functions secrets (`DTTracker <invites@dttracker.app>`)
 - [ ] Edge function `send-team-invite` has been **redeployed** after setting secrets
 - [ ] Resend API key is valid and active in Resend dashboard
 - [ ] Domain `dttracker.app` is verified in Resend dashboard (required for custom From address)
@@ -113,4 +113,3 @@ If emails still fail:
 ## Most Common Issue
 
 **The #1 cause**: Edge function wasn't redeployed after adding the secret. **You must redeploy** for secrets to take effect!
-
