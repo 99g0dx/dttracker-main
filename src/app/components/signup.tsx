@@ -90,9 +90,9 @@ export function Signup({ onNavigate }: SignupProps) {
         toast.success('Account created successfully');
         
         // If email confirmation is required, navigate to verification
-        // Otherwise, navigate to app
+        // Otherwise, navigate to onboarding (onboarding will check completion status)
         if (data.user.email_confirmed_at) {
-          navigate('/');
+          navigate('/onboarding');
         } else {
           navigate('/verification');
         }

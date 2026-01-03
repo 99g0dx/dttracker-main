@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useTeamInviteByToken, useAcceptTeamInvite } from "../../hooks/useTeam";
 import { useAuth } from "../../contexts/AuthContext";
+import { useCheckOnboarding } from "../../hooks/useOnboarding";
 import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
 import {
@@ -30,6 +31,7 @@ export function TeamInviteAccept() {
     error: inviteError,
   } = useTeamInviteByToken(token || "", !!token);
   const acceptInviteMutation = useAcceptTeamInvite();
+  const { needsOnboarding } = useCheckOnboarding();
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Signup form state
@@ -58,9 +60,9 @@ export function TeamInviteAccept() {
     setIsProcessing(true);
     try {
       await acceptInviteMutation.mutateAsync(token);
-      // Navigate to team page after acceptance
+      // Navigate to onboarding if needed, otherwise to team page
       setTimeout(() => {
-        navigate("/team");
+        navigate(needsOnboarding ? "/onboarding" : "/team");
       }, 1500);
     } catch (error) {
       setIsProcessing(false);
@@ -139,8 +141,9 @@ export function TeamInviteAccept() {
         try {
           await acceptInviteMutation.mutateAsync(token);
           toast.success("Invitation accepted!");
+          // Wait a moment for profile to sync, then check onboarding
           setTimeout(() => {
-            navigate("/team");
+            navigate(needsOnboarding ? "/onboarding" : "/team");
           }, 1500);
         } catch (acceptError) {
           setIsSigningUp(false);

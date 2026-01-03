@@ -55,7 +55,7 @@ interface CreatorsProps {
   onNavigate?: (path: string) => void;
 }
 
-function PlatformMultiSelect({
+function PlatformSelect({
   selected,
   onChange,
 }: {
@@ -70,39 +70,24 @@ function PlatformMultiSelect({
     "facebook",
   ];
 
-  const platformIcons = {
-    tiktok: "🎵",
-    instagram: "📷",
-    youtube: "▶️",
-    twitter: "🐦",
-    facebook: "👥",
-  };
-
-  const togglePlatform = (platform: Platform) => {
-    if (selected.includes(platform)) {
-      onChange(selected.filter((p) => p !== platform));
-    } else {
-      onChange([...selected, platform]);
-    }
-  };
+  const selectedValue = selected[0] ?? "all";
 
   return (
-    <div className="flex items-center gap-2">
+    <select
+      value={selectedValue}
+      onChange={(e) => {
+        const value = e.target.value as Platform | "all";
+        onChange(value === "all" ? [] : [value]);
+      }}
+      className="h-9 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+    >
+      <option value="all">All Platforms</option>
       {platforms.map((platform) => (
-        <button
-          key={platform}
-          onClick={() => togglePlatform(platform)}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-            selected.includes(platform)
-              ? "bg-primary text-black"
-              : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.08]"
-          }`}
-        >
-          <span className="mr-1">{platformIcons[platform]}</span>
+        <option key={platform} value={platform}>
           {platform.charAt(0).toUpperCase() + platform.slice(1)}
-        </button>
+        </option>
       ))}
-    </div>
+    </select>
   );
 }
 
@@ -621,7 +606,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Platform:
                 </span>
-                <PlatformMultiSelect
+                <PlatformSelect
                   selected={selectedPlatforms}
                   onChange={setSelectedPlatforms}
                 />

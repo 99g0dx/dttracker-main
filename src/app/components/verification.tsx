@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
+import { useCheckOnboarding } from '../../hooks/useOnboarding';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 
 interface VerificationProps {
@@ -18,6 +20,7 @@ export function Verification({ onNavigate }: VerificationProps) {
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [userEmail, setUserEmail] = useState<string>('');
+  const { needsOnboarding } = useCheckOnboarding();
 
   // Get user email on mount
   useEffect(() => {
@@ -108,7 +111,10 @@ export function Verification({ onNavigate }: VerificationProps) {
         }
 
         toast.success('Email verified successfully');
-        navigate('/');
+        // Wait a moment for profile to sync, then check onboarding
+        setTimeout(() => {
+          navigate(needsOnboarding ? '/onboarding' : '/');
+        }, 500);
       } else {
         // Manual code verification (if using OTP)
         const { error: verifyError } = await supabase.auth.verifyOtp({
@@ -124,7 +130,10 @@ export function Verification({ onNavigate }: VerificationProps) {
         }
 
         toast.success('Email verified successfully');
-        navigate('/');
+        // Wait a moment for profile to sync, then check onboarding
+        setTimeout(() => {
+          navigate(needsOnboarding ? '/onboarding' : '/');
+        }, 500);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Verification failed';
