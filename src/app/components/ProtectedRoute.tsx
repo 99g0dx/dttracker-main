@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCheckOnboarding } from '../../hooks/useOnboarding';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -7,8 +8,9 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+  const { needsOnboarding, isLoading: onboardingLoading } = useCheckOnboarding();
 
-  if (loading) {
+  if (loading || onboardingLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -21,6 +23,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Redirect to onboarding if not completed
+  if (needsOnboarding) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;

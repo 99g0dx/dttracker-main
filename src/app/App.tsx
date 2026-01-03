@@ -25,6 +25,7 @@ import { Home } from "./components/home";
 import { Login } from "./components/login";
 import { Signup } from "./components/signup";
 import { Verification } from "./components/verification";
+import { Onboarding } from "./components/onboarding";
 import { SharedCampaignDashboard } from "./components/shared-campaign-dashboard";
 import { TeamInviteAccept } from "./components/team-invite-accept";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -57,7 +58,7 @@ function AppRoutes() {
   }, []);
 
   const isPublicRoute =
-    ["/home", "/login", "/signup", "/verification"].includes(
+    ["/home", "/login", "/signup", "/verification", "/onboarding"].includes(
       location.pathname
     ) ||
     location.pathname.startsWith("/share/") ||
@@ -98,6 +99,10 @@ function AppRoutes() {
               <Route
                 path="/verification"
                 element={<Verification onNavigate={(path) => navigate(path)} />}
+              />
+              <Route
+                path="/onboarding"
+                element={<Onboarding onNavigate={(path) => navigate(path)} />}
               />
               <Route
                 path="/share/campaign/:token"
