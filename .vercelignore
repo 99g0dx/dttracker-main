@@ -1,0 +1,26 @@
+# Vercel ignore file - prevents scanning unnecessary directories
+
+# Supabase (will be deployed separately)
+supabase/
+
+# Dependencies
+node_modules/
+
+# Environment variables (use Vercel dashboard instead)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+.idea/
+
+# System files
+.DS_Store

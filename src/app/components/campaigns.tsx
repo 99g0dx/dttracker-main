@@ -1,0 +1,340 @@
+import React, { useState } from 'react';
+import { Card, CardContent } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Plus, Search, Calendar, FileText, TrendingUp, MoreVertical, Edit2, Trash2, Copy, ArrowLeft } from 'lucide-react';
+import { StatusBadge } from './status-badge';
+import { CampaignCardSkeleton } from './ui/skeleton';
+import { useCampaigns, useDeleteCampaign, useDuplicateCampaign } from '../../hooks/useCampaigns';
+
+interface CampaignsProps {
+  onNavigate: (path: string) => void;
+}
+
+export function Campaigns({ onNavigate }: CampaignsProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
+
+  // Fetch campaigns from database
+  const { data: campaigns = [], isLoading, error } = useCampaigns();
+  const deleteCampaignMutation = useDeleteCampaign();
+  const duplicateCampaignMutation = useDuplicateCampaign();
+
+  const filteredCampaigns = campaigns.filter(campaign =>
+    campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleDeleteCampaign = (id: string) => {
+    deleteCampaignMutation.mutate(id);
+    setDeleteDialogId(null);
+    setOpenMenuId(null);
+  };
+
+  const handleMenuClick = (e: React.MouseEvent, campaignId: string) => {
+    e.stopPropagation();
+    setOpenMenuId(openMenuId === campaignId ? null : campaignId);
+  };
+
+  const handleEditClick = (e: React.MouseEvent, campaignId: string) => {
+    e.stopPropagation();
+    onNavigate(`/campaigns/${campaignId}/edit`);
+    setOpenMenuId(null);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, campaignId: string) => {
+    e.stopPropagation();
+    setDeleteDialogId(campaignId);
+    setOpenMenuId(null);
+  };
+
+  const handleDuplicateCampaign = (e: React.MouseEvent, campaignId: string) => {
+    e.stopPropagation();
+    duplicateCampaignMutation.mutate(campaignId);
+    setOpenMenuId(null);
+  };
+
+  // Close menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId !== null) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
+
+  const deleteCandidate = campaigns.find(c => c.id === deleteDialogId);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => onNavigate('/')}
+              className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">Campaigns</h1>
+              <p className="text-sm text-slate-400 mt-1">Manage your marketing campaigns</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => onNavigate('/campaigns/new')}
+            className="h-9 px-4 bg-primary hover:bg-primary/90 text-black"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Campaign
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <CampaignCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => onNavigate('/')}
+              className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">Campaigns</h1>
+              <p className="text-sm text-slate-400 mt-1">Manage your marketing campaigns</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => onNavigate('/campaigns/new')}
+            className="h-9 px-4 bg-primary hover:bg-primary/90 text-black"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Campaign
+          </Button>
+        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center mb-4">
+              <FileText className="w-6 h-6 text-red-400" />
+            </div>
+            <h3 className="text-base font-semibold text-white mb-1">Failed to load campaigns</h3>
+            <p className="text-sm text-slate-400">{error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            onClick={() => onNavigate('/')}
+            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Campaigns</h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">Manage your marketing campaigns</p>
+          </div>
+        </div>
+        <Button
+          onClick={() => onNavigate('/campaigns/new')}
+          className="h-9 px-4 w-full sm:w-auto bg-primary hover:bg-primary/90 text-black"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          New Campaign
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <Input
+          placeholder="Search campaigns..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+        />
+      </div>
+
+      {/* Campaigns Grid */}
+      {filteredCampaigns.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredCampaigns.map((campaign) => (
+            <Card
+              key={campaign.id}
+              className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer group relative overflow-hidden"
+              onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
+            >
+              <CardContent className="p-0">
+                <div className="flex gap-4 p-4">
+                  {/* Cover Image Thumbnail - Left Side */}
+                  <div className="flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-gradient-to-br from-primary to-cyan-400">
+                    {campaign.cover_image_url ? (
+                      <img
+                        src={campaign.cover_image_url}
+                        alt={campaign.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-2xl font-bold text-white">
+                          {campaign.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content - Right Side */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-white group-hover:text-primary transition-colors mb-1 truncate">
+                            {campaign.name}
+                          </h3>
+                          {campaign.brand_name && (
+                            <p className="text-sm text-slate-400 mb-1.5 truncate">
+                              {campaign.brand_name}
+                            </p>
+                          )}
+                          <StatusBadge status={campaign.status} />
+                        </div>
+                        
+                        {/* 3-Dots Menu */}
+                        <div className="relative flex-shrink-0 ml-2">
+                          <button
+                            onClick={(e) => handleMenuClick(e, campaign.id)}
+                            className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <MoreVertical className="w-4 h-4 text-slate-400" />
+                          </button>
+                          
+                          {/* Dropdown Menu */}
+                          {openMenuId === campaign.id && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-50 overflow-hidden">
+                              <button
+                                onClick={(e) => handleEditClick(e, campaign.id)}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                                Edit Campaign
+                              </button>
+                              <div className="h-px bg-white/[0.06]" />
+                              <button
+                                onClick={(e) => handleDeleteClick(e, campaign.id)}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete Campaign
+                              </button>
+                              <div className="h-px bg-white/[0.06]" />
+                              <button
+                                onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                              >
+                                <Copy className="w-4 h-4" />
+                                Duplicate Campaign
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Metrics */}
+                      <div className="grid grid-cols-3 gap-2 mt-3">
+                        <div className="p-2 rounded-lg bg-white/[0.03]">
+                          <div className="text-lg font-semibold text-white">{campaign.posts_count}</div>
+                          <p className="text-xs text-slate-500">Posts</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white/[0.03]">
+                          <div className="text-lg font-semibold text-white">
+                            {campaign.total_views >= 1000000
+                              ? `${(campaign.total_views / 1000000).toFixed(1)}M`
+                              : campaign.total_views >= 1000
+                              ? `${(campaign.total_views / 1000).toFixed(1)}K`
+                              : campaign.total_views}
+                          </div>
+                          <p className="text-xs text-slate-500">Views</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white/[0.03]">
+                          <div className="text-lg font-semibold text-emerald-400">{campaign.avg_engagement_rate.toFixed(1)}%</div>
+                          <p className="text-xs text-slate-500">Engagement</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Date Range */}
+                    {campaign.start_date && campaign.end_date && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400 mt-3 pt-3 border-t border-white/[0.06]">
+                        <Calendar className="w-3 h-3" />
+                        <span>
+                          {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
+              <Search className="w-6 h-6 text-slate-600" />
+            </div>
+            <h3 className="text-base font-semibold text-white mb-1">No campaigns found</h3>
+            <p className="text-sm text-slate-400 text-center mb-6 max-w-md">
+              Try adjusting your search query or create a new campaign to get started
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteDialogId && deleteCandidate && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Campaign?</h3>
+              <p className="text-sm text-slate-400 mb-6">
+                Are you sure you want to delete "{deleteCandidate.name}"? This will permanently delete the campaign and all associated posts and data. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteDialogId(null)}
+                  className="flex-1 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteCampaign(deleteDialogId)}
+                  className="flex-1 h-9 rounded-md bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
