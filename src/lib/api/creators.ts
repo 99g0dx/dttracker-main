@@ -290,7 +290,7 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
       return { data: null, error: creatorsError };
     }
 
-    console.log(`📥 Fetched ${creators?.length || 0} creators for user (filter: ${networkFilter || 'my_network'})`);
+    // console.log(`📥 Fetched ${creators?.length || 0} creators for user (filter: ${networkFilter || 'my_network'})`);
 
     if (!creators || creators.length === 0) {
       return { data: [], error: null };
