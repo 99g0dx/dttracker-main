@@ -5,11 +5,22 @@ import { useCart } from '../../../contexts/CartContext';
 import { Trash, X, ShoppingCart } from 'lucide-react';
 import React, { useState } from 'react'; // Consistent import
 import { supabase } from '../../../lib/supabase';
+import { useSidebar } from './sidebar';
+import { useIsMobile } from "./use-mobile";
+
 
 export const CartSheet = () => {
   const { cart, totalItems, clearCart } = useCart();
   const [isSending, setIsSending] = useState(false);
+//   const { toggleSidebar } = useSidebar();
+//   const isMobile = useIsMobile();
 
+//   const handleOpenChange = (isOpen: boolean) => {
+//     // Only force close the sidebar if we are on a mobile screen
+//     if (isOpen && isMobile) {
+//         toggleSidebar();
+//     }
+//   };
   // 3. The logic for the Edge Function call
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -61,7 +72,7 @@ export const CartSheet = () => {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
         
-        <Dialog.Content className="fixed top-0 right-0 h-full w-full max-w-md bg-white p-6 shadow-xl animate-slide-in flex flex-col">
+        <Dialog.Content className="fixed top-0 right-0 h-full w-full sm:max-w-md bg-white p-6 shadow-xl animate-slide-in flex flex-col z-100">
           <div className="flex justify-between items-center mb-6">
             <Dialog.Title className="text-xl font-bold">Your Cart</Dialog.Title>
             <Dialog.Close asChild>
@@ -79,7 +90,7 @@ export const CartSheet = () => {
                     <div>
                       <h4 className="font-medium">{item.name}</h4>
                       <p className="text-sm text-gray-500">
-                         {item.follower_count || 0} Followers
+                         {(item.follower_count/1000).toFixed(0)+"k"} Followers
                       </p>
                     </div>
                   </li>
@@ -91,7 +102,7 @@ export const CartSheet = () => {
           {cart.length > 0 && (
             <div className="border-t pt-6 mt-6">
               <div className="flex justify-between text-lg font-bold mb-4 text-black">
-                <span>Total Items</span>
+                <span>Total Creators</span>
                 <span>{totalItems}</span>
               </div>
               <button 

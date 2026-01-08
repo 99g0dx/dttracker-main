@@ -27,7 +27,47 @@ serve(async (req) => {
       from: 'onboarding@resend.dev',
       to: [agencyEmail],
       subject: `New Request from ${userEmail}`,
-      html: `<p>New inquiry received for ${creators?.length || 0} creators.</p>`,
+      html: `<!DOCTYPE html>
+  <html>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f7; padding: 40px 20px; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        
+        <div style="background: #000000; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px;">New Talent Inquiry</h1>
+        </div>
+
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; line-height: 1.6;">Hello,</p>
+          <p style="font-size: 16px; line-height: 1.6;">You have received a new talent request from <strong>${userEmail}</strong>. Below are the creators they are interested in:</p>
+
+          <div style="margin-top: 25px;">
+            ${creators.map((c: any) => `
+              <div style="display: flex; align-items: center; padding: 15px; border: 1px solid #eaeaef; border-radius: 10px; margin-bottom: 12px;">
+                <div style="flex: 1;">
+                  <h4 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px;">${c.name}</h4>
+                  <p style="margin: 0; color: #666; font-size: 13px;">${Number(c.follower_count).toLocaleString()} Followers</p>
+                </div>
+                <div style="text-align: right;">
+                  <span style="background: #f0f0f0; color: #444; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold;">SELECTED</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div style="margin-top: 30px; padding: 20px; background: #fafafa; border-radius: 8px; text-align: center;">
+            <p style="margin: 0; color: #666; font-size: 14px;">Total Creators Requested: <strong>${creators.length}</strong></p>
+          </div>
+        </div>
+
+        <div style="padding: 20px; text-align: center; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #999;">
+            This inquiry was sent via your Talent Tracker dashboard. <br/>
+            You can reply directly to this email to contact the user.
+          </p>
+        </div>
+      </div>
+    </body>
+  </html>`,
     }),
     })
 
