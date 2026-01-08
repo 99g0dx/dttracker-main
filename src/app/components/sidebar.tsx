@@ -5,6 +5,7 @@ import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png
 import { NotificationsCenter } from './notifications-center';
 import { getCurrentUser, canAccessCalendar, canManageTeam, hasWorkspaceScope } from '../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
+import { CartSheet } from './ui/cart';
 
 interface NavItem {
   name: string;
@@ -30,6 +31,7 @@ const navItems: NavItem[] = [
     requiredPermission: (userId) => canManageTeam(userId)
   },
   { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
+  
 ];
 
 interface SidebarProps {
@@ -144,7 +146,11 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                 </li>
               );
             })}
+            <li>
+              <CartSheet />
+            </li>
           </ul>
+          
         </nav>
 
         {/* User */}
