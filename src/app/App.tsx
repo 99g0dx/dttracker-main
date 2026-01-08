@@ -80,7 +80,7 @@ function AppRoutes() {
           </>
         )}
 
-        <main className={isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8"}>
+        <main className={isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 md:pt-18 sm:pt-20"}>
           <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
             <Routes>
               {/* Public routes */}
