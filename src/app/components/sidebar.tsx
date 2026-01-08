@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { LayoutDashboard, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
@@ -43,6 +43,13 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
+
+const getInitial = (name: string | null | undefined, email: string | null | undefined) => {
+  if (name) return name.charAt(0).toUpperCase();
+  if (email) return email.charAt(0).toUpperCase();
+  return 'U'; // Fallback
+}; 
+
 export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
   const currentUser = getCurrentUser();
   const { user } = useAuth();
@@ -66,6 +73,8 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     }
   };
 
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const userInitial = getInitial(user?.user_metadata?.full_name, user?.email);
   return (
     <>
       {/* Mobile Menu Button */}
@@ -160,10 +169,10 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             className="flex items-center gap-3 px-3 h-11 rounded-md hover:bg-white/[0.04] transition-colors cursor-pointer mb-1"
           >
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white text-[13px] font-medium">
-              U
+              {userInitial}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-white truncate">User Name</p>
+              <p className="text-[13px] font-medium text-white truncate">{userName}</p>
               <p className="text-[11px] text-slate-500 truncate">Free Plan</p>
             </div>
           </div>
