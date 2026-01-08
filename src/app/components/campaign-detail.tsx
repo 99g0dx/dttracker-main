@@ -61,6 +61,10 @@ import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { DropdownMenuItem, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
+import { Skeleton } from "./ui/skeleton";
+import { MoreHorizontal } from "lucide-react";
+import { cn } from "./ui/utils";
 
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
@@ -93,6 +97,30 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [renderError, setRenderError] = useState<Error | null>(null);
   const postsPerPage = 10;
 
+  const EmptyState = ({ searchQuery }: { searchQuery: string }) => (
+  <div className="flex flex-col items-center justify-center py-20 px-4">
+    <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center mb-4 shadow-inner">
+      <Search className="w-8 h-8 text-zinc-700" />
+    </div>
+    <h3 className="text-lg font-bold text-white mb-1">
+      {searchQuery ? "No matches found" : "No posts yet"}
+    </h3>
+    <p className="text-sm text-zinc-500 text-center max-w-[280px] leading-relaxed">
+      {searchQuery 
+        ? `We couldn't find anything matching "${searchQuery}". Try a different search term.` 
+        : "Start tracking performance by adding your first social media post to this campaign."
+      }
+    </p>
+    {!searchQuery && (
+      <button
+        onClick={() => setShowAddPostDialog(true)}
+        className="mt-6 h-9 px-4 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-lg transition-colors"
+      >
+        Add First Post
+      </button>
+    )}
+  </div>
+);
   // Validate ID
   if (!id) {
     return (
@@ -1338,523 +1366,174 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       )}
 
       {/* Posts Table */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
-        <CardContent className="p-0">
-          <div className="p-6 border-b border-white/[0.08]">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-white">Posts</h3>
-                <p className="text-sm text-slate-400 mt-0.5">
-                  Track creator posts and performance
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowScrapeAllDialog(true)}
-                  disabled={posts.length === 0}
-                  className="h-9 px-3 rounded-md bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Scrape All Posts
+     <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
+  <CardContent className="p-0">
+    {/* 1. Header Section - Optimized for Responsivity */}
+    <div className="p-5 md:p-6 border-b border-white/[0.04] space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-bold text-white tracking-tight">Campaign Posts</h3>
+          <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+            {posts.length} Total tracked performances
+          </p>
+        </div>
+        
+        {/* Primary Action Group */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
+          <button
+            onClick={() => setShowAddPostDialog(true)}
+            className="h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-bold flex items-center gap-2 rounded-lg transition-all shadow-lg shadow-primary/10 flex-shrink-0"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            Add Post
+          </button>
+          
+          <div className="h-8 w-px bg-white/10 hidden md:block" />
+
+          {/* Secondary Actions in a more compact style */}
+          <div className="flex items-center gap-1.5">
+             <button
+              onClick={() => setShowScrapeAllDialog(true)}
+              disabled={posts.length === 0}
+              className="h-9 w-9 md:w-auto md:px-3 rounded-lg bg-zinc-900 border border-white/5 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-30"
+              title="Scrape All"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden md:inline">Scrape All</span>
+            </button>
+            
+            {/* Bulk Menu (Export, Delete All, etc.) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 w-9 rounded-lg bg-zinc-900 border border-white/5 text-zinc-300 flex items-center justify-center hover:bg-zinc-800">
+                  <MoreHorizontal className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={handleExportCSV}
-                  disabled={posts.length === 0}
-                  className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className="w-4 h-4" />
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => setShowDeleteAllDialog(true)}
-                  disabled={posts.length === 0}
-                  className="h-9 px-3 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete All Posts
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowTopPerformers(!showTopPerformers)}
-                className={`h-9 px-3 rounded-md border text-sm font-medium flex items-center gap-2 transition-colors ${
-                  showTopPerformers
-                    ? "bg-primary/20 border-primary/30 text-primary"
-                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                }`}
-              >
-                {showTopPerformers ? "All Posts" : "Top Performers"}
-              </button>
-              <Select
-                value={sortBy}
-                onValueChange={(
-                  value: "score" | "views" | "engagement" | "latest"
-                ) => setSortBy(value)}
-              >
-                <SelectTrigger className="h-9 w-[160px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="score">Sort by: Score</SelectItem>
-                  <SelectItem value="views">Sort by: Views</SelectItem>
-                  <SelectItem value="engagement">
-                    Sort by: Engagement
-                  </SelectItem>
-                  <SelectItem value="latest">Sort by: Latest</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Search posts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-full pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
-              <div className="relative group">
-                <button
-                  onClick={handleImportCreators}
-                  className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Import Creators
-                </button>
-              </div>
-              <button
-                onClick={handleImportPosts}
-                className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
-              >
-                <Upload className="w-4 h-4" />
-                Import Posts CSV
-              </button>
-              <button
-                onClick={() => setShowAddPostDialog(true)}
-                className="h-9 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-medium flex items-center gap-2 rounded-md transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Post
-              </button>
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10 text-zinc-300">
+                <DropdownMenuItem onClick={handleExportCSV} className="gap-2 focus:bg-white/5">
+                  <Download className="w-4 h-4" /> Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleImportCreators} className="gap-2 focus:bg-white/5">
+                  <Upload className="w-4 h-4" /> Import Creators
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleImportPosts} className="gap-2 focus:bg-white/5">
+                  <Upload className="w-4 h-4" /> Import Posts
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/5" />
+                <DropdownMenuItem onClick={() => setShowDeleteAllDialog(true)} className="gap-2 text-red-400 focus:bg-red-500/10 focus:text-red-400">
+                  <Trash2 className="w-4 h-4" /> Delete All Posts
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+        </div>
+      </div>
 
-          {postsLoading ? (
-            <div className="space-y-0">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <PostRowSkeleton key={i} />
-              ))}
-            </div>
-          ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/[0.08]">
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Creator
-                      </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Platform
-                      </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Post URL
-                      </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Status
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Views
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Likes
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Comments
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Engagement
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Top 5 Posts Section */}
-                    {topPosts.length > 0 && !showTopPerformers && (
-                      <>
-                        <tr>
-                          <td
-                            colSpan={9}
-                            className="px-6 py-3 bg-primary/5 border-b border-primary/20"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-primary">
-                                Top Performing
-                              </span>
-                              <div className="flex-1 h-px bg-primary/20"></div>
-                            </div>
-                          </td>
-                        </tr>
-                        {topPosts.map((post) => {
-                          const isTop3 = post.rank <= 3;
-                          const isTop5 = post.rank <= 5;
-                          return (
-                            <tr
-                              key={post.id}
-                              className={`border-b border-white/[0.04] transition-colors group ${
-                                isTop3
-                                  ? "bg-primary/5 hover:bg-primary/10"
-                                  : isTop5
-                                  ? "bg-primary/2 hover:bg-primary/5"
-                                  : "hover:bg-white/[0.02]"
-                              } ${
-                                isTop5 ? "border-l-2 border-l-primary/30" : ""
-                              }`}
-                            >
-                              <td className="px-6 py-4">
-                                <div>
-                                  <div className="font-medium text-sm text-white">
-                                    {post.creator?.name || "Unknown"}
-                                  </div>
-                                  <div className="text-xs text-slate-500">
-                                    @{post.creator?.handle || "unknown"}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <PlatformBadge platform={post.platform} />
-                                  {!isKpiPlatform(post.platform) && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
-                                      Not counted in KPIs
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                {post.post_url ? (
-                                  <a
-                                    href={post.post_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                    View Post
-                                  </a>
-                                ) : (
-                                  <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
-                                    <LinkIcon className="w-3 h-3" />
-                                    Add Link
-                                  </button>
-                                )}
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <StatusBadge status={post.status} />
-                                  {post.positionEmoji && (
-                                    <span className="text-base">
-                                      {post.positionEmoji}
-                                    </span>
-                                  )}
-                                  {post.badges?.trending && (
-                                    <span className="text-base">🔥</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.views && post.views > 0
-                                  ? post.views.toLocaleString()
-                                  : "-"}
-                              </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.likes && post.likes > 0
-                                  ? post.likes.toLocaleString()
-                                  : "-"}
-                              </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.comments && post.comments > 0
-                                  ? post.comments.toLocaleString()
-                                  : "-"}
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                {post.engagement_rate &&
-                                post.engagement_rate > 0 ? (
-                                  <span className="text-sm text-emerald-400 font-medium">
-                                    {post.engagement_rate}%
-                                  </span>
-                                ) : (
-                                  <span className="text-sm text-slate-500">
-                                    -
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  {post.post_url && (
-                                    <button
-                                      onClick={() => {
-                                        if (id) {
-                                          scrapePostMutation.mutate({
-                                            postId: post.id,
-                                            postUrl: post.post_url,
-                                            platform: post.platform,
-                                            campaignId: id,
-                                          });
-                                        }
-                                      }}
-                                      disabled={
-                                        scrapePostMutation.isPending ||
-                                        post.status === "scraping"
-                                      }
-                                      className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title={
-                                        post.status === "scraping"
-                                          ? "Scraping..."
-                                          : "Scrape this post"
-                                      }
-                                    >
-                                      {scrapePostMutation.isPending ||
-                                      post.status === "scraping" ? (
-                                        <RefreshCw className="w-4 h-4 text-primary animate-spin" />
-                                      ) : (
-                                        <RefreshCw className="w-4 h-4 text-primary" />
-                                      )}
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() =>
-                                      setShowDeletePostDialog(post.id)
-                                    }
-                                    className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                                    title="Delete this post"
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-400" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {paginatedRemainingPosts.length > 0 && (
-                          <tr>
-                            <td
-                              colSpan={9}
-                              className="px-6 py-2 border-b border-white/[0.08]"
-                            >
-                              <div className="h-px"></div>
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    )}
-                    {/* Remaining Posts */}
-                    {paginatedRemainingPosts.map((post) => {
-                      const isTop3 = post.rank <= 3;
-                      return (
-                        <tr
-                          key={post.id}
-                          className={`border-b border-white/[0.04] transition-colors group ${
-                            isTop3
-                              ? "bg-primary/5 hover:bg-primary/10"
-                              : "hover:bg-white/[0.02]"
-                          }`}
-                        >
-                          <td className="px-6 py-4">
-                            <div>
-                              <div className="font-medium text-sm text-white">
-                                {post.creator?.name || "Unknown"}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                @{post.creator?.handle || "unknown"}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <PlatformBadge platform={post.platform} />
-                              {!isKpiPlatform(post.platform) && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
-                                  Not counted in KPIs
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            {post.post_url ? (
-                              <a
-                                href={post.post_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                View Post
-                              </a>
-                            ) : (
-                              <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
-                                <LinkIcon className="w-3 h-3" />
-                                Add Link
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <StatusBadge status={post.status} />
-                              {post.positionEmoji && (
-                                <span className="text-base">
-                                  {post.positionEmoji}
-                                </span>
-                              )}
-                              {post.badges?.trending && (
-                                <span className="text-base">🔥</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.views && post.views > 0
-                              ? post.views.toLocaleString()
-                              : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.likes && post.likes > 0
-                              ? post.likes.toLocaleString()
-                              : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.comments && post.comments > 0
-                              ? post.comments.toLocaleString()
-                              : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {post.engagement_rate &&
-                            post.engagement_rate > 0 ? (
-                              <span className="text-sm text-emerald-400 font-medium">
-                                {post.engagement_rate}%
-                              </span>
-                            ) : (
-                              <span className="text-sm text-slate-500">-</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {post.post_url && (
-                                <button
-                                  onClick={() => {
-                                    if (id) {
-                                      scrapePostMutation.mutate({
-                                        postId: post.id,
-                                        postUrl: post.post_url,
-                                        platform: post.platform,
-                                        campaignId: id,
-                                      });
-                                    }
-                                  }}
-                                  disabled={
-                                    scrapePostMutation.isPending ||
-                                    post.status === "scraping"
-                                  }
-                                  className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={
-                                    post.status === "scraping"
-                                      ? "Scraping..."
-                                      : "Scrape this post"
-                                  }
-                                >
-                                  {scrapePostMutation.isPending ||
-                                  post.status === "scraping" ? (
-                                    <RefreshCw className="w-4 h-4 text-primary animate-spin" />
-                                  ) : (
-                                    <RefreshCw className="w-4 h-4 text-primary" />
-                                  )}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => setShowDeletePostDialog(post.id)}
-                                className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                                title="Delete this post"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-400" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+      {/* 2. Filter & Search Bar - Cleaned up */}
+      <div className="flex flex-col lg:flex-row gap-3">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+          <input
+            type="text"
+            placeholder="Search by creator handle or URL..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-10 w-full pl-10 pr-4 bg-zinc-950 border border-white/5 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+          />
+        </div>
+        
+        <div className="flex items-center gap-2 overflow-x-auto lg:overflow-visible">
+          <button
+            onClick={() => setShowTopPerformers(!showTopPerformers)}
+            className={cn(
+              "h-10 px-4 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all flex-shrink-0",
+              showTopPerformers 
+                ? "bg-primary/10 border-primary/30 text-primary" 
+                : "bg-zinc-950 border-white/5 text-zinc-500 hover:text-zinc-300"
+            )}
+          >
+            {showTopPerformers ? "Showing Top" : "Filter: Top Performers"}
+          </button>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="p-4 border-t border-white/[0.08] flex items-center justify-between">
-                  <p className="text-sm text-slate-400">
-                    {topPosts.length > 0 && !showTopPerformers
-                      ? `${topPosts.length} top posts + `
-                      : ""}
-                    Showing {startIndex + 1} to{" "}
-                    {Math.min(startIndex + postsPerPage, remainingPosts.length)}{" "}
-                    of {remainingPosts.length} remaining posts
-                    {topPosts.length > 0 &&
-                      !showTopPerformers &&
-                      ` (${topPosts.length + remainingPosts.length} total)`}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Previous
-                    </button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (page) => (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`w-8 h-8 rounded-md text-sm transition-colors ${
-                              currentPage === page
-                                ? "bg-primary text-black"
-                                : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      )}
-                    </div>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={currentPage === totalPages}
-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Next
-                    </button>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-10 w-[140px] bg-zinc-950 border-white/5 text-zinc-300 text-xs font-bold uppercase tracking-wider rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-900 border-white/10">
+              <SelectItem value="score">Score</SelectItem>
+              <SelectItem value="views">Views</SelectItem>
+              <SelectItem value="engagement">Engagement</SelectItem>
+              <SelectItem value="latest">Latest</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+
+    {/* 3. Table Content - Improved Layout and Typography */}
+    {postsLoading ? (
+      <div className="space-y-0.5 p-4"><Skeleton className="h-20 w-full" /></div>
+    ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
+      <div className="overflow-x-auto scrollbar-hide">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-white/[0.04] bg-white/[0.01]">
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Creator</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Platform</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 text-right">Metrics</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 text-right">Engagement</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 text-right">Status</th>
+              <th className="px-4 py-4 w-20"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.02]">
+            {/* Logic for rows remains similar, but use consistent spacing */}
+            {/* Example Row Structure below */}
+            {topPosts.map((post) => (
+              <tr key={post.id} className="group hover:bg-white/[0.02] transition-colors relative">
+                <td className="px-6 py-4">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">
+                      {post.creator?.name || "Unknown"}
+                    </span>
+                    <span className="text-[11px] text-zinc-500 font-medium">@{post.creator?.handle}</span>
                   </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-slate-600" />
-              </div>
-              <h3 className="text-base font-semibold text-white mb-1">
-                No posts found
-              </h3>
-              <p className="text-sm text-slate-400 text-center mb-6 max-w-md">
-                {searchQuery
-                  ? "Try adjusting your search query"
-                  : "Get started by adding posts manually or importing from CSV"}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </td>
+                <td className="px-6 py-4">
+                  <PlatformBadge platform={post.platform} />
+                </td>
+                <td className="px-6 py-4 text-right">
+                   <div className="flex flex-col items-end">
+                      <span className="text-sm font-mono text-zinc-300">
+                        {post.views?.toLocaleString() || '0'}
+                      </span>
+                      <span className="text-[10px] text-zinc-600 uppercase font-bold">Views</span>
+                   </div>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <span className="text-sm font-bold text-emerald-400">
+                    {post.engagement_rate?.toFixed(1) || '0.0'}%
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                   <StatusBadge status={post.status} />
+                </td>
+                <td className="px-4 py-4">
+                   <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="p-2 hover:bg-white/10 rounded-md text-zinc-400"><RefreshCw className="w-4 h-4" /></button>
+                      <button className="p-2 hover:bg-red-500/10 rounded-md text-red-500"><Trash2 className="w-4 h-4" /></button>
+                   </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <EmptyState />
+    )}
+  </CardContent>
+</Card>
 
       {/* Import Creators Dialog */}
       <ImportCreatorsDialog

@@ -31,6 +31,7 @@ import { TeamInviteAccept } from "./components/team-invite-accept";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useAuth } from "../contexts/AuthContext";
+import { cn } from "./components/ui/utils";
 
 function AppRoutes() {
   const location = useLocation();
@@ -66,7 +67,7 @@ function AppRoutes() {
 
   return (
     <ToastProvider>
-      <div className="dark min-h-screen bg-background text-foreground">
+      <div className="dark h-screen w-screen overflow-hidden bg-[#0A0A0A] text-foreground flex flex-col">
         {!isPublicRoute && (
           <>
             <Sidebar
@@ -80,7 +81,10 @@ function AppRoutes() {
           </>
         )}
 
-        <main className={isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 md:pt-18 sm:pt-20"}>
+        <main className={cn(
+        "flex-1 overflow-y-auto overflow-x-hidden", 
+        isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 md:pt-20 sm:pt-20 "
+      )}>
           <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
             <Routes>
               {/* Public routes */}
