@@ -826,7 +826,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <TableBody>
                       {paginatedCreators.map((creator) => {
                        const isSelected = cart.some((item) => String(item.id) === String(creator.id));
-                      console.log(`Creator ID: ${creator.id} | In Cart: ${cart.map(i => i.id)} | Match: ${isSelected}`);
+                      // console.log(`Creator ID: ${creator.id} | In Cart: ${cart.map(i => i.id)} | Match: ${isSelected}`);
                        return(
                         <TableRow
                           key={creator.id}
