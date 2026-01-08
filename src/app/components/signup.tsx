@@ -11,6 +11,7 @@ interface SignupProps {
   onNavigate: (path: string) => void;
 }
 
+//make future changes
 export function Signup({ onNavigate }: SignupProps) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
