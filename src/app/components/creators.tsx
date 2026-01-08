@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "./ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import { Checkbox } from "./ui/checkbox"
 import {
   Pagination,
   PaginationContent,
@@ -50,6 +51,7 @@ import { supabase } from "../../lib/supabase";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
 import type { CreatorWithStats, Platform } from "../../lib/types/database";
+import { useCart } from "../../contexts/CartContext";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
@@ -114,7 +116,14 @@ export function Creators({ onNavigate }: CreatorsProps) {
     useState<CreatorWithStats | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+
+
+  const { cart, toggleRow, toggleAll } = useCart(); 
+
+
+// Helper to toggle the current page
   // Sorting state
   const [sortField, setSortField] = useState<
     "platform" | "follower_count" | "niche" | "location" | null
@@ -773,6 +782,15 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-white/[0.08] hover:bg-transparent">
+                      {networkFilter==="all"?
+                        <TableHead className="w-[40px]">
+                          <Checkbox 
+                            checked={selectedIds.length === paginatedCreators.length && paginatedCreators.length > 0}
+                            onCheckedChange={() => toggleAll(paginatedCreators)}
+                            className="border-white/20 data-[state=checked]:bg-primary"
+                          />
+                        </TableHead>:""
+      }
                         <TableHead className="text-slate-400 font-medium">
                           Creator
                         </TableHead>
@@ -785,9 +803,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         <TableHead className="text-slate-400 font-medium">
                           Location
                         </TableHead>
-                        <TableHead className="text-slate-400 font-medium">
+                        {/* <TableHead className="text-slate-400 font-medium">
                           Agency
-                        </TableHead>
+                        </TableHead> */}
                         <TableHead className="text-slate-400 font-medium text-right">
                           Followers
                         </TableHead>
@@ -806,11 +824,22 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedCreators.map((creator) => (
+                      {paginatedCreators.map((creator) => {
+                       const isSelected = cart.some((item) => String(item.id) === String(creator.id));
+                      console.log(`Creator ID: ${creator.id} | In Cart: ${cart.map(i => i.id)} | Match: ${isSelected}`);
+                       return(
                         <TableRow
                           key={creator.id}
                           className="border-white/[0.04] hover:bg-white/[0.02] transition-colors"
                         >
+                        {networkFilter==="all"?  
+                          <TableCell>
+                            <Checkbox 
+                              checked={isSelected}
+                              onCheckedChange={() => toggleRow(creator)}
+                              className="border-white/20 data-[state=checked]:bg-primary"
+                            />
+                          </TableCell>:""}
                           <TableCell>
                             <div className="font-medium text-white text-sm">
                               {creator.name}
@@ -882,7 +911,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               {creator.location || "-"}
                             </span>
                           </TableCell>
-                          <TableCell>
+                          {/* <TableCell>
                             <div className="text-xs text-slate-400">
                               {creator.source_type === "scraper_extraction" &&
                                 "AI Scraper"}
@@ -891,7 +920,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               {creator.source_type === "manual" && "Manual"}
                               {!creator.source_type && "Manual"}
                             </div>
-                          </TableCell>
+                          </TableCell> */}
                           <TableCell className="text-right">
                             <span className="text-white font-medium text-sm">
                               {(creator.follower_count / 1000).toFixed(0)}K
@@ -933,7 +962,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+    )})}
                     </TableBody>
                   </Table>
                 </div>
