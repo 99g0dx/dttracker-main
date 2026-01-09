@@ -178,158 +178,125 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
 
       {/* Campaigns Grid */}
       {filteredCampaigns.length > 0 ? (
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-    {filteredCampaigns.map((campaign) => (
-      <Card
-        key={campaign.id}
-        className="bg-[#09090b] border-white/[0.04] hover:border-primary/30 transition-all duration-300 cursor-pointer group relative overflow-hidden shadow-2xl"
-        onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
-      >
-        <CardContent className="p-0">
-          <div className="flex gap-5 p-5">
-            {/* 1. Enhanced Thumbnail */}
-            <div className="flex-shrink-0 w-36 h-28 rounded-xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/[0.05] relative shadow-inner">
-              {campaign.cover_image_url ? (
-                <img
-                  src={campaign.cover_image_url}
-                  alt={campaign.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-cyan-500/10">
-                  <span className="text-3xl font-bold text-white/40 italic">
-                    {campaign.name.charAt(0).toUpperCase()}
-                  </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {filteredCampaigns.map((campaign) => (
+            <Card
+              key={campaign.id}
+              className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer group relative overflow-hidden"
+              onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
+            >
+              <CardContent className="p-0">
+                {/* Cover Image Header */}
+                <div className="relative w-full h-24 sm:h-28 md:h-32 bg-gradient-to-br from-primary to-cyan-400 ">
+                  {campaign.cover_image_url ? (
+                    <img
+                      src={campaign.cover_image_url}
+                      alt={campaign.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-3xl sm:text-4xl font-bold text-white">
+                        {campaign.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  {/* Menu Button Overlay */}
+                  <div className="absolute top-2 right-2">
+                    <div className="relative">
+                      <button
+                        onClick={(e) => handleMenuClick(e, campaign.id)}
+                        className="w-7 h-7 rounded-md bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <MoreVertical className="w-4 h-4 text-white" />
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {openMenuId === campaign.id && (
+                        <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-50 overflow-hidden">
+                          <button
+                            onClick={(e) => handleEditClick(e, campaign.id)}
+                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                          >
+                            <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                            Edit Campaign
+                          </button>
+                          <div className="h-px bg-white/[0.06]" />
+                          <button
+                            onClick={(e) => handleDeleteClick(e, campaign.id)}
+                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                          >
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                            Delete Campaign
+                          </button>
+                          <div className="h-px bg-white/[0.06]" />
+                          <button
+                            onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
+                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                          >
+                            <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
+                            Duplicate Campaign
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-              {/* Overlay Gradient for depth */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-            </div>
 
-            {/* 2. Content & Information Hierarchy */}
-            <div className="flex-1 min-w-0 flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors truncate tracking-tight">
+                {/* Content Section */}
+                <div className="p-3 sm:p-3.5">
+                  {/* Header Row: Title, Brand, Status */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm sm:text-base font-semibold text-white group-hover:text-primary transition-colors truncate leading-tight">
                         {campaign.name}
                       </h3>
-                      <StatusBadge status={campaign.status} />
-                      
-                    </div>
-                    {campaign.brand_name && (
-                      <p className="text-xs font-medium text-zinc-500 truncate uppercase tracking-widest mb-3">
-                        {campaign.brand_name}
-                      </p>
-                    )}
-                  </div>
-                  
-                  {/* Menu remains the same logic, but with refined styles */}
-                  <div className="relative flex-shrink-0 ml-2">
-                    <button
-                      onClick={(e) => handleMenuClick(e, campaign.id)}
-                      className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <MoreVertical className="w-4 h-4 text-zinc-400" />
-                    </button>
-                      {/* Dropdown Menu - Refined for better UX */}
-                      {openMenuId === campaign.id && (
-                        <>
-                          {/* Transparent backdrop to catch clicks and close the menu */}
-                          <div 
-                            className="fixed inset-0 z-40" 
-                            onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }} 
-                          />
-                          
-                          <div className="absolute right-0 top-full mt-2 w-52 bg-[#161618] border border-white/[0.08] rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-md">
-                            <div className="p-1.5">
-                              <button
-                                onClick={(e) => handleEditClick(e, campaign.id)}
-                                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-white/[0.05] hover:text-white rounded-md transition-all text-left"
-                              >
-                                <Edit2 className="w-4 h-4 text-zinc-500" />
-                                Edit Campaign
-                              </button>
-                              
-                              <button
-                                onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
-                                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-white/[0.05] hover:text-white rounded-md transition-all text-left"
-                              >
-                                <Copy className="w-4 h-4 text-zinc-500" />
-                                Duplicate Campaign
-                              </button>
-                            </div>
-
-                            <div className="h-px bg-white/[0.06] mx-1.5" />
-
-                            <div className="p-1.5">
-                              <button
-                                onClick={(e) => handleDeleteClick(e, campaign.id)}
-                                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-md transition-all text-left"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete Campaign
-                              </button>
-                            </div>
-                          </div>
-                        </>
+                      {campaign.brand_name && (
+                        <p className="text-xs text-slate-400 truncate mt-0.5">
+                          {campaign.brand_name}
+                        </p>
                       )}
-                   
-                  </div>
-                </div>
-
-                {/* 3. The "Stat Bar" - Much cleaner than separate boxes */}
-                <div className="flex items-center rounded-xl bg-white/[0.02] border border-white/[0.04] px-4 py-3 mt-1">
-                  <div className="flex-1">
-                    <div className="text-lg font-bold text-white leading-none">
-                      {campaign.posts_count}
                     </div>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-tighter">Posts</p>
+                    <StatusBadge status={campaign.status} />
                   </div>
-                  
-                  <div className="w-px h-8 bg-white/5" /> {/* Divider */}
-                  
-                  <div className="flex-1 px-4">
-                    <div className="text-lg font-bold text-white leading-none">
-                      {campaign.total_views >= 1000000
-                        ? `${(campaign.total_views / 1000000).toFixed(1)}M`
-                        : campaign.total_views >= 1000
-                        ? `${(campaign.total_views / 1000).toFixed(1)}K`
-                        : campaign.total_views}
+
+                  {/* Metrics Row */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="text-center">
+                      <div className="text-sm sm:text-base font-semibold text-white leading-tight">{campaign.posts_count}</div>
+                      <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Posts</p>
                     </div>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-tighter">Views</p>
-                  </div>
-
-                  <div className="w-px h-8 bg-white/5" /> {/* Divider */}
-
-                  <div className="flex-1 pl-4">
-                    <div className="text-lg font-bold text-emerald-400 leading-none">
-                      {campaign.avg_engagement_rate.toFixed(1)}%
+                    <div className="text-center">
+                      <div className="text-sm sm:text-base font-semibold text-white leading-tight">
+                        {campaign.total_views >= 1000000
+                          ? `${(campaign.total_views / 1000000).toFixed(1)}M`
+                          : campaign.total_views >= 1000
+                          ? `${(campaign.total_views / 1000).toFixed(1)}K`
+                          : campaign.total_views}
+                      </div>
+                      <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Views</p>
                     </div>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-tighter">Eng.</p>
+                    <div className="text-center">
+                      <div className="text-sm sm:text-base font-semibold text-emerald-400 leading-tight">{campaign.avg_engagement_rate.toFixed(1)}%</div>
+                      <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Engagement</p>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* 4. Refined Footer */}
-              {campaign.start_date && (
-                <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-600 mt-4">
-                  <Calendar className="w-3 h-3" />
-                  <span>
-                    {new Date(campaign.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — {new Date(campaign.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </span>
+                  {/* Date Range */}
+                  {campaign.start_date && campaign.end_date && (
+                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-400 mt-3 pt-3 border-t border-white/[0.06]">
+                      <Calendar className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">
+                        {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    ))}
-  </div>
-) : (
-  <div className="text-center py-20 text-zinc-500">No campaigns found...</div>
-)}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
@@ -341,6 +308,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
             </p>
           </CardContent>
         </Card>
+      )}
       
 
       {/* Delete Confirmation Dialog */}

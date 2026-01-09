@@ -1214,156 +1214,119 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
       {/* Creators Section */}
       {campaignCreators.length > 0 && (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-white">
-                  Available Creators
-                </h3>
-                <p className="text-sm text-slate-400 mt-0.5">
-                  {filteredCreators.length} of {campaignCreators.length} creator
-                  {campaignCreators.length !== 1 ? "s" : ""}
-                  {(selectedPlatform !== "all" || creatorSearchQuery) &&
-                    " (filtered)"}
-                </p>
-              </div>
-            </div>
+  <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
+    <CardContent className="p-5 md:p-6">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="text-lg font-bold text-white tracking-tight">Campaign Roster</h3>
+          <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+            {filteredCreators.length} of {campaignCreators.length} Active Participants
+          </p>
+        </div>
 
-            {/* Search and Filter Controls */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  value={creatorSearchQuery}
-                  onChange={(e) => setCreatorSearchQuery(e.target.value)}
-                  placeholder="Search creators by name or handle..."
-                  className="h-9 pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500 focus:bg-white/[0.05] focus:border-primary/50"
-                />
-              </div>
-              <select
-                value={selectedPlatform}
-                onChange={(e) => setSelectedPlatform(e.target.value)}
-                className="h-9 px-3 rounded-md bg-white/[0.03] border border-white/[0.08] text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors appearance-none cursor-pointer"
-              >
-                <option value="all">All Platforms</option>
-                <option value="tiktok">TikTok</option>
-                <option value="instagram">Instagram</option>
-                <option value="youtube">YouTube</option>
-                <option value="twitter">Twitter</option>
-                <option value="facebook">Facebook</option>
-              </select>
-            </div>
+        {/* Optimized Filters */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 md:w-64 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+            <Input
+              value={creatorSearchQuery}
+              onChange={(e) => setCreatorSearchQuery(e.target.value)}
+              placeholder="Quick search..."
+              className="h-10 pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
+            />
+          </div>
+          <select
+            value={selectedPlatform}
+            onChange={(e) => setSelectedPlatform(e.target.value)}
+            className="h-10 px-3 rounded-xl bg-zinc-950 border border-white/5 text-zinc-400 text-xs font-bold uppercase tracking-wider focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
+          >
+            <option value="all">All</option>
+            <option value="tiktok">TikTok</option>
+            <option value="instagram">Instagram</option>
+            <option value="youtube">YouTube</option>
+          </select>
+        </div>
+      </div>
 
-            {groupedCreators.length > 0 ? (
-              <div className="space-y-6">
-                {groupedCreators.map((group) => {
-                  const platformPosts = group.creators.reduce(
-                    (total, creator) => {
-                      return (
-                        total +
-                        posts.filter((p) => p.creator_id === creator.id).length
-                      );
-                    },
-                    0
-                  );
+      {groupedCreators.length > 0 ? (
+        <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+          {groupedCreators.map((group) => {
+            const platformPosts = group.creators.reduce((total, creator) => {
+              return total + posts.filter((p) => p.creator_id === creator.id).length;
+            }, 0);
 
-                  return (
-                    <div key={group.platform} className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <PlatformBadge platform={group.platform} />
-                          <span className="text-sm text-slate-400">
-                            {group.creators.length} creator
-                            {group.creators.length !== 1 ? "s" : ""}
-                            {platformPosts > 0 && (
-                              <span className="ml-2 text-emerald-400">
-                                • {platformPosts} post
-                                {platformPosts !== 1 ? "s" : ""}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {group.creators.map((creator) => {
-                          const creatorPosts = posts.filter(
-                            (p) => p.creator_id === creator.id
-                          );
-                          const hasPosts = creatorPosts.length > 0;
-                          return (
-                            <div
-                              key={creator.id}
-                              className={`p-3 rounded-lg border transition-colors ${
-                                hasPosts
-                                  ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/30"
-                                  : "bg-white/[0.03] border-white/[0.08] hover:border-white/[0.12]"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                                  {creator.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-white truncate">
-                                    {creator.name}
-                                  </div>
-                                  <div className="text-xs text-slate-400 truncate">
-                                    @{creator.handle}
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    {hasPosts ? (
-                                      <span className="text-xs text-emerald-400 font-medium">
-                                        {creatorPosts.length} post
-                                        {creatorPosts.length !== 1 ? "s" : ""}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-slate-500">
-                                        No posts yet
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
+            return (
+              <div key={group.platform} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Platform Section Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <PlatformBadge platform={group.platform} />
+                  <div className="h-px flex-1 bg-white/5" />
+                  <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                    {group.creators.length} Creators • {platformPosts} Total Posts
+                  </span>
+                </div>
+
+                {/* Optimized Grid Layout */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {group.creators.map((creator) => {
+                    const creatorPosts = posts.filter((p) => p.creator_id === creator.id);
+                    const hasPosts = creatorPosts.length > 0;
+
+                    return (
+                      <div
+                        key={creator.id}
+                        className={cn(
+                          "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer",
+                          hasPosts
+                            ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
+                            : "bg-zinc-900/40 border-white/5 hover:border-white/20"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Avatar with Status Pip */}
+                          <div className="relative shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
+                              {creator.name.charAt(0).toUpperCase()}
                             </div>
-                          );
-                        })}
+                            {hasPosts && (
+                              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
+                              {creator.name}
+                            </div>
+                            <div className="text-[11px] text-zinc-500 truncate font-medium">
+                              @{creator.handle}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Post Counter Badge */}
+                        {hasPosts && (
+                          <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                            <span className="text-[10px] font-bold text-emerald-500/80 uppercase">Active</span>
+                            <span className="text-[10px] font-mono text-zinc-400">
+                              {creatorPosts.length} {creatorPosts.length === 1 ? 'POST' : 'POSTS'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-slate-400 mb-2">
-                  {creatorSearchQuery || selectedPlatform !== "all"
-                    ? "No creators found matching your filters."
-                    : "No creators available"}
-                </p>
-                {(creatorSearchQuery || selectedPlatform !== "all") && (
-                  <button
-                    onClick={() => {
-                      setCreatorSearchQuery("");
-                      setSelectedPlatform("all");
-                    }}
-                    className="text-sm text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-            )}
-            {posts.length === 0 && (
-              <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-sm text-primary">
-                  💡 Tip: Use "Add Post" to add posts for these creators. The
-                  system will automatically match creators by handle.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState searchQuery={creatorSearchQuery} />
       )}
+    </CardContent>
+  </Card>
+)}
 
       {/* Posts Table */}
      <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
