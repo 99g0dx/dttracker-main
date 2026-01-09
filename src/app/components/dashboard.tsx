@@ -42,6 +42,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { subDays, startOfMonth } from 'date-fns';
+import { cn } from './ui/utils';
 
 
 type DateRange = {
@@ -541,25 +542,31 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             
             {/* Dropdown Menu */}
             {isDateDropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl z-50 py-1">
-                {DATE_RANGE_PRESETS.map((option) => (
-                  <button
-                    key={option.label}
-                    onClick={() => {
-                      setDateRange(option);
-                      setIsDateDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-sm ${
-                      dateRange.label === option.label
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-slate-300 hover:bg-white/[0.06]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className={cn(
+              /* Mobile: Fixed at center of screen */
+              "fixed inset-x-4 top-50 mx-auto w-auto max-w-[280px] origin-top",
+              /* Desktop: Reset to absolute positioning near the button */
+              "md:absolute md:fixed-none md:inset-auto md:right-0 md:top-full sm:left-0 md:mt-2 md:w-48 md:translate-y-0",
+              "bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl z-[100] py-1 animate-in fade-in zoom-in-95 duration-200"
+            )}>
+              {DATE_RANGE_PRESETS.map((option) => (
+                <button
+                  key={option.label}
+                  onClick={() => {
+                    setDateRange(option);
+                    setIsDateDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 lg:py-2 text-sm transition-colors ${
+                    dateRange.label === option.label
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-slate-300 hover:bg-white/[0.06]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
           </div>
           <div className="hidden lg:block">
             <NotificationsCenter /> 
