@@ -273,7 +273,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       }
     };
 
-    fetchAllPosts();
+    fetchAllPosts(dateRange);
   }, [campaigns, dateRange]);
 
   // Generate platform breakdown from real post data
