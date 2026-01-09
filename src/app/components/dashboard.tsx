@@ -476,38 +476,68 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   }, [campaigns, dateRange, kpiMetrics.totalReachValue]);
   
   const handleExportCSV = () => {
-  // 1. Define your headers
-  const headers = ["Campaign Name", "Brand", "Status", "Posts", "Views", "Engagement Rate"];
-  
-  // 2. Map your data to rows
-  const rows = filteredCampaigns.map(campaign => [
-    `"${campaign.name}"`, // Wrap in quotes to handle commas in names
-    `"${campaign.brand_name || 'N/A'}"`,
-    campaign.status,
-    campaign.posts_count,
-    campaign.total_views,
-    `${campaign.avg_engagement_rate.toFixed(2)}%`
-  ]);
+      const rows: string[][] = [];
 
-  // 3. Combine headers and rows
-  const csvContent = [
-    headers.join(","), 
-    ...rows.map(row => row.join(","))
-  ].join("\n");
+      // 1️⃣ Date range row
+      rows.push([
+        "Date Range",
+        `${dateRange.start.toLocaleDateString()} – ${dateRange.end.toLocaleDateString()}`
+      ]);
 
-  // 4. Create a Blob and trigger download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  
-  link.setAttribute("href", url);
-  link.setAttribute("download", `analytics_export_${new Date().toISOString().split('T')[0]}.csv`);
-  link.style.visibility = 'hidden';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+      // 2️⃣ KPI summary
+      rows.push(["Metric", "Value"]);
+      rows.push(["Total Reach", kpiMetrics.totalReach]);
+      rows.push(["Total Posts", kpiMetrics.totalPosts.toString()]);
+      rows.push(["Active Creators", kpiMetrics.activeCreators.toString()]);
+      rows.push(["Engagement Rate", `${kpiMetrics.engagementRate}%`]);
+      rows.push([]); // empty row for spacing
+
+      // 3️⃣ Daily time series
+      if (timeSeriesData.length > 0) {
+        rows.push(["Date", "Reach", "Engagement"]);
+        timeSeriesData.forEach(point => {
+          rows.push([
+            point.date,
+            point.reach.toString(),
+            point.engagement.toString()
+          ]);
+        });
+        rows.push([]);
+      }
+
+      // 4️⃣ Platform split
+      if (platformData.length > 0) {
+        rows.push(["Platform", "Creators Count", "Percentage"]);
+        platformData.forEach(platform => {
+          rows.push([
+            platform.name,
+            platform.count.toString(),
+            `${platform.value}%`
+          ]);
+        });
+      }
+
+      // 5️⃣ Combine all rows into CSV
+      const csvContent = rows.map(r => r.join(",")).join("\n");
+
+      // 6️⃣ Create Blob and trigger download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `analytics_export_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      link.style.visibility = "hidden";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+
   // Generate performance chart data from aggregated time series
   const performanceData = useMemo(() => {
     if (timeSeriesData.length === 0) {
