@@ -845,9 +845,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               {creator.name}
                             </div>
                             <div className="text-xs text-slate-500 mt-0.5">
-                              @{creator.handle}
+                              @{creator.handle.startsWith('@') ? creator.handle.slice(1) : creator.handle}
                             </div>
                           </TableCell>
+
                           <TableCell>
                             <div className="space-y-1.5 min-w-[180px]">
                               {creator.email && (
