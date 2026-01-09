@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Check, TrendingUp, Users, Megaphone, X } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
+import { cn } from './ui/utils';
 
 interface Notification {
   id: number;
@@ -152,9 +153,15 @@ export function NotificationsCenter() {
       </button>
 
       {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-50 overflow-hidden">
-          {/* Header */}
+     {isOpen && (
+      <div className={cn(
+        /* Mobile: Fixed at top with margins to prevent clipping */
+        "fixed inset-x-4 top-20 mx-auto w-auto max-w-[calc(100vw-32px)]", 
+        /* Desktop: Absolute positioning relative to the bell icon */
+        "lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 lg:w-96 md:w-80 md:inset-auto md:right-18",
+        "bg-[#1A1A1A] border border-white/[0.08] rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      )}>
+      {/* Header*/}
           <div className="p-4 border-b border-white/[0.08]">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-white">Notifications</h3>
