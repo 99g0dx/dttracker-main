@@ -67,8 +67,15 @@ import { MoreHorizontal } from "lucide-react";
 import { cn } from "./ui/utils";
 
 
-const { data: { user } } = await supabase.auth.getUser();
-console.log('USER:', user);
+async function getUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log("USER:", user);
+  return user;
+}
+
+// Call it
+getUser();
+
 
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
