@@ -12,30 +12,30 @@ interface SignupProps {
   onNavigate: (path: string) => void;
 }
 
-const checkEmailExists = async (email: string) => {
-  if (!email || !email.includes('@') || email.length < 5) {
-    return { exists: false, isConfirmed: false };
-  }
+const checkEmailExists = async (email: string): Promise<boolean> => {
+  if (!email || !email.includes('@')) return false;
+
   try {
-    const response = await fetch("https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/checkEmail", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" ,
-                 "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ email: email.trim().toLowerCase() }),
-    });
+    const res = await fetch(
+      'https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/checkEmail',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      }
+    );
 
-    if (!response.ok) return { exists: false, isConfirmed: false };
-
-    const data = await response.json();
-    return {
-      exists: data.exists ?? false,
-      isConfirmed: data.isConfirmed ?? false
-    };
-  } catch (err) {
-    return { exists: false, isConfirmed: false };
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data.exists);
+  } catch {
+    return false;
   }
 };
+
 
 
 export function Signup({ onNavigate }: SignupProps) {
@@ -57,7 +57,7 @@ export function Signup({ onNavigate }: SignupProps) {
     confirmPassword: false,
   });
 const [emailExists, setEmailExists] = useState(false);
-const [checkingEmail, setCheckingEmail] = useState(false);
+
 
   // Password strength calculation
   const passwordStrength = useMemo(() => {
@@ -134,8 +134,7 @@ const [checkingEmail, setCheckingEmail] = useState(false);
   };
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-  
-  // 1. Mark all fields as touched to trigger UI error states immediately
+
   setTouched({
     fullName: true,
     email: true,
@@ -143,57 +142,25 @@ const handleSubmit = async (e: React.FormEvent) => {
     confirmPassword: true,
   });
 
-  // 2. Comprehensive Client-side Validation
-  if (!formData.fullName || !formData.email || !isEmailValid) {
-    toast.error('Please fill in all required fields correctly');
-    return;
-  }
-  
-  if (!isPasswordValid) {
-    toast.error('Password does not meet requirements');
-    return;
-  }
-
-  if (formData.password !== formData.confirmPassword) {
-    toast.error('Passwords do not match');
+  if (!isFormValid) {
+    toast.error('Please fix the errors above');
     return;
   }
 
   setIsLoading(true);
 
   try {
-    // 3. Precise Status Check
-    // We fetch current status directly to handle cases where 
-    // user autofilled and clicked 'Submit' faster than the debounce.
-    const result = await checkEmailExists(formData.email);
-    const exists = result?.exists || false;
-    const isConfirmed = result?.isConfirmed || false;
-    
-    // Update local state so UI reflects the most recent check
-    setEmailExists(exists);
+    // ✅ Check email existence ONLY here
+    const exists = await checkEmailExists(formData.email);
 
-    // 4. Case: User is already fully verified
-    if (exists && isConfirmed) {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: formData.email,
-        options: { 
-          emailRedirectTo: `${window.location.origin}/verification`,
-          shouldCreateUser: false // Security: Don't create a new user here
-        }
-      });
-
-      if (error) throw error;
-
-      localStorage.setItem('pending_verification_email', formData.email);
-      toast.info('Account found! We sent a secure login link to your email.');
-      navigate('/verification');
-      return; 
+    if (exists) {
+      setEmailExists(true);
+      toast.error('An account with this email already exists');
+      return;
     }
 
-    // 5. Case: New User OR Unconfirmed User
-    // Supabase .signUp() will resend the verification email for unconfirmed accounts.
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
+    const { error } = await supabase.auth.signUp({
+      email: formData.email.trim().toLowerCase(),
       password: formData.password,
       options: {
         emailRedirectTo: `${window.location.origin}/verification`,
@@ -206,58 +173,36 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     if (error) throw error;
 
+    localStorage.setItem('auth_mode', 'signup');
     localStorage.setItem('pending_verification_email', formData.email);
-    
-    // Success feedback based on context
-    if (exists && !isConfirmed) {
-      toast.success('Found your pending account! Verification link resent.');
-    } else {
-      toast.success('Success! Check your email to verify your account.');
-    }
-
+    toast.success('Account created! Check your email to verify.');
     navigate('/verification');
 
   } catch (err: any) {
-    // Graceful fallback for race conditions (e.g., user verified 
-    // between your check and the signup call)
-    if (err.message?.toLowerCase().includes('already registered')) {
-      toast.info('Sending a login link...');
-      await supabase.auth.signInWithOtp({ email: formData.email });
-      navigate('/verification');
-    } else {
-      toast.error(err.message || 'Signup failed. Please try again.');
-      console.error('Auth Error:', err);
-    }
+    toast.error(err.message || 'Signup failed. Please try again.');
+    console.error(err);
   } finally {
     setIsLoading(false);
   }
 };
 
 
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // If we are changing the email, we reset the "exists" error until we check again
-    if (field === 'email') {
-      setEmailExists(false);
-    }
-  };
 
-  const handleEmailCheck = async () => {
-  if (!isEmailValid) return;
 
-  setCheckingEmail(true);
-  try {
-    const result = await checkEmailExists(formData.email);
-    setEmailExists(result.exists);
-  } finally {
-    setCheckingEmail(false);
+const updateFormData = (field: keyof typeof formData, value: string) => {
+  setFormData(prev => ({ ...prev, [field]: value }));
+
+  if (field === 'email') {
+    setEmailExists(false);
   }
 };
+
+
+ 
   // Disable submit button if form is invalid
   const isFormValid =
   formData.fullName &&
   isEmailValid &&
-  !emailExists &&
   isPasswordValid &&
   formData.password === formData.confirmPassword;
 
@@ -294,7 +239,6 @@ const handleSubmit = async (e: React.FormEvent) => {
               placeholder="Enter your full name"
               value={formData.fullName}
               onChange={(e) => updateFormData('fullName', e.target.value)}
-              onBlur={() => handleBlur('fullName')}
               className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] ${
                 errors.fullName
                   ? 'border-red-500/50 focus:border-red-500'
@@ -315,33 +259,19 @@ const handleSubmit = async (e: React.FormEvent) => {
               Email <span className="text-red-400">*</span>
             </label>
             <Input
-              name="email" autoComplete="email"
+              name="email"
+              autoComplete="email"
               type="email"
               placeholder="name@company.com"
               value={formData.email}
               onChange={(e) => updateFormData('email', e.target.value)}
-              onBlur={() => {
-                handleBlur('email');
-                handleEmailCheck();
-              }}
-              className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] ${
+              onBlur={() => handleBlur('email')}
+              className={`h-10 bg-white/[0.03] text-white ${
                 errors.email
                   ? 'border-red-500/50 focus:border-red-500'
                   : 'border-white/[0.08] focus:border-white/[0.15]'
-                                }`}
-                              />
-                              {checkingEmail && (
-                    <p className="text-xs text-slate-500 mt-1.5">
-                      Checking email availability…
-                    </p>
-                  )}
-
-                  {errors.email && (
-                    <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
-                      <X className="w-3 h-3" />
-                      {errors.email}
-                    </p>
-                  )}
+              }`}
+            />
 
           </div>
 
