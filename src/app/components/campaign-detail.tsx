@@ -66,6 +66,10 @@ import { Skeleton } from "./ui/skeleton";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "./ui/utils";
 
+
+const { data: { user } } = await supabase.auth.getUser();
+console.log('USER:', user);
+
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
 }

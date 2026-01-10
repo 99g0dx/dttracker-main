@@ -9,7 +9,7 @@ import type {
 } from '../types/database';
 
 /**
- * Fetch all campaigns for the current user with aggregated stats
+ * Fetch all campaigns for the current user's workspace with aggregated stats
  */
 export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
   try {
@@ -18,7 +18,8 @@ export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Fetch campaigns with posts count and aggregated metrics
+    // RLS automatically filters campaigns by workspace
+    // No need to manually filter - the policy handles it!
     const { data: campaigns, error } = await supabase
       .from('campaigns')
       .select(`
@@ -71,6 +72,7 @@ export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
 
 /**
  * Fetch a single campaign by ID
+ * RLS automatically checks if user has access
  */
 export async function getById(id: string): Promise<ApiResponse<Campaign>> {
   try {
@@ -91,7 +93,7 @@ export async function getById(id: string): Promise<ApiResponse<Campaign>> {
 }
 
 /**
- * Create a new campaign
+ * Create a new campaign in the user's workspace
  */
 export async function create(campaign: CampaignInsert): Promise<ApiResponse<Campaign>> {
   try {
@@ -100,17 +102,33 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
       return { data: null, error: new Error('Not authenticated') };
     }
 
+    // Get user's workspace_id from team_members
+    const { data: memberData, error: memberError } = await supabase
+      .from('team_members')
+      .select('workspace_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (memberError || !memberData) {
+      return { 
+        data: null, 
+        error: new Error('User is not part of any workspace. Please contact support.') 
+      };
+    }
+
+    // Create campaign with workspace_id
     const { data, error } = await supabase
       .from('campaigns')
       .insert({
         ...campaign,
         user_id: user.id,
+        workspace_id: memberData.workspace_id, // Add workspace_id
       })
       .select()
       .single();
 
     if (error) {
-      // Provide a more helpful error message if table doesn't exist
+      // Provide helpful error messages
       if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
         return { 
           data: null, 
@@ -121,7 +139,6 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
         };
       }
       
-      // Check for RLS policy errors
       if (error.message?.includes('policy') || error.message?.includes('permission') || error.message?.includes('row-level security')) {
         return { 
           data: null, 
@@ -133,7 +150,6 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
         };
       }
       
-      // Check for constraint violations
       if (error.message?.includes('violates') || error.message?.includes('constraint')) {
         return { 
           data: null, 
@@ -144,7 +160,6 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
         };
       }
       
-      // Log full error for debugging
       console.error('Campaign creation error:', error);
       return { data: null, error: new Error(error.message || 'Failed to create campaign') };
     }
@@ -157,6 +172,7 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
 
 /**
  * Update an existing campaign
+ * RLS automatically checks if user has access
  */
 export async function update(id: string, updates: CampaignUpdate): Promise<ApiResponse<Campaign>> {
   try {
@@ -179,6 +195,7 @@ export async function update(id: string, updates: CampaignUpdate): Promise<ApiRe
 
 /**
  * Delete a campaign
+ * RLS automatically checks if user is admin/owner
  */
 export async function deleteCampaign(id: string): Promise<ApiResponse<void>> {
   try {
@@ -188,6 +205,13 @@ export async function deleteCampaign(id: string): Promise<ApiResponse<void>> {
       .eq('id', id);
 
     if (error) {
+      // Check if it's a permission error
+      if (error.message?.includes('policy') || error.message?.includes('permission')) {
+        return { 
+          data: null, 
+          error: new Error('You do not have permission to delete this campaign. Only admins and owners can delete campaigns.') 
+        };
+      }
       return { data: null, error };
     }
 
@@ -207,7 +231,21 @@ export async function duplicate(id: string): Promise<ApiResponse<Campaign>> {
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Fetch original campaign
+    // Get user's workspace_id
+    const { data: memberData, error: memberError } = await supabase
+      .from('team_members')
+      .select('workspace_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (memberError || !memberData) {
+      return { 
+        data: null, 
+        error: new Error('User is not part of any workspace.') 
+      };
+    }
+
+    // Fetch original campaign (RLS checks access automatically)
     const { data: original, error: fetchError } = await supabase
       .from('campaigns')
       .select('*')
@@ -218,11 +256,12 @@ export async function duplicate(id: string): Promise<ApiResponse<Campaign>> {
       return { data: null, error: fetchError || new Error('Campaign not found') };
     }
 
-    // Create duplicate
+    // Create duplicate with workspace_id
     const { data: duplicate, error: createError } = await supabase
       .from('campaigns')
       .insert({
         user_id: user.id,
+        workspace_id: memberData.workspace_id, // Add workspace_id
         name: `${original.name} (Copy)`,
         brand_name: original.brand_name,
         cover_image_url: original.cover_image_url,
