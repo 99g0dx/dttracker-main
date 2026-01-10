@@ -72,6 +72,10 @@ import { Carousel, CarouselContent, CarouselItem } from "./ui/carousel";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { PostCard } from "./post-card";
 
+
+const { data: { user } } = await supabase.auth.getUser();
+console.log('USER:', user);
+
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
 }
