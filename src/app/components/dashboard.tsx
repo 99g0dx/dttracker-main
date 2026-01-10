@@ -101,7 +101,6 @@ function formatReach(value: number): string {
 }
 
 
-
 export function Dashboard({ onNavigate }: DashboardProps) {
   const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
@@ -166,44 +165,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   };
 
   const activeFilterCount = filters.status.length + filters.budgetRange.length + filters.performance.length;
+  
 
   // Calculate real KPI metrics from campaigns
-  const kpiMetrics = useMemo(() => {
-  if (!timeSeriesData.length) {
-    return {
-      totalReach: '0',
-      totalReachValue: 0,
-      engagementRate: '0.0',
-      engagementRateValue: 0,
-      activeCreators: 0,
-      totalPosts: 0,
-    };
-  }
 
-  const totalReachValue = timeSeriesData.reduce(
-    (sum, p) => sum + p.reach,
-    0
-  );
-
-  const totalEngagementValue = timeSeriesData.reduce(
-    (sum, p) => sum + p.engagement,
-    0
-  );
-
-  const engagementRateValue =
-    totalReachValue > 0
-      ? (totalEngagementValue / totalReachValue) * 100
-      : 0;
-
-  return {
-    totalReach: formatReach(totalReachValue),
-    totalReachValue,
-    engagementRate: engagementRateValue.toFixed(1),
-    engagementRateValue,
-    activeCreators: allCreators.length,
-    totalPosts: allPosts.length,
-  };
-}, [timeSeriesData, allPosts, allCreators]);
 
 
   // Apply filters and search to campaigns
@@ -240,42 +205,121 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   // Fetch all posts across all campaigns for platform breakdown
   const [postsLoading, setPostsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchAllPosts = async (dateRange: DateRange) => {
-      if (campaigns.length === 0) {
+  interface KpiMetrics {
+  totalReach: string;
+  totalReachValue: number;
+  engagementRate: string;
+  engagementRateValue: number;
+  activeCreators: number;
+  totalPosts: number;
+}
+
+  const [kpiMetrics, setKpiMetrics] = useState<KpiMetrics>({
+  totalReach: '0',
+  totalReachValue: 0,
+  engagementRate: '0.0',
+  engagementRateValue: 0,
+  activeCreators: 0,
+  totalPosts: 0,
+});
+  
+  const postsInRange = useMemo(() => {
+  return allPosts.filter(post => {
+    const date = post.last_scraped_at || post.created_at || post.updated_at;
+    if (!date) return false;
+    const postTime = new Date(date).getTime();
+    return postTime >= dateRange.start.getTime() && postTime <= dateRange.end.getTime();
+  });
+}, [allPosts, dateRange]);
+
+ // Remove the useMemo for kpiMetrics entirely
+// Instead, just use state that gets set by your useEffect
+const campaignIds = useMemo(
+  () => campaigns.map(c => c.id).sort().join(','),
+  [campaigns]
+);
+
+useEffect(() => {
+  const fetchAllPosts = async (dateRange: DateRange) => {
+    if (campaigns.length === 0) {
+      setAllPosts([]);
+      setKpiMetrics({
+        totalReach: '0',
+        totalReachValue: 0,
+        engagementRate: '0.0',
+        engagementRateValue: 0,
+        activeCreators: 0,
+        totalPosts: 0,
+      });
+      setPostsLoading(false);
+      return;
+    }
+
+    try {
+      setPostsLoading(true);
+      const campaignIds = campaigns.map(c => c.id);
+      const { data, error } = await supabase
+        .from('posts')
+        .select('platform, views, likes, comments, shares, creator_id, last_scraped_at, created_at, updated_at')
+        .in('campaign_id', campaignIds)
+        .gte('last_scraped_at', dateRange.start.toISOString())
+        .lte('last_scraped_at', dateRange.end.toISOString());
+
+      if (error) {
         setAllPosts([]);
-        setPostsLoading(false);
-        return;
+        setKpiMetrics({
+          totalReach: '0',
+          totalReachValue: 0,
+          engagementRate: '0.0',
+          engagementRateValue: 0,
+          activeCreators: 0,
+          totalPosts: 0,
+        });
+      } else {
+        setAllPosts(data || []);
+
+        const postsInRange = (data || []).filter(post => {
+          const date = post.last_scraped_at || post.created_at || post.updated_at;
+          if (!date) return false;
+          const postTime = new Date(date).getTime();
+          return postTime >= dateRange.start.getTime() && postTime <= dateRange.end.getTime();
+        });
+
+        const totalReachValue = postsInRange.reduce((sum, p) => sum + Number(p.views || 0), 0);
+        const totalEngagementValue = postsInRange.reduce((sum, p) =>
+          sum + Number(p.likes || 0) + Number(p.comments || 0) + Number(p.shares || 0), 0
+        );
+        const engagementRateValue = totalReachValue > 0 ? (totalEngagementValue / totalReachValue) * 100 : 0;
+        const activeCreators = new Set(postsInRange.map(p => p.creator_id)).size;
+
+        setKpiMetrics({
+          totalReach: formatReach(totalReachValue),
+          totalReachValue,
+          engagementRate: engagementRateValue.toFixed(1),
+          engagementRateValue,
+          activeCreators,
+          totalPosts: postsInRange.length,
+        });
       }
+    } catch (err) {
+      setAllPosts([]);
+      setKpiMetrics({
+        totalReach: '0',
+        totalReachValue: 0,
+        engagementRate: '0.0',
+        engagementRateValue: 0,
+        activeCreators: 0,
+        totalPosts: 0,
+      });
+    } finally {
+      setPostsLoading(false);
+    }
+  };
 
-      try {
-        setPostsLoading(true);
-        const campaignIds = campaigns.map(c => c.id);
-        
-        const { data, error } = await supabase
-          .from('posts')
-          .select('platform, campaign_id')
-          .in('campaign_id', campaignIds)
-          .gte('last_scraped_at', dateRange.start.toISOString())
-          .lte('last_scraped_at', dateRange.end.toISOString());
+  fetchAllPosts(dateRange);
+}, [campaignIds, dateRange.start, dateRange.end]);
 
 
-        if (error) {
-          console.error('Error fetching posts for platform breakdown:', error);
-          setAllPosts([]);
-        } else {
-          setAllPosts(data || []);
-        }
-      } catch (err) {
-        console.error('Error fetching posts:', err);
-        setAllPosts([]);
-      } finally {
-        setPostsLoading(false);
-      }
-    };
-
-    fetchAllPosts(dateRange);
-  }, [campaigns, dateRange]);
 
   // Generate platform breakdown from real post data
   const platformData = useMemo(() => {
@@ -327,15 +371,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     // Data consistency check for platform breakdown
     if (process.env.NODE_ENV === 'development' && totalPosts > 0) {
       const percentageValid = totalPercentage >= 99.5 && totalPercentage <= 100.5;
-      console.log('[Platform Breakdown Consistency]', {
-        totalPosts,
-        platformCounts,
-        percentages: result.map(p => `${p.name}: ${p.count} posts (${p.value}%)`),
-        totalPercentage: `${totalPercentage.toFixed(1)}%`,
-        status: percentageValid ? '✓ Sums to 100%' : '⚠ Percentage mismatch',
-        'KPI Total Posts': kpiMetrics.totalPosts,
-        'Platform Posts Match': Math.abs(totalPosts - kpiMetrics.totalPosts) < 1 ? '✓ Aligned' : '⚠ Mismatch',
-      });
+      // console.log('[Platform Breakdown Consistency]', {
+      //   totalPosts,
+      //   platformCounts,
+      //   percentages: result.map(p => `${p.name}: ${p.count} posts (${p.value}%)`),
+      //   totalPercentage: `${totalPercentage.toFixed(1)}%`,
+      //   status: percentageValid ? '✓ Sums to 100%' : '⚠ Percentage mismatch',
+      //   'KPI Total Posts': kpiMetrics.totalPosts,
+      //   'Platform Posts Match': Math.abs(totalPosts - kpiMetrics.totalPosts) < 1 ? '✓ Aligned' : '⚠ Mismatch',
+      // });
       
       if (!percentageValid) {
         console.warn('[Platform Breakdown Warning]', 'Percentages do not sum to 100%. This may indicate a calculation error.');
@@ -354,126 +398,96 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   // Fetch time-series data for all campaigns
   
   const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
-
+  
 
   useEffect(() => {
-    const fetchAllTimeSeries = async () => {
-      if (campaigns.length === 0) {
+  const fetchAllTimeSeries = async () => {
+    if (campaigns.length === 0) {
+      setTimeSeriesData([]);
+      setTimeSeriesLoading(false);
+      return;
+    }
+
+    try {
+      setTimeSeriesLoading(true);
+      const campaignIds = campaigns.map(c => c.id);
+      
+      const { data, error } = await supabase
+        .from('posts')
+        .select('views, likes, comments, shares, last_scraped_at, created_at, updated_at, campaign_id')
+        .in('campaign_id', campaignIds)
+        .in('platform', ['tiktok', 'instagram'])
+        .gte('last_scraped_at', dateRange.start.toISOString())
+        .lte('last_scraped_at', dateRange.end.toISOString());
+
+      if (error) {
+        console.error('Error fetching time series data:', error);
         setTimeSeriesData([]);
-        setTimeSeriesLoading(false);
         return;
       }
 
-      try {
-        setTimeSeriesLoading(true);
-        const campaignIds = campaigns.map(c => c.id);
-        
-        // Fetch time series for all campaigns at once
-        const { data, error } = await supabase
-          .from('posts')
-          .select('views, likes, comments, shares, last_scraped_at, created_at, updated_at, campaign_id')
-          .in('campaign_id', campaignIds)
-          .in('platform', ['tiktok', 'instagram'])
-          .gte('last_scraped_at', dateRange.start.toISOString())
-          .lte('last_scraped_at', dateRange.end.toISOString());
-
-        if (error) {
-          console.error('Error fetching time series data:', error);
-          setTimeSeriesData([]);
-          return;
-        }
-
-        if (!data || data.length === 0) {
-          setTimeSeriesData([]);
-          return;
-        }
-
-        // Group metrics by date across all campaigns
-        const allTimeSeries: Record<string, { views: number; engagement: number }> = {};
-
-        data.forEach((post: any) => {
-          let dateStr: string;
-          if (post.last_scraped_at) {
-            dateStr = post.last_scraped_at.split('T')[0];
-          } else if (post.created_at) {
-            dateStr = post.created_at.split('T')[0];
-          } else if (post.updated_at) {
-            dateStr = post.updated_at.split('T')[0];
-          } else {
-            dateStr = new Date().toISOString().split('T')[0];
-          }
-
-          if (!allTimeSeries[dateStr]) {
-            allTimeSeries[dateStr] = { views: 0, engagement: 0 };
-          }
-
-          const views = Number(post.views || 0);
-          const likes = Number(post.likes || 0);
-          const comments = Number(post.comments || 0);
-          const shares = Number(post.shares || 0);
-          const engagement = likes + comments + shares;
-
-          allTimeSeries[dateStr].views += views;
-          allTimeSeries[dateStr].engagement += engagement;
-        });
-
-        // Convert to array and sort by date
-        const sortedData = Object.entries(allTimeSeries)
-          .map(([date, metrics]) => ({
-            date,
-            reach: metrics.views,
-            engagement: metrics.engagement,
-          }))
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-          .slice(-7); // Last 7 data points
-
-        // Format dates for display
-        const formattedData = sortedData.map(point => ({
-          date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          reach: point.reach,
-          engagement: point.engagement,
-        }));
-
-        // Verify totals match KPI metrics
-        const chartTotalReach = formattedData.reduce((sum, p) => sum + p.reach, 0);
-        const chartTotalEngagement = formattedData.reduce((sum, p) => sum + p.engagement, 0);
-        
-        // Data consistency check
-        if (process.env.NODE_ENV === 'development') {
-          const reachMatch = Math.abs(chartTotalReach - kpiMetrics.totalReachValue) < 1;
-          console.log('[Dashboard Data Consistency Check]', {
-            'KPI Metrics': {
-              totalReach: kpiMetrics.totalReachValue,
-              totalPosts: kpiMetrics.totalPosts,
-              engagementRate: kpiMetrics.engagementRateValue,
-            },
-            'Chart Totals': {
-              totalReach: chartTotalReach,
-              totalEngagement: chartTotalEngagement,
-              dataPoints: formattedData.length,
-            },
-            'Alignment Status': {
-              reach: reachMatch ? '✓ Aligned' : '⚠ Mismatch',
-            },
-          });
-
-          // Warn if there are inconsistencies
-          if (!reachMatch) {
-            console.warn('[Dashboard Warning]', 'Chart reach total does not match KPI card total. This may indicate a data inconsistency.');
-          }
-        }
-
-        setTimeSeriesData(formattedData);
-      } catch (err) {
-        console.error('Error fetching time series data:', err);
+      if (!data || data.length === 0) {
         setTimeSeriesData([]);
-      } finally {
-        setTimeSeriesLoading(false);
+        return;
       }
-    };
 
-    fetchAllTimeSeries();
-  }, [campaigns, dateRange, kpiMetrics.totalReachValue]);
+      // Group metrics by date across all campaigns
+      const allTimeSeries: Record<string, { views: number; engagement: number }> = {};
+
+      data.forEach((post: any) => {
+        let dateStr: string;
+        if (post.last_scraped_at) {
+          dateStr = post.last_scraped_at.split('T')[0];
+        } else if (post.created_at) {
+          dateStr = post.created_at.split('T')[0];
+        } else if (post.updated_at) {
+          dateStr = post.updated_at.split('T')[0];
+        } else {
+          dateStr = new Date().toISOString().split('T')[0];
+        }
+
+        if (!allTimeSeries[dateStr]) {
+          allTimeSeries[dateStr] = { views: 0, engagement: 0 };
+        }
+
+        const views = Number(post.views || 0);
+        const likes = Number(post.likes || 0);
+        const comments = Number(post.comments || 0);
+        const shares = Number(post.shares || 0);
+        const engagement = likes + comments + shares;
+
+        allTimeSeries[dateStr].views += views;
+        allTimeSeries[dateStr].engagement += engagement;
+      });
+
+      // Convert to array and sort by date
+      const sortedData = Object.entries(allTimeSeries)
+        .map(([date, metrics]) => ({
+          date,
+          reach: metrics.views,
+          engagement: metrics.engagement,
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(-7);
+
+      // Format dates for display
+      const formattedData = sortedData.map(point => ({
+        date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        reach: point.reach,
+        engagement: point.engagement,
+      }));
+
+      setTimeSeriesData(formattedData);
+    } catch (err) {
+      console.error('Error fetching time series data:', err);
+      setTimeSeriesData([]);
+    } finally {
+      setTimeSeriesLoading(false);
+    }
+  };
+
+  fetchAllTimeSeries();
+}, [campaignIds, dateRange.start, dateRange.end]);
   
   const handleExportCSV = () => {
       const rows: string[][] = [];
@@ -507,7 +521,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       // 4️⃣ Platform split
       if (platformData.length > 0) {
-        rows.push(["Platform", "Creators Count", "Percentage"]);
+        rows.push(["Platform", "Posts Count", "Percentage"]);
         platformData.forEach(platform => {
           rows.push([
             platform.name,
