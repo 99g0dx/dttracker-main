@@ -6,10 +6,35 @@ import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
+import { useEffect } from 'react';
 
 interface SignupProps {
   onNavigate: (path: string) => void;
 }
+
+const checkEmailExists = async (email: string): Promise<boolean> => {
+  if (!email || !email.includes('@')) return false;
+
+  try {
+    const res = await fetch(
+      'https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/checkEmail',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      }
+    );
+
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data.exists);
+  } catch {
+    return false;
+  }
+};
 
 export function Signup({ onNavigate }: SignupProps) {
   const navigate = useNavigate();
@@ -23,7 +48,14 @@ export function Signup({ onNavigate }: SignupProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState({
+    fullName: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
+const [emailExists, setEmailExists] = useState(false);
+
 
   // Password strength calculation
   const passwordStrength = useMemo(() => {
@@ -50,64 +82,121 @@ export function Signup({ onNavigate }: SignupProps) {
     number: /\d/.test(formData.password),
   }), [formData.password]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  // Check if password meets all requirements
+  const isPasswordValid = Object.values(passwordChecks).every(check => check);
 
-    // Validate password confirmation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      toast.error('Passwords do not match');
+  // Email validation
+  const isEmailValid = useMemo(() => {
+    if (!formData.email) return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(formData.email);
+  }, [formData.email]);
+
+  // Form validation
+  const errors = useMemo(() => ({
+  fullName: touched.fullName && !formData.fullName ? 'Full name is required' : null,
+
+  email:
+    touched.email && !formData.email
+      ? 'Email is required'
+      : touched.email && !isEmailValid
+      ? 'Please enter a valid email address'
+      : touched.email && emailExists
+      ? 'An account with this email already exists'
+      : null,
+
+  password: touched.password && !formData.password
+    ? 'Password is required'
+    : touched.password && !isPasswordValid
+    ? 'Password does not meet requirements'
+    : null,
+
+  confirmPassword:
+    touched.confirmPassword && !formData.confirmPassword
+      ? 'Please confirm your password'
+      : touched.confirmPassword && formData.password !== formData.confirmPassword
+      ? 'Passwords do not match'
+      : null,
+}), [formData, touched, isPasswordValid, isEmailValid, emailExists]);
+
+ 
+
+
+
+
+  const handleBlur = (field: keyof typeof touched) => {
+    setTouched({ ...touched, [field]: true });
+  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  setTouched({
+    fullName: true,
+    email: true,
+    password: true,
+    confirmPassword: true,
+  });
+
+  if (!isFormValid) {
+    toast.error('Please fix the errors above');
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    // ✅ Check email existence ONLY here
+    const exists = await checkEmailExists(formData.email);
+
+    if (exists) {
+      setEmailExists(true);
+      toast.error('An account with this email already exists');
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      // Sign up with Supabase
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone || undefined, // Optional phone
-          },
+    const { error } = await supabase.auth.signUp({
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/verification`,
+        data: {
+          full_name: formData.fullName,
+          phone: formData.phone || undefined,
         },
-      });
+      },
+    });
 
-      if (signUpError) {
-        setError(signUpError.message);
-        toast.error(signUpError.message);
-        setIsLoading(false);
-        return;
-      }
+    if (error) throw error;
 
-      if (data.user) {
-        // Check if email confirmation is required
-        // If confirmation is enabled, user will receive email and should verify
-        // If disabled, user is automatically signed in
-        toast.success('Account created successfully');
-        
-        // If email confirmation is required, navigate to verification
-        // Otherwise, navigate to onboarding (onboarding will check completion status)
-        if (data.user.email_confirmed_at) {
-          navigate('/onboarding');
-        } else {
-          navigate('/verification');
-        }
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setError(errorMessage);
-      toast.error(errorMessage);
-      setIsLoading(false);
-    }
-  };
+    localStorage.setItem('auth_mode', 'signup');
+    localStorage.setItem('pending_verification_email', formData.email);
+    toast.success('Account created! Check your email to verify.');
+    navigate('/verification');
 
-  const updateFormData = (field: string, value: string) => {
-    setFormData({ ...formData, [field]: value });
-  };
+  } catch (err: any) {
+    toast.error(err.message || 'Signup failed. Please try again.');
+    console.error(err);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const updateFormData = (field: keyof typeof formData, value: string) => {
+  setFormData(prev => ({ ...prev, [field]: value }));
+
+  if (field === 'email') {
+    setEmailExists(false);
+  }
+};
+
+  // Disable submit button if form is invalid
+  const isFormValid =
+  formData.fullName &&
+  isEmailValid &&
+  isPasswordValid &&
+  formData.password === formData.confirmPassword;
+
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
@@ -130,39 +219,60 @@ export function Signup({ onNavigate }: SignupProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Full Name */}
           <div>
             <label className="block text-sm text-slate-400 mb-2">
-              Full Name
+              Full Name <span className="text-red-400">*</span>
             </label>
             <Input
+              name="name" autoComplete="name"
               type="text"
               placeholder="Enter your full name"
               value={formData.fullName}
               onChange={(e) => updateFormData('fullName', e.target.value)}
-              required
-              className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15]"
+              className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] ${
+                errors.fullName
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-white/[0.08] focus:border-white/[0.15]'
+              }`}
             />
+            {errors.fullName && (
+              <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+                <X className="w-3 h-3" />
+                {errors.fullName}
+              </p>
+            )}
           </div>
 
+          {/* Email */}
           <div>
             <label className="block text-sm text-slate-400 mb-2">
-              Email
+              Email <span className="text-red-400">*</span>
             </label>
             <Input
+              name="email"
+              autoComplete="email"
               type="email"
               placeholder="name@company.com"
               value={formData.email}
               onChange={(e) => updateFormData('email', e.target.value)}
-              required
-              className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15]"
+              onBlur={() => handleBlur('email')}
+              className={`h-10 bg-white/[0.03] text-white ${
+                errors.email
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-white/[0.08] focus:border-white/[0.15]'
+              }`}
             />
+
           </div>
 
+          {/* Phone */}
           <div>
             <label className="block text-sm text-slate-400 mb-2">
               Phone <span className="text-slate-600">(optional)</span>
             </label>
             <Input
+              name="tel" autoComplete="tel"
               type="tel"
               placeholder="Enter your phone number"
               value={formData.phone}
@@ -171,32 +281,40 @@ export function Signup({ onNavigate }: SignupProps) {
             />
           </div>
 
+          {/* Password */}
           <div>
             <label className="block text-sm text-slate-400 mb-2">
-              Password
+              Password <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <Input
+                name="new-password" autoComplete="new-password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Create a password"
                 value={formData.password}
                 onChange={(e) => updateFormData('password', e.target.value)}
-                required
-                minLength={8}
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15] pr-10"
+                onBlur={() => handleBlur('password')}
+                className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] pr-10 ${
+                  errors.password
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : 'border-white/[0.08] focus:border-white/[0.15]'
+                }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-400 transition-colors"
               >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {errors.password && !formData.password && (
+              <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+                <X className="w-3 h-3" />
+                {errors.password}
+              </p>
+            )}
 
             {/* Password Strength Indicator */}
             {formData.password && (
@@ -246,54 +364,52 @@ export function Signup({ onNavigate }: SignupProps) {
             )}
           </div>
 
+          {/* Confirm Password */}
           <div>
             <label className="block text-sm text-slate-400 mb-2">
-              Confirm Password
+              Confirm Password <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <Input
+                name="new-password" autoComplete="new-password"
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Re-enter your password"
                 value={formData.confirmPassword}
                 onChange={(e) => updateFormData('confirmPassword', e.target.value)}
-                required
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15] pr-10"
+                onBlur={() => handleBlur('confirmPassword')}
+                className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] pr-10 ${
+                  errors.confirmPassword
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : formData.confirmPassword && formData.password === formData.confirmPassword
+                    ? 'border-green-500/50 focus:border-green-500'
+                    : 'border-white/[0.08] focus:border-white/[0.15]'
+                }`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-400 transition-colors"
               >
-                {showConfirmPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-              <p className="text-xs text-red-400 mt-2 flex items-center gap-1">
+            {errors.confirmPassword && (
+              <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
                 <X className="w-3 h-3" />
-                Passwords do not match
+                {errors.confirmPassword}
               </p>
             )}
             {formData.confirmPassword && formData.password === formData.confirmPassword && (
-              <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+              <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
                 <Check className="w-3 h-3" />
                 Passwords match
               </p>
             )}
           </div>
 
-          {error && (
-            <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
           <Button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !isFormValid}
             className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Creating account...' : 'Continue'}
