@@ -69,7 +69,6 @@ import { cn } from "./ui/utils";
 
 async function getUser() {
   const { data: { user } } = await supabase.auth.getUser();
-  console.log("USER:", user);
   return user;
 }
 
