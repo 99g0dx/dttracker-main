@@ -3,23 +3,22 @@
 // TypeScript interfaces matching Supabase database schema
 // ============================================================
 
-export type Platform =
-  | "tiktok"
-  | "instagram"
-  | "youtube"
-  | "twitter"
-  | "facebook";
+// ============================================================
+// ENUM TYPES
+// ============================================================
+
+export type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
 export type CampaignStatus = "active" | "paused" | "completed" | "archived";
-export type PostStatus =
-  | "pending"
-  | "scraped"
-  | "failed"
-  | "manual"
-  | "scraping";
+export type PostStatus = "pending" | "scraped" | "failed" | "manual" | "scraping";
 export type MemberRole = "owner" | "editor" | "viewer";
 export type TeamRole = "owner" | "admin" | "member" | "viewer";
 export type MemberStatus = "active" | "pending";
 export type ScopeType = "workspace" | "campaign" | "calendar";
+export type CreatorRequestStatus = "submitted" | "reviewing" | "quoted" | "approved" | "in_fulfillment" | "delivered";
+export type CampaignType = "music_promotion" | "brand_promotion" | "product_launch" | "event_activation" | "other";
+export type UsageRights = "creator_page_only" | "repost_brand_pages" | "run_ads" | "all_above";
+export type Urgency = "normal" | "fast_turnaround" | "asap";
+export type Deliverable = "tiktok_post" | "instagram_reel" | "instagram_story" | "youtube_short" | "other";
 
 // ============================================================
 // DATABASE TABLES
@@ -55,6 +54,7 @@ export interface Creator {
 
 export interface Campaign {
   id: string;
+  parent_campaign_id?: string | null;
   user_id: string;
   name: string;
   brand_name: string | null;
@@ -161,8 +161,36 @@ export interface CampaignShareLink {
   last_accessed_at: string | null;
 }
 
+export interface CreatorRequest {
+  id: string;
+  user_id: string;
+  status: CreatorRequestStatus;
+  campaign_type?: CampaignType | null;
+  campaign_brief?: string | null;
+  song_asset_links?: string[] | null;
+  deliverables?: Deliverable[] | null;
+  posts_per_creator?: number | null;
+  usage_rights?: UsageRights | null;
+  deadline?: string | null;
+  urgency?: Urgency | null;
+  contact_person_name?: string | null;
+  contact_person_email?: string | null;
+  contact_person_phone?: string | null;
+  quote_amount?: number | null;
+  quote_details?: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatorRequestItem {
+  id: string;
+  request_id: string;
+  creator_id: string;
+  created_at: string;
+}
+
 // ============================================================
-// INSERT TYPES (for creating new records)
+// INSERT TYPES
 // ============================================================
 
 export interface ProfileInsert {
@@ -190,6 +218,7 @@ export interface CreatorInsert {
 export interface CampaignInsert {
   user_id: string;
   name: string;
+  parent_campaign_id?: string | null;
   brand_name?: string | null;
   cover_image_url?: string | null;
   status?: CampaignStatus;
@@ -261,8 +290,29 @@ export interface CampaignShareLinkInsert {
   expires_at?: string | null;
 }
 
+export interface CreatorRequestInsert {
+  user_id: string;
+  campaign_type?: CampaignType | null;
+  campaign_brief?: string | null;
+  song_asset_links?: string[] | null;
+  deliverables?: Deliverable[] | null;
+  posts_per_creator?: number | null;
+  usage_rights?: UsageRights | null;
+  deadline?: string | null;
+  urgency?: Urgency | null;
+  contact_person_name?: string | null;
+  contact_person_email?: string | null;
+  contact_person_phone?: string | null;
+  creator_ids: string[]; // Array of creator IDs to associate with the request
+}
+
+export interface CreatorRequestItemInsert {
+  request_id: string;
+  creator_id: string;
+}
+
 // ============================================================
-// UPDATE TYPES (for updating existing records)
+// UPDATE TYPES
 // ============================================================
 
 export interface ProfileUpdate {
@@ -286,6 +336,7 @@ export interface CreatorUpdate {
 
 export interface CampaignUpdate {
   name?: string;
+  parent_campaign_id?: string | null;
   brand_name?: string | null;
   cover_image_url?: string | null;
   status?: CampaignStatus;
@@ -324,6 +375,20 @@ export interface CampaignShareLinkUpdate {
   is_password_protected?: boolean;
   expires_at?: string | null;
   last_accessed_at?: string | null;
+}
+
+export interface CreatorRequestUpdate {
+  campaign_type?: CampaignType | null;
+  campaign_brief?: string | null;
+  song_asset_links?: string[] | null;
+  deliverables?: Deliverable[] | null;
+  posts_per_creator?: number | null;
+  usage_rights?: UsageRights | null;
+  deadline?: string | null;
+  urgency?: Urgency | null;
+  contact_person_name?: string | null;
+  contact_person_email?: string | null;
+  contact_person_phone?: string | null;
 }
 
 // ============================================================
@@ -409,6 +474,18 @@ export interface CreatorPerformance {
 export interface CreatorWithStats extends Creator {
   campaigns: number;
   totalPosts: number;
+}
+
+export interface CreatorRequestWithCreators extends CreatorRequest {
+  creators: Creator[];
+}
+
+export interface CreatorRequestWithItems extends CreatorRequest {
+  items: Array<{
+    id: string;
+    creator: Creator;
+    created_at: string;
+  }>;
 }
 
 // ============================================================

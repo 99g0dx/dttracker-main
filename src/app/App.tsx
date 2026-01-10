@@ -32,6 +32,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useAuth } from "../contexts/AuthContext";
 import { cn } from "./components/ui/utils";
+import { Requests } from "./components/requests";
+
 
 function AppRoutes() {
   const location = useLocation();
@@ -87,6 +89,15 @@ function AppRoutes() {
       )}>
           <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
             <Routes>
+              <Route
+                  path="/requests"
+                  element={
+                    <ProtectedRoute>
+                      <Requests onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+
               {/* Public routes */}
               <Route
                 path="/home"
