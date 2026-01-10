@@ -11,13 +11,16 @@ serve(async (req) => {
   }
 
   try {
-    const { creators, campaignDetails, budget, agencyEmail, userEmail } = await req.json()
+    const { creators, campaignDetails, budget, userEmail } = await req.json()
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+
+    // Get From email address from environment, fallback to default
+    const resendFromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'Dobble Tap <no-reply@dttracker.app>';
 
     // Add validation logging
     console.log('=== Email Function Debug ===')
     console.log('Has API Key:', !!RESEND_API_KEY)
-    console.log('Agency Email:', agencyEmail)
+    console.log('From Email:', resendFromEmail)
     console.log('User Email:', userEmail)
     console.log('Creators Count:', creators?.length)
     console.log('Campaign Details:', campaignDetails?.substring(0, 50))
@@ -27,8 +30,8 @@ serve(async (req) => {
       throw new Error('RESEND_API_KEY is not configured')
     }
 
-    if (!agencyEmail) {
-      throw new Error('Agency email is missing')
+    if (!userEmail) {
+      throw new Error('User email is missing')
     }
 
     const res = await fetch('https://api.resend.com/emails', {
@@ -38,8 +41,9 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'onboarding@resend.dev',
-        to: [agencyEmail],
+        from: resendFromEmail,
+        to: ['agency@dobbletap.com'],
+        reply_to: userEmail,
         subject: `New Campaign Inquiry from ${userEmail}`,
         html: `<!DOCTYPE html>
 <html>
@@ -173,7 +177,14 @@ serve(async (req) => {
     console.log("Response Data:", JSON.stringify(resData, null, 2))
 
     if (!res.ok) {
-      throw new Error(`Resend API Error (${res.status}): ${JSON.stringify(resData)}`)
+      const errorMessage = resData?.message || resData?.error?.message || 'Unknown error';
+      console.error("Resend API Error Details:", {
+        status: res.status,
+        statusText: res.statusText,
+        error: resData,
+        message: errorMessage
+      });
+      throw new Error(`Resend API Error (${res.status}): ${errorMessage}. Check Supabase Edge Function logs for details.`)
     }
 
     return new Response(JSON.stringify({ 

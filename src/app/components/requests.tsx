@@ -15,10 +15,12 @@ import {
   Clock,
   FileText,
   DollarSign,
+  Trash2,
 } from "lucide-react";
 import {
   useCreatorRequests,
   useCreatorRequestWithCreators,
+  useDeleteCreatorRequest,
 } from "../../hooks/useCreatorRequests";
 import type { CreatorRequest, CreatorRequestStatus } from "../../lib/types/database";
 import { format, parseISO } from "date-fns";
@@ -72,10 +74,12 @@ const statusConfig: Record<
 
 export function Requests({ onNavigate }: RequestsProps) {
   const { data: requests = [], isLoading } = useCreatorRequests();
+  const deleteRequestMutation = useDeleteCreatorRequest();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<CreatorRequestStatus | "all">("all");
   const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const { data: requestDetails } = useCreatorRequestWithCreators(
     selectedRequest?.id || ""
@@ -113,6 +117,20 @@ export function Requests({ onNavigate }: RequestsProps) {
   const openViewDialog = (request: CreatorRequest) => {
     setSelectedRequest(request);
     setViewDialogOpen(true);
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    try {
+      await deleteRequestMutation.mutateAsync(id);
+      setDeleteConfirmId(null);
+      // Close view dialog if the deleted request was being viewed
+      if (selectedRequest?.id === id) {
+        setViewDialogOpen(false);
+        setSelectedRequest(null);
+      }
+    } catch (error) {
+      // Error toast is handled by the mutation
+    }
   };
 
   const statusCounts = useMemo(() => {
@@ -282,18 +300,32 @@ export function Requests({ onNavigate }: RequestsProps) {
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openViewDialog(request);
-                      }}
-                      className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openViewDialog(request);
+                        }}
+                        className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(request.id);
+                        }}
+                        className="border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300"
+                        disabled={deleteRequestMutation.isPending}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -306,21 +338,40 @@ export function Requests({ onNavigate }: RequestsProps) {
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-white">
-              Request Details
-            </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <div className="flex items-start justify-between">
+              <div>
+                <DialogTitle className="text-xl font-semibold text-white">
+                  Request Details
+                </DialogTitle>
+                <DialogDescription className="text-slate-400">
+                  {selectedRequest && (
+                    <>
+                      Status:{" "}
+                      <span
+                        className={`${statusConfig[selectedRequest.status].color} font-medium`}
+                      >
+                        {statusConfig[selectedRequest.status].label}
+                      </span>
+                    </>
+                  )}
+                </DialogDescription>
+              </div>
               {selectedRequest && (
-                <>
-                  Status:{" "}
-                  <span
-                    className={`${statusConfig[selectedRequest.status].color} font-medium`}
-                  >
-                    {statusConfig[selectedRequest.status].label}
-                  </span>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setViewDialogOpen(false);
+                    setDeleteConfirmId(selectedRequest.id);
+                  }}
+                  className="border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300"
+                  disabled={deleteRequestMutation.isPending}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
               )}
-            </DialogDescription>
+            </div>
           </DialogHeader>
 
           {requestDetails && (
@@ -469,6 +520,37 @@ export function Requests({ onNavigate }: RequestsProps) {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-white">
+              Delete Creator Request
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Are you sure you want to delete this request? This action cannot be undone. The agency will be notified of this deletion.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmId(null)}
+              className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+              disabled={deleteRequestMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => deleteConfirmId && handleDeleteRequest(deleteConfirmId)}
+              disabled={deleteRequestMutation.isPending}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              {deleteRequestMutation.isPending ? "Deleting..." : "Delete Request"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

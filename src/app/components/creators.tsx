@@ -819,9 +819,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         <TableHead className="text-slate-400 font-medium">
                           Location
                         </TableHead>
-                        <TableHead className="text-slate-400 font-medium">
-                          Agency
-                        </TableHead>
                         <TableHead className="text-slate-400 font-medium text-right">
                           Followers
                         </TableHead>
@@ -939,16 +936,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             <span className="text-sm text-slate-300">
                               {creator.location || "-"}
                             </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-xs text-slate-400">
-                              {creator.source_type === "scraper_extraction" &&
-                                "AI Scraper"}
-                              {creator.source_type === "csv_import" &&
-                                "CSV Import"}
-                              {creator.source_type === "manual" && "Manual"}
-                              {!creator.source_type && "Manual"}
-                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-white font-medium text-sm">

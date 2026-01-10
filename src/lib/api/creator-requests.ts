@@ -38,6 +38,25 @@ export async function createRequest(
 
     if (requestError || !createdRequest) {
       console.error('Error creating creator request:', requestError);
+      console.error('Error details:', {
+        message: requestError?.message,
+        details: requestError?.details,
+        hint: requestError?.hint,
+        code: requestError?.code
+      });
+      
+      // Provide more helpful error messages
+      if (requestError?.message?.includes('does not exist') || requestError?.message?.includes('schema cache')) {
+        return { 
+          data: null, 
+          error: new Error(
+            'Creator requests table not found. Please run database/migrations/add_creator_requests.sql ' +
+            'or database/fix_creator_requests_quick.sql in Supabase SQL Editor. ' +
+            'See FIX_CREATOR_REQUESTS_TABLE.md for instructions.'
+          ) 
+        };
+      }
+      
       return { data: null, error: requestError || new Error('Failed to create request') };
     }
 
@@ -57,6 +76,19 @@ export async function createRequest(
         // If items fail, we should probably rollback the request, but for now just log
         // In production, you'd want to use a transaction
       }
+    }
+
+    // Send email notification to agency (don't fail request creation if email fails)
+    try {
+      await supabase.functions.invoke('create-creator-request', {
+        body: {
+          request_id: createdRequest.id,
+          agencyEmail: 'agency@dobbletap.com',
+        },
+      });
+    } catch (emailError) {
+      console.error('Failed to send email notification to agency:', emailError);
+      // Don't throw - request was created successfully, email is secondary
     }
 
     // Fetch the request with creators
@@ -298,9 +330,22 @@ export async function updateRequestStatus(
 
 /**
  * Delete a creator request (users can only delete their own requests)
+ * Sends email notification to agency before deletion
  */
 export async function deleteRequest(id: string): Promise<ApiResponse<void>> {
   try {
+    // Send email notification to agency (don't fail deletion if email fails)
+    try {
+      await supabase.functions.invoke('notify-request-deletion', {
+        body: {
+          request_id: id,
+        },
+      });
+    } catch (emailError) {
+      console.error('Failed to send deletion notification email to agency:', emailError);
+      // Don't throw - proceed with deletion even if email fails
+    }
+
     // Items will be deleted automatically due to CASCADE
     const { error } = await supabase
       .from('creator_requests')
@@ -309,6 +354,21 @@ export async function deleteRequest(id: string): Promise<ApiResponse<void>> {
 
     if (error) {
       console.error('Error deleting creator request:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      // Provide helpful error message for missing RLS policy
+      if (error.code === '42501' || error.message?.includes('permission denied') || error.message?.includes('policy')) {
+        return { 
+          data: null, 
+          error: new Error(
+            'Cannot delete request. Missing DELETE policy. Please run database/add_creator_requests_delete_policy.sql in Supabase SQL Editor.'
+          ) 
+        };
+      }
       return { data: null, error };
     }
 

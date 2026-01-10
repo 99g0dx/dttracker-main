@@ -185,6 +185,7 @@ ADD COLUMN IF NOT EXISTS imported_by_user_id UUID REFERENCES auth.users(id) ON D
 -- Campaigns table
 CREATE TABLE IF NOT EXISTS public.campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parent_campaign_id UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   brand_name TEXT,
@@ -193,8 +194,14 @@ CREATE TABLE IF NOT EXISTS public.campaigns (
   start_date DATE,
   end_date DATE,
   notes TEXT,
+  share_enabled BOOLEAN NOT NULL DEFAULT false,
+  share_token TEXT UNIQUE,
+  share_created_at TIMESTAMPTZ,
+  share_expires_at TIMESTAMPTZ,
+  share_allow_export BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT campaigns_parent_not_self CHECK (parent_campaign_id IS NULL OR parent_campaign_id <> id)
 );
 
 -- Posts table
@@ -364,6 +371,84 @@ BEGIN
 END
 $$;
 
+-- Prevent nested subcampaigns and ensure parent has no posts
+CREATE OR REPLACE FUNCTION public.validate_campaign_parent()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.parent_campaign_id IS NOT NULL THEN
+    -- Parent campaigns cannot themselves be subcampaigns
+    IF EXISTS (
+      SELECT 1 FROM public.campaigns
+      WHERE id = NEW.parent_campaign_id
+      AND parent_campaign_id IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'Subcampaigns cannot have subcampaigns';
+    END IF;
+
+    -- Parent campaigns cannot already have posts
+    IF EXISTS (
+      SELECT 1 FROM public.posts
+      WHERE campaign_id = NEW.parent_campaign_id
+    ) THEN
+      RAISE EXCEPTION 'Parent campaigns cannot have posts';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'trg_validate_campaign_parent'
+  ) THEN
+    CREATE TRIGGER trg_validate_campaign_parent
+    BEFORE INSERT OR UPDATE OF parent_campaign_id ON public.campaigns
+    FOR EACH ROW EXECUTE FUNCTION public.validate_campaign_parent();
+  END IF;
+END
+$$;
+
+-- Prevent adding posts to parent campaigns
+CREATE OR REPLACE FUNCTION public.prevent_posts_on_parent()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.campaigns parent_campaign
+    WHERE parent_campaign.id = NEW.campaign_id
+    AND EXISTS (
+      SELECT 1 FROM public.campaigns child_campaign
+      WHERE child_campaign.parent_campaign_id = parent_campaign.id
+    )
+  ) THEN
+    RAISE EXCEPTION 'Parent campaigns cannot have posts';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'trg_prevent_posts_on_parent'
+  ) THEN
+    CREATE TRIGGER trg_prevent_posts_on_parent
+    BEFORE INSERT OR UPDATE OF campaign_id ON public.posts
+    FOR EACH ROW EXECUTE FUNCTION public.prevent_posts_on_parent();
+  END IF;
+END
+$$;
+
 -- Posts
 DO $$
 BEGIN
@@ -404,6 +489,8 @@ CREATE INDEX IF NOT EXISTS idx_creators_user_id ON public.creators(user_id);
 CREATE INDEX IF NOT EXISTS idx_creators_platform ON public.creators(platform);
 CREATE INDEX IF NOT EXISTS idx_campaigns_user_id ON public.campaigns(user_id);
 CREATE INDEX IF NOT EXISTS idx_campaigns_status ON public.campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_campaigns_parent_campaign_id ON public.campaigns(parent_campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_share_token ON public.campaigns(share_token) WHERE share_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_posts_campaign_id ON public.posts(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_posts_creator_id ON public.posts(creator_id);
 CREATE INDEX IF NOT EXISTS idx_posts_platform ON public.posts(platform);
@@ -725,7 +812,8 @@ BEGIN
 END
 $$;
 
--- UPDATE (users can update their own requests - limited fields, status can only be updated by admin/service role)
+-- UPDATE (users can update their own requests)
+-- Note: Status updates can be restricted later if needed via application logic
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -736,11 +824,7 @@ BEGIN
     CREATE POLICY "Users can update their own creator requests"
       ON public.creator_requests FOR UPDATE
       USING (auth.uid() = user_id)
-      WITH CHECK (
-        auth.uid() = user_id AND
-        -- Users can only update if status is still 'submitted' or 'reviewing'
-        (OLD.status IN ('submitted', 'reviewing') AND NEW.status IN ('submitted', 'reviewing'))
-      );
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END
 $$;

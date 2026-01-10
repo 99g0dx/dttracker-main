@@ -1,8 +1,8 @@
 -- ============================================================
--- MIGRATION: Add Creator Requests Tables
+-- QUICK FIX: Create Creator Requests Tables
 -- ============================================================
--- This migration adds tables for brands to request creators
--- from DTTracker's wider network
+-- Run this script in Supabase SQL Editor to create the
+-- creator_requests and creator_request_items tables
 -- ============================================================
 
 -- Creator requests table (for brands requesting creators from DTTracker's network)
@@ -97,8 +97,7 @@ BEGIN
 END
 $$;
 
--- UPDATE (users can update their own requests)
--- Note: Status updates can be restricted later if needed via application logic
+-- UPDATE (users can update their own requests - limited fields)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -109,7 +108,11 @@ BEGIN
     CREATE POLICY "Users can update their own creator requests"
       ON public.creator_requests FOR UPDATE
       USING (auth.uid() = user_id)
-      WITH CHECK (auth.uid() = user_id);
+      WITH CHECK (
+        auth.uid() = user_id AND
+        -- Users can only update if status is still 'submitted' or 'reviewing'
+        (OLD.status IN ('submitted', 'reviewing') AND NEW.status IN ('submitted', 'reviewing'))
+      );
   END IF;
 END
 $$;
