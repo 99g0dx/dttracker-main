@@ -1,11 +1,10 @@
 import React, { useId } from 'react';
-import { LayoutDashboard, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
 import { getCurrentUser, canAccessCalendar, canManageTeam, hasWorkspaceScope } from '../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
-import { CartSheet } from './ui/cart';
 
 interface NavItem {
   name: string;
@@ -18,6 +17,7 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: <LayoutDashboard className="w-5 h-5" /> },
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
+  { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
   { 
     name: 'Calendar', 
     href: '/calendar', 
@@ -156,7 +156,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
               );
             })}
             <li>
-              <CartSheet />
+              
             </li>
           </ul>
           
