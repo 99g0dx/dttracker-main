@@ -13,14 +13,25 @@ interface SignupProps {
 }
 
 const checkEmailExists = async (email: string) => {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      shouldCreateUser: false, // 👈 critical
-    },
-  });
+  try {
+    const response = await fetch("https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/checkEmail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
 
-  return !error; // true = email exists
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error checking email:", errorData);
+      return false;
+    }
+
+    const data = await response.json();
+    return data.exists; // true if email exists, false otherwise
+  } catch (err) {
+    console.error("Network error:", err);
+    return false;
+  }
 };
 
 
@@ -110,26 +121,25 @@ const [checkingEmail, setCheckingEmail] = useState(false);
  
 
   useEffect(() => {
-  if (!isEmailValid) {
-    setEmailExists(false);
-    return;
-  }
-
-  setCheckingEmail(true);
-
-  const timeout = setTimeout(async () => {
-    try {
-      const exists = await checkEmailExists(formData.email);
-      setEmailExists(exists);
-    } catch {
+    if (!isEmailValid) {
       setEmailExists(false);
-    } finally {
-      setCheckingEmail(false);
+      return;
     }
-  }, 500); // ⏱ debounce delay
 
-  return () => clearTimeout(timeout);
-}, [formData.email, isEmailValid]);
+    setCheckingEmail(true);
+
+    const timeout = setTimeout(async () => {
+      try {
+        const exists = await checkEmailExists(formData.email);
+        setEmailExists(exists);
+      } finally {
+        setCheckingEmail(false);
+      }
+    }, 500); // debounce
+
+    return () => clearTimeout(timeout);
+  }, [formData.email, isEmailValid]);
+
 
 
 
@@ -137,51 +147,40 @@ const [checkingEmail, setCheckingEmail] = useState(false);
     setTouched({ ...touched, [field]: true });
   };
 const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
+  setTouched({
+    fullName: true,
+    email: true,
+    password: true,
+    confirmPassword: true,
+  });
 
-    setTouched({
-      fullName: true,
-      email: true,
-      password: true,
-      confirmPassword: true,
-    });
+  if (!formData.fullName || !formData.email || !isEmailValid) {
+    toast.error('Please fill in all required fields correctly');
+    return;
+  }
 
-    if (!formData.fullName || !formData.email || !isEmailValid) {
-      toast.error('Please fill in all required fields correctly');
-      return;
-    }
+  if (!isPasswordValid) {
+    toast.error('Password does not meet security requirements');
+    return;
+  }
 
-    if (!isPasswordValid) {
-      toast.error('Password does not meet security requirements');
-      return;
-    }
+  if (formData.password !== formData.confirmPassword) {
+    toast.error('Passwords do not match');
+    return;
+  }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
+  setIsLoading(true);
 
-    setIsLoading(true);
+  try {
+    // 🔴 CHECK EMAIL FIRST USING SERVERLESS ENDPOINT
+    const exists = await checkEmailExists(formData.email);
+      setEmailExists(exists);
 
-    try {
-      // 🔴 CHECK EMAIL FIRST
-      const emailExists = await checkEmailExists(formData.email);
-
-      if (emailExists) {
-        toast.error('An account with this email already exists. Please sign in.');
-        return; // ⛔ HARD STOP
-      }
-
-      // ✅ SIGN UP
-      const { data, error } = await supabase.auth.signUp({
+    if (exists) {
+      // ✅ EMAIL EXISTS → LOGIN WITH OTP
+      const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone || undefined,
-          },
-        },
       });
 
       if (error) {
@@ -189,21 +188,46 @@ const handleSubmit = async (e: React.FormEvent) => {
         return;
       }
 
-      toast.success('Account created successfully! Please check your email.');
-
-      navigate(
-        data.user?.email_confirmed_at ? '/onboarding' : '/verification'
+      localStorage.setItem('pending_verification_email', formData.email);
+      toast.success(
+        'Email exists! A magic login link has been sent to your email.'
       );
-
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'An unexpected error occurred';
-      toast.error(errorMessage);
-    } finally {
-      // ✅ ALWAYS RESET LOADING
-      setIsLoading(false);
+      navigate('/verification');
+      return; // ⛔ STOP HERE
     }
-  };
+
+    // ✅ EMAIL DOESN’T EXIST → SIGNUP FLOW
+    const { data, error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          full_name: formData.fullName,
+          phone: formData.phone || undefined,
+        },
+      },
+    });
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    localStorage.setItem('pending_verification_email', formData.email);
+    toast.success('Account created successfully! Please check your email.');
+
+    navigate(
+      data.user?.email_confirmed_at ? '/onboarding' : '/verification'
+    );
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : 'An unexpected error occurred';
+    toast.error(errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const updateFormData = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
@@ -273,6 +297,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               type="email"
               placeholder="name@company.com"
               value={formData.email}
+              onFocus={() => checkEmailExists(formData.email)}
               onChange={(e) => updateFormData('email', e.target.value)}
               onBlur={() => handleBlur('email')}
               className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] ${
