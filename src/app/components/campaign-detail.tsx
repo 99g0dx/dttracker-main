@@ -716,7 +716,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       // Close dialog after 3 seconds if successful
       if (result.error_count === 0) {
         setTimeout(() => {
-          setShowImportDialog(false);
+          setShowImportPostsDialog(false);
           setImportResult(null);
         }, 3000);
       }
@@ -1217,291 +1217,440 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       </div>
 
       {/* Creators Section */}
-      {campaignCreators.length > 0 && (
-  <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
-    <CardContent className="p-5 md:p-6">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h3 className="text-lg font-bold text-white tracking-tight">Campaign Roster</h3>
-          <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
-            {filteredCreators.length} of {campaignCreators.length} Active Participants
-          </p>
-        </div>
+          {campaignCreators.length > 0 && (
+      <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
+        <CardContent className="p-5 md:p-6">
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-white tracking-tight">Campaign Roster</h3>
+              <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+                {filteredCreators.length} of {campaignCreators.length} Active Participants
+              </p>
+            </div>
 
-        {/* Optimized Filters */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 md:w-64 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
-            <Input
-              value={creatorSearchQuery}
-              onChange={(e) => setCreatorSearchQuery(e.target.value)}
-              placeholder="Quick search..."
-              className="h-10 pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
-            />
+            {/* Optimized Filters */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 md:w-64 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+                <Input
+                  value={creatorSearchQuery}
+                  onChange={(e) => setCreatorSearchQuery(e.target.value)}
+                  placeholder="Quick search..."
+                  className="h-10 pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
+                />
+              </div>
+              <select
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value)}
+                className="h-10 px-3 rounded-xl bg-zinc-950 border border-white/5 text-zinc-400 text-xs font-bold uppercase tracking-wider focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
+              >
+                <option value="all">All</option>
+                <option value="tiktok">TikTok</option>
+                <option value="instagram">Instagram</option>
+                <option value="youtube">YouTube</option>
+              </select>
+            </div>
           </div>
-          <select
-            value={selectedPlatform}
-            onChange={(e) => setSelectedPlatform(e.target.value)}
-            className="h-10 px-3 rounded-xl bg-zinc-950 border border-white/5 text-zinc-400 text-xs font-bold uppercase tracking-wider focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
-          >
-            <option value="all">All</option>
-            <option value="tiktok">TikTok</option>
-            <option value="instagram">Instagram</option>
-            <option value="youtube">YouTube</option>
-          </select>
-        </div>
-      </div>
 
-      {groupedCreators.length > 0 ? (
-        <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-          {groupedCreators.map((group) => {
-            const platformPosts = group.creators.reduce((total, creator) => {
-              return total + posts.filter((p) => p.creator_id === creator.id).length;
-            }, 0);
+          {groupedCreators.length > 0 ? (
+            <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {groupedCreators.map((group) => {
+                const platformPosts = group.creators.reduce((total, creator) => {
+                  return total + posts.filter((p) => p.creator_id === creator.id).length;
+                }, 0);
 
-            return (
-              <div key={group.platform} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {/* Platform Section Header */}
-                <div className="flex items-center gap-3 mb-4">
-                  <PlatformBadge platform={group.platform} />
-                  <div className="h-px flex-1 bg-white/5" />
-                  <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
-                    {group.creators.length} Creators • {platformPosts} Total Posts
-                  </span>
-                </div>
+                return (
+                  <div key={group.platform} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Platform Section Header */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <PlatformBadge platform={group.platform} />
+                      <div className="h-px flex-1 bg-white/5" />
+                      <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                        {group.creators.length} Creators • {platformPosts} Total Posts
+                      </span>
+                    </div>
 
-                {/* Optimized Grid Layout */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {group.creators.map((creator) => {
-                    const creatorPosts = posts.filter((p) => p.creator_id === creator.id);
-                    const hasPosts = creatorPosts.length > 0;
+                    {/* Optimized Grid Layout */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {group.creators.map((creator) => {
+                        const creatorPosts = posts.filter((p) => p.creator_id === creator.id);
+                        const hasPosts = creatorPosts.length > 0;
 
-                    return (
-                      <div
-                        key={creator.id}
-                        className={cn(
-                          "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer",
-                          hasPosts
-                            ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
-                            : "bg-zinc-900/40 border-white/5 hover:border-white/20"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Avatar with Status Pip */}
-                          <div className="relative shrink-0">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
-                              {creator.name.charAt(0).toUpperCase()}
+                        return (
+                          <div
+                            key={creator.id}
+                            className={cn(
+                              "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer",
+                              hasPosts
+                                ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
+                                : "bg-zinc-900/40 border-white/5 hover:border-white/20"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Avatar with Status Pip */}
+                              <div className="relative shrink-0">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
+                                  {creator.name.charAt(0).toUpperCase()}
+                                </div>
+                                {hasPosts && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
+                                  {creator.name}
+                                </div>
+                                <div className="text-[11px] text-zinc-500 truncate font-medium">
+                                  @{creator.handle}
+                                </div>
+                              </div>
                             </div>
+
+                            {/* Post Counter Badge */}
                             {hasPosts && (
-                              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                              <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                                <span className="text-[10px] font-bold text-emerald-500/80 uppercase">Active</span>
+                                <span className="text-[10px] font-mono text-zinc-400">
+                                  {creatorPosts.length} {creatorPosts.length === 1 ? 'POST' : 'POSTS'}
+                                </span>
+                              </div>
                             )}
                           </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
-                              {creator.name}
-                            </div>
-                            <div className="text-[11px] text-zinc-500 truncate font-medium">
-                              @{creator.handle}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Post Counter Badge */}
-                        {hasPosts && (
-                          <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
-                            <span className="text-[10px] font-bold text-emerald-500/80 uppercase">Active</span>
-                            <span className="text-[10px] font-mono text-zinc-400">
-                              {creatorPosts.length} {creatorPosts.length === 1 ? 'POST' : 'POSTS'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <EmptyState searchQuery={creatorSearchQuery} />
-      )}
-    </CardContent>
-  </Card>
-)}
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState searchQuery={creatorSearchQuery} />
+          )}
+        </CardContent>
+      </Card>
+    )}
 
       {/* Posts Table */}
-     <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
-  <CardContent className="p-0">
-    {/* 1. Header Section - Optimized for Responsivity */}
-    <div className="p-5 md:p-6 border-b border-white/[0.04] space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-bold text-white tracking-tight">Campaign Posts</h3>
-          <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
-            {posts.length} Total tracked performances
-          </p>
-        </div>
-        
-        {/* Primary Action Group */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
-          <button
-            onClick={() => setShowAddPostDialog(true)}
-            className="h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-bold flex items-center gap-2 rounded-lg transition-all shadow-lg shadow-primary/10 flex-shrink-0"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            Add Post
-          </button>
-          
-          <div className="h-8 w-px bg-white/10 hidden md:block" />
 
-          {/* Secondary Actions in a more compact style */}
-          <div className="flex items-center gap-1.5">
-             <button
-              onClick={() => setShowScrapeAllDialog(true)}
-              disabled={posts.length === 0}
-              className="h-9 w-9 md:w-auto md:px-3 rounded-lg bg-zinc-900 border border-white/5 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-30"
-              title="Scrape All"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span className="hidden md:inline">Scrape All</span>
-            </button>
-            
-            {/* Bulk Menu (Export, Delete All, etc.) */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="h-9 w-9 rounded-lg bg-zinc-900 border border-white/5 text-zinc-300 flex items-center justify-center hover:bg-zinc-800">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10 text-zinc-300">
-                <DropdownMenuItem onClick={handleExportCSV} className="gap-2 focus:bg-white/5">
-                  <Download className="w-4 h-4" /> Export CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleImportCreators} className="gap-2 focus:bg-white/5">
-                  <Upload className="w-4 h-4" /> Import Creators
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleImportPosts} className="gap-2 focus:bg-white/5">
-                  <Upload className="w-4 h-4" /> Import Posts
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-white/5" />
-                <DropdownMenuItem onClick={() => setShowDeleteAllDialog(true)} className="gap-2 text-red-400 focus:bg-red-500/10 focus:text-red-400">
-                  <Trash2 className="w-4 h-4" /> Delete All Posts
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+      /* Posts Table Section - Fixed Version */
+
+      <Card className="bg-[#0A0A0A] border-white/[0.08] overflow-hidden">
+        <CardContent className="p-0">
+          {/* Header Section - Same as before */}
+          <div className="p-6 border-b border-white/[0.08]">
+            {/* ... header content stays the same ... */}
           </div>
-        </div>
-      </div>
 
-      {/* 2. Filter & Search Bar - Cleaned up */}
-      <div className="flex flex-col lg:flex-row gap-3">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
-          <input
-            type="text"
-            placeholder="Search by creator handle or URL..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full pl-10 pr-4 bg-zinc-950 border border-white/5 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
-          />
-        </div>
-        
-        <div className="flex items-center gap-2 overflow-x-auto lg:overflow-visible">
-          <button
-            onClick={() => setShowTopPerformers(!showTopPerformers)}
-            className={cn(
-              "h-10 px-4 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all flex-shrink-0",
-              showTopPerformers 
-                ? "bg-primary/10 border-primary/30 text-primary" 
-                : "bg-zinc-950 border-white/5 text-zinc-500 hover:text-zinc-300"
-            )}
-          >
-            {showTopPerformers ? "Showing Top" : "Filter: Top Performers"}
-          </button>
+          {/* Table Content */}
+          <div className="overflow-x-auto">
+            {postsLoading ? (
+              <div className="p-6 space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <PostRowSkeleton key={i} />
+                ))}
+              </div>
+            ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
+              <>
+                <table className="w-full">
+                  <thead className="bg-white/[0.02] border-b border-white/[0.08]">
+                    <tr>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-16">
+                        Rank
+                      </th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Creator
+                      </th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Platform
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Views
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">
+                        Engagement
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Rate
+                      </th>
+                      <th className="text-center px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden lg:table-cell">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 w-20"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {/* Top 5 Posts Section */}
+                    {topPosts.length > 0 && (
+                      <>
+                        {topPosts.map((post, index) => {
+                          const postWithRanking = postsWithRankings.find(p => p.id === post.id);
+                          return (
+                            <tr 
+                              key={post.id} 
+                              className="group hover:bg-white/[0.02] transition-colors"
+                            >
+                              {/* Rank Column */}
+                              <td className="px-4 py-4 text-center">
+                                {postWithRanking?.positionEmoji && (
+                                  <span className="text-2xl">{postWithRanking.positionEmoji}</span>
+                                )}
+                              </td>
+                              
+                              {/* Creator Column */}
+                              <td className="px-6 py-4">
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-sm font-medium text-white truncate">
+                                    {post.creator?.name || 'Unknown'}
+                                  </span>
+                                  <span className="text-xs text-slate-500">
+                                    @{post.creator?.handle || 'unknown'}
+                                  </span>
+                                </div>
+                              </td>
+                              
+                              <td className="px-6 py-4">
+                                <PlatformBadge platform={post.platform} />
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="text-sm font-mono text-white">
+                                  {(post.views || 0).toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right hidden md:table-cell">
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <Heart className="w-3 h-3" />
+                                    <span>{(post.likes || 0).toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <MessageCircle className="w-3 h-3" />
+                                    <span>{(post.comments || 0).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="text-sm font-semibold text-emerald-400">
+                                  {(post.engagement_rate || 0).toFixed(1)}%
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center hidden lg:table-cell">
+                                <StatusBadge status={post.status} />
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {post.post_url && (
+                                    <button
+                                      onClick={() => window.open(post.post_url, '_blank')}
+                                      className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-white transition-colors"
+                                      title="View Post"
+                                    >
+                                      <ExternalLink className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      if (post.post_url && id) {
+                                        scrapePostMutation.mutate({ postId: post.id, campaignId: id });
+                                      }
+                                    }}
+                                    disabled={!post.post_url || post.status === 'scraping'}
+                                    className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title="Refresh Metrics"
+                                  >
+                                    <RefreshCw className={cn(
+                                      "w-4 h-4",
+                                      post.status === 'scraping' && "animate-spin"
+                                    )} />
+                                  </button>
+                                  <button
+                                    onClick={() => setShowDeletePostDialog(post.id)}
+                                    className="p-2 hover:bg-red-500/10 rounded-md text-slate-400 hover:text-red-400 transition-colors"
+                                    title="Delete Post"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {paginatedRemainingPosts.length > 0 && (
+                          <tr>
+                            <td colSpan={8} className="px-6 py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-px bg-white/[0.08]" />
+                                <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                  Other Posts
+                                </span>
+                                <div className="flex-1 h-px bg-white/[0.08]" />
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )}
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="h-10 w-[140px] bg-zinc-950 border-white/5 text-zinc-300 text-xs font-bold uppercase tracking-wider rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-white/10">
-              <SelectItem value="score">Score</SelectItem>
-              <SelectItem value="views">Views</SelectItem>
-              <SelectItem value="engagement">Engagement</SelectItem>
-              <SelectItem value="latest">Latest</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
+                    {/* Remaining Posts */}
+                    {paginatedRemainingPosts.map((post) => (
+                      <tr 
+                        key={post.id} 
+                        className="group hover:bg-white/[0.02] transition-colors"
+                      >
+                        {/* Rank Column - Trending Badge */}
+                        <td className="px-4 py-4 text-center">
+                          {post.badges?.trending && (
+                            <div className="inline-flex items-center justify-center w-12 h-6 rounded-full bg-orange-500/10 border border-orange-500/20">
+                              <span className="text-[10px] font-bold text-orange-400">🔥</span>
+                            </div>
+                          )}
+                        </td>
+                        
+                        {/* Creator Column */}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium text-white truncate">
+                              {post.creator?.name || 'Unknown'}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              @{post.creator?.handle || 'unknown'}
+                            </span>
+                          </div>
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <PlatformBadge platform={post.platform} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-mono text-white">
+                            {(post.views || 0).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right hidden md:table-cell">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <Heart className="w-3 h-3" />
+                              <span>{(post.likes || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <MessageCircle className="w-3 h-3" />
+                              <span>{(post.comments || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-semibold text-emerald-400">
+                            {(post.engagement_rate || 0).toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center hidden lg:table-cell">
+                          <StatusBadge status={post.status} />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {post.post_url && (
+                              <button
+                                onClick={() => window.open(post.post_url, '_blank')}
+                                className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-white transition-colors"
+                                title="View Post"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                if (post.post_url && id) {
+                                  scrapePostMutation.mutate({ postId: post.id, campaignId: id });
+                                }
+                              }}
+                              disabled={!post.post_url || post.status === 'scraping'}
+                              className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Refresh Metrics"
+                            >
+                              <RefreshCw className={cn(
+                                "w-4 h-4",
+                                post.status === 'scraping' && "animate-spin"
+                              )} />
+                            </button>
+                            <button
+                              onClick={() => setShowDeletePostDialog(post.id)}
+                              className="p-2 hover:bg-red-500/10 rounded-md text-slate-400 hover:text-red-400 transition-colors"
+                              title="Delete Post"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
-    {/* 3. Table Content - Improved Layout and Typography */}
-    {postsLoading ? (
-      <div className="space-y-0.5 p-4"><Skeleton className="h-20 w-full" /></div>
-    ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
-      <div className="overflow-x-auto scrollbar-hide">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-white/[0.04] bg-white/[0.01]">
-              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Creator</th>
-              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Platform</th>
-              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 text-right">Metrics</th>
-              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 text-right">Engagement</th>
-              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 text-right">Status</th>
-              <th className="px-4 py-4 w-20"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/[0.02]">
-            {/* Logic for rows remains similar, but use consistent spacing */}
-            {/* Example Row Structure below */}
-            {topPosts.map((post) => (
-              <tr key={post.id} className="group hover:bg-white/[0.02] transition-colors relative">
-                <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">
-                      {post.creator?.name || "Unknown"}
-                    </span>
-                    <span className="text-[11px] text-zinc-500 font-medium">@{post.creator?.handle}</span>
+                {/* Pagination - Same as before */}
+                {totalPages > 1 && (
+                  <div className="px-6 py-4 border-t border-white/[0.08] bg-white/[0.01]">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-slate-400">
+                        Showing {startIndex + 1} to {Math.min(startIndex + postsPerPage, remainingPosts.length)} of {remainingPosts.length} posts
+                      </p>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          variant="outline"
+                          className="h-9 px-3"
+                        >
+                          Previous
+                        </Button>
+                        
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (currentPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i;
+                            } else {
+                              pageNum = currentPage - 2 + i;
+                            }
+                            
+                            return (
+                              <Button
+                                key={i}
+                                onClick={() => setCurrentPage(pageNum)}
+                                variant={currentPage === pageNum ? "default" : "outline"}
+                                className="h-9 w-9 p-0"
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        
+                        <Button
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                          variant="outline"
+                          className="h-9 px-3"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </td>
-                <td className="px-6 py-4">
-                  <PlatformBadge platform={post.platform} />
-                </td>
-                <td className="px-6 py-4 text-right">
-                   <div className="flex flex-col items-end">
-                      <span className="text-sm font-mono text-zinc-300">
-                        {post.views?.toLocaleString() || '0'}
-                      </span>
-                      <span className="text-[10px] text-zinc-600 uppercase font-bold">Views</span>
-                   </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <span className="text-sm font-bold text-emerald-400">
-                    {post.engagement_rate?.toFixed(1) || '0.0'}%
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                   <StatusBadge status={post.status} />
-                </td>
-                <td className="px-4 py-4">
-                   <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-white/10 rounded-md text-zinc-400"><RefreshCw className="w-4 h-4" /></button>
-                      <button className="p-2 hover:bg-red-500/10 rounded-md text-red-500"><Trash2 className="w-4 h-4" /></button>
-                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    ) : (
-      <EmptyState />
-    )}
-  </CardContent>
-</Card>
-
+                )}
+              </>
+            ) : (
+              <EmptyState searchQuery={searchQuery} />
+            )}
+          </div>
+        </CardContent>
+      </Card>
       {/* Import Creators Dialog */}
       <ImportCreatorsDialog
         open={showImportCreatorsDialog}
