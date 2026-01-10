@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
-import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
-import { useCheckOnboarding } from '../../hooks/useOnboarding';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
+import { Loader, Mail, CheckCircle } from 'lucide-react';
 
 interface VerificationProps {
   onNavigate: (path: string) => void;
@@ -13,127 +12,187 @@ interface VerificationProps {
 
 export function Verification({ onNavigate }: VerificationProps) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { needsOnboarding } = useCheckOnboarding();
 
-  const [isVerifying, setIsVerifying] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(() =>
     localStorage.getItem('pending_verification_email')
   );
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [isResending, setIsResending] = useState(false);
+  const [linkClicked, setLinkClicked] = useState(false);
 
-
-  // Example using Supabase JS client
-
-
- useEffect(() => {
-  const verifyEmail = async () => {
-    // 1. Get params from query string (?)
-    let tokenHash = searchParams.get('token_hash') || searchParams.get('token');
-    let type = searchParams.get('type');
-
-    // 2. Fallback: Parse params from the URL hash (#) if query params are empty
-    if (!tokenHash && window.location.hash) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      tokenHash = hashParams.get('token_hash') || hashParams.get('access_token');
-      type = hashParams.get('type');
+  // Cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
+  }, [resendCooldown]);
 
-    console.log('Verification Details (Combined):', { tokenHash, type });
+  useEffect(() => {
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event);
 
-    if (!tokenHash) {
-      // If we still have nothing, don't throw an error immediately 
-      // as the page might be loading or user just landed here without a link.
-      setIsVerifying(false); 
-      return;
-    }
+      if (event === 'SIGNED_IN' && session) {
+        setLinkClicked(true);
+        
+        console.log('User authenticated:', session.user);
+        toast.success('Email verified! Redirecting...');
+        
+        // Clean up localStorage
+        localStorage.removeItem('pending_verification_email');
+        const authMode = localStorage.getItem('auth_mode');
+        localStorage.removeItem('auth_mode');
 
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: tokenHash,
-      type: (type as any) || 'signup', 
+        // Small delay so user sees the success message
+        setTimeout(async () => {
+          // Check if user needs onboarding
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('onboarding_completed')
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (authMode === 'signup' || !profile || !profile.onboarding_completed) {
+            navigate('/onboarding');
+          } else {
+            navigate('/');
+          }
+        }, 1000);
+      }
     });
 
-    if (error) {
-      setError(error.message);
-      setIsVerifying(false);
-      return;
+    // Check if already authenticated
+   
+
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+ useEffect(() => {
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session?.user?.email_confirmed_at) {
+      navigate('/');
     }
+  });
+}, [navigate]);
 
-    toast.success('Email verified successfully');
-    localStorage.removeItem('pending_verification_email');
-    navigate(needsOnboarding ? '/onboarding' : '/');
-  };
 
-  verifyEmail();
-}, [searchParams, navigate, needsOnboarding]);
-  const handleResend = async () => {
-    if (!userEmail) {
-      toast.error('Email address not found');
-      return;
-    }
+const handleResend = async () => {
+  if (!userEmail || resendCooldown > 0) return;
 
-    const { error } = await supabase.auth.resend({
-    type: 'signup',
-    email: userEmail!, // non-null
+  setIsResending(true);
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email: userEmail,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: `${window.location.origin}/verification`,
+    },
   });
 
+  setIsResending(false);
 
-  if (error?.message.includes('already verified')) {
-  toast.success('Email is already verified! You can log in now.');
-  navigate('/login');
-  return;
-}
+  if (error) {
+    toast.error(error.message);
+    return;
+  }
 
-
-  toast.success('Verification email sent');
+  toast.success('Verification email resent!');
+  setResendCooldown(60);
 };
+
+
+
+  const authMode = localStorage.getItem('auth_mode');
+  const isExistingUser = authMode === 'login';
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <button
-          onClick={() => onNavigate('/signup')}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-400 mb-12"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back</span>
-        </button>
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center gap-6 text-center">
+          <img src={logoImage} alt="DTTracker" className="w-10 h-10 object-contain" />
+          
+          {linkClicked ? (
+            // Success state - link was clicked
+            <>
+              <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-2xl font-semibold text-white">
+                  Verified!
+                </h1>
+                <p className="text-sm text-slate-500">
+                  Your email has been verified. Redirecting you now...
+                </p>
+              </div>
+            </>
+          ) : (
+            // Waiting for verification
+            <>
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Mail className="w-8 h-8 text-primary" />
+              </div>
+              
+              <div className="space-y-2">
+                <h1 className="text-2xl font-semibold text-white">
+                  Check your email
+                </h1>
+                <p className="text-sm text-slate-500">
+                  We sent a verification link to
+                </p>
+                <p className="text-sm font-medium text-white">
+                  {userEmail}
+                </p>
+              </div>
 
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-8">
-            <img src={logoImage} alt="DTTracker" className="w-7 h-7" />
-            <span className="font-semibold text-white">DTTracker</span>
-          </div>
+              <div className="w-full max-w-sm space-y-4">
+                <div className="p-4 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                  <p className="text-xs text-slate-400 text-left">
+                    Click the link in the email to verify your account. The page will automatically update once verified.
+                  </p>
+                </div>
 
-          <h1 className="text-2xl font-semibold text-white mb-2">
-            Verifying your email
-          </h1>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex-1 h-px bg-white/[0.08]" />
+                  <span>Didn't receive it?</span>
+                  <div className="flex-1 h-px bg-white/[0.08]" />
+                </div>
+              {userEmail && !linkClicked && (
+                <Button 
+                  onClick={handleResend} 
+                  disabled={resendCooldown > 0 || isResending}
+                  variant="outline"
+                  className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isResending 
+                    ? 'Sending...' 
+                    : resendCooldown > 0 
+                    ? `Resend in ${resendCooldown}s` 
+                    : 'Resend verification email'}
+                </Button>
+              )}
+                {resendCooldown > 0 && (
+                  <p className="text-xs text-slate-500">
+                    Please wait {resendCooldown}s before requesting another email
+                  </p>
+                )}
+              </div>
 
-          <p className="text-sm text-slate-500">
-            {userEmail
-              ? `Confirming ${userEmail}`
-              : 'Please wait while we verify your email'}
-          </p>
+              <button
+                onClick={() => navigate('/login')}
+                className="text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                Back to login
+              </button>
+            </>
+          )}
         </div>
-
-        {isVerifying && (
-          <div className="text-slate-400 text-sm">Verifying…</div>
-        )}
-
-        {error && (
-          <div className="p-3 mt-4 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            {error}
-          </div>
-        )}
-
-        {!isVerifying && error && (
-          <Button
-            onClick={handleResend}
-            className="w-full h-10 bg-white text-black mt-6"
-          >
-            Resend verification email
-          </Button>
-        )}
       </div>
     </div>
   );
