@@ -1453,7 +1453,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   <button
                                     onClick={() => {
                                       if (post.post_url && id) {
-                                        scrapePostMutation.mutate({ postId: post.id, campaignId: id });
+                                        scrapePostMutation.mutate({ postId: post.id, campaignId: id,
+                                         postUrl: post.post_url,
+                                          platform: post.platform, });
                                       }
                                     }}
                                     disabled={!post.post_url || post.status === 'scraping'}
