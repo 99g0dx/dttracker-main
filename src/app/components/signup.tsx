@@ -13,24 +13,27 @@ interface SignupProps {
 }
 
 const checkEmailExists = async (email: string) => {
+  if (!email || !email.includes('@') || email.length < 5) {
+    return { exists: false, isConfirmed: false };
+  }
   try {
     const response = await fetch("https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/checkEmail", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      headers: { "Content-Type": "application/json" ,
+                 "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Error checking email:", errorData);
-      return false;
-    }
+    if (!response.ok) return { exists: false, isConfirmed: false };
 
     const data = await response.json();
-    return data.exists; // true if email exists, false otherwise
+    return {
+      exists: data.exists ?? false,
+      isConfirmed: data.isConfirmed ?? false
+    };
   } catch (err) {
-    console.error("Network error:", err);
-    return false;
+    return { exists: false, isConfirmed: false };
   }
 };
 
@@ -120,25 +123,8 @@ const [checkingEmail, setCheckingEmail] = useState(false);
 
  
 
-  useEffect(() => {
-    if (!isEmailValid) {
-      setEmailExists(false);
-      return;
-    }
 
-    setCheckingEmail(true);
 
-    const timeout = setTimeout(async () => {
-      try {
-        const exists = await checkEmailExists(formData.email);
-        setEmailExists(exists);
-      } finally {
-        setCheckingEmail(false);
-      }
-    }, 500); // debounce
-
-    return () => clearTimeout(timeout);
-  }, [formData.email, isEmailValid]);
 
 
 
@@ -148,6 +134,8 @@ const [checkingEmail, setCheckingEmail] = useState(false);
   };
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+  
+  // 1. Mark all fields as touched to trigger UI error states immediately
   setTouched({
     fullName: true,
     email: true,
@@ -155,13 +143,14 @@ const handleSubmit = async (e: React.FormEvent) => {
     confirmPassword: true,
   });
 
+  // 2. Comprehensive Client-side Validation
   if (!formData.fullName || !formData.email || !isEmailValid) {
     toast.error('Please fill in all required fields correctly');
     return;
   }
-
+  
   if (!isPasswordValid) {
-    toast.error('Password does not meet security requirements');
+    toast.error('Password does not meet requirements');
     return;
   }
 
@@ -173,34 +162,41 @@ const handleSubmit = async (e: React.FormEvent) => {
   setIsLoading(true);
 
   try {
-    // 🔴 CHECK EMAIL FIRST USING SERVERLESS ENDPOINT
-    const exists = await checkEmailExists(formData.email);
-      setEmailExists(exists);
+    // 3. Precise Status Check
+    // We fetch current status directly to handle cases where 
+    // user autofilled and clicked 'Submit' faster than the debounce.
+    const result = await checkEmailExists(formData.email);
+    const exists = result?.exists || false;
+    const isConfirmed = result?.isConfirmed || false;
+    
+    // Update local state so UI reflects the most recent check
+    setEmailExists(exists);
 
-    if (exists) {
-      // ✅ EMAIL EXISTS → LOGIN WITH OTP
+    // 4. Case: User is already fully verified
+    if (exists && isConfirmed) {
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
+        options: { 
+          emailRedirectTo: `${window.location.origin}/verification`,
+          shouldCreateUser: false // Security: Don't create a new user here
+        }
       });
 
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+      if (error) throw error;
 
       localStorage.setItem('pending_verification_email', formData.email);
-      toast.success(
-        'Email exists! A magic login link has been sent to your email.'
-      );
+      toast.info('Account found! We sent a secure login link to your email.');
       navigate('/verification');
-      return; // ⛔ STOP HERE
+      return; 
     }
 
-    // ✅ EMAIL DOESN’T EXIST → SIGNUP FLOW
+    // 5. Case: New User OR Unconfirmed User
+    // Supabase .signUp() will resend the verification email for unconfirmed accounts.
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
       options: {
+        emailRedirectTo: `${window.location.origin}/verification`,
         data: {
           full_name: formData.fullName,
           phone: formData.phone || undefined,
@@ -208,21 +204,30 @@ const handleSubmit = async (e: React.FormEvent) => {
       },
     });
 
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) throw error;
 
     localStorage.setItem('pending_verification_email', formData.email);
-    toast.success('Account created successfully! Please check your email.');
+    
+    // Success feedback based on context
+    if (exists && !isConfirmed) {
+      toast.success('Found your pending account! Verification link resent.');
+    } else {
+      toast.success('Success! Check your email to verify your account.');
+    }
 
-    navigate(
-      data.user?.email_confirmed_at ? '/onboarding' : '/verification'
-    );
-  } catch (err) {
-    const errorMessage =
-      err instanceof Error ? err.message : 'An unexpected error occurred';
-    toast.error(errorMessage);
+    navigate('/verification');
+
+  } catch (err: any) {
+    // Graceful fallback for race conditions (e.g., user verified 
+    // between your check and the signup call)
+    if (err.message?.toLowerCase().includes('already registered')) {
+      toast.info('Sending a login link...');
+      await supabase.auth.signInWithOtp({ email: formData.email });
+      navigate('/verification');
+    } else {
+      toast.error(err.message || 'Signup failed. Please try again.');
+      console.error('Auth Error:', err);
+    }
   } finally {
     setIsLoading(false);
   }
@@ -230,9 +235,24 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 
   const updateFormData = (field: string, value: string) => {
-    setFormData({ ...formData, [field]: value });
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // If we are changing the email, we reset the "exists" error until we check again
+    if (field === 'email') {
+      setEmailExists(false);
+    }
   };
 
+  const handleEmailCheck = async () => {
+  if (!isEmailValid) return;
+
+  setCheckingEmail(true);
+  try {
+    const result = await checkEmailExists(formData.email);
+    setEmailExists(result.exists);
+  } finally {
+    setCheckingEmail(false);
+  }
+};
   // Disable submit button if form is invalid
   const isFormValid =
   formData.fullName &&
@@ -269,6 +289,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               Full Name <span className="text-red-400">*</span>
             </label>
             <Input
+              name="name" autoComplete="name"
               type="text"
               placeholder="Enter your full name"
               value={formData.fullName}
@@ -294,12 +315,15 @@ const handleSubmit = async (e: React.FormEvent) => {
               Email <span className="text-red-400">*</span>
             </label>
             <Input
+              name="email" autoComplete="email"
               type="email"
               placeholder="name@company.com"
               value={formData.email}
-              onFocus={() => checkEmailExists(formData.email)}
               onChange={(e) => updateFormData('email', e.target.value)}
-              onBlur={() => handleBlur('email')}
+              onBlur={() => {
+                handleBlur('email');
+                handleEmailCheck();
+              }}
               className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] ${
                 errors.email
                   ? 'border-red-500/50 focus:border-red-500'
@@ -327,6 +351,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               Phone <span className="text-slate-600">(optional)</span>
             </label>
             <Input
+              name="tel" autoComplete="tel"
               type="tel"
               placeholder="Enter your phone number"
               value={formData.phone}
@@ -342,6 +367,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             </label>
             <div className="relative">
               <Input
+                name="new-password" autoComplete="new-password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Create a password"
                 value={formData.password}
@@ -424,6 +450,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             </label>
             <div className="relative">
               <Input
+                name="new-password" autoComplete="new-password"
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Re-enter your password"
                 value={formData.confirmPassword}
