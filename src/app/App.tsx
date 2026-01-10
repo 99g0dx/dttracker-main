@@ -14,6 +14,7 @@ import { CampaignCreate } from "./components/campaign-create";
 import { CampaignEdit } from "./components/campaign-edit";
 import { Creators } from "./components/creators";
 import { CreatorScraper } from "./components/creator-scraper";
+import { Requests } from "./components/requests";
 import { Settings } from "./components/settings";
 import { TeamManagement } from "./components/team-management";
 import { Subscription } from "./components/subscription";
@@ -169,6 +170,14 @@ function AppRoutes() {
                 element={
                   <ProtectedRoute>
                     <CreatorScraper onNavigate={(path) => navigate(path)} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/requests"
+                element={
+                  <ProtectedRoute>
+                    <Requests onNavigate={(path) => navigate(path)} />
                   </ProtectedRoute>
                 }
               />

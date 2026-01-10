@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Plus, Search, Calendar, FileText, TrendingUp, MoreVertical, Edit2, Trash2, Copy, ArrowLeft } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { Plus, Search, Calendar, FileText, TrendingUp, MoreVertical, Edit2, Trash2, Copy, ArrowLeft, RefreshCw } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { CampaignCardSkeleton } from './ui/skeleton';
-import { useCampaigns, useDeleteCampaign, useDuplicateCampaign } from '../../hooks/useCampaigns';
+import { useCampaigns, useDeleteCampaign, useDuplicateCampaign, campaignsKeys } from '../../hooks/useCampaigns';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CampaignsProps {
   onNavigate: (path: string) => void;
@@ -17,9 +19,16 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
   const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
 
   // Fetch campaigns from database
-  const { data: campaigns = [], isLoading, error } = useCampaigns();
+  const { data: campaigns = [], isLoading, error, refetch } = useCampaigns();
+  const queryClient = useQueryClient();
   const deleteCampaignMutation = useDeleteCampaign();
   const duplicateCampaignMutation = useDuplicateCampaign();
+  
+  const handleRetry = () => {
+    // Clear the cache and refetch
+    queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+    refetch();
+  };
 
   const filteredCampaigns = campaigns.filter(campaign =>
     campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -130,7 +139,14 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
               <FileText className="w-6 h-6 text-red-400" />
             </div>
             <h3 className="text-base font-semibold text-white mb-1">Failed to load campaigns</h3>
-            <p className="text-sm text-slate-400">{error.message}</p>
+            <p className="text-sm text-slate-400 mb-4 text-center max-w-md">{error.message}</p>
+            <Button
+              onClick={handleRetry}
+              className="h-9 px-4 bg-primary hover:bg-primary/90 text-black"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -253,7 +269,14 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                         </p>
                       )}
                     </div>
-                    <StatusBadge status={campaign.status} />
+                    <div className="flex flex-col items-end gap-1">
+                      <StatusBadge status={campaign.status} />
+                      {campaign.subcampaigns_count > 0 && (
+                        <Badge variant="secondary" className="text-[10px] bg-white/[0.06] text-slate-300">
+                          🗂️ {campaign.subcampaigns_count} subcampaigns
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {/* Metrics Row */}

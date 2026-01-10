@@ -24,6 +24,7 @@ import {
 import { StatusBadge } from "./status-badge";
 import { PlatformBadge } from "./platform-badge";
 import { CampaignHeaderSkeleton, PostRowSkeleton } from "./ui/skeleton";
+import { cn } from "./ui/utils";
 import {
   Select,
   SelectContent,
@@ -43,13 +44,17 @@ import {
 import { useCampaign } from "../../hooks/useCampaigns";
 import {
   usePosts,
-  useCampaignMetrics,
   useCampaignMetricsTimeSeries,
   useDeletePost,
   useDeleteAllPosts,
   useCreateManyPosts,
   postsKeys,
 } from "../../hooks/usePosts";
+import {
+  useCampaignHierarchyMetrics,
+  useIsParentCampaign,
+  subcampaignsKeys,
+} from "../../hooks/useSubcampaigns";
 import { useScrapeAllPosts, useScrapePost } from "../../hooks/useScraping";
 import { addNotification } from "../../lib/utils/notifications";
 import { useCreatorsByCampaign } from "../../hooks/useCreators";
@@ -59,8 +64,13 @@ import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
+import { SubcampaignSection } from "./subcampaign-section";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Carousel, CarouselContent, CarouselItem } from "./ui/carousel";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { PostCard } from "./post-card";
 
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
@@ -91,6 +101,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     null
   );
   const [renderError, setRenderError] = useState<Error | null>(null);
+  const [activeMetric, setActiveMetric] = useState<
+    "views" | "likes" | "comments" | "shares"
+  >("views");
   const postsPerPage = 10;
 
   // Validate ID
@@ -160,14 +173,16 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     isLoading: campaignLoading,
     error: campaignError,
   } = useCampaign(id);
+  const { data: isParent } = useIsParentCampaign(id || "");
   const {
     data: posts = [],
     isLoading: postsLoading,
     refetch: refetchPosts,
-  } = usePosts(id);
-  const { data: metrics, refetch: refetchMetrics } = useCampaignMetrics(id);
+  } = usePosts(id, Boolean(isParent));
+  const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
   const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
+  const metrics = hierarchyMetrics?.aggregated_metrics;
 
   const deletePostMutation = useDeletePost();
   const deleteAllPostsMutation = useDeleteAllPosts();
@@ -182,8 +197,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     if (!id) return;
 
     const refetch = () => {
-      queryClient.refetchQueries({ queryKey: postsKeys.list(id) });
-      queryClient.refetchQueries({ queryKey: postsKeys.campaignMetrics(id) });
+      queryClient.refetchQueries({
+        queryKey: postsKeys.list(id, Boolean(isParent)),
+      });
+      queryClient.refetchQueries({ queryKey: subcampaignsKeys.metrics(id) });
     };
 
     // Track when mutations occur
@@ -260,7 +277,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
       // Refetch after reset
       setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: postsKeys.list(id) });
+        queryClient.refetchQueries({ queryKey: postsKeys.lists() });
       }, 1000);
     }
   }, [posts, id, queryClient]);
@@ -806,29 +823,40 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-24 lg:pt-0">
+      {campaign?.parent_campaign_id && (
+        <button
+          onClick={() =>
+            onNavigate(`/campaigns/${campaign.parent_campaign_id}`)
+          }
+          className="text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Parent Campaign
+        </button>
+      )}
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mt-4 sm:mt-0">
         <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white truncate">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words sm:truncate">
                   {campaign.name}
                 </h1>
                 {campaign.brand_name && (
-                  <p className="text-sm text-slate-400 mt-1">
+                  <p className="text-sm text-slate-400 mt-1 break-words">
                     {campaign.brand_name}
                   </p>
                 )}
               </div>
-              <StatusBadge status={campaign.status} />
+              <StatusBadge status={campaign.status} className="flex-shrink-0" />
             </div>
           </div>
         </div>
@@ -836,7 +864,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowShareLinkModal(true)}
-              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              className="h-11 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
             >
               <Share2 className="w-4 h-4" />
               <span className="hidden sm:inline">Share Link</span>
@@ -844,7 +872,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </button>
             <button
               onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
-              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              className="h-11 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
             >
               <Edit2 className="w-4 h-4" />
               <span className="hidden sm:inline">Edit Campaign</span>
@@ -915,66 +943,337 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       )}
 
       {/* KPI Cards - Performance Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Eye className="w-5 h-5 text-primary" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
               {(metrics?.total_views ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Views</p>
+            <p className="text-[11px] sm:text-sm text-slate-400">Total Views</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                <Heart className="w-5 h-5 text-pink-400" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
               {(metrics?.total_likes ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Likes</p>
+            <p className="text-[11px] sm:text-sm text-slate-400">Total Likes</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-cyan-400" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
               {(metrics?.total_comments ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Comments</p>
+            <p className="text-[11px] sm:text-sm text-slate-400">
+              Total Comments
+            </p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Share2 className="w-5 h-5 text-purple-400" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
               {(metrics?.total_shares ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Shares</p>
+            <p className="text-[11px] sm:text-sm text-slate-400">
+              Total Shares
+            </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Performance Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Mobile: Tabbed Interface */}
+      <Tabs
+        value={activeMetric}
+        onValueChange={(value) => setActiveMetric(value as typeof activeMetric)}
+        className="lg:hidden"
+      >
+        <TabsList className="grid w-full grid-cols-4 h-11 bg-white/[0.03] border border-white/[0.08] p-1">
+          <TabsTrigger
+            value="views"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Views</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="likes"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <Heart className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Likes</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="comments"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Comments</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="shares"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Shares</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent
+          value="views"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-primary" />
+                  Views Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="views"
+                    stroke="#0ea5e9"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="likes"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-pink-400" />
+                  Likes Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="likes"
+                    stroke="#ec4899"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="comments"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-cyan-400" />
+                  Comments Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="comments"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="shares"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-purple-400" />
+                  Shares Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="shares"
+                    stroke="#a855f7"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Desktop: Keep existing 2x2 grid */}
+      <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Views Over Time */}
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-6">
@@ -1184,51 +1483,56 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </Card>
       </div>
 
+      {isParent && campaign && (
+        <SubcampaignSection
+          parentCampaignId={campaign.id}
+          parentCampaignName={campaign.name}
+          parentBrandName={campaign.brand_name || null}
+        />
+      )}
+
       {/* Creators Section */}
       {campaignCreators.length > 0 && (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
+        <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
+          <CardContent className="p-5 md:p-6">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div>
-                <h3 className="text-base font-semibold text-white">
-                  Available Creators
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Campaign Roster
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">
-                  {filteredCreators.length} of {campaignCreators.length} creator
-                  {campaignCreators.length !== 1 ? "s" : ""}
-                  {(selectedPlatform !== "all" || creatorSearchQuery) &&
-                    " (filtered)"}
+                <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+                  {filteredCreators.length} of {campaignCreators.length} Active
+                  Participants
                 </p>
               </div>
-            </div>
 
-            {/* Search and Filter Controls */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  value={creatorSearchQuery}
-                  onChange={(e) => setCreatorSearchQuery(e.target.value)}
-                  placeholder="Search creators by name or handle..."
-                  className="h-9 pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500 focus:bg-white/[0.05] focus:border-primary/50"
-                />
+              {/* Optimized Filters */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 md:w-64 group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+                  <Input
+                    value={creatorSearchQuery}
+                    onChange={(e) => setCreatorSearchQuery(e.target.value)}
+                    placeholder="Quick search..."
+                    className="h-10 pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
+                  />
+                </div>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="h-10 px-3 rounded-xl bg-zinc-950 border border-white/5 text-zinc-400 text-xs font-bold uppercase tracking-wider focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
+                >
+                  <option value="all">All</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="youtube">YouTube</option>
+                </select>
               </div>
-              <select
-                value={selectedPlatform}
-                onChange={(e) => setSelectedPlatform(e.target.value)}
-                className="h-9 px-3 rounded-md bg-white/[0.03] border border-white/[0.08] text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors appearance-none cursor-pointer"
-              >
-                <option value="all">All Platforms</option>
-                <option value="tiktok">TikTok</option>
-                <option value="instagram">Instagram</option>
-                <option value="youtube">YouTube</option>
-                <option value="twitter">Twitter</option>
-                <option value="facebook">Facebook</option>
-              </select>
             </div>
 
             {groupedCreators.length > 0 ? (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {groupedCreators.map((group) => {
                   const platformPosts = group.creators.reduce(
                     (total, creator) => {
@@ -1241,62 +1545,144 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   );
 
                   return (
-                    <div key={group.platform} className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <PlatformBadge platform={group.platform} />
-                          <span className="text-sm text-slate-400">
-                            {group.creators.length} creator
-                            {group.creators.length !== 1 ? "s" : ""}
-                            {platformPosts > 0 && (
-                              <span className="ml-2 text-emerald-400">
-                                • {platformPosts} post
-                                {platformPosts !== 1 ? "s" : ""}
-                              </span>
-                            )}
-                          </span>
-                        </div>
+                    <div
+                      key={group.platform}
+                      className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+                    >
+                      {/* Platform Section Header */}
+                      <div className="flex items-center gap-3 mb-4">
+                        <PlatformBadge platform={group.platform} />
+                        <div className="h-px flex-1 bg-white/5" />
+                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                          {group.creators.length} Creators • {platformPosts}{" "}
+                          Total Posts
+                        </span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+                      {/* Mobile: Horizontal Carousel */}
+                      <Carousel
+                        opts={{
+                          align: "start",
+                          slidesToScroll: 1,
+                          dragFree: true,
+                        }}
+                        className="md:hidden"
+                      >
+                        <CarouselContent className="-ml-2">
+                          {group.creators.map((creator) => {
+                            const creatorPosts = posts.filter(
+                              (p) => p.creator_id === creator.id
+                            );
+                            const hasPosts = creatorPosts.length > 0;
+
+                            return (
+                              <CarouselItem
+                                key={creator.id}
+                                className="pl-2 basis-[45%] sm:basis-[31%]"
+                              >
+                                <div
+                                  className={cn(
+                                    "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer h-full",
+                                    hasPosts
+                                      ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
+                                      : "bg-zinc-900/40 border-white/5 hover:border-white/20"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    {/* Avatar with Status Pip */}
+                                    <div className="relative shrink-0">
+                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
+                                        {creator.name.charAt(0).toUpperCase()}
+                                      </div>
+                                      {hasPosts && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                                      )}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
+                                        {creator.name}
+                                      </div>
+                                      <div className="text-[11px] text-zinc-500 truncate font-medium">
+                                        @{creator.handle}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Post Counter Badge */}
+                                  {hasPosts && (
+                                    <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                                      <span className="text-[10px] font-bold text-emerald-500/80 uppercase">
+                                        Active
+                                      </span>
+                                      <span className="text-[10px] font-mono text-zinc-400">
+                                        {creatorPosts.length}{" "}
+                                        {creatorPosts.length === 1
+                                          ? "POST"
+                                          : "POSTS"}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </CarouselItem>
+                            );
+                          })}
+                        </CarouselContent>
+                      </Carousel>
+
+                      {/* Desktop: Grid Layout */}
+                      <div className="hidden md:grid grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
                         {group.creators.map((creator) => {
                           const creatorPosts = posts.filter(
                             (p) => p.creator_id === creator.id
                           );
                           const hasPosts = creatorPosts.length > 0;
+
                           return (
                             <div
                               key={creator.id}
-                              className={`p-3 rounded-lg border transition-colors ${
+                              className={cn(
+                                "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer",
                                 hasPosts
-                                  ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/30"
-                                  : "bg-white/[0.03] border-white/[0.08] hover:border-white/[0.12]"
-                              }`}
+                                  ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
+                                  : "bg-zinc-900/40 border-white/5 hover:border-white/20"
+                              )}
                             >
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                                  {creator.name.charAt(0).toUpperCase()}
+                                {/* Avatar with Status Pip */}
+                                <div className="relative shrink-0">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
+                                    {creator.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  {hasPosts && (
+                                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                                  )}
                                 </div>
+
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-white truncate">
+                                  <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
                                     {creator.name}
                                   </div>
-                                  <div className="text-xs text-slate-400 truncate">
+                                  <div className="text-[11px] text-zinc-500 truncate font-medium">
                                     @{creator.handle}
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    {hasPosts ? (
-                                      <span className="text-xs text-emerald-400 font-medium">
-                                        {creatorPosts.length} post
-                                        {creatorPosts.length !== 1 ? "s" : ""}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-slate-500">
-                                        No posts yet
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                               </div>
+
+                              {/* Post Counter Badge */}
+                              {hasPosts && (
+                                <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                                  <span className="text-[10px] font-bold text-emerald-500/80 uppercase">
+                                    Active
+                                  </span>
+                                  <span className="text-[10px] font-mono text-zinc-400">
+                                    {creatorPosts.length}{" "}
+                                    {creatorPosts.length === 1
+                                      ? "POST"
+                                      : "POSTS"}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1306,32 +1692,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 })}
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-slate-400 mb-2">
-                  {creatorSearchQuery || selectedPlatform !== "all"
-                    ? "No creators found matching your filters."
-                    : "No creators available"}
-                </p>
-                {(creatorSearchQuery || selectedPlatform !== "all") && (
-                  <button
-                    onClick={() => {
-                      setCreatorSearchQuery("");
-                      setSelectedPlatform("all");
-                    }}
-                    className="text-sm text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-            )}
-            {posts.length === 0 && (
-              <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-sm text-primary">
-                  💡 Tip: Use "Add Post" to add posts for these creators. The
-                  system will automatically match creators by handle.
-                </p>
-              </div>
+              <EmptyState searchQuery={creatorSearchQuery} />
             )}
           </CardContent>
         </Card>
@@ -1340,19 +1701,21 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       {/* Posts Table */}
       <Card className="bg-[#0D0D0D] border-white/[0.08]">
         <CardContent className="p-0">
-          <div className="p-6 border-b border-white/[0.08]">
-            <div className="flex items-center justify-between mb-4">
+          <div className="p-4 sm:p-6 border-b border-white/[0.08]">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3 sm:mb-4">
               <div>
-                <h3 className="text-base font-semibold text-white">Posts</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-white">
+                  Posts
+                </h3>
                 <p className="text-sm text-slate-400 mt-0.5">
                   Track creator posts and performance
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-wrap md:gap-2 md:w-auto">
                 <button
                   onClick={() => setShowScrapeAllDialog(true)}
                   disabled={posts.length === 0}
-                  className="h-9 px-3 rounded-md bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-11 px-2 rounded-md bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Scrape All Posts
@@ -1360,7 +1723,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 <button
                   onClick={handleExportCSV}
                   disabled={posts.length === 0}
-                  className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-11 px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[11px] sm:text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
                 >
                   <Download className="w-4 h-4" />
                   Export CSV
@@ -1368,56 +1731,38 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 <button
                   onClick={() => setShowDeleteAllDialog(true)}
                   disabled={posts.length === 0}
-                  className="h-9 px-3 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-11 px-2 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete All Posts
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowTopPerformers(!showTopPerformers)}
-                className={`h-9 px-3 rounded-md border text-sm font-medium flex items-center gap-2 transition-colors ${
-                  showTopPerformers
-                    ? "bg-primary/20 border-primary/30 text-primary"
-                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                }`}
-              >
-                {showTopPerformers ? "All Posts" : "Top Performers"}
-              </button>
-              <Select
-                value={sortBy}
-                onValueChange={(
-                  value: "score" | "views" | "engagement" | "latest"
-                ) => setSortBy(value)}
-              >
-                <SelectTrigger className="h-9 w-[160px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="score">Sort by: Score</SelectItem>
-                  <SelectItem value="views">Sort by: Views</SelectItem>
-                  <SelectItem value="engagement">
-                    Sort by: Engagement
-                  </SelectItem>
-                  <SelectItem value="latest">Sort by: Latest</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Search posts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-full pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
+            <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-wrap md:items-center md:gap-3">
+              <div className="hidden md:block w-full md:w-auto">
+                <Select
+                  value={sortBy}
+                  onValueChange={(
+                    value: "score" | "views" | "engagement" | "latest"
+                  ) => setSortBy(value)}
+                >
+                  <SelectTrigger className="h-8 w-fit md:w-[160px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-[11px] sm:text-xs">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="score">Sort by: Score</SelectItem>
+                    <SelectItem value="views">Sort by: Views</SelectItem>
+                    <SelectItem value="engagement">
+                      Sort by: Engagement
+                    </SelectItem>
+                    <SelectItem value="latest">Sort by: Latest</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="relative group">
+              <div className="relative group w-full md:w-auto">
                 <button
                   onClick={handleImportCreators}
-                  className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+                  className="h-11 px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[11px] sm:text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors w-full md:w-auto"
                 >
                   <Upload className="w-4 h-4" />
                   Import Creators
@@ -1425,14 +1770,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               </div>
               <button
                 onClick={handleImportPosts}
-                className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+                className="h-11 px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[11px] sm:text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors w-full md:w-auto"
               >
                 <Upload className="w-4 h-4" />
                 Import Posts CSV
               </button>
               <button
                 onClick={() => setShowAddPostDialog(true)}
-                className="h-9 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-medium flex items-center gap-2 rounded-md transition-colors"
+                className="h-11 px-3 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1.5 rounded-md transition-colors w-full md:w-auto"
               >
                 <Plus className="w-4 h-4" />
                 Add Post
@@ -1448,7 +1793,96 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </div>
           ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
             <>
-              <div className="overflow-x-auto">
+              {/* Search Input - Above table/Top Performing */}
+              <div className="px-4 sm:px-6 pb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Search posts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-11 w-full pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-[11px] sm:text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+
+              {/* Mobile: Card Layout */}
+              <div className="lg:hidden px-4 sm:px-6 space-y-3 pb-4">
+                {/* Top Performers Toggle */}
+                <div className="flex items-center gap-2 pb-2">
+                  <button
+                    onClick={() => setShowTopPerformers(!showTopPerformers)}
+                    className={`h-8 px-3 rounded-md border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                      showTopPerformers
+                        ? "bg-primary/20 border-primary/30 text-primary"
+                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {showTopPerformers ? "All Posts" : "Top Performers"}
+                  </button>
+                </div>
+
+                {/* Top Performing Cards */}
+                {topPosts.length > 0 && !showTopPerformers && (
+                  <>
+                    <div className="flex items-center gap-2 pb-2">
+                      <span className="text-xs font-semibold text-primary">
+                        Top Performing
+                      </span>
+                      <div className="flex-1 h-px bg-primary/20"></div>
+                    </div>
+                    {topPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onScrape={handleScrapePost}
+                        onDelete={handleDeletePost}
+                        isScraping={scrapePostMutation.isPending}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* Remaining Posts Cards */}
+                {paginatedRemainingPosts.length > 0 && !showTopPerformers && (
+                  <>
+                    <div className="flex items-center gap-2 pb-2 pt-2">
+                      <span className="text-xs font-semibold text-slate-400">
+                        Other Posts
+                      </span>
+                      <div className="flex-1 h-px bg-white/[0.08]"></div>
+                    </div>
+                    {paginatedRemainingPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onScrape={handleScrapePost}
+                        onDelete={handleDeletePost}
+                        isScraping={scrapePostMutation.isPending}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* All Posts when Top Performers is toggled */}
+                {showTopPerformers && (
+                  <>
+                    {[...topPosts, ...paginatedRemainingPosts].map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onScrape={handleScrapePost}
+                        onDelete={handleDeletePost}
+                        isScraping={scrapePostMutation.isPending}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-white/[0.08]">
@@ -1493,6 +1927,57 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 Top Performing
                               </span>
                               <div className="flex-1 h-px bg-primary/20"></div>
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Top Performers Button - Below Top Performing */}
+                        <tr>
+                          <td colSpan={9} className="px-6 py-2">
+                            <div className="flex items-center gap-2 flex-nowrap">
+                              <button
+                                onClick={() =>
+                                  setShowTopPerformers(!showTopPerformers)
+                                }
+                                className={`h-8 px-2 rounded-md border text-[11px] sm:text-xs font-medium flex flex-wrap items-center justify-center gap-1.5 transition-colors w-fit shrink-0 ${
+                                  showTopPerformers
+                                    ? "bg-primary/20 border-primary/30 text-primary"
+                                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                                }`}
+                              >
+                                {showTopPerformers
+                                  ? "All Posts"
+                                  : "Top Performers"}
+                              </button>
+                              <div className="w-[160px] md:hidden shrink-0">
+                                <Select
+                                  value={sortBy}
+                                  onValueChange={(
+                                    value:
+                                      | "score"
+                                      | "views"
+                                      | "engagement"
+                                      | "latest"
+                                  ) => setSortBy(value)}
+                                >
+                                  <SelectTrigger className="h-8 w-fit bg-white/[0.03] border-white/[0.08] text-slate-300 text-[11px] sm:text-xs">
+                                    <SelectValue placeholder="Sort by" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="score">
+                                      Sort by: Score
+                                    </SelectItem>
+                                    <SelectItem value="views">
+                                      Sort by: Views
+                                    </SelectItem>
+                                    <SelectItem value="engagement">
+                                      Sort by: Engagement
+                                    </SelectItem>
+                                    <SelectItem value="latest">
+                                      Sort by: Latest
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -1786,9 +2271,36 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 </table>
               </div>
 
-              {/* Pagination */}
+              {/* Mobile Pagination */}
               {totalPages > 1 && (
-                <div className="p-4 border-t border-white/[0.08] flex items-center justify-between">
+                <div className="lg:hidden px-4 sm:px-6 pb-4 flex items-center justify-between">
+                  <p className="text-xs text-slate-400">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="h-10 w-10 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    >
+                      ←
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="h-10 w-10 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Desktop Pagination */}
+              {totalPages > 1 && (
+                <div className="hidden lg:flex p-4 border-t border-white/[0.08] items-center justify-between">
                   <p className="text-sm text-slate-400">
                     {topPosts.length > 0 && !showTopPerformers
                       ? `${topPosts.length} top posts + `

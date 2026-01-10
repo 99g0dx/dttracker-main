@@ -1,10 +1,14 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import type { CreatorWithStats } from '../lib/types/database';
 
 // 1. Define the shape of a single item (The Row)
+// Updated to use CreatorWithStats for the request flow
 interface Product {
   id: string;
   name: string;
-//   price: number;
+  handle?: string;
+  platform?: string;
+  follower_count?: number;
   image?: string;
 }
 
@@ -13,10 +17,13 @@ interface Product {
 interface CartContextType {
   cart: Product[];
   toggleRow: (product: Product) => void;
-  toggleAll: (creators: Product[]) => void;
+  toggleAll: (creators: Product[] | CreatorWithStats[]) => void;
   clearCart: () => void;
   totalItems: number;
-//   totalPrice: number;
+  isInCart: (id: string) => boolean;
+  // Helper to add creator from CreatorWithStats
+  addCreator: (creator: CreatorWithStats) => void;
+  removeCreator: (creatorId: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -37,7 +44,7 @@ const toggleRow = (product: Product) => {
     };
 
     // New: Toggle All Logic
-const toggleAll = (creators: Product[]) => {
+const toggleAll = (creators: Product[] | CreatorWithStats[]) => {
   setCart((currentItems) => {
     // Check if all creators on the current page are already in the cart
     const allSelected = creators.every((creator) =>
@@ -50,14 +57,51 @@ const toggleAll = (creators: Product[]) => {
       return currentItems.filter((item) => !pageIds.includes(String(item.id)));
     } else {
       // Otherwise, add the ones that aren't already in the cart
-      const newItems = creators.filter(
-        (creator) => !currentItems.some((item) => String(item.id) === String(creator.id))
-      );
+      const newItems = creators
+        .filter((creator) => !currentItems.some((item) => String(item.id) === String(creator.id)))
+        .map((creator) => ({
+          id: creator.id,
+          name: creator.name,
+          handle: 'handle' in creator ? creator.handle : undefined,
+          platform: 'platform' in creator ? creator.platform : undefined,
+          follower_count: 'follower_count' in creator ? creator.follower_count : undefined,
+        }));
       return [...currentItems, ...newItems];
     }
   });
 };
+
 const clearCart = () => setCart([]);
+
+// Helper to check if a creator is in the cart
+// Use functional form to ensure we always get the latest cart state
+const isInCart = (id: string) => {
+  return cart.some((item) => String(item.id) === String(id));
+};
+
+// Helper to add a creator from CreatorWithStats
+const addCreator = (creator: CreatorWithStats) => {
+  setCart((currentItems) => {
+    if (currentItems.some((item) => String(item.id) === String(creator.id))) {
+      return currentItems; // Already in cart
+    }
+    return [
+      ...currentItems,
+      {
+        id: creator.id,
+        name: creator.name,
+        handle: creator.handle,
+        platform: creator.platform,
+        follower_count: creator.follower_count,
+      },
+    ];
+  });
+};
+
+// Helper to remove a creator
+const removeCreator = (creatorId: string) => {
+  setCart((currentItems) => currentItems.filter((item) => String(item.id) !== String(creatorId)));
+};
 
   // Derived State (Simplified since quantity is always 1 per row)
   const totalItems = cart.length;
@@ -71,6 +115,9 @@ const clearCart = () => setCart([]);
         clearCart, 
         totalItems, 
         toggleAll,
+        isInCart,
+        addCreator,
+        removeCreator,
         // totalPrice 
       }}
     >

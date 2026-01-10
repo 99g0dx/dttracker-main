@@ -199,12 +199,52 @@ serve(async (req) => {
       );
     }
 
+    let subcampaigns: any[] = [];
+    let isParentCampaign = false;
+
+    // Fetch subcampaigns if RPC exists (backward-compatible)
+    const { data: subcampaignData, error: subcampaignError } = await supabase.rpc(
+      "get_subcampaigns",
+      { parent_campaign_id: campaign.id }
+    );
+
+    if (subcampaignError) {
+      const errorMessage = subcampaignError?.message?.toLowerCase() || "";
+      const isMissingFunction =
+        errorMessage.includes("function") &&
+        (errorMessage.includes("does not exist") ||
+          errorMessage.includes("undefined"));
+
+      if (!isMissingFunction) {
+        console.error("Error fetching subcampaigns:", {
+          error: subcampaignError.message,
+          code: subcampaignError.code,
+          hint: subcampaignError.hint,
+        });
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch subcampaigns" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+    } else {
+      subcampaigns = subcampaignData || [];
+      isParentCampaign = subcampaigns.length > 0;
+    }
+
+    const campaignIds = isParentCampaign
+      ? [campaign.id, ...subcampaigns.map((sub: any) => sub.id)]
+      : [campaign.id];
+
     // Fetch posts with creator info
     const { data: posts, error: postsError } = await supabase
       .from("posts")
       .select(
         `
         id,
+        campaign_id,
         platform,
         post_url,
         status,
@@ -222,7 +262,7 @@ serve(async (req) => {
         )
       `
       )
-      .eq("campaign_id", campaign.id)
+      .in("campaign_id", campaignIds)
       .order("created_at", { ascending: false });
 
     if (postsError) {
@@ -263,7 +303,7 @@ serve(async (req) => {
         posts!inner(campaign_id, platform)
       `
       )
-      .eq("posts.campaign_id", campaign.id)
+      .in("posts.campaign_id", campaignIds)
       .in("posts.platform", ["tiktok", "instagram"])
       .order("scraped_at", { ascending: true });
 
@@ -365,10 +405,13 @@ serve(async (req) => {
         coverImageUrl: campaign.cover_image_url || null,
         createdAt: campaign.created_at,
       },
+      is_parent: isParentCampaign,
+      subcampaigns,
       totals,
       series: seriesData,
       posts: (posts || []).map((post: any) => ({
         id: post.id,
+        campaignId: post.campaign_id,
         platform: post.platform,
         postUrl: post.post_url,
         status: post.status,

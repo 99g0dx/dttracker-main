@@ -18,6 +18,7 @@ import {
   ArrowDown,
   ArrowLeft,
   Upload,
+  Check,
 } from "lucide-react";
 import { PlatformBadge } from "./platform-badge";
 import {
@@ -50,6 +51,9 @@ import { supabase } from "../../lib/supabase";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
 import type { CreatorWithStats, Platform } from "../../lib/types/database";
+import { useCart } from "../../contexts/CartContext";
+import { ReviewRequestModal } from "./review-request-modal";
+import { CreatorRequestChatbot } from "./creator-request-chatbot";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
@@ -100,6 +104,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
+  
+  // Cart/Request state for "All Creators" tab
+  const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } = useCart();
+  const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
+  const [showChatbotModal, setShowChatbotModal] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
@@ -467,6 +476,15 @@ export function Creators({ onNavigate }: CreatorsProps) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {networkFilter === "all" && totalItems > 0 && (
+            <button
+              onClick={() => setShowReviewRequestModal(true)}
+              className="flex-1 sm:flex-none min-w-[160px] h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors justify-center"
+            >
+              <Check className="w-4 h-4" />
+              Review Request ({totalItems})
+            </button>
+          )}
           <button
             onClick={() => onNavigate?.("/creators/scraper")}
             className="flex-1 sm:flex-none min-w-[140px] h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center"
@@ -773,6 +791,22 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-white/[0.08] hover:bg-transparent">
+                        {networkFilter === "all" && (
+                          <TableHead className="text-slate-400 font-medium w-12">
+                            <input
+                              type="checkbox"
+                              checked={paginatedCreators.length > 0 && paginatedCreators.every(c => isInCart(c.id))}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  paginatedCreators.forEach(creator => addCreator(creator));
+                                } else {
+                                  paginatedCreators.forEach(creator => removeCreator(creator.id));
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
+                            />
+                          </TableHead>
+                        )}
                         <TableHead className="text-slate-400 font-medium">
                           Creator
                         </TableHead>
@@ -800,9 +834,16 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         <TableHead className="text-slate-400 font-medium text-right">
                           Engagement
                         </TableHead>
-                        <TableHead className="text-slate-400 font-medium text-right">
-                          Actions
-                        </TableHead>
+                        {networkFilter === "my_network" && (
+                          <TableHead className="text-slate-400 font-medium text-right">
+                            Actions
+                          </TableHead>
+                        )}
+                        {networkFilter === "all" && (
+                          <TableHead className="text-slate-400 font-medium text-right w-20">
+                            Add
+                          </TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -811,14 +852,31 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           key={creator.id}
                           className="border-white/[0.04] hover:bg-white/[0.02] transition-colors"
                         >
+                          {networkFilter === "all" && (
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={isInCart(creator.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    addCreator(creator);
+                                  } else {
+                                    removeCreator(creator.id);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
+                              />
+                            </TableCell>
+                          )}
                           <TableCell>
                             <div className="font-medium text-white text-sm">
                               {creator.name}
                             </div>
                             <div className="text-xs text-slate-500 mt-0.5">
-                              @{creator.handle}
+                              @{creator.handle.startsWith('@') ? creator.handle.slice(1) : creator.handle}
                             </div>
                           </TableCell>
+
                           <TableCell>
                             <div className="space-y-1.5 min-w-[180px]">
                               {creator.email && (
@@ -910,28 +968,50 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               {creator.avg_engagement}%
                             </span>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => openViewDialog(creator)}
-                                className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-                              >
-                                <Eye className="w-4 h-4 text-slate-400" />
-                              </button>
-                              <button
-                                onClick={() => openEditDialog(creator)}
-                                className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-                              >
-                                <Edit2 className="w-4 h-4 text-slate-400" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm(creator.id)}
-                                className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-400" />
-                              </button>
-                            </div>
-                          </TableCell>
+                          {networkFilter === "my_network" && (
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => openViewDialog(creator)}
+                                  className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                >
+                                  <Eye className="w-4 h-4 text-slate-400" />
+                                </button>
+                                <button
+                                  onClick={() => openEditDialog(creator)}
+                                  className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4 text-slate-400" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm(creator.id)}
+                                  className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-400" />
+                                </button>
+                              </div>
+                            </TableCell>
+                          )}
+                          {networkFilter === "all" && (
+                            <TableCell className="text-right">
+                              {isInCart(creator.id) ? (
+                                <button
+                                  onClick={() => removeCreator(creator.id)}
+                                  className="h-7 px-3 rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary text-xs font-medium flex items-center gap-1.5 transition-colors"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  Added
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => addCreator(creator)}
+                                  className="h-7 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 text-xs font-medium transition-colors"
+                                >
+                                  Add
+                                </button>
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1401,6 +1481,26 @@ export function Creators({ onNavigate }: CreatorsProps) {
       <ImportCreatorsDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
+      />
+
+      {/* Review Request Modal */}
+      <ReviewRequestModal
+        open={showReviewRequestModal}
+        onOpenChange={setShowReviewRequestModal}
+        onContinue={() => {
+          setShowReviewRequestModal(false);
+          setShowChatbotModal(true);
+        }}
+      />
+
+      {/* Creator Request Chatbot Modal */}
+      <CreatorRequestChatbot
+        open={showChatbotModal}
+        onOpenChange={setShowChatbotModal}
+        onComplete={() => {
+          toast.success("Request submitted successfully!");
+          onNavigate?.("/requests");
+        }}
       />
     </div>
   );

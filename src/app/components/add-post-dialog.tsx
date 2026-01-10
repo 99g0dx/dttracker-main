@@ -13,6 +13,7 @@ import { X, Link as LinkIcon, CheckCircle, AlertCircle, Loader2 } from 'lucide-r
 import { PlatformBadge } from './platform-badge';
 import { parsePostURL, normalizeHandle } from '../../lib/utils/urlParser';
 import { useAddPostWithScrape } from '../../hooks/usePosts';
+import { useIsParentCampaign } from '../../hooks/useSubcampaigns';
 import type { Creator, Platform } from '../../lib/types/database';
 
 interface AddPostDialogProps {
@@ -39,6 +40,7 @@ export function AddPostDialog({
   const [error, setError] = useState<string | null>(null);
 
   const addPostMutation = useAddPostWithScrape();
+  const { data: isParent } = useIsParentCampaign(campaignId);
 
   // Filter creators by detected platform
   const availableCreators = parsedUrl?.platform
@@ -113,6 +115,11 @@ export function AddPostDialog({
 
     if (!matchedCreator) {
       setError('Please select a creator for this post.');
+      return;
+    }
+
+    if (isParent) {
+      setError('Parent campaigns cannot have posts. Please select a subcampaign.');
       return;
     }
 

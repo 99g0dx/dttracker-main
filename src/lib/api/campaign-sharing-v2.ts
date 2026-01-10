@@ -1,5 +1,5 @@
 import { supabase } from "../supabase";
-import type { ApiResponse } from "../types/database";
+import type { ApiResponse, SubcampaignSummary } from "../types/database";
 
 // Generate a secure random token (12 characters)
 function generateShareToken(): string {
@@ -339,6 +339,8 @@ export async function fetchSharedCampaignData(
       coverImageUrl: string | null;
       createdAt: string;
     };
+    is_parent: boolean;
+    subcampaigns: SubcampaignSummary[];
     totals: {
       views: number;
       likes: number;
@@ -353,6 +355,7 @@ export async function fetchSharedCampaignData(
     };
     posts: Array<{
       id: string;
+      campaignId: string;
       platform: string;
       postUrl: string;
       status: string;
@@ -447,4 +450,3 @@ export async function fetchSharedCampaignData(
     };
   }
 }
-
