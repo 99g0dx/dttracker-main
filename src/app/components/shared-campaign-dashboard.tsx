@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
@@ -33,6 +33,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import type { SubcampaignSummary } from "../../lib/types/database";
 
 type SortBy = "views" | "platform" | "likes" | "comments" | "top-performer";
 
@@ -45,6 +46,8 @@ interface SharedCampaignData {
     coverImageUrl: string | null;
     createdAt: string;
   };
+  is_parent?: boolean;
+  subcampaigns?: SubcampaignSummary[];
   totals: {
     views: number;
     likes: number;
@@ -59,6 +62,7 @@ interface SharedCampaignData {
   };
   posts: Array<{
     id: string;
+    campaignId: string;
     platform: string;
     postUrl: string;
     status: string;
@@ -80,6 +84,68 @@ interface SharedCampaignData {
   };
 }
 
+const kpiPlatforms = new Set(["tiktok", "instagram"]);
+
+function buildSeriesFromPosts(
+  posts: Array<{
+    platform: string;
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    postedDate: string | null;
+    createdAt: string;
+  }>
+) {
+  const metricsByDate = new Map<
+    string,
+    { views: number; likes: number; comments: number; shares: number }
+  >();
+
+  posts.forEach((post) => {
+    if (!kpiPlatforms.has(post.platform)) return;
+    const rawDate = post.postedDate || post.createdAt;
+    if (!rawDate) return;
+    const dateStr = rawDate.split("T")[0];
+
+    if (!metricsByDate.has(dateStr)) {
+      metricsByDate.set(dateStr, {
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+      });
+    }
+
+    const point = metricsByDate.get(dateStr)!;
+    point.views += post.views || 0;
+    point.likes += post.likes || 0;
+    point.comments += post.comments || 0;
+    point.shares += post.shares || 0;
+  });
+
+  const sortedDates = Array.from(metricsByDate.keys()).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  const series = {
+    views: [] as Array<{ date: string; value: number }>,
+    likes: [] as Array<{ date: string; value: number }>,
+    comments: [] as Array<{ date: string; value: number }>,
+    shares: [] as Array<{ date: string; value: number }>,
+  };
+
+  sortedDates.forEach((date) => {
+    const values = metricsByDate.get(date)!;
+    series.views.push({ date, value: values.views });
+    series.likes.push({ date, value: values.likes });
+    series.comments.push({ date, value: values.comments });
+    series.shares.push({ date, value: values.shares });
+  });
+
+  return series;
+}
+
 export function SharedCampaignDashboard() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -87,6 +153,7 @@ export function SharedCampaignDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SharedCampaignData | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("views");
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [requiresPassword, setRequiresPassword] = useState(false);
@@ -139,6 +206,48 @@ export function SharedCampaignDashboard() {
     loadCampaign();
   }, [token, loadCampaign]);
 
+  React.useEffect(() => {
+    if (!data) return;
+    if (!data.is_parent || !data.subcampaigns || data.subcampaigns.length === 0) {
+      if (activeTab !== "all") {
+        setActiveTab("all");
+      }
+      return;
+    }
+
+    const tabExists =
+      activeTab === "all" ||
+      data.subcampaigns.some((subcampaign) => subcampaign.id === activeTab);
+    if (!tabExists) {
+      setActiveTab("all");
+    }
+  }, [data, activeTab]);
+
+  const subcampaignTabs = data?.subcampaigns || [];
+  const hasSubcampaigns = Boolean(data?.is_parent && subcampaignTabs.length > 0);
+  const selectedSubcampaign =
+    activeTab === "all"
+      ? null
+      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) || null;
+
+  const filteredPosts = useMemo(() => {
+    if (!data?.posts) return [];
+    if (activeTab === "all") return data.posts;
+    return data.posts.filter((post) => post.campaignId === activeTab);
+  }, [data?.posts, activeTab]);
+
+  const totals = useMemo(() => {
+    const kpiPosts = filteredPosts.filter((post) =>
+      kpiPlatforms.has(post.platform)
+    );
+    return {
+      views: kpiPosts.reduce((sum, post) => sum + (post.views || 0), 0),
+      likes: kpiPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
+      comments: kpiPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
+      shares: kpiPosts.reduce((sum, post) => sum + (post.shares || 0), 0),
+    };
+  }, [filteredPosts]);
+
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
@@ -175,9 +284,9 @@ export function SharedCampaignDashboard() {
 
   // Sort posts
   const sortedPosts = useMemo(() => {
-    if (!data?.posts) return [];
+    if (!filteredPosts) return [];
 
-    const sorted = [...data.posts];
+    const sorted = [...filteredPosts];
 
     switch (sortBy) {
       case "views":
@@ -199,25 +308,31 @@ export function SharedCampaignDashboard() {
       default:
         return sorted;
     }
-  }, [data?.posts, sortBy]);
+  }, [filteredPosts, sortBy]);
 
   // Format chart data
+  const seriesData = useMemo(() => {
+    if (!data) return null;
+    if (activeTab === "all") return data.series;
+    return buildSeriesFromPosts(filteredPosts);
+  }, [data, activeTab, filteredPosts]);
+
   const formattedChartData = useMemo(() => {
-    if (!data?.series?.views) return [];
+    if (!seriesData?.views) return [];
 
     const maxLength = Math.max(
-      data.series.views.length,
-      data.series.likes.length,
-      data.series.comments.length,
-      data.series.shares.length
+      seriesData.views.length,
+      seriesData.likes.length,
+      seriesData.comments.length,
+      seriesData.shares.length
     );
 
     return Array.from({ length: maxLength }, (_, i) => {
       const date =
-        data.series.views[i]?.date ||
-        data.series.likes[i]?.date ||
-        data.series.comments[i]?.date ||
-        data.series.shares[i]?.date ||
+        seriesData.views[i]?.date ||
+        seriesData.likes[i]?.date ||
+        seriesData.comments[i]?.date ||
+        seriesData.shares[i]?.date ||
         "";
 
       return {
@@ -225,13 +340,13 @@ export function SharedCampaignDashboard() {
           month: "numeric",
           day: "numeric",
         }),
-        views: data.series.views[i]?.value || 0,
-        likes: data.series.likes[i]?.value || 0,
-        comments: data.series.comments[i]?.value || 0,
-        shares: data.series.shares[i]?.value || 0,
+        views: seriesData.views[i]?.value || 0,
+        likes: seriesData.likes[i]?.value || 0,
+        comments: seriesData.comments[i]?.value || 0,
+        shares: seriesData.shares[i]?.value || 0,
       };
     });
-  }, [data?.series]);
+  }, [seriesData]);
 
   // Show loading state (but not if password is required, as that has its own UI)
   if (isLoading && !requiresPassword && !error) {
@@ -352,6 +467,41 @@ export function SharedCampaignDashboard() {
             )}
           </div>
 
+          {/* Subcampaign Tabs */}
+          {hasSubcampaigns && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveTab("all")}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  activeTab === "all"
+                    ? "bg-primary text-black border-primary"
+                    : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
+                }`}
+              >
+                All Campaigns
+              </button>
+              {subcampaignTabs.map((subcampaign) => (
+                <button
+                  key={subcampaign.id}
+                  onClick={() => setActiveTab(subcampaign.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    activeTab === subcampaign.id
+                      ? "bg-primary text-black border-primary"
+                      : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
+                  }`}
+                >
+                  {subcampaign.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedSubcampaign && (
+            <p className="text-xs text-slate-500">
+              Showing {selectedSubcampaign.name} posts and metrics.
+            </p>
+          )}
+
           {/* Cover Image */}
           {data.campaign.coverImageUrl && (
             <div className="relative w-full h-52 md:h-64 rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
@@ -374,7 +524,7 @@ export function SharedCampaignDashboard() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {data.totals.views.toLocaleString()}
+                  {totals.views.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Views</p>
               </CardContent>
@@ -388,7 +538,7 @@ export function SharedCampaignDashboard() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {data.totals.likes.toLocaleString()}
+                  {totals.likes.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Likes</p>
               </CardContent>
@@ -402,7 +552,7 @@ export function SharedCampaignDashboard() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {data.totals.comments.toLocaleString()}
+                  {totals.comments.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Comments</p>
               </CardContent>
@@ -416,7 +566,7 @@ export function SharedCampaignDashboard() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {data.totals.shares.toLocaleString()}
+                  {totals.shares.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Shares</p>
               </CardContent>
@@ -614,4 +764,3 @@ export function SharedCampaignDashboard() {
     </div>
   );
 }
-

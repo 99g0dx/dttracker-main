@@ -142,61 +142,68 @@ export async function deleteAllInCampaign(campaignId: string): Promise<ApiRespon
  */
 export async function getCampaignMetrics(campaignId: string): Promise<ApiResponse<CampaignMetrics>> {
   try {
-    // Get all posts for total count
-    const { data: allPosts, error: allPostsError } = await supabase
-      .from('posts')
-      .select('id')
-      .eq('campaign_id', campaignId);
-
-    if (allPostsError) {
-      return { data: null, error: allPostsError };
-    }
-
-    // Get only KPI posts (TikTok + Instagram) for metrics
-    const { data: kpiPosts, error } = await supabase
-      .from('posts')
-      .select('views, likes, comments, shares, engagement_rate, platform')
-      .eq('campaign_id', campaignId)
-      .in('platform', ['tiktok', 'instagram']);
+    const { data, error } = await supabase.rpc(
+      'get_campaign_metrics_with_subcampaigns',
+      { campaign_id: campaignId }
+    );
 
     if (error) {
       return { data: null, error };
     }
 
-    const totalPosts = allPosts?.length || 0;
-    const kpiPostsCount = kpiPosts?.length || 0;
+    const payload = Array.isArray(data) ? data[0] : data;
+    const metrics = payload?.aggregated_metrics ?? payload;
 
-    if (totalPosts === 0) {
-      return {
-        data: {
-          total_posts: 0,
-          total_views: 0,
-          total_likes: 0,
-          total_comments: 0,
-          total_shares: 0,
-          avg_engagement_rate: 0,
-          total_reach: 0,
-        },
-        error: null,
-      };
+    if (!metrics) {
+      return { data: null, error: new Error('No metrics returned') };
     }
 
-    // Calculate metrics only from KPI posts
-    const metrics: CampaignMetrics = {
-      total_posts: totalPosts, // Total includes all platforms
-      total_views: kpiPosts?.reduce((sum, p) => sum + (p.views || 0), 0) || 0,
-      total_likes: kpiPosts?.reduce((sum, p) => sum + (p.likes || 0), 0) || 0,
-      total_comments: kpiPosts?.reduce((sum, p) => sum + (p.comments || 0), 0) || 0,
-      total_shares: kpiPosts?.reduce((sum, p) => sum + (p.shares || 0), 0) || 0,
-      avg_engagement_rate: kpiPostsCount > 0
-        ? Number(
-            (kpiPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / kpiPostsCount).toFixed(2)
-          )
-        : 0,
-      total_reach: kpiPosts?.reduce((sum, p) => sum + (p.views || 0), 0) || 0, // Reach = total views
-    };
+    return { data: metrics as CampaignMetrics, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
 
-    return { data: metrics, error: null };
+/**
+ * Fetch posts for a campaign hierarchy (parent + subcampaigns)
+ */
+export async function listByCampaignHierarchy(
+  campaignId: string,
+  includeSubcampaigns: boolean
+): Promise<ApiListResponse<PostWithCreator>> {
+  try {
+    let campaignIds = [campaignId];
+
+    if (includeSubcampaigns) {
+      const { data: subcampaigns, error: subcampaignsError } = await supabase
+        .from('campaigns')
+        .select('id')
+        .eq('parent_campaign_id', campaignId);
+
+      if (subcampaignsError) {
+        return { data: null, error: subcampaignsError };
+      }
+
+      const subcampaignIds = (subcampaigns || []).map((c: any) => c.id);
+      campaignIds = campaignIds.concat(subcampaignIds);
+    }
+
+    const { data, error } = await supabase
+      .from('posts')
+      .select(
+        `
+        *,
+        creator:creators(*)
+      `
+      )
+      .in('campaign_id', campaignIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    return { data: data as PostWithCreator[], error: null, count: data?.length || 0 };
   } catch (err) {
     return { data: null, error: err as Error };
   }

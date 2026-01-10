@@ -63,7 +63,7 @@ const statusConfig = {
 export function StatusBadge({ status }: StatusBadgeProps) {
   if (!status) {
     return (
-      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20">
+      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20 w-fit">
         Unknown
       </span>
     );
@@ -73,7 +73,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 
   if (!config) {
     return (
-      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20">
+      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20 w-fit">
         {status}
       </span>
     );
@@ -82,7 +82,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border",
+        "inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border w-fit",
         config.className
       )}
     >

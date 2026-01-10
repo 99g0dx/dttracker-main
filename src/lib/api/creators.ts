@@ -261,8 +261,9 @@ export async function createMany(creators: CreatorInsert[]): Promise<ApiResponse
 }
 
 /**
- * List all creators for the current user with stats (campaigns count, total posts)
- * Optionally filter by network (in network = user's creators, all = same for now)
+ * List all creators with stats (campaigns count, total posts)
+ * - 'my_network': Returns only user's own creators
+ * - 'all': Returns ALL creators in DTTracker's network (not filtered by user_id)
  */
 export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promise<ApiResponse<CreatorWithStats[]>> {
   try {
@@ -272,12 +273,18 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
     }
 
     // Fetch creators with posts data
-    // For now, both 'my_network' and 'all' show user's creators
-    // Future: 'all' could include shared creators from team members
-    const { data: creators, error: creatorsError } = await supabase
+    // For 'my_network', show only user's creators
+    // For 'all', show all creators in DTTracker's network (no user_id filter)
+    let query = supabase
       .from('creators')
-      .select('*')
-      .eq('user_id', user.id)
+      .select('*');
+
+    if (networkFilter === 'my_network') {
+      query = query.eq('user_id', user.id);
+    }
+    // When networkFilter === 'all', we don't filter by user_id - shows all creators
+
+    const { data: creators, error: creatorsError } = await query
       .order('name', { ascending: true });
 
     if (creatorsError) {
@@ -285,7 +292,7 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
       return { data: null, error: creatorsError };
     }
 
-    console.log(`📥 Fetched ${creators?.length || 0} creators for user (filter: ${networkFilter || 'my_network'})`);
+    console.log(`📥 Fetched ${creators?.length || 0} creators (filter: ${networkFilter || 'my_network'})`);
 
     if (!creators || creators.length === 0) {
       return { data: [], error: null };

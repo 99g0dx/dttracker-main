@@ -13,11 +13,9 @@ import {
   Lock,
   LineChart as LineChartIcon,
 } from 'lucide-react';
-import { StatusBadge } from './status-badge';
 import { PlatformBadge } from './platform-badge';
-import * as sharingApi from '../../lib/api/campaign-sharing';
-import type { Campaign, PostWithCreator, TimeSeriesDataPoint } from '../../lib/types/database';
-import { toast } from 'sonner';
+import * as sharingApi from '../../lib/api/campaign-sharing-v2';
+import type { SubcampaignSummary } from '../../lib/types/database';
 import {
   Select,
   SelectContent,
@@ -38,17 +36,126 @@ import {
 
 type SortBy = 'views' | 'platform' | 'likes' | 'comments' | 'top-performer';
 
+interface SharedCampaignData {
+  campaign: {
+    id: string;
+    name: string;
+    brand_name: string | null;
+    status: string;
+    coverImageUrl: string | null;
+    createdAt: string;
+  };
+  is_parent?: boolean;
+  subcampaigns?: SubcampaignSummary[];
+  totals: {
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+  };
+  series: {
+    views: Array<{ date: string; value: number }>;
+    likes: Array<{ date: string; value: number }>;
+    comments: Array<{ date: string; value: number }>;
+    shares: Array<{ date: string; value: number }>;
+  };
+  posts: Array<{
+    id: string;
+    campaignId: string;
+    platform: string;
+    postUrl: string;
+    status: string;
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    engagementRate: number;
+    postedDate: string | null;
+    createdAt: string;
+    creator: {
+      id: string;
+      name: string;
+      handle: string;
+    } | null;
+  }>;
+  share: {
+    allowExport: boolean;
+  };
+}
+
+const kpiPlatforms = new Set(['tiktok', 'instagram']);
+
+function buildSeriesFromPosts(
+  posts: Array<{
+    platform: string;
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    postedDate: string | null;
+    createdAt: string;
+  }>
+) {
+  const metricsByDate = new Map<
+    string,
+    { views: number; likes: number; comments: number; shares: number }
+  >();
+
+  posts.forEach((post) => {
+    if (!kpiPlatforms.has(post.platform)) return;
+    const rawDate = post.postedDate || post.createdAt;
+    if (!rawDate) return;
+    const dateStr = rawDate.split('T')[0];
+
+    if (!metricsByDate.has(dateStr)) {
+      metricsByDate.set(dateStr, {
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+      });
+    }
+
+    const point = metricsByDate.get(dateStr)!;
+    point.views += post.views || 0;
+    point.likes += post.likes || 0;
+    point.comments += post.comments || 0;
+    point.shares += post.shares || 0;
+  });
+
+  const sortedDates = Array.from(metricsByDate.keys()).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  const series = {
+    views: [] as Array<{ date: string; value: number }>,
+    likes: [] as Array<{ date: string; value: number }>,
+    comments: [] as Array<{ date: string; value: number }>,
+    shares: [] as Array<{ date: string; value: number }>,
+  };
+
+  sortedDates.forEach((date) => {
+    const values = metricsByDate.get(date)!;
+    series.views.push({ date, value: values.views });
+    series.likes.push({ date, value: values.likes });
+    series.comments.push({ date, value: values.comments });
+    series.shares.push({ date, value: values.shares });
+  });
+
+  return series;
+}
+
 export function CampaignShareView() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [posts, setPosts] = useState<PostWithCreator[]>([]);
-  const [chartData, setChartData] = useState<TimeSeriesDataPoint[]>([]);
+  const [data, setData] = useState<SharedCampaignData | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>('views');
+  const [activeTab, setActiveTab] = useState<string>('all');
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   // Check if password is required
@@ -68,14 +175,22 @@ export function CampaignShareView() {
 
     setIsLoading(true);
     setError(null);
+    setPasswordError(null);
 
     try {
-      const result = await sharingApi.getCampaignByShareToken(token, passwordValue);
+      const result = await sharingApi.fetchSharedCampaignData(token, passwordValue);
 
       if (result.error) {
-        console.error("Share view error:", result.error);
-        if (result.error.message === 'Password required') {
+        const errorMessage = result.error.message?.toLowerCase() || '';
+        if (errorMessage.includes('password') || errorMessage.includes('required')) {
           setIsAuthenticated(false);
+          setPasswordError(null);
+          setIsLoading(false);
+          return;
+        }
+        if (errorMessage.includes('incorrect') || errorMessage.includes('wrong')) {
+          setIsAuthenticated(false);
+          setPasswordError('Incorrect password. Please try again.');
           setIsLoading(false);
           return;
         }
@@ -85,9 +200,8 @@ export function CampaignShareView() {
       }
 
       if (result.data) {
-        setCampaign(result.data.campaign);
-        setPosts(result.data.posts);
-        setChartData(result.data.chartData || []);
+        setData(result.data);
+        setPasswordError(null);
         setIsAuthenticated(true);
         setIsLoading(false);
       }
@@ -100,37 +214,98 @@ export function CampaignShareView() {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
-      toast.error('Please enter a password');
+      setPasswordError('Please enter a password');
       return;
     }
 
     setIsSubmittingPassword(true);
+    setPasswordError(null);
     await loadCampaign(password);
     setIsSubmittingPassword(false);
   };
 
-  // Calculate metrics
-  const metrics = useMemo(() => {
-    if (!posts || posts.length === 0) {
-      return {
-        total_views: 0,
-        total_likes: 0,
-        total_comments: 0,
-        total_shares: 0,
-      };
+  React.useEffect(() => {
+    if (!data) return;
+    if (!data.is_parent || !data.subcampaigns || data.subcampaigns.length === 0) {
+      if (activeTab !== 'all') {
+        setActiveTab('all');
+      }
+      return;
     }
 
+    const tabExists =
+      activeTab === 'all' ||
+      data.subcampaigns.some((subcampaign) => subcampaign.id === activeTab);
+    if (!tabExists) {
+      setActiveTab('all');
+    }
+  }, [data, activeTab]);
+
+  const subcampaignTabs = data?.subcampaigns || [];
+  const hasSubcampaigns = Boolean(data?.is_parent && subcampaignTabs.length > 0);
+  const selectedSubcampaign =
+    activeTab === 'all'
+      ? null
+      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) || null;
+
+  const filteredPosts = useMemo(() => {
+    if (!data?.posts) return [];
+    if (activeTab === 'all') return data.posts;
+    return data.posts.filter((post) => post.campaignId === activeTab);
+  }, [data?.posts, activeTab]);
+
+  const totals = useMemo(() => {
+    const kpiPosts = filteredPosts.filter((post) =>
+      kpiPlatforms.has(post.platform)
+    );
     return {
-      total_views: posts.reduce((sum, p) => sum + (p.views || 0), 0),
-      total_likes: posts.reduce((sum, p) => sum + (p.likes || 0), 0),
-      total_comments: posts.reduce((sum, p) => sum + (p.comments || 0), 0),
-      total_shares: posts.reduce((sum, p) => sum + (p.shares || 0), 0),
+      views: kpiPosts.reduce((sum, post) => sum + (post.views || 0), 0),
+      likes: kpiPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
+      comments: kpiPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
+      shares: kpiPosts.reduce((sum, post) => sum + (post.shares || 0), 0),
     };
-  }, [posts]);
+  }, [filteredPosts]);
+
+  const seriesData = useMemo(() => {
+    if (!data) return null;
+    if (activeTab === 'all') return data.series;
+    return buildSeriesFromPosts(filteredPosts);
+  }, [data, activeTab, filteredPosts]);
+
+  const formattedChartData = useMemo(() => {
+    if (!seriesData?.views) return [];
+
+    const maxLength = Math.max(
+      seriesData.views.length,
+      seriesData.likes.length,
+      seriesData.comments.length,
+      seriesData.shares.length
+    );
+
+    return Array.from({ length: maxLength }, (_, i) => {
+      const date =
+        seriesData.views[i]?.date ||
+        seriesData.likes[i]?.date ||
+        seriesData.comments[i]?.date ||
+        seriesData.shares[i]?.date ||
+        '';
+
+      return {
+        date: new Date(date).toLocaleDateString('en-US', {
+          month: 'numeric',
+          day: 'numeric',
+        }),
+        views: seriesData.views[i]?.value || 0,
+        likes: seriesData.likes[i]?.value || 0,
+        comments: seriesData.comments[i]?.value || 0,
+        shares: seriesData.shares[i]?.value || 0,
+      };
+    });
+  }, [seriesData]);
 
   // Sort posts
   const sortedPosts = useMemo(() => {
-    const sorted = [...posts];
+    const sorted = [...filteredPosts];
 
     switch (sortBy) {
       case 'views':
@@ -142,16 +317,17 @@ export function CampaignShareView() {
       case 'platform':
         return sorted.sort((a, b) => a.platform.localeCompare(b.platform));
       case 'top-performer':
-        // Sort by total engagement (views + likes + comments + shares)
         return sorted.sort((a, b) => {
-          const aEngagement = (a.views || 0) + (a.likes || 0) + (a.comments || 0) + (a.shares || 0);
-          const bEngagement = (b.views || 0) + (b.likes || 0) + (b.comments || 0) + (b.shares || 0);
+          const aEngagement =
+            (a.views || 0) + (a.likes || 0) + (a.comments || 0) + (a.shares || 0);
+          const bEngagement =
+            (b.views || 0) + (b.likes || 0) + (b.comments || 0) + (b.shares || 0);
           return bEngagement - aEngagement;
         });
       default:
         return sorted;
     }
-  }, [posts, sortBy]);
+  }, [filteredPosts, sortBy]);
 
   if (isLoading) {
     return (
@@ -204,10 +380,16 @@ export function CampaignShareView() {
                 type="password"
                 placeholder="Enter password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError(null);
+                }}
                 className="h-11 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                 autoFocus
               />
+              {passwordError && (
+                <p className="text-sm text-red-400">{passwordError}</p>
+              )}
               <Button
                 type="submit"
                 disabled={isSubmittingPassword}
@@ -222,7 +404,7 @@ export function CampaignShareView() {
     );
   }
 
-  if (!campaign) {
+  if (!data) {
     return null;
   }
 
@@ -249,11 +431,46 @@ export function CampaignShareView() {
         <div className="space-y-6">
           {/* Campaign Header */}
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">{campaign.name}</h2>
-            {campaign.brand_name && (
-              <p className="text-lg text-slate-300">{campaign.brand_name}</p>
+            <h2 className="text-3xl font-bold text-white mb-2">{data.campaign.name}</h2>
+            {data.campaign.brand_name && (
+              <p className="text-lg text-slate-300">{data.campaign.brand_name}</p>
             )}
           </div>
+
+          {/* Subcampaign Tabs */}
+          {hasSubcampaigns && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  activeTab === 'all'
+                    ? 'bg-primary text-black border-primary'
+                    : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]'
+                }`}
+              >
+                All Campaigns
+              </button>
+              {subcampaignTabs.map((subcampaign) => (
+                <button
+                  key={subcampaign.id}
+                  onClick={() => setActiveTab(subcampaign.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    activeTab === subcampaign.id
+                      ? 'bg-primary text-black border-primary'
+                      : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]'
+                  }`}
+                >
+                  {subcampaign.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedSubcampaign && (
+            <p className="text-xs text-slate-500">
+              Showing {selectedSubcampaign.name} posts and metrics.
+            </p>
+          )}
 
           {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -265,7 +482,7 @@ export function CampaignShareView() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {metrics.total_views.toLocaleString()}
+                  {totals.views.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Views</p>
               </CardContent>
@@ -279,7 +496,7 @@ export function CampaignShareView() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {metrics.total_likes.toLocaleString()}
+                  {totals.likes.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Likes</p>
               </CardContent>
@@ -293,7 +510,7 @@ export function CampaignShareView() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {metrics.total_comments.toLocaleString()}
+                  {totals.comments.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Comments</p>
               </CardContent>
@@ -307,7 +524,7 @@ export function CampaignShareView() {
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">
-                  {metrics.total_shares.toLocaleString()}
+                  {totals.shares.toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-400">Total Shares</p>
               </CardContent>
@@ -315,21 +532,12 @@ export function CampaignShareView() {
           </div>
 
           {/* Charts Section */}
-          {chartData.length > 0 ? (
+          {formattedChartData.length > 0 ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Performance Over Time</h3>
                 <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={chartData.map(point => ({
-                    date: new Date(point.date).toLocaleDateString("en-US", {
-                      month: "numeric",
-                      day: "numeric",
-                    }),
-                    views: Number(point.views) || 0,
-                    likes: Number(point.likes) || 0,
-                    comments: Number(point.comments) || 0,
-                    shares: Number(point.shares) || 0,
-                  }))}>
+                  <LineChart data={formattedChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -459,7 +667,7 @@ export function CampaignShareView() {
                             )}
                           </div>
                           <a
-                            href={post.post_url}
+                            href={post.postUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 mb-3"
@@ -505,4 +713,3 @@ export function CampaignShareView() {
     </div>
   );
 }
-

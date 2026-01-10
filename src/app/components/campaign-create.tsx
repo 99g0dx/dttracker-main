@@ -1,17 +1,32 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ArrowLeft, Upload, X } from 'lucide-react';
-import { useCreateCampaign } from '../../hooks/useCampaigns';
+import { useCreateCampaign, useCampaigns } from '../../hooks/useCampaigns';
 import * as storageApi from '../../lib/api/storage';
 import type { CampaignInsert } from '../../lib/types/database';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 interface CampaignCreateProps {
   onNavigate: (path: string) => void;
 }
 
 export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
+  const location = useLocation();
+  const locationState = location.state as { parentCampaignId?: string } | null;
+  const parentFromState = locationState?.parentCampaignId || null;
+  const searchParams = new URLSearchParams(location.search);
+  const parentFromQuery = searchParams.get('parent');
+  const initialParentId = parentFromState || parentFromQuery || null;
+
   const [formData, setFormData] = useState({
     name: '',
     brandName: '',
@@ -19,10 +34,16 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
     endDate: '',
     notes: '',
   });
+  const [parentCampaignId, setParentCampaignId] = useState<string | null>(
+    initialParentId
+  );
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isUploading, setIsUploading] = useState(false);
+
+  const showParentSelect = Boolean(initialParentId);
+  const { data: campaigns = [] } = useCampaigns();
 
   const createCampaignMutation = useCreateCampaign();
 
@@ -105,6 +126,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
         start_date: formData.startDate || null,
         end_date: formData.endDate || null,
         notes: formData.notes || null,
+        parent_campaign_id: parentCampaignId || null,
       };
 
       // Create campaign
@@ -184,6 +206,36 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                     <p className="text-red-400 text-xs mt-1.5">{errors.brandName}</p>
                   )}
                 </div>
+
+                {/* Parent Campaign (optional) */}
+                {showParentSelect && (
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Parent Campaign (optional)
+                    </label>
+                    <Select
+                      value={parentCampaignId || 'none'}
+                      onValueChange={(value) =>
+                        setParentCampaignId(value === 'none' ? null : value)
+                      }
+                    >
+                      <SelectTrigger className="h-10 bg-white/[0.03] border-white/[0.08] text-white">
+                        <SelectValue placeholder="Select a parent campaign" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No parent</SelectItem>
+                        {campaigns.map((campaign) => (
+                          <SelectItem key={campaign.id} value={campaign.id}>
+                            {campaign.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Parent campaigns group related subcampaigns under one view.
+                    </p>
+                  </div>
+                )}
 
                 {/* Date Range */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

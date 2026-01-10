@@ -4,6 +4,7 @@ import * as scrapingApi from "../lib/api/scraping";
 import { postsKeys } from "./usePosts";
 import { campaignsKeys } from "./useCampaigns";
 import { addNotification } from "../lib/utils/notifications";
+import { subcampaignsKeys } from "./useSubcampaigns";
 
 /**
  * Hook to scrape a single post
@@ -34,11 +35,12 @@ export function useScrapePost() {
       // Refetch related queries to update the UI immediately
       await Promise.all([
         queryClient.refetchQueries({
-          queryKey: postsKeys.list(variables.campaignId),
+          queryKey: postsKeys.lists(),
         }),
         queryClient.refetchQueries({
-          queryKey: postsKeys.campaignMetrics(variables.campaignId),
+          queryKey: postsKeys.metrics(),
         }),
+        queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
         queryClient.refetchQueries({ queryKey: campaignsKeys.lists() }),
       ]);
 
@@ -47,7 +49,7 @@ export function useScrapePost() {
       // Add notification for post scraped
       // Try to get post data from cache before invalidation, or use a simple message
       const posts = queryClient.getQueryData(
-        postsKeys.list(variables.campaignId)
+        postsKeys.list(variables.campaignId, false)
       ) as any[];
       const post = posts?.find((p: any) => p.id === variables.postId);
       const creatorName = post?.creator?.name || "A post";
@@ -100,10 +102,11 @@ export function useScrapeAllPosts() {
 
       // Refetch related queries to update the UI immediately
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: postsKeys.list(campaignId) }),
+        queryClient.refetchQueries({ queryKey: postsKeys.lists() }),
         queryClient.refetchQueries({
-          queryKey: postsKeys.campaignMetrics(campaignId),
+          queryKey: postsKeys.metrics(),
         }),
+        queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
         queryClient.refetchQueries({ queryKey: campaignsKeys.lists() }),
       ]);
 

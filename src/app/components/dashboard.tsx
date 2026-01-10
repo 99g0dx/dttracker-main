@@ -40,13 +40,70 @@ import {
   Cell,
   Legend,
 } from 'recharts';
+import { format } from 'date-fns';
+import { subDays, startOfMonth } from 'date-fns';
+import { cn } from './ui/utils';
+
+
+type DateRange = {
+  start: Date;
+  end: Date;
+  label: string;
+};
+
 
 interface DashboardProps {
   onNavigate: (path: string) => void;
 }
 
+
+export const DATE_RANGE_PRESETS: DateRange[] = [
+  {
+    label: 'Last 24 hours',
+    start: subDays(new Date(), 1),
+    end: new Date(),
+  },
+  {
+    label: 'Last 48 hours',
+    start: subDays(new Date(), 2),
+    end: new Date(),
+  },
+  {
+    label: 'Last 3 days',
+    start: subDays(new Date(), 3),
+    end: new Date(),
+  },
+  {
+    label: 'Last 7 days',
+    start: subDays(new Date(), 7),
+    end: new Date(),
+  },
+  {
+    label: 'Last 30 days',
+    start: subDays(new Date(), 30),
+    end: new Date(),
+  },
+  {
+    label: 'This month',
+    start: startOfMonth(new Date()),
+    end: new Date(),
+  },
+];
+
+
+function formatDateRange(dateRange: { start: Date; end: Date }) {
+  return `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d')}`;
+}
+function formatReach(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toString();
+}
+
+
+
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const [dateRange, setDateRange] = useState('Last 30 days');
+  const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,10 +112,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     budgetRange: [] as string[],
     performance: [] as string[],
   });
+  const [timeSeriesData, setTimeSeriesData] = useState<{
+    date: string;
+    reach: number;
+    engagement: number;
+  }[]>([]);
+  const [allPosts, setAllPosts] = useState<any[]>([]);
+
 
   // Fetch real campaign data
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
   const { data: allCreators = [] } = useCreators();
+  
 
   const dateRangeOptions = [
     'Last 24 hours',
@@ -104,42 +169,42 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Calculate real KPI metrics from campaigns
   const kpiMetrics = useMemo(() => {
-    // Total reach (views) - sum from all campaigns (KPI platforms only, already filtered in API)
-    const totalReach = campaigns.reduce((sum, c) => sum + (c.total_views || 0), 0);
-    
-    // Total posts - sum from all campaigns
-    const totalPosts = campaigns.reduce((sum, c) => sum + (c.posts_count || 0), 0);
-    
-    // Weighted average engagement rate
-    const totalEngagementWeighted = campaigns.reduce((sum, c) => {
-      return sum + ((c.avg_engagement_rate || 0) * (c.posts_count || 0));
-    }, 0);
-    const engagementRate = totalPosts > 0 ? totalEngagementWeighted / totalPosts : 0;
-    
-    // Count unique creators across all campaigns
-    // Get all campaign IDs and count unique creators
-    const campaignIds = campaigns.map(c => c.id);
-    const uniqueCreators = new Set<string>();
-    // For now, we'll use all creators count as active creators
-    // In a real scenario, you'd filter by campaigns
-    const activeCreators = allCreators.length;
-
-    // Format reach
-    const formatReach = (value: number): string => {
-      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-      if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-      return value.toString();
-    };
-
+  if (!timeSeriesData.length) {
     return {
-      totalReach: formatReach(totalReach),
-      totalReachValue: totalReach,
-      engagementRate: engagementRate.toFixed(1),
-      engagementRateValue: engagementRate,
-      activeCreators,
-      totalPosts,
+      totalReach: '0',
+      totalReachValue: 0,
+      engagementRate: '0.0',
+      engagementRateValue: 0,
+      activeCreators: 0,
+      totalPosts: 0,
     };
-  }, [campaigns, allCreators]);
+  }
+
+  const totalReachValue = timeSeriesData.reduce(
+    (sum, p) => sum + p.reach,
+    0
+  );
+
+  const totalEngagementValue = timeSeriesData.reduce(
+    (sum, p) => sum + p.engagement,
+    0
+  );
+
+  const engagementRateValue =
+    totalReachValue > 0
+      ? (totalEngagementValue / totalReachValue) * 100
+      : 0;
+
+  return {
+    totalReach: formatReach(totalReachValue),
+    totalReachValue,
+    engagementRate: engagementRateValue.toFixed(1),
+    engagementRateValue,
+    activeCreators: allCreators.length,
+    totalPosts: allPosts.length,
+  };
+}, [timeSeriesData, allPosts, allCreators]);
+
 
   // Apply filters and search to campaigns
   const filteredCampaigns = useMemo(() => {
@@ -170,14 +235,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     return true;
   });
-  }, [campaigns, searchQuery, filters]);
+  }, [campaigns, dateRange,searchQuery, filters]);
 
   // Fetch all posts across all campaigns for platform breakdown
-  const [allPosts, setAllPosts] = useState<any[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAllPosts = async () => {
+    const fetchAllPosts = async (dateRange: DateRange) => {
       if (campaigns.length === 0) {
         setAllPosts([]);
         setPostsLoading(false);
@@ -191,7 +255,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         const { data, error } = await supabase
           .from('posts')
           .select('platform, campaign_id')
-          .in('campaign_id', campaignIds);
+          .in('campaign_id', campaignIds)
+          .gte('last_scraped_at', dateRange.start.toISOString())
+          .lte('last_scraped_at', dateRange.end.toISOString());
+
 
         if (error) {
           console.error('Error fetching posts for platform breakdown:', error);
@@ -207,8 +274,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       }
     };
 
-    fetchAllPosts();
-  }, [campaigns]);
+    fetchAllPosts(dateRange);
+  }, [campaigns, dateRange]);
 
   // Generate platform breakdown from real post data
   const platformData = useMemo(() => {
@@ -285,8 +352,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   }, [allPosts]);
 
   // Fetch time-series data for all campaigns
-  const [timeSeriesData, setTimeSeriesData] = useState<any[]>([]);
+  
   const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
+
 
   useEffect(() => {
     const fetchAllTimeSeries = async () => {
@@ -305,7 +373,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           .from('posts')
           .select('views, likes, comments, shares, last_scraped_at, created_at, updated_at, campaign_id')
           .in('campaign_id', campaignIds)
-          .in('platform', ['tiktok', 'instagram']);
+          .in('platform', ['tiktok', 'instagram'])
+          .gte('last_scraped_at', dateRange.start.toISOString())
+          .lte('last_scraped_at', dateRange.end.toISOString());
 
         if (error) {
           console.error('Error fetching time series data:', error);
@@ -403,7 +473,70 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     };
 
     fetchAllTimeSeries();
-  }, [campaigns, kpiMetrics.totalReachValue]);
+  }, [campaigns, dateRange, kpiMetrics.totalReachValue]);
+  
+  const handleExportCSV = () => {
+      const rows: string[][] = [];
+
+      // 1️⃣ Date range row
+      rows.push([
+        "Date Range",
+        `${dateRange.start.toLocaleDateString()} – ${dateRange.end.toLocaleDateString()}`
+      ]);
+
+      // 2️⃣ KPI summary
+      rows.push(["Metric", "Value"]);
+      rows.push(["Total Reach", kpiMetrics.totalReach]);
+      rows.push(["Total Posts", kpiMetrics.totalPosts.toString()]);
+      rows.push(["Active Creators", kpiMetrics.activeCreators.toString()]);
+      rows.push(["Engagement Rate", `${kpiMetrics.engagementRate}%`]);
+      rows.push([]); // empty row for spacing
+
+      // 3️⃣ Daily time series
+      if (timeSeriesData.length > 0) {
+        rows.push(["Date", "Reach", "Engagement"]);
+        timeSeriesData.forEach(point => {
+          rows.push([
+            point.date,
+            point.reach.toString(),
+            point.engagement.toString()
+          ]);
+        });
+        rows.push([]);
+      }
+
+      // 4️⃣ Platform split
+      if (platformData.length > 0) {
+        rows.push(["Platform", "Creators Count", "Percentage"]);
+        platformData.forEach(platform => {
+          rows.push([
+            platform.name,
+            platform.count.toString(),
+            `${platform.value}%`
+          ]);
+        });
+      }
+
+      // 5️⃣ Combine all rows into CSV
+      const csvContent = rows.map(r => r.join(",")).join("\n");
+
+      // 6️⃣ Create Blob and trigger download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `analytics_export_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      link.style.visibility = "hidden";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
 
   // Generate performance chart data from aggregated time series
   const performanceData = useMemo(() => {
@@ -425,53 +558,51 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
-          <button 
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
-          >
-            <Filter className="w-4 h-4" />
-            <span className="hidden sm:inline">Filters</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-[#0ea5e9] text-white text-xs flex items-center justify-center font-medium">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
+          
           <div className="relative">
             <button 
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
               className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
             >
               <Calendar className="w-4 h-4" />
-              <span className="hidden sm:inline">{dateRange}</span>
-              <span className="sm:hidden">{dateRange.replace('Last ', '')}</span>
+              <span className="hidden sm:inline">{formatDateRange(dateRange)}</span>
+              <span className="sm:hidden">{format(dateRange.start, 'MMM d')}</span>
               <ChevronDown className="w-4 h-4" />
             </button>
             
             {/* Dropdown Menu */}
             {isDateDropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl z-50 py-1">
-                {dateRangeOptions.map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => {
-                      setDateRange(option);
-                      setIsDateDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      dateRange === option
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-slate-300 hover:bg-white/[0.06]'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className={cn(
+              /* Mobile: Fixed at center of screen */
+              "fixed inset-x-4 top-50 mx-auto w-auto max-w-[280px] origin-top",
+              /* Desktop: Reset to absolute positioning near the button */
+              "md:absolute md:fixed-none md:inset-auto md:right-0 md:top-full sm:left-0 md:mt-2 md:w-48 md:translate-y-0",
+              "bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl z-[100] py-1 animate-in fade-in zoom-in-95 duration-200"
+            )}>
+              {DATE_RANGE_PRESETS.map((option) => (
+                <button
+                  key={option.label}
+                  onClick={() => {
+                    setDateRange(option);
+                    setIsDateDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 lg:py-2 text-sm transition-colors ${
+                    dateRange.label === option.label
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-slate-300 hover:bg-white/[0.06]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
           </div>
-          <NotificationsCenter />
-          <button className="h-9 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 transition-colors">
+          <div className="hidden lg:block">
+            <NotificationsCenter /> 
+          </div>
+          
+          <button onClick={handleExportCSV} className="h-9 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 transition-colors">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
@@ -487,7 +618,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <Eye className="w-5 h-5 text-[#0ea5e9]" />
               </div>
               <div className="flex items-center gap-1 text-sm text-slate-500">
-                <span className="font-medium">All time</span>
+                <span className="font-medium">{formatDateRange(dateRange)}</span>
               </div>
             </div>
             <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.totalReach}</div>
@@ -689,22 +820,46 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <Card className="bg-[#0D0D0D] border-white/[0.08] animate-in fade-in duration-500">
         <CardContent className="p-0">
           <div className="p-4 sm:p-6 border-b border-white/[0.08]">
+          <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-semibold text-white">Active Campaigns</h3>
-                <p className="text-sm text-slate-400 mt-0.5">Manage and monitor your campaigns</p>
-              </div>
-              <div className="relative w-full sm:w-auto sm:min-w-[200px]">
+            <div>
+              <h3 className="text-base font-semibold text-white">Active Campaigns</h3>
+              <p className="text-sm text-slate-400 mt-0.5">
+                Manage and monitor your campaigns
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+              {/* Filters Button */}
+              <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-[#0ea5e9] text-white text-xs flex items-center justify-center font-medium">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Search Input */}
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="text"
                   placeholder="Search campaigns..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 w-full sm:w-64"
+                  className="h-9 pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
                 />
               </div>
             </div>
+          </div>
+
+          </div>
+            
           </div>
 
           <div className="overflow-x-auto">
