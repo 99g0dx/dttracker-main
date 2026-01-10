@@ -226,7 +226,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
     if (hasScrapingPosts || isMutationPending) {
       // Fast polling during active scraping (every 2 seconds)
-      console.log("🔄 Tier 1: Active scraping detected, polling every 2s");
+      // console.log("🔄 Tier 1: Active scraping detected, polling every 2s");
       const intervalId = setInterval(refetch, 2000);
       return () => clearInterval(intervalId);
     }
@@ -235,13 +235,13 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     const timeSinceLastMutation = Date.now() - lastMutationTimeRef.current;
     if (timeSinceLastMutation < 60000) {
       // 1 minute
-      console.log("🔄 Tier 2: Recent activity, polling every 5s");
+      // console.log("🔄 Tier 2: Recent activity, polling every 5s");
       const intervalId = setInterval(refetch, 5000);
       return () => clearInterval(intervalId);
     }
 
     // Tier 3: Idle monitoring - always poll to catch background scrapes & stuck posts
-    console.log("🔄 Tier 3: Idle monitoring, polling every 30s");
+    // console.log("🔄 Tier 3: Idle monitoring, polling every 30s");
     const intervalId = setInterval(refetch, 30000);
     return () => clearInterval(intervalId);
   }, [
