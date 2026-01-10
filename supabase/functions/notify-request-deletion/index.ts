@@ -21,10 +21,14 @@ serve(async (req) => {
       throw new Error('Request ID is required');
     }
 
+    if (!RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+
     // Get the request details from the database
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch the request with creators
+    // Fetch the request with creators before it gets deleted
     const { data: request, error: requestError } = await supabase
       .from('creator_requests')
       .select(`
@@ -35,10 +39,7 @@ serve(async (req) => {
             name,
             handle,
             platform,
-            follower_count,
-            avg_engagement,
-            niche,
-            location
+            follower_count
           )
         )
       `)
@@ -70,39 +71,18 @@ serve(async (req) => {
       delivered: 'Delivered',
     };
 
-    const urgencyLabels: Record<string, string> = {
-      normal: 'Normal',
-      fast_turnaround: 'Fast Turnaround',
-      asap: 'ASAP',
-    };
-
-    const deliverableLabels: Record<string, string> = {
-      tiktok_post: 'TikTok Post',
-      instagram_reel: 'Instagram Reel',
-      instagram_story: 'Instagram Story',
-      youtube_short: 'YouTube Short',
-      other: 'Other',
-    };
-
-    const usageRightsLabels: Record<string, string> = {
-      creator_page_only: 'Only on creator\'s page',
-      repost_brand_pages: 'Repost on brand pages',
-      run_ads: 'Run ads',
-      all_above: 'All of the above',
-    };
-
     const htmlContent = `<!DOCTYPE html>
 <html>
   <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f7; padding: 40px 20px; color: #333;">
     <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
       
-      <div style="background: #000000; padding: 30px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px;">New Creator Request</h1>
+      <div style="background: #dc2626; padding: 30px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px;">Creator Request Recalled</h1>
       </div>
 
       <div style="padding: 30px;">
         <p style="font-size: 16px; line-height: 1.6;">Hello,</p>
-        <p style="font-size: 16px; line-height: 1.6;">You have received a new creator request (Request ID: <strong>${request.id.slice(0, 8)}</strong>) with the following details:</p>
+        <p style="font-size: 16px; line-height: 1.6;">A creator request (Request ID: <strong>${request.id.slice(0, 8)}</strong>) has been recalled/deleted by the client.</p>
 
         <!-- Request Details -->
         <div style="margin-top: 25px; padding: 20px; background: #fafafa; border-radius: 8px;">
@@ -110,8 +90,6 @@ serve(async (req) => {
           
           ${request.campaign_type ? `<p style="margin: 8px 0;"><strong>Campaign Type:</strong> ${campaignTypeLabels[request.campaign_type] || request.campaign_type}</p>` : ''}
           ${request.status ? `<p style="margin: 8px 0;"><strong>Status:</strong> ${statusLabels[request.status] || request.status}</p>` : ''}
-          ${request.urgency ? `<p style="margin: 8px 0;"><strong>Urgency:</strong> ${urgencyLabels[request.urgency] || request.urgency}</p>` : ''}
-          ${request.posts_per_creator ? `<p style="margin: 8px 0;"><strong>Posts per Creator:</strong> ${request.posts_per_creator}</p>` : ''}
           ${request.deadline ? `<p style="margin: 8px 0;"><strong>Deadline:</strong> ${new Date(request.deadline).toLocaleDateString()}</p>` : ''}
         </div>
 
@@ -120,28 +98,6 @@ serve(async (req) => {
         <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
           <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Campaign Brief</h3>
           <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${request.campaign_brief}</p>
-        </div>
-        ` : ''}
-
-        <!-- Deliverables -->
-        ${request.deliverables && request.deliverables.length > 0 ? `
-        <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Deliverables</h3>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-            ${request.deliverables.map((d: string) => `
-              <span style="background: #eaeaef; color: #444; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;">
-                ${deliverableLabels[d] || d}
-              </span>
-            `).join('')}
-          </div>
-        </div>
-        ` : ''}
-
-        <!-- Usage Rights -->
-        ${request.usage_rights ? `
-        <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Usage Rights</h3>
-          <p style="margin: 0; color: #666; font-size: 14px;">${usageRightsLabels[request.usage_rights] || request.usage_rights}</p>
         </div>
         ` : ''}
 
@@ -155,7 +111,6 @@ serve(async (req) => {
                 <h4 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px;">${creator.name || 'Unknown'}</h4>
                 <p style="margin: 4px 0; color: #666; font-size: 13px;">@${creator.handle || 'N/A'} • ${creator.platform || 'N/A'}</p>
                 ${creator.follower_count ? `<p style="margin: 4px 0; color: #999; font-size: 12px;">${Number(creator.follower_count).toLocaleString()} Followers</p>` : ''}
-                ${creator.niche ? `<p style="margin: 4px 0; color: #999; font-size: 12px;">${creator.niche}</p>` : ''}
               </div>
             </div>
           `).join('')}
@@ -172,26 +127,16 @@ serve(async (req) => {
         </div>
         ` : ''}
 
-        <!-- Asset Links -->
-        ${request.song_asset_links && request.song_asset_links.length > 0 ? `
-        <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Asset Links</h3>
-          <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 14px;">
-            ${request.song_asset_links.map((link: string) => `<li style="margin: 4px 0;"><a href="${link}" style="color: #0066cc; text-decoration: none;">${link}</a></li>`).join('')}
-          </ul>
-        </div>
-        ` : ''}
-
-        <div style="margin-top: 30px; padding: 20px; background: #e8f4fd; border-radius: 8px; text-align: center;">
-          <p style="margin: 0; color: #0066cc; font-size: 14px; font-weight: 500;">Total Creators Requested: <strong>${creators.length}</strong></p>
+        <div style="margin-top: 30px; padding: 20px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; text-align: center;">
+          <p style="margin: 0; color: #dc2626; font-size: 14px; font-weight: 500;">This request has been cancelled by the client.</p>
           <p style="margin: 8px 0 0 0; color: #666; font-size: 12px;">Request Created: ${new Date(request.created_at).toLocaleString()}</p>
+          <p style="margin: 4px 0 0 0; color: #666; font-size: 12px;">Request Deleted: ${new Date().toLocaleString()}</p>
         </div>
       </div>
 
       <div style="padding: 20px; text-align: center; border-top: 1px solid #eee;">
         <p style="font-size: 12px; color: #999;">
-          This request was sent via your DTTracker dashboard. <br/>
-          You can reply directly to this email to contact the user.
+          This notification was sent automatically via your DTTracker dashboard.
         </p>
       </div>
     </div>
@@ -202,14 +147,13 @@ serve(async (req) => {
     const resendFromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'Dobble Tap <no-reply@dttracker.app>';
 
     // Determine reply_to email: use contact_person_email if available
-    // This allows the agency to reply directly to the customer
     const replyToEmail = request.contact_person_email;
 
     // Build email payload
     const emailPayload: any = {
       from: resendFromEmail,
       to: ['agency@dobbletap.com'],
-      subject: `New Creator Request - ${campaignTypeLabels[request.campaign_type] || 'Request'} (${creators.length} creators)`,
+      subject: `Creator Request Recalled - ${campaignTypeLabels[request.campaign_type] || 'Request'} (${creators.length} creators)`,
       html: htmlContent,
     };
 
