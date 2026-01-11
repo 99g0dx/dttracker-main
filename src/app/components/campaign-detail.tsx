@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   ArrowLeft,
   Plus,
@@ -24,7 +25,6 @@ import {
 import { StatusBadge } from "./status-badge";
 import { PlatformBadge } from "./platform-badge";
 import { CampaignHeaderSkeleton, PostRowSkeleton } from "./ui/skeleton";
-import { cn } from "./ui/utils";
 import {
   Select,
   SelectContent,
@@ -44,17 +44,13 @@ import {
 import { useCampaign } from "../../hooks/useCampaigns";
 import {
   usePosts,
+  useCampaignMetrics,
   useCampaignMetricsTimeSeries,
   useDeletePost,
   useDeleteAllPosts,
   useCreateManyPosts,
   postsKeys,
 } from "../../hooks/usePosts";
-import {
-  useCampaignHierarchyMetrics,
-  useIsParentCampaign,
-  subcampaignsKeys,
-} from "../../hooks/useSubcampaigns";
 import { useScrapeAllPosts, useScrapePost } from "../../hooks/useScraping";
 import { addNotification } from "../../lib/utils/notifications";
 import { useCreatorsByCampaign } from "../../hooks/useCreators";
@@ -64,17 +60,22 @@ import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
-import { SubcampaignSection } from "./subcampaign-section";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Carousel, CarouselContent, CarouselItem } from "./ui/carousel";
-import { useMediaQuery } from "../../hooks/useMediaQuery";
-import { PostCard } from "./post-card";
+import { DropdownMenuItem, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
+import { Skeleton } from "./ui/skeleton";
+import { MoreHorizontal } from "lucide-react";
+import { cn } from "./ui/utils";
 
 
-const { data: { user } } = await supabase.auth.getUser();
-console.log('USER:', user);
+async function getUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
+// Call it
+getUser();
+
 
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
@@ -105,11 +106,35 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     null
   );
   const [renderError, setRenderError] = useState<Error | null>(null);
-  const [activeMetric, setActiveMetric] = useState<
+   const [activeMetric, setActiveMetric] = useState<
     "views" | "likes" | "comments" | "shares"
   >("views");
   const postsPerPage = 10;
 
+  const EmptyState = ({ searchQuery }: { searchQuery: string }) => (
+  <div className="flex flex-col items-center justify-center py-20 px-4">
+    <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center mb-4 shadow-inner">
+      <Search className="w-8 h-8 text-zinc-700" />
+    </div>
+    <h3 className="text-lg font-bold text-white mb-1">
+      {searchQuery ? "No matches found" : "No posts yet"}
+    </h3>
+    <p className="text-sm text-zinc-500 text-center max-w-[280px] leading-relaxed">
+      {searchQuery 
+        ? `We couldn't find anything matching "${searchQuery}". Try a different search term.` 
+        : "Start tracking performance by adding your first social media post to this campaign."
+      }
+    </p>
+    {!searchQuery && (
+      <button
+        onClick={() => setShowAddPostDialog(true)}
+        className="mt-6 h-9 px-4 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-lg transition-colors"
+      >
+        Add First Post
+      </button>
+    )}
+  </div>
+);
   // Validate ID
   if (!id) {
     return (
@@ -177,16 +202,14 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     isLoading: campaignLoading,
     error: campaignError,
   } = useCampaign(id);
-  const { data: isParent } = useIsParentCampaign(id || "");
   const {
     data: posts = [],
     isLoading: postsLoading,
     refetch: refetchPosts,
-  } = usePosts(id, Boolean(isParent));
-  const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
+  } = usePosts(id);
+  const { data: metrics, refetch: refetchMetrics } = useCampaignMetrics(id);
   const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
-  const metrics = hierarchyMetrics?.aggregated_metrics;
 
   const deletePostMutation = useDeletePost();
   const deleteAllPostsMutation = useDeleteAllPosts();
@@ -201,10 +224,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     if (!id) return;
 
     const refetch = () => {
-      queryClient.refetchQueries({
-        queryKey: postsKeys.list(id, Boolean(isParent)),
-      });
-      queryClient.refetchQueries({ queryKey: subcampaignsKeys.metrics(id) });
+      queryClient.refetchQueries({ queryKey: postsKeys.list(id) });
+      queryClient.refetchQueries({ queryKey: postsKeys.campaignMetrics(id) });
     };
 
     // Track when mutations occur
@@ -281,7 +302,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
       // Refetch after reset
       setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: postsKeys.lists() });
+        queryClient.refetchQueries({ queryKey: postsKeys.list(id) });
       }, 1000);
     }
   }, [posts, id, queryClient]);
@@ -705,7 +726,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       // Close dialog after 3 seconds if successful
       if (result.error_count === 0) {
         setTimeout(() => {
-          setShowImportDialog(false);
+          setShowImportPostsDialog(false);
           setImportResult(null);
         }, 3000);
       }
@@ -724,12 +745,18 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     scrapeAllPostsMutation.mutate(id);
     setShowScrapeAllDialog(false);
   };
+  const handleDeleteAll = async () => {
+    try {
+      if (!id) return; // campaign id check
 
-  const handleDeleteAll = () => {
-    if (!id) return;
-    deleteAllPostsMutation.mutate(id);
-    setShowDeleteAllDialog(false);
+      await deleteAllPostsMutation.mutateAsync({ campaignId: id });
+      toast.success("All posts deleted successfully!");
+      setShowDeleteAllDialog(false);
+    } catch (err) {
+      toast.error("Failed to delete all posts.");
+    }
   };
+
 
   const handleDeletePost = (postId: string) => {
     if (!id) return;
@@ -827,40 +854,29 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
   }
 
   return (
-    <div className="space-y-6 pt-24 lg:pt-0">
-      {campaign?.parent_campaign_id && (
-        <button
-          onClick={() =>
-            onNavigate(`/campaigns/${campaign.parent_campaign_id}`)
-          }
-          className="text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Parent Campaign
-        </button>
-      )}
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mt-4 sm:mt-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words sm:truncate">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white truncate">
                   {campaign.name}
                 </h1>
                 {campaign.brand_name && (
-                  <p className="text-sm text-slate-400 mt-1 break-words">
+                  <p className="text-sm text-slate-400 mt-1">
                     {campaign.brand_name}
                   </p>
                 )}
               </div>
-              <StatusBadge status={campaign.status} className="flex-shrink-0" />
+              <StatusBadge status={campaign.status} />
             </div>
           </div>
         </div>
@@ -868,7 +884,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowShareLinkModal(true)}
-              className="h-11 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
             >
               <Share2 className="w-4 h-4" />
               <span className="hidden sm:inline">Share Link</span>
@@ -876,7 +892,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </button>
             <button
               onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
-              className="h-11 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
             >
               <Edit2 className="w-4 h-4" />
               <span className="hidden sm:inline">Edit Campaign</span>
@@ -947,71 +963,66 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       )}
 
       {/* KPI Cards - Performance Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Eye className="w-5 h-5 text-primary" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-2xl font-semibold text-white mb-1">
               {(metrics?.total_views ?? 0).toLocaleString()}
             </div>
-            <p className="text-[11px] sm:text-sm text-slate-400">Total Views</p>
+            <p className="text-sm text-slate-400">Total Views</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+                <Heart className="w-5 h-5 text-pink-400" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-2xl font-semibold text-white mb-1">
               {(metrics?.total_likes ?? 0).toLocaleString()}
             </div>
-            <p className="text-[11px] sm:text-sm text-slate-400">Total Likes</p>
+            <p className="text-sm text-slate-400">Total Likes</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-cyan-400" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-2xl font-semibold text-white mb-1">
               {(metrics?.total_comments ?? 0).toLocaleString()}
             </div>
-            <p className="text-[11px] sm:text-sm text-slate-400">
-              Total Comments
-            </p>
+            <p className="text-sm text-slate-400">Total Comments</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Share2 className="w-5 h-5 text-purple-400" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-2xl font-semibold text-white mb-1">
               {(metrics?.total_shares ?? 0).toLocaleString()}
             </div>
-            <p className="text-[11px] sm:text-sm text-slate-400">
-              Total Shares
-            </p>
+            <p className="text-sm text-slate-400">Total Shares</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Performance Charts */}
-      {/* Mobile: Tabbed Interface */}
-      <Tabs
+     <Tabs
         value={activeMetric}
         onValueChange={(value) => setActiveMetric(value as typeof activeMetric)}
         className="lg:hidden"
@@ -1487,639 +1498,362 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </Card>
       </div>
 
-      {isParent && campaign && (
-        <SubcampaignSection
-          parentCampaignId={campaign.id}
-          parentCampaignName={campaign.name}
-          parentBrandName={campaign.brand_name || null}
-        />
-      )}
 
       {/* Creators Section */}
-      {campaignCreators.length > 0 && (
-        <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
-          <CardContent className="p-5 md:p-6">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                  Campaign Roster
-                </h3>
-                <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
-                  {filteredCreators.length} of {campaignCreators.length} Active
-                  Participants
-                </p>
-              </div>
-
-              {/* Optimized Filters */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 md:w-64 group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
-                  <Input
-                    value={creatorSearchQuery}
-                    onChange={(e) => setCreatorSearchQuery(e.target.value)}
-                    placeholder="Quick search..."
-                    className="h-10 pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
-                  />
-                </div>
-                <select
-                  value={selectedPlatform}
-                  onChange={(e) => setSelectedPlatform(e.target.value)}
-                  className="h-10 px-3 rounded-xl bg-zinc-950 border border-white/5 text-zinc-400 text-xs font-bold uppercase tracking-wider focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
-                >
-                  <option value="all">All</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="youtube">YouTube</option>
-                </select>
-              </div>
+          {campaignCreators.length > 0 && (
+      <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
+        <CardContent className="p-5 md:p-6">
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-white tracking-tight">Campaign Roster</h3>
+              <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+                {filteredCreators.length} of {campaignCreators.length} Active Participants
+              </p>
             </div>
 
-            {groupedCreators.length > 0 ? (
-              <div className="space-y-8">
-                {groupedCreators.map((group) => {
-                  const platformPosts = group.creators.reduce(
-                    (total, creator) => {
-                      return (
-                        total +
-                        posts.filter((p) => p.creator_id === creator.id).length
-                      );
-                    },
-                    0
-                  );
-
-                  return (
-                    <div
-                      key={group.platform}
-                      className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-                    >
-                      {/* Platform Section Header */}
-                      <div className="flex items-center gap-3 mb-4">
-                        <PlatformBadge platform={group.platform} />
-                        <div className="h-px flex-1 bg-white/5" />
-                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
-                          {group.creators.length} Creators • {platformPosts}{" "}
-                          Total Posts
-                        </span>
-                      </div>
-
-                      {/* Mobile: Horizontal Carousel */}
-                      <Carousel
-                        opts={{
-                          align: "start",
-                          slidesToScroll: 1,
-                          dragFree: true,
-                        }}
-                        className="md:hidden"
-                      >
-                        <CarouselContent className="-ml-2">
-                          {group.creators.map((creator) => {
-                            const creatorPosts = posts.filter(
-                              (p) => p.creator_id === creator.id
-                            );
-                            const hasPosts = creatorPosts.length > 0;
-
-                            return (
-                              <CarouselItem
-                                key={creator.id}
-                                className="pl-2 basis-[45%] sm:basis-[31%]"
-                              >
-                                <div
-                                  className={cn(
-                                    "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer h-full",
-                                    hasPosts
-                                      ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
-                                      : "bg-zinc-900/40 border-white/5 hover:border-white/20"
-                                  )}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    {/* Avatar with Status Pip */}
-                                    <div className="relative shrink-0">
-                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
-                                        {creator.name.charAt(0).toUpperCase()}
-                                      </div>
-                                      {hasPosts && (
-                                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
-                                      )}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
-                                        {creator.name}
-                                      </div>
-                                      <div className="text-[11px] text-zinc-500 truncate font-medium">
-                                        @{creator.handle}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Post Counter Badge */}
-                                  {hasPosts && (
-                                    <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
-                                      <span className="text-[10px] font-bold text-emerald-500/80 uppercase">
-                                        Active
-                                      </span>
-                                      <span className="text-[10px] font-mono text-zinc-400">
-                                        {creatorPosts.length}{" "}
-                                        {creatorPosts.length === 1
-                                          ? "POST"
-                                          : "POSTS"}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </CarouselItem>
-                            );
-                          })}
-                        </CarouselContent>
-                      </Carousel>
-
-                      {/* Desktop: Grid Layout */}
-                      <div className="hidden md:grid grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-                        {group.creators.map((creator) => {
-                          const creatorPosts = posts.filter(
-                            (p) => p.creator_id === creator.id
-                          );
-                          const hasPosts = creatorPosts.length > 0;
-
-                          return (
-                            <div
-                              key={creator.id}
-                              className={cn(
-                                "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer",
-                                hasPosts
-                                  ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
-                                  : "bg-zinc-900/40 border-white/5 hover:border-white/20"
-                              )}
-                            >
-                              <div className="flex items-center gap-3">
-                                {/* Avatar with Status Pip */}
-                                <div className="relative shrink-0">
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
-                                    {creator.name.charAt(0).toUpperCase()}
-                                  </div>
-                                  {hasPosts && (
-                                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
-                                  )}
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
-                                    {creator.name}
-                                  </div>
-                                  <div className="text-[11px] text-zinc-500 truncate font-medium">
-                                    @{creator.handle}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Post Counter Badge */}
-                              {hasPosts && (
-                                <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
-                                  <span className="text-[10px] font-bold text-emerald-500/80 uppercase">
-                                    Active
-                                  </span>
-                                  <span className="text-[10px] font-mono text-zinc-400">
-                                    {creatorPosts.length}{" "}
-                                    {creatorPosts.length === 1
-                                      ? "POST"
-                                      : "POSTS"}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Optimized Filters */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 md:w-64 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+                <Input
+                  value={creatorSearchQuery}
+                  onChange={(e) => setCreatorSearchQuery(e.target.value)}
+                  placeholder="Quick search..."
+                  className="h-10 pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
+                />
               </div>
-            ) : (
-              <EmptyState searchQuery={creatorSearchQuery} />
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Posts Table */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
-        <CardContent className="p-0">
-          <div className="p-4 sm:p-6 border-b border-white/[0.08]">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3 sm:mb-4">
-              <div>
-                <h3 className="text-base sm:text-lg font-semibold text-white">
-                  Posts
-                </h3>
-                <p className="text-sm text-slate-400 mt-0.5">
-                  Track creator posts and performance
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-wrap md:gap-2 md:w-auto">
-                <button
-                  onClick={() => setShowScrapeAllDialog(true)}
-                  disabled={posts.length === 0}
-                  className="h-11 px-2 rounded-md bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Scrape All Posts
-                </button>
-                <button
-                  onClick={handleExportCSV}
-                  disabled={posts.length === 0}
-                  className="h-11 px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[11px] sm:text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
-                >
-                  <Download className="w-4 h-4" />
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => setShowDeleteAllDialog(true)}
-                  disabled={posts.length === 0}
-                  className="h-11 px-2 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete All Posts
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-wrap md:items-center md:gap-3">
-              <div className="hidden md:block w-full md:w-auto">
-                <Select
-                  value={sortBy}
-                  onValueChange={(
-                    value: "score" | "views" | "engagement" | "latest"
-                  ) => setSortBy(value)}
-                >
-                  <SelectTrigger className="h-8 w-fit md:w-[160px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-[11px] sm:text-xs">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="score">Sort by: Score</SelectItem>
-                    <SelectItem value="views">Sort by: Views</SelectItem>
-                    <SelectItem value="engagement">
-                      Sort by: Engagement
-                    </SelectItem>
-                    <SelectItem value="latest">Sort by: Latest</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="relative group w-full md:w-auto">
-                <button
-                  onClick={handleImportCreators}
-                  className="h-11 px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[11px] sm:text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors w-full md:w-auto"
-                >
-                  <Upload className="w-4 h-4" />
-                  Import Creators
-                </button>
-              </div>
-              <button
-                onClick={handleImportPosts}
-                className="h-11 px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[11px] sm:text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors w-full md:w-auto"
+              <select
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value)}
+                className="h-10 px-3 rounded-xl bg-zinc-950 border border-white/5 text-zinc-400 text-xs font-bold uppercase tracking-wider focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
               >
-                <Upload className="w-4 h-4" />
-                Import Posts CSV
-              </button>
-              <button
-                onClick={() => setShowAddPostDialog(true)}
-                className="h-11 px-3 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1.5 rounded-md transition-colors w-full md:w-auto"
-              >
-                <Plus className="w-4 h-4" />
-                Add Post
-              </button>
+                <option value="all">All</option>
+                <option value="tiktok">TikTok</option>
+                <option value="instagram">Instagram</option>
+                <option value="youtube">YouTube</option>
+              </select>
             </div>
           </div>
 
-          {postsLoading ? (
-            <div className="space-y-0">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <PostRowSkeleton key={i} />
-              ))}
-            </div>
-          ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
-            <>
-              {/* Search Input - Above table/Top Performing */}
-              <div className="px-4 sm:px-6 pb-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    placeholder="Search posts..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-11 w-full pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-[11px] sm:text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
+          {groupedCreators.length > 0 ? (
+            <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {groupedCreators.map((group) => {
+                const platformPosts = group.creators.reduce((total, creator) => {
+                  return total + posts.filter((p) => p.creator_id === creator.id).length;
+                }, 0);
 
-              {/* Mobile: Card Layout */}
-              <div className="lg:hidden px-4 sm:px-6 space-y-3 pb-4">
-                {/* Top Performers Toggle */}
-                <div className="flex items-center gap-2 pb-2">
-                  <button
-                    onClick={() => setShowTopPerformers(!showTopPerformers)}
-                    className={`h-8 px-3 rounded-md border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                      showTopPerformers
-                        ? "bg-primary/20 border-primary/30 text-primary"
-                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {showTopPerformers ? "All Posts" : "Top Performers"}
-                  </button>
-                </div>
-
-                {/* Top Performing Cards */}
-                {topPosts.length > 0 && !showTopPerformers && (
-                  <>
-                    <div className="flex items-center gap-2 pb-2">
-                      <span className="text-xs font-semibold text-primary">
-                        Top Performing
+                return (
+                  <div key={group.platform} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Platform Section Header */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <PlatformBadge platform={group.platform} />
+                      <div className="h-px flex-1 bg-white/5" />
+                      <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                        {group.creators.length} Creators • {platformPosts} Total Posts
                       </span>
-                      <div className="flex-1 h-px bg-primary/20"></div>
                     </div>
-                    {topPosts.map((post) => (
-                      <PostCard
-                        key={post.id}
-                        post={post}
-                        onScrape={handleScrapePost}
-                        onDelete={handleDeletePost}
-                        isScraping={scrapePostMutation.isPending}
-                      />
-                    ))}
-                  </>
-                )}
 
-                {/* Remaining Posts Cards */}
-                {paginatedRemainingPosts.length > 0 && !showTopPerformers && (
-                  <>
-                    <div className="flex items-center gap-2 pb-2 pt-2">
-                      <span className="text-xs font-semibold text-slate-400">
-                        Other Posts
-                      </span>
-                      <div className="flex-1 h-px bg-white/[0.08]"></div>
-                    </div>
-                    {paginatedRemainingPosts.map((post) => (
-                      <PostCard
-                        key={post.id}
-                        post={post}
-                        onScrape={handleScrapePost}
-                        onDelete={handleDeletePost}
-                        isScraping={scrapePostMutation.isPending}
-                      />
-                    ))}
-                  </>
-                )}
+                    {/* Optimized Grid Layout */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {group.creators.map((creator) => {
+                        const creatorPosts = posts.filter((p) => p.creator_id === creator.id);
+                        const hasPosts = creatorPosts.length > 0;
 
-                {/* All Posts when Top Performers is toggled */}
-                {showTopPerformers && (
-                  <>
-                    {[...topPosts, ...paginatedRemainingPosts].map((post) => (
-                      <PostCard
-                        key={post.id}
-                        post={post}
-                        onScrape={handleScrapePost}
-                        onDelete={handleDeletePost}
-                        isScraping={scrapePostMutation.isPending}
-                      />
-                    ))}
-                  </>
-                )}
-              </div>
-
-              {/* Desktop: Table Layout */}
-              <div className="hidden lg:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/[0.08]">
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Creator
-                      </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Platform
-                      </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Post URL
-                      </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
-                        Status
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Views
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Likes
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Comments
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
-                        Engagement
-                      </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Top 5 Posts Section */}
-                    {topPosts.length > 0 && !showTopPerformers && (
-                      <>
-                        <tr>
-                          <td
-                            colSpan={9}
-                            className="px-6 py-3 bg-primary/5 border-b border-primary/20"
+                        return (
+                          <div
+                            key={creator.id}
+                            className={cn(
+                              "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer",
+                              hasPosts
+                                ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
+                                : "bg-zinc-900/40 border-white/5 hover:border-white/20"
+                            )}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-primary">
-                                Top Performing
-                              </span>
-                              <div className="flex-1 h-px bg-primary/20"></div>
-                            </div>
-                          </td>
-                        </tr>
-                        {/* Top Performers Button - Below Top Performing */}
-                        <tr>
-                          <td colSpan={9} className="px-6 py-2">
-                            <div className="flex items-center gap-2 flex-nowrap">
-                              <button
-                                onClick={() =>
-                                  setShowTopPerformers(!showTopPerformers)
-                                }
-                                className={`h-8 px-2 rounded-md border text-[11px] sm:text-xs font-medium flex flex-wrap items-center justify-center gap-1.5 transition-colors w-fit shrink-0 ${
-                                  showTopPerformers
-                                    ? "bg-primary/20 border-primary/30 text-primary"
-                                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                                }`}
-                              >
-                                {showTopPerformers
-                                  ? "All Posts"
-                                  : "Top Performers"}
-                              </button>
-                              <div className="w-[160px] md:hidden shrink-0">
-                                <Select
-                                  value={sortBy}
-                                  onValueChange={(
-                                    value:
-                                      | "score"
-                                      | "views"
-                                      | "engagement"
-                                      | "latest"
-                                  ) => setSortBy(value)}
-                                >
-                                  <SelectTrigger className="h-8 w-fit bg-white/[0.03] border-white/[0.08] text-slate-300 text-[11px] sm:text-xs">
-                                    <SelectValue placeholder="Sort by" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="score">
-                                      Sort by: Score
-                                    </SelectItem>
-                                    <SelectItem value="views">
-                                      Sort by: Views
-                                    </SelectItem>
-                                    <SelectItem value="engagement">
-                                      Sort by: Engagement
-                                    </SelectItem>
-                                    <SelectItem value="latest">
-                                      Sort by: Latest
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
+                            <div className="flex items-center gap-3">
+                              {/* Avatar with Status Pip */}
+                              <div className="relative shrink-0">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
+                                  {creator.name.charAt(0).toUpperCase()}
+                                </div>
+                                {hasPosts && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
+                                  {creator.name}
+                                </div>
+                                <div className="text-[11px] text-zinc-500 truncate font-medium">
+                                  @{creator.handle}
+                                </div>
                               </div>
                             </div>
-                          </td>
-                        </tr>
-                        {topPosts.map((post) => {
-                          const isTop3 = post.rank <= 3;
-                          const isTop5 = post.rank <= 5;
+
+                            {/* Post Counter Badge */}
+                            {hasPosts && (
+                              <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                                <span className="text-[10px] font-bold text-emerald-500/80 uppercase">Active</span>
+                                <span className="text-[10px] font-mono text-zinc-400">
+                                  {creatorPosts.length} {creatorPosts.length === 1 ? 'POST' : 'POSTS'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState searchQuery={creatorSearchQuery} />
+          )}
+        </CardContent>
+      </Card>
+    )}
+
+      {/* Posts Table */}
+
+
+
+      <Card className="bg-[#0A0A0A] border-white/[0.08] overflow-hidden">
+        <CardContent className="p-0">
+          {/* Header Section - Same as before */}
+          <div className="p-6 border-b border-white/[0.08]">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">Campaign Posts</h3>
+                <p className="text-sm text-slate-400">
+                  {posts.length} total • {filteredPosts.length} showing
+                </p>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => setShowAddPostDialog(true)}
+                  className="h-9 px-4 bg-primary hover:bg-primary/90 text-black font-medium gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Post
+                </Button>
+                
+                <Button
+                  onClick={() => setShowScrapeAllDialog(true)}
+                  disabled={posts.length === 0}
+                  variant="outline"
+                  className="h-9 px-4 gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="hidden sm:inline">Scrape All</span>
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-9 px-3">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                      <Download className="w-4 h-4" />
+                      Export to CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleImportCreators} className="gap-2">
+                      <Upload className="w-4 h-4" />
+                      Import Creators
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleImportPosts} className="gap-2">
+                      <Upload className="w-4 h-4" />
+                      Import Posts
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        console.log("clicked");
+                        setShowDeleteAllDialog(true);
+                      }}
+                      className="gap-2 text-red-400"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete All Posts
+                    </DropdownMenuItem>
+
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="flex flex-col lg:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Input
+                  type="text"
+                  placeholder="Search by creator name or handle..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-10 bg-white/[0.03] border-white/[0.08]"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setShowTopPerformers(!showTopPerformers)}
+                  variant={showTopPerformers ? "default" : "outline"}
+                  className="h-10 px-4"
+                >
+                  {showTopPerformers ? "Showing Top 15" : "Top Performers"}
+                </Button>
+
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
+                  <SelectTrigger className="w-[140px] h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="score">By Score</SelectItem>
+                    <SelectItem value="views">By Views</SelectItem>
+                    <SelectItem value="engagement">By Engagement</SelectItem>
+                    <SelectItem value="latest">Latest First</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+
+          {/* Table Content */}
+          <div className="overflow-x-auto">
+            {postsLoading ? (
+              <div className="p-6 space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <PostRowSkeleton key={i} />
+                ))}
+              </div>
+            ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
+              <>
+                <table className="w-full">
+                  <thead className="bg-white/[0.02] border-b border-white/[0.08]">
+                    <tr>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-16">
+                        Rank
+                      </th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Creator
+                      </th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Platform
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Views
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">
+                        Engagement
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Rate
+                      </th>
+                      <th className="text-center px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden lg:table-cell">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 w-20"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {/* Top 5 Posts Section */}
+                    {topPosts.length > 0 && (
+                      <>
+                        {topPosts.map((post, index) => {
+                          const postWithRanking = postsWithRankings.find(p => p.id === post.id);
                           return (
-                            <tr
-                              key={post.id}
-                              className={`border-b border-white/[0.04] transition-colors group ${
-                                isTop3
-                                  ? "bg-primary/5 hover:bg-primary/10"
-                                  : isTop5
-                                  ? "bg-primary/2 hover:bg-primary/5"
-                                  : "hover:bg-white/[0.02]"
-                              } ${
-                                isTop5 ? "border-l-2 border-l-primary/30" : ""
-                              }`}
+                            <tr 
+                              key={post.id} 
+                              className="group hover:bg-white/[0.02] transition-colors"
                             >
-                              <td className="px-6 py-4">
-                                <div>
-                                  <div className="font-medium text-sm text-white">
-                                    {post.creator?.name || "Unknown"}
-                                  </div>
-                                  <div className="text-xs text-slate-500">
-                                    @{post.creator?.handle || "unknown"}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <PlatformBadge platform={post.platform} />
-                                  {!isKpiPlatform(post.platform) && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
-                                      Not counted in KPIs
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                {post.post_url ? (
-                                  <a
-                                    href={post.post_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                    View Post
-                                  </a>
-                                ) : (
-                                  <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
-                                    <LinkIcon className="w-3 h-3" />
-                                    Add Link
-                                  </button>
+                              {/* Rank Column */}
+                              <td className="px-4 py-4 text-center">
+                                {postWithRanking?.positionEmoji && (
+                                  <span className="text-2xl">{postWithRanking.positionEmoji}</span>
                                 )}
                               </td>
+                              
+                              {/* Creator Column */}
                               <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <StatusBadge status={post.status} />
-                                  {post.positionEmoji && (
-                                    <span className="text-base">
-                                      {post.positionEmoji}
-                                    </span>
-                                  )}
-                                  {post.badges?.trending && (
-                                    <span className="text-base">🔥</span>
-                                  )}
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-sm font-medium text-white truncate">
+                                    {post.creator?.name || 'Unknown'}
+                                  </span>
+                                  <span className="text-xs text-slate-500">
+                                    @{post.creator?.handle || 'unknown'}
+                                  </span>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.views && post.views > 0
-                                  ? post.views.toLocaleString()
-                                  : "-"}
-                              </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.likes && post.likes > 0
-                                  ? post.likes.toLocaleString()
-                                  : "-"}
-                              </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.comments && post.comments > 0
-                                  ? post.comments.toLocaleString()
-                                  : "-"}
+                              
+                              <td className="px-6 py-4">
+                                <PlatformBadge platform={post.platform} />
                               </td>
                               <td className="px-6 py-4 text-right">
-                                {post.engagement_rate &&
-                                post.engagement_rate > 0 ? (
-                                  <span className="text-sm text-emerald-400 font-medium">
-                                    {post.engagement_rate}%
-                                  </span>
-                                ) : (
-                                  <span className="text-sm text-slate-500">
-                                    -
-                                  </span>
-                                )}
+                                <span className="text-sm font-mono text-white">
+                                  {(post.views || 0).toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right hidden md:table-cell">
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <Heart className="w-3 h-3" />
+                                    <span>{(post.likes || 0).toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <MessageCircle className="w-3 h-3" />
+                                    <span>{(post.comments || 0).toLocaleString()}</span>
+                                  </div>
+                                </div>
                               </td>
                               <td className="px-6 py-4 text-right">
-                                <div className="flex items-center justify-end gap-1">
+                                <span className="text-sm font-semibold text-emerald-400">
+                                  {(post.engagement_rate || 0).toFixed(1)}%
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center hidden lg:table-cell">
+                                <StatusBadge status={post.status} />
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {post.post_url && (
                                     <button
-                                      onClick={() => {
-                                        if (id) {
-                                          scrapePostMutation.mutate({
-                                            postId: post.id,
-                                            postUrl: post.post_url,
-                                            platform: post.platform,
-                                            campaignId: id,
-                                          });
-                                        }
-                                      }}
-                                      disabled={
-                                        scrapePostMutation.isPending ||
-                                        post.status === "scraping"
-                                      }
-                                      className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title={
-                                        post.status === "scraping"
-                                          ? "Scraping..."
-                                          : "Scrape this post"
-                                      }
+                                      onClick={() => window.open(post.post_url, '_blank')}
+                                      className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-white transition-colors"
+                                      title="View Post"
                                     >
-                                      {scrapePostMutation.isPending ||
-                                      post.status === "scraping" ? (
-                                        <RefreshCw className="w-4 h-4 text-primary animate-spin" />
-                                      ) : (
-                                        <RefreshCw className="w-4 h-4 text-primary" />
-                                      )}
+                                      <ExternalLink className="w-4 h-4" />
                                     </button>
                                   )}
                                   <button
-                                    onClick={() =>
-                                      setShowDeletePostDialog(post.id)
-                                    }
-                                    className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                                    title="Delete this post"
+                                    onClick={() => {
+                                      if (post.post_url && id) {
+                                        scrapePostMutation.mutate({ postId: post.id, campaignId: id,
+                                         postUrl: post.post_url,
+                                          platform: post.platform, });
+                                      }
+                                    }}
+                                    disabled={!post.post_url || post.status === 'scraping'}
+                                    className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title="Refresh Metrics"
                                   >
-                                    <Trash2 className="w-4 h-4 text-red-400" />
+                                    <RefreshCw className={cn(
+                                      "w-4 h-4",
+                                      post.status === 'scraping' && "animate-spin"
+                                    )} />
+                                  </button>
+                                  <button
+                                    onClick={() => setShowDeletePostDialog(post.id)}
+                                    className="p-2 hover:bg-red-500/10 rounded-md text-slate-400 hover:text-red-400 transition-colors"
+                                    title="Delete Post"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
                               </td>
@@ -2128,250 +1862,178 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         })}
                         {paginatedRemainingPosts.length > 0 && (
                           <tr>
-                            <td
-                              colSpan={9}
-                              className="px-6 py-2 border-b border-white/[0.08]"
-                            >
-                              <div className="h-px"></div>
+                            <td colSpan={8} className="px-6 py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-px bg-white/[0.08]" />
+                                <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                  Other Posts
+                                </span>
+                                <div className="flex-1 h-px bg-white/[0.08]" />
+                              </div>
                             </td>
                           </tr>
                         )}
                       </>
                     )}
+
                     {/* Remaining Posts */}
-                    {paginatedRemainingPosts.map((post) => {
-                      const isTop3 = post.rank <= 3;
-                      return (
-                        <tr
-                          key={post.id}
-                          className={`border-b border-white/[0.04] transition-colors group ${
-                            isTop3
-                              ? "bg-primary/5 hover:bg-primary/10"
-                              : "hover:bg-white/[0.02]"
-                          }`}
-                        >
-                          <td className="px-6 py-4">
-                            <div>
-                              <div className="font-medium text-sm text-white">
-                                {post.creator?.name || "Unknown"}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                @{post.creator?.handle || "unknown"}
-                              </div>
+                    {paginatedRemainingPosts.map((post) => (
+                      <tr 
+                        key={post.id} 
+                        className="group hover:bg-white/[0.02] transition-colors"
+                      >
+                        {/* Rank Column - Trending Badge */}
+                        <td className="px-4 py-4 text-center">
+                          {post.badges?.trending && (
+                            <div className="inline-flex items-center justify-center w-12 h-6 rounded-full bg-orange-500/10 border border-orange-500/20">
+                              <span className="text-[10px] font-bold text-orange-400">🔥</span>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <PlatformBadge platform={post.platform} />
-                              {!isKpiPlatform(post.platform) && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
-                                  Not counted in KPIs
-                                </span>
-                              )}
+                          )}
+                        </td>
+                        
+                        {/* Creator Column */}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium text-white truncate">
+                              {post.creator?.name || 'Unknown'}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              @{post.creator?.handle || 'unknown'}
+                            </span>
+                          </div>
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <PlatformBadge platform={post.platform} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-mono text-white">
+                            {(post.views || 0).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right hidden md:table-cell">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <Heart className="w-3 h-3" />
+                              <span>{(post.likes || 0).toLocaleString()}</span>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            {post.post_url ? (
-                              <a
-                                href={post.post_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                View Post
-                              </a>
-                            ) : (
-                              <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
-                                <LinkIcon className="w-3 h-3" />
-                                Add Link
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <StatusBadge status={post.status} />
-                              {post.positionEmoji && (
-                                <span className="text-base">
-                                  {post.positionEmoji}
-                                </span>
-                              )}
-                              {post.badges?.trending && (
-                                <span className="text-base">🔥</span>
-                              )}
+                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <MessageCircle className="w-3 h-3" />
+                              <span>{(post.comments || 0).toLocaleString()}</span>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.views && post.views > 0
-                              ? post.views.toLocaleString()
-                              : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.likes && post.likes > 0
-                              ? post.likes.toLocaleString()
-                              : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.comments && post.comments > 0
-                              ? post.comments.toLocaleString()
-                              : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {post.engagement_rate &&
-                            post.engagement_rate > 0 ? (
-                              <span className="text-sm text-emerald-400 font-medium">
-                                {post.engagement_rate}%
-                              </span>
-                            ) : (
-                              <span className="text-sm text-slate-500">-</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {post.post_url && (
-                                <button
-                                  onClick={() => {
-                                    if (id) {
-                                      scrapePostMutation.mutate({
-                                        postId: post.id,
-                                        postUrl: post.post_url,
-                                        platform: post.platform,
-                                        campaignId: id,
-                                      });
-                                    }
-                                  }}
-                                  disabled={
-                                    scrapePostMutation.isPending ||
-                                    post.status === "scraping"
-                                  }
-                                  className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={
-                                    post.status === "scraping"
-                                      ? "Scraping..."
-                                      : "Scrape this post"
-                                  }
-                                >
-                                  {scrapePostMutation.isPending ||
-                                  post.status === "scraping" ? (
-                                    <RefreshCw className="w-4 h-4 text-primary animate-spin" />
-                                  ) : (
-                                    <RefreshCw className="w-4 h-4 text-primary" />
-                                  )}
-                                </button>
-                              )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-semibold text-emerald-400">
+                            {(post.engagement_rate || 0).toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center hidden lg:table-cell">
+                          <StatusBadge status={post.status} />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {post.post_url && (
                               <button
-                                onClick={() => setShowDeletePostDialog(post.id)}
-                                className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                                title="Delete this post"
+                                onClick={() => window.open(post.post_url, '_blank')}
+                                className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-white transition-colors"
+                                title="View Post"
                               >
-                                <Trash2 className="w-4 h-4 text-red-400" />
+                                <ExternalLink className="w-4 h-4" />
                               </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            )}
+                            <button
+                              onClick={() => {
+                                if (post.post_url && id) {
+                                  scrapePostMutation.mutate({ postId: post.id, campaignId: id });
+                                }
+                              }}
+                              disabled={!post.post_url || post.status === 'scraping'}
+                              className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Refresh Metrics"
+                            >
+                              <RefreshCw className={cn(
+                                "w-4 h-4",
+                                post.status === 'scraping' && "animate-spin"
+                              )} />
+                            </button>
+                            <button
+                              onClick={() => setShowDeletePostDialog(post.id)}
+                              className="p-2 hover:bg-red-500/10 rounded-md text-slate-400 hover:text-red-400 transition-colors"
+                              title="Delete Post"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-              </div>
 
-              {/* Mobile Pagination */}
-              {totalPages > 1 && (
-                <div className="lg:hidden px-4 sm:px-6 pb-4 flex items-center justify-between">
-                  <p className="text-xs text-slate-400">
-                    Page {currentPage} of {totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="h-10 w-10 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                    >
-                      ←
-                    </button>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={currentPage === totalPages}
-                      className="h-10 w-10 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                    >
-                      →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Desktop Pagination */}
-              {totalPages > 1 && (
-                <div className="hidden lg:flex p-4 border-t border-white/[0.08] items-center justify-between">
-                  <p className="text-sm text-slate-400">
-                    {topPosts.length > 0 && !showTopPerformers
-                      ? `${topPosts.length} top posts + `
-                      : ""}
-                    Showing {startIndex + 1} to{" "}
-                    {Math.min(startIndex + postsPerPage, remainingPosts.length)}{" "}
-                    of {remainingPosts.length} remaining posts
-                    {topPosts.length > 0 &&
-                      !showTopPerformers &&
-                      ` (${topPosts.length + remainingPosts.length} total)`}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Previous
-                    </button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (page) => (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`w-8 h-8 rounded-md text-sm transition-colors ${
-                              currentPage === page
-                                ? "bg-primary text-black"
-                                : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      )}
+                {/* Pagination - Same as before */}
+                {totalPages > 1 && (
+                  <div className="px-6 py-4 border-t border-white/[0.08] bg-white/[0.01]">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-slate-400">
+                        Showing {startIndex + 1} to {Math.min(startIndex + postsPerPage, remainingPosts.length)} of {remainingPosts.length} posts
+                      </p>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          variant="outline"
+                          className="h-9 px-3"
+                        >
+                          Previous
+                        </Button>
+                        
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (currentPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i;
+                            } else {
+                              pageNum = currentPage - 2 + i;
+                            }
+                            
+                            return (
+                              <Button
+                                key={i}
+                                onClick={() => setCurrentPage(pageNum)}
+                                variant={currentPage === pageNum ? "default" : "outline"}
+                                className="h-9 w-9 p-0"
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        
+                        <Button
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                          variant="outline"
+                          className="h-9 px-3"
+                        >
+                          Next
+                        </Button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={currentPage === totalPages}
-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Next
-                    </button>
                   </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-slate-600" />
-              </div>
-              <h3 className="text-base font-semibold text-white mb-1">
-                No posts found
-              </h3>
-              <p className="text-sm text-slate-400 text-center mb-6 max-w-md">
-                {searchQuery
-                  ? "Try adjusting your search query"
-                  : "Get started by adding posts manually or importing from CSV"}
-              </p>
-            </div>
-          )}
+                )}
+              </>
+            ) : (
+              <EmptyState searchQuery={searchQuery} />
+            )}
+          </div>
         </CardContent>
       </Card>
-
       {/* Import Creators Dialog */}
       <ImportCreatorsDialog
         open={showImportCreatorsDialog}
@@ -2543,6 +2205,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </div>
       )}
 
+
       {/* Delete Post Confirmation Dialog */}
       {showDeletePostDialog && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
@@ -2573,7 +2236,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           </Card>
         </div>
       )}
-
+      
       {/* Share Modal */}
       {showShareLinkModal && campaign && (
         <CampaignShareModal

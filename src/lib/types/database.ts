@@ -3,19 +3,13 @@
 // TypeScript interfaces matching Supabase database schema
 // ============================================================
 
-export type Platform =
-  | "tiktok"
-  | "instagram"
-  | "youtube"
-  | "twitter"
-  | "facebook";
+// ============================================================
+// ENUM TYPES
+// ============================================================
+
+export type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
 export type CampaignStatus = "active" | "paused" | "completed" | "archived";
-export type PostStatus =
-  | "pending"
-  | "scraped"
-  | "failed"
-  | "manual"
-  | "scraping";
+export type PostStatus = "pending" | "scraped" | "failed" | "manual" | "scraping";
 export type MemberRole = "owner" | "editor" | "viewer";
 export type TeamRole = "owner" | "admin" | "member" | "viewer";
 export type MemberStatus = "active" | "pending";
@@ -60,7 +54,7 @@ export interface Creator {
 
 export interface Campaign {
   id: string;
-  parent_campaign_id: string | null;
+  parent_campaign_id?: string | null;
   user_id: string;
   name: string;
   brand_name: string | null;
@@ -171,19 +165,19 @@ export interface CreatorRequest {
   id: string;
   user_id: string;
   status: CreatorRequestStatus;
-  campaign_type: CampaignType | null;
-  campaign_brief: string | null;
-  song_asset_links: string[] | null;
-  deliverables: Deliverable[] | null;
-  posts_per_creator: number | null;
-  usage_rights: UsageRights | null;
-  deadline: string | null;
-  urgency: Urgency | null;
-  contact_person_name: string | null;
-  contact_person_email: string | null;
-  contact_person_phone: string | null;
-  quote_amount: number | null;
-  quote_details: Record<string, any> | null;
+  campaign_type?: CampaignType | null;
+  campaign_brief?: string | null;
+  song_asset_links?: string[] | null;
+  deliverables?: Deliverable[] | null;
+  posts_per_creator?: number | null;
+  usage_rights?: UsageRights | null;
+  deadline?: string | null;
+  urgency?: Urgency | null;
+  contact_person_name?: string | null;
+  contact_person_email?: string | null;
+  contact_person_phone?: string | null;
+  quote_amount?: number | null;
+  quote_details?: Record<string, any> | null;
   created_at: string;
   updated_at: string;
 }
@@ -196,7 +190,7 @@ export interface CreatorRequestItem {
 }
 
 // ============================================================
-// INSERT TYPES (for creating new records)
+// INSERT TYPES
 // ============================================================
 
 export interface ProfileInsert {
@@ -318,7 +312,7 @@ export interface CreatorRequestItemInsert {
 }
 
 // ============================================================
-// UPDATE TYPES (for updating existing records)
+// UPDATE TYPES
 // ============================================================
 
 export interface ProfileUpdate {
@@ -395,7 +389,6 @@ export interface CreatorRequestUpdate {
   contact_person_name?: string | null;
   contact_person_email?: string | null;
   contact_person_phone?: string | null;
-  // Status updates are typically handled separately with special permissions
 }
 
 // ============================================================
@@ -409,34 +402,6 @@ export interface CampaignWithStats extends Campaign {
   total_comments: number;
   total_shares: number;
   avg_engagement_rate: number;
-  subcampaigns_count?: number;
-}
-
-export interface SubcampaignSummary {
-  id: string;
-  name: string;
-  status: CampaignStatus;
-  posts_count: number;
-  total_views: number;
-  total_likes: number;
-  total_comments: number;
-  total_shares: number;
-  avg_engagement_rate: number;
-  created_at: string;
-}
-
-export interface CampaignWithSubcampaigns extends Campaign {
-  subcampaigns: SubcampaignSummary[];
-  is_parent: boolean;
-  is_subcampaign: boolean;
-}
-
-export interface CampaignHierarchyMetrics {
-  campaign: Campaign;
-  direct_posts_count: number;
-  subcampaigns_posts_count: number;
-  aggregated_metrics: CampaignMetrics;
-  subcampaigns: SubcampaignSummary[];
 }
 
 export interface PostWithCreator extends Post {

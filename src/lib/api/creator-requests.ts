@@ -347,10 +347,11 @@ export async function deleteRequest(id: string): Promise<ApiResponse<void>> {
     }
 
     // Items will be deleted automatically due to CASCADE
-    const { error } = await supabase
+    const { data: deletedRows, error } = await supabase
       .from('creator_requests')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     if (error) {
       console.error('Error deleting creator request:', error);
@@ -370,6 +371,15 @@ export async function deleteRequest(id: string): Promise<ApiResponse<void>> {
         };
       }
       return { data: null, error };
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+      return {
+        data: null,
+        error: new Error(
+          'Delete failed: no rows were removed. This usually means the request is not owned by your user or the DELETE policy is missing. Run database/add_creator_requests_delete_policy.sql in Supabase.'
+        ),
+      };
     }
 
     return { data: null, error: null };

@@ -335,224 +335,213 @@ export function Requests({ onNavigate }: RequestsProps) {
       )}
 
       {/* Request Detail Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <DialogTitle className="text-xl font-semibold text-white">
-                  Request Details
-                </DialogTitle>
-                <DialogDescription className="text-slate-400">
-                  {selectedRequest && (
-                    <>
-                      Status:{" "}
-                      <span
-                        className={`${statusConfig[selectedRequest.status].color} font-medium`}
-                      >
-                        {statusConfig[selectedRequest.status].label}
-                      </span>
-                    </>
-                  )}
-                </DialogDescription>
-              </div>
-              {selectedRequest && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setViewDialogOpen(false);
-                    setDeleteConfirmId(selectedRequest.id);
-                  }}
-                  className="border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300"
-                  disabled={deleteRequestMutation.isPending}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              )}
+    <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col bg-gray-900 rounded-lg shadow-lg">
+        <DialogHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-semibold text-white">
+                Request Details
+              </DialogTitle>
+              <DialogDescription className="text-slate-400 mt-1">
+                {selectedRequest && (
+                  <>
+                    Status:{" "}
+                    <span
+                      className={`${statusConfig[selectedRequest.status].color} font-medium`}
+                    >
+                      {statusConfig[selectedRequest.status].label}
+                    </span>
+                  </>
+                )}
+              </DialogDescription>
             </div>
-          </DialogHeader>
+            {selectedRequest && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setViewDialogOpen(false);
+                  setDeleteConfirmId(selectedRequest.id);
+                }}
+                className="border-red-600 bg-red-600/10 hover:bg-red-600/20 text-red-500 hover:text-red-400 flex items-center gap-2"
+                disabled={deleteRequestMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            )}
+          </div>
+        </DialogHeader>
 
-          {requestDetails && (
-            <div className="flex-1 overflow-y-auto space-y-6 py-4">
-              {/* Campaign Information */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-white">Campaign Information</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Campaign Type</p>
-                    <p className="text-sm text-white capitalize">
-                      {requestDetails.campaign_type?.replace("_", " ") || "N/A"}
-                    </p>
-                  </div>
-                  {requestDetails.deadline && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">Deadline</p>
-                      <p className="text-sm text-white">
-                        {format(parseISO(requestDetails.deadline), "MMM d, yyyy")}
-                      </p>
-                    </div>
-                  )}
-                  {requestDetails.urgency && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">Urgency</p>
-                      <p className="text-sm text-white capitalize">
-                        {requestDetails.urgency.replace("_", " ")}
-                      </p>
-                    </div>
-                  )}
-                  {requestDetails.posts_per_creator && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">Posts per Creator</p>
-                      <p className="text-sm text-white">
-                        {requestDetails.posts_per_creator}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Campaign Brief */}
-              {requestDetails.campaign_brief && (
-                <div className="space-y-2">
-                  <h3 className="font-medium text-white">Campaign Brief</h3>
-                  <p className="text-sm text-slate-300 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02] whitespace-pre-wrap">
-                    {requestDetails.campaign_brief}
+        {requestDetails && (
+          <div className="flex-1 overflow-y-auto space-y-6 py-4 px-2 sm:px-0">
+            
+            {/* Campaign Information */}
+            <section className="space-y-3">
+              <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">Campaign Information</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg bg-gray-800 border border-white/[0.08]">
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Campaign Type</p>
+                  <p className="text-sm text-white capitalize">
+                    {requestDetails.campaign_type?.replace("_", " ") || "N/A"}
                   </p>
                 </div>
-              )}
-
-              {/* Deliverables */}
-              {requestDetails.deliverables &&
-                requestDetails.deliverables.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="font-medium text-white">Deliverables</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {requestDetails.deliverables.map((deliverable, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium capitalize"
-                        >
-                          {deliverable.replace("_", " ")}
-                        </span>
-                      ))}
-                    </div>
+                {requestDetails.deadline && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">Deadline</p>
+                    <p className="text-sm text-white">
+                      {format(parseISO(requestDetails.deadline), "MMM d, yyyy")}
+                    </p>
                   </div>
                 )}
-
-              {/* Usage Rights */}
-              {requestDetails.usage_rights && (
-                <div className="space-y-2">
-                  <h3 className="font-medium text-white">Usage Rights</h3>
-                  <p className="text-sm text-slate-300 capitalize">
-                    {requestDetails.usage_rights.replace("_", " ")}
-                  </p>
-                </div>
-              )}
-
-              {/* Selected Creators */}
-              {requestDetails.creators && requestDetails.creators.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-medium text-white">
-                    Selected Creators ({requestDetails.creators.length})
-                  </h3>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {requestDetails.creators.map((creator) => (
-                      <div
-                        key={creator.id}
-                        className="p-3 rounded-lg border border-white/[0.08] bg-white/[0.02]"
-                      >
-                        <p className="text-sm font-medium text-white">{creator.name}</p>
-                        <p className="text-xs text-slate-400">
-                          @{creator.handle} • {creator.platform}
-                        </p>
-                      </div>
-                    ))}
+                {requestDetails.urgency && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">Urgency</p>
+                    <p className="text-sm text-white capitalize">{requestDetails.urgency.replace("_", " ")}</p>
                   </div>
-                </div>
-              )}
-
-              {/* Contact Information */}
-              {(requestDetails.contact_person_name ||
-                requestDetails.contact_person_email ||
-                requestDetails.contact_person_phone) && (
-                <div className="space-y-2">
-                  <h3 className="font-medium text-white">Contact Information</h3>
-                  <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02] space-y-2">
-                    {requestDetails.contact_person_name && (
-                      <p className="text-sm text-white">
-                        <span className="text-slate-400">Name: </span>
-                        {requestDetails.contact_person_name}
-                      </p>
-                    )}
-                    {requestDetails.contact_person_email && (
-                      <p className="text-sm text-white">
-                        <span className="text-slate-400">Email: </span>
-                        {requestDetails.contact_person_email}
-                      </p>
-                    )}
-                    {requestDetails.contact_person_phone && (
-                      <p className="text-sm text-white">
-                        <span className="text-slate-400">Phone: </span>
-                        {requestDetails.contact_person_phone}
-                      </p>
-                    )}
+                )}
+                {requestDetails.posts_per_creator && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">Posts per Creator</p>
+                    <p className="text-sm text-white">{requestDetails.posts_per_creator}</p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            </section>
 
-              {/* Quote Information */}
-              {requestDetails.quote_amount && (
-                <div className="space-y-2">
-                  <h3 className="font-medium text-white">Quote</h3>
-                  <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
-                    <p className="text-lg font-semibold text-white">
-                      ${requestDetails.quote_amount.toFixed(2)}
+            {/* Campaign Brief */}
+            {requestDetails.campaign_brief && (
+              <section className="space-y-2">
+                <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">Campaign Brief</h3>
+                <p className="text-sm text-slate-300 p-4 rounded-lg bg-gray-800 border border-white/[0.08] whitespace-pre-wrap">
+                  {requestDetails.campaign_brief}
+                </p>
+              </section>
+            )}
+
+            {/* Deliverables */}
+            {requestDetails.deliverables?.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">Deliverables</h3>
+                <div className="flex flex-wrap gap-2">
+                  {requestDetails.deliverables.map((deliverable, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-xs font-medium capitalize"
+                    >
+                      {deliverable.replace("_", " ")}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Usage Rights */}
+            {requestDetails.usage_rights && (
+              <section className="space-y-2">
+                <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">Usage Rights</h3>
+                <p className="text-sm text-slate-300 capitalize">{requestDetails.usage_rights.replace("_", " ")}</p>
+              </section>
+            )}
+
+            {/* Selected Creators */}
+            {requestDetails.creators?.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
+                  Selected Creators ({requestDetails.creators.length})
+                </h3>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {requestDetails.creators.map((creator) => (
+                    <div
+                      key={creator.id}
+                      className="p-3 rounded-lg bg-gray-800 border border-white/[0.08] flex flex-col sm:flex-row sm:justify-between sm:items-center"
+                    >
+                      <p className="text-sm font-medium text-white">{creator.name}</p>
+                      <p className="text-xs text-slate-400">@{creator.handle} • {creator.platform}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Contact Information */}
+            {(requestDetails.contact_person_name ||
+              requestDetails.contact_person_email ||
+              requestDetails.contact_person_phone) && (
+              <section className="space-y-2">
+                <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">Contact Information</h3>
+                <div className="p-4 rounded-lg bg-gray-800 border border-white/[0.08] space-y-2">
+                  {requestDetails.contact_person_name && (
+                    <p className="text-sm text-white">
+                      <span className="text-slate-400">Name: </span>
+                      {requestDetails.contact_person_name}
                     </p>
-                    {requestDetails.quote_details && (
-                      <p className="text-sm text-slate-300 mt-2">
-                        {JSON.stringify(requestDetails.quote_details, null, 2)}
-                      </p>
-                    )}
-                  </div>
+                  )}
+                  {requestDetails.contact_person_email && (
+                    <p className="text-sm text-white">
+                      <span className="text-slate-400">Email: </span>
+                      {requestDetails.contact_person_email}
+                    </p>
+                  )}
+                  {requestDetails.contact_person_phone && (
+                    <p className="text-sm text-white">
+                      <span className="text-slate-400">Phone: </span>
+                      {requestDetails.contact_person_phone}
+                    </p>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+              </section>
+            )}
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-white">
-              Delete Creator Request
-            </DialogTitle>
-            <DialogDescription className="text-slate-400">
-              Are you sure you want to delete this request? This action cannot be undone. The agency will be notified of this deletion.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-3 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteConfirmId(null)}
-              className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
-              disabled={deleteRequestMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => deleteConfirmId && handleDeleteRequest(deleteConfirmId)}
-              disabled={deleteRequestMutation.isPending}
-              className="bg-red-500 hover:bg-red-600 text-white"
-            >
-              {deleteRequestMutation.isPending ? "Deleting..." : "Delete Request"}
-            </Button>
+            {/* Quote Information */}
+            {requestDetails.quote_amount && (
+              <section className="space-y-2">
+                <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">Quote</h3>
+                <div className="p-4 rounded-lg bg-gray-800 border border-white/[0.08]">
+                  <p className="text-xl font-semibold text-white">${requestDetails.quote_amount.toFixed(2)}</p>
+                  {requestDetails.quote_details && (
+                    <p className="text-sm text-slate-300 mt-2 whitespace-pre-wrap">
+                      {JSON.stringify(requestDetails.quote_details, null, 2)}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </DialogContent>
+    </Dialog>
+
+{/* Delete Confirmation Dialog */}
+    <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+      <DialogContent className="max-w-md bg-gray-900 rounded-lg shadow-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold text-white">Delete Creator Request</DialogTitle>
+          <DialogDescription className="text-slate-400">
+            Are you sure you want to delete this request? This action cannot be undone. The agency will be notified of this deletion.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end gap-3 mt-4">
+          <Button
+            variant="outline"
+            onClick={() => setDeleteConfirmId(null)}
+            className="border-white/[0.08] bg-gray-800 hover:bg-gray-700 text-slate-300"
+            disabled={deleteRequestMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => deleteConfirmId && handleDeleteRequest(deleteConfirmId)}
+            disabled={deleteRequestMutation.isPending}
+            className="bg-red-500 hover:bg-red-600 text-white"
+          >
+            {deleteRequestMutation.isPending ? "Deleting..." : "Delete Request"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     </div>
   );
 }
