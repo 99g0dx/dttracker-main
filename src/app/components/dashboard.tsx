@@ -343,7 +343,7 @@ useEffect(() => {
 
     // Platform colors and display names
     const platformConfig = [
-      { key: 'tiktok', name: 'TikTok', color: '#000000' },
+       { key: 'tiktok', name: 'TikTok', color: '#7a54a0' },
       { key: 'instagram', name: 'Instagram', color: '#E4405F' },
       { key: 'youtube', name: 'YouTube', color: '#FF0000' },
       { key: 'twitter', name: 'Twitter', color: '#1DA1F2' },
@@ -390,7 +390,7 @@ useEffect(() => {
     }
 
     return result.length > 0 ? result : [
-      { name: 'TikTok', value: 0, count: 0, color: '#000000' },
+      { name: 'TikTok', value: 0, count: 0, color: '#7a54a0' },
       { name: 'Instagram', value: 0, count: 0, color: '#E4405F' },
     ];
   }, [allPosts]);
