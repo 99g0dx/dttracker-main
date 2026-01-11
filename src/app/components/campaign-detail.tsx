@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   ArrowLeft,
   Plus,
@@ -105,6 +106,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     null
   );
   const [renderError, setRenderError] = useState<Error | null>(null);
+   const [activeMetric, setActiveMetric] = useState<
+    "views" | "likes" | "comments" | "shares"
+  >("views");
   const postsPerPage = 10;
 
   const EmptyState = ({ searchQuery }: { searchQuery: string }) => (
@@ -741,12 +745,18 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     scrapeAllPostsMutation.mutate(id);
     setShowScrapeAllDialog(false);
   };
+  const handleDeleteAll = async () => {
+    try {
+      if (!id) return; // campaign id check
 
-  const handleDeleteAll = () => {
-    if (!id) return;
-    deleteAllPostsMutation.mutate(id);
-    setShowDeleteAllDialog(false);
+      await deleteAllPostsMutation.mutateAsync({ campaignId: id });
+      toast.success("All posts deleted successfully!");
+      setShowDeleteAllDialog(false);
+    } catch (err) {
+      toast.error("Failed to delete all posts.");
+    }
   };
+
 
   const handleDeletePost = (postId: string) => {
     if (!id) return;
@@ -1012,7 +1022,273 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       </div>
 
       {/* Performance Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+     <Tabs
+        value={activeMetric}
+        onValueChange={(value) => setActiveMetric(value as typeof activeMetric)}
+        className="lg:hidden"
+      >
+        <TabsList className="grid w-full grid-cols-4 h-11 bg-white/[0.03] border border-white/[0.08] p-1">
+          <TabsTrigger
+            value="views"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Views</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="likes"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <Heart className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Likes</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="comments"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Comments</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="shares"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Shares</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent
+          value="views"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-primary" />
+                  Views Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="views"
+                    stroke="#0ea5e9"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="likes"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-pink-400" />
+                  Likes Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="likes"
+                    stroke="#ec4899"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="comments"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-cyan-400" />
+                  Comments Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="comments"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="shares"
+          className="mt-4 animate-in fade-in-50 duration-200"
+        >
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-purple-400" />
+                  Shares Over Time
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={formattedChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#ffffff08"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#ffffff08" }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${value / 1000}K` : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="shares"
+                    stroke="#a855f7"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Desktop: Keep existing 2x2 grid */}
+      <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Views Over Time */}
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-6">
@@ -1222,6 +1498,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </Card>
       </div>
 
+
       {/* Creators Section */}
           {campaignCreators.length > 0 && (
       <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
@@ -1341,14 +1618,112 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       {/* Posts Table */}
 
 
-      /* Posts Table Section - Fixed Version */
 
       <Card className="bg-[#0A0A0A] border-white/[0.08] overflow-hidden">
         <CardContent className="p-0">
           {/* Header Section - Same as before */}
           <div className="p-6 border-b border-white/[0.08]">
-            {/* ... header content stays the same ... */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">Campaign Posts</h3>
+                <p className="text-sm text-slate-400">
+                  {posts.length} total • {filteredPosts.length} showing
+                </p>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => setShowAddPostDialog(true)}
+                  className="h-9 px-4 bg-primary hover:bg-primary/90 text-black font-medium gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Post
+                </Button>
+                
+                <Button
+                  onClick={() => setShowScrapeAllDialog(true)}
+                  disabled={posts.length === 0}
+                  variant="outline"
+                  className="h-9 px-4 gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="hidden sm:inline">Scrape All</span>
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-9 px-3">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                      <Download className="w-4 h-4" />
+                      Export to CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleImportCreators} className="gap-2">
+                      <Upload className="w-4 h-4" />
+                      Import Creators
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleImportPosts} className="gap-2">
+                      <Upload className="w-4 h-4" />
+                      Import Posts
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        console.log("clicked");
+                        setShowDeleteAllDialog(true);
+                      }}
+                      className="gap-2 text-red-400"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete All Posts
+                    </DropdownMenuItem>
+
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="flex flex-col lg:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Input
+                  type="text"
+                  placeholder="Search by creator name or handle..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-10 bg-white/[0.03] border-white/[0.08]"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setShowTopPerformers(!showTopPerformers)}
+                  variant={showTopPerformers ? "default" : "outline"}
+                  className="h-10 px-4"
+                >
+                  {showTopPerformers ? "Showing Top 15" : "Top Performers"}
+                </Button>
+
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
+                  <SelectTrigger className="w-[140px] h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="score">By Score</SelectItem>
+                    <SelectItem value="views">By Views</SelectItem>
+                    <SelectItem value="engagement">By Engagement</SelectItem>
+                    <SelectItem value="latest">Latest First</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
+
 
           {/* Table Content */}
           <div className="overflow-x-auto">
@@ -1830,6 +2205,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </div>
       )}
 
+
       {/* Delete Post Confirmation Dialog */}
       {showDeletePostDialog && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
@@ -1860,7 +2236,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           </Card>
         </div>
       )}
-
+      
       {/* Share Modal */}
       {showShareLinkModal && campaign && (
         <CampaignShareModal
