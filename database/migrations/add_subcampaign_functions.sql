@@ -86,16 +86,16 @@ AS $$
   metrics AS (
     SELECT
       (SELECT COUNT(*) FROM posts_union)::INTEGER AS total_posts,
-      COALESCE(SUM(views), 0)::BIGINT AS total_views,
-      COALESCE(SUM(likes), 0)::BIGINT AS total_likes,
-      COALESCE(SUM(comments), 0)::BIGINT AS total_comments,
-      COALESCE(SUM(shares), 0)::BIGINT AS total_shares,
+      COALESCE(SUM(COALESCE(views, 0)), 0)::BIGINT AS total_views,
+      COALESCE(SUM(COALESCE(likes, 0)), 0)::BIGINT AS total_likes,
+      COALESCE(SUM(COALESCE(comments, 0)), 0)::BIGINT AS total_comments,
+      COALESCE(SUM(COALESCE(shares, 0)), 0)::BIGINT AS total_shares,
       CASE
         WHEN (SELECT COUNT(*) FROM kpi_posts) > 0
-        THEN ROUND(AVG(engagement_rate)::NUMERIC, 2)
+        THEN ROUND(AVG(COALESCE(engagement_rate, 0))::NUMERIC, 2)
         ELSE 0
       END AS avg_engagement_rate,
-      COALESCE(SUM(views), 0)::BIGINT AS total_reach
+      COALESCE(SUM(COALESCE(views, 0)), 0)::BIGINT AS total_reach
     FROM kpi_posts
   ),
   subcampaign_stats AS (

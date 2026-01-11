@@ -100,6 +100,25 @@ function formatReach(value: number): string {
   return value.toString();
 }
 
+function getPostTimestamp(post: any): number | null {
+  const date = post.last_scraped_at || post.created_at || post.updated_at;
+  if (!date) return null;
+  const time = new Date(date).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+function isPostInRange(post: any, range: DateRange): boolean {
+  const time = getPostTimestamp(post);
+  if (time === null) return false;
+  return time >= range.start.getTime() && time <= range.end.getTime();
+}
+
+function getPostDateKey(post: any): string | null {
+  const time = getPostTimestamp(post);
+  if (time === null) return null;
+  return new Date(time).toISOString().split('T')[0];
+}
+
 
 export function Dashboard({ onNavigate }: DashboardProps) {
   const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
@@ -224,12 +243,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 });
   
   const postsInRange = useMemo(() => {
-  return allPosts.filter(post => {
-    const date = post.last_scraped_at || post.created_at || post.updated_at;
-    if (!date) return false;
-    const postTime = new Date(date).getTime();
-    return postTime >= dateRange.start.getTime() && postTime <= dateRange.end.getTime();
-  });
+  return allPosts.filter(post => isPostInRange(post, dateRange));
 }, [allPosts, dateRange]);
 
  // Remove the useMemo for kpiMetrics entirely
@@ -261,9 +275,7 @@ useEffect(() => {
       const { data, error } = await supabase
         .from('posts')
         .select('platform, views, likes, comments, shares, creator_id, last_scraped_at, created_at, updated_at')
-        .in('campaign_id', campaignIds)
-        .gte('last_scraped_at', dateRange.start.toISOString())
-        .lte('last_scraped_at', dateRange.end.toISOString());
+        .in('campaign_id', campaignIds);
 
       if (error) {
         setAllPosts([]);
@@ -278,12 +290,7 @@ useEffect(() => {
       } else {
         setAllPosts(data || []);
 
-        const postsInRange = (data || []).filter(post => {
-          const date = post.last_scraped_at || post.created_at || post.updated_at;
-          if (!date) return false;
-          const postTime = new Date(date).getTime();
-          return postTime >= dateRange.start.getTime() && postTime <= dateRange.end.getTime();
-        });
+        const postsInRange = (data || []).filter(post => isPostInRange(post, dateRange));
 
         const totalReachValue = postsInRange.reduce((sum, p) => sum + Number(p.views || 0), 0);
         const totalEngagementValue = postsInRange.reduce((sum, p) =>
@@ -323,6 +330,7 @@ useEffect(() => {
 
   // Generate platform breakdown from real post data
   const platformData = useMemo(() => {
+    const postsForBreakdown = postsInRange;
     const platformCounts: Record<string, number> = {
       tiktok: 0,
       instagram: 0,
@@ -332,14 +340,14 @@ useEffect(() => {
     };
 
     // Count posts by platform
-    allPosts.forEach(post => {
+    postsForBreakdown.forEach(post => {
       const platform = post.platform?.toLowerCase();
       if (platform && platformCounts.hasOwnProperty(platform)) {
         platformCounts[platform]++;
       }
     });
 
-    const totalPosts = allPosts.length;
+    const totalPosts = postsForBreakdown.length;
 
     // Platform colors and display names
     const platformConfig = [
@@ -393,7 +401,7 @@ useEffect(() => {
       { name: 'TikTok', value: 0, count: 0, color: '#7a54a0' },
       { name: 'Instagram', value: 0, count: 0, color: '#E4405F' },
     ];
-  }, [allPosts]);
+  }, [postsInRange, kpiMetrics.totalPosts]);
 
   // Fetch time-series data for all campaigns
   
@@ -416,9 +424,7 @@ useEffect(() => {
         .from('posts')
         .select('views, likes, comments, shares, last_scraped_at, created_at, updated_at, campaign_id')
         .in('campaign_id', campaignIds)
-        .in('platform', ['tiktok', 'instagram'])
-        .gte('last_scraped_at', dateRange.start.toISOString())
-        .lte('last_scraped_at', dateRange.end.toISOString());
+        .in('platform', ['tiktok', 'instagram']);
 
       if (error) {
         console.error('Error fetching time series data:', error);
@@ -426,7 +432,9 @@ useEffect(() => {
         return;
       }
 
-      if (!data || data.length === 0) {
+      const postsInRange = (data || []).filter(post => isPostInRange(post, dateRange));
+
+      if (postsInRange.length === 0) {
         setTimeSeriesData([]);
         return;
       }
@@ -434,17 +442,9 @@ useEffect(() => {
       // Group metrics by date across all campaigns
       const allTimeSeries: Record<string, { views: number; engagement: number }> = {};
 
-      data.forEach((post: any) => {
-        let dateStr: string;
-        if (post.last_scraped_at) {
-          dateStr = post.last_scraped_at.split('T')[0];
-        } else if (post.created_at) {
-          dateStr = post.created_at.split('T')[0];
-        } else if (post.updated_at) {
-          dateStr = post.updated_at.split('T')[0];
-        } else {
-          dateStr = new Date().toISOString().split('T')[0];
-        }
+      postsInRange.forEach((post: any) => {
+        const dateStr = getPostDateKey(post);
+        if (!dateStr) return;
 
         if (!allTimeSeries[dateStr]) {
           allTimeSeries[dateStr] = { views: 0, engagement: 0 };
