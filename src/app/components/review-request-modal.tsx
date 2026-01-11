@@ -36,104 +36,89 @@ export function ReviewRequestModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-white">
-            Review Creator Request
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden rounded-2xl bg-[#111111] border border-white/[0.08] shadow-xl">
+        <DialogHeader className="p-6 border-b border-white/[0.08]">
+          <DialogTitle className="text-2xl font-semibold text-white">
+            Review Your Creator Request
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
-            You have selected {totalItems} {totalItems === 1 ? "creator" : "creators"} from
-            DTTracker&apos;s network. Review your selection and continue to provide
-            campaign details.
+          <DialogDescription className="text-slate-400 mt-1 text-sm">
+            You have selected <span className="font-medium text-white">{totalItems}</span>{" "}
+            {totalItems === 1 ? "creator" : "creators"} from DTTracker’s network. Review
+            your selection and continue to provide campaign details.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 py-4">
-          {/* Selected Creators List */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Selected Creators */}
           <div className="space-y-3">
             {cart.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">
-                No creators selected. Please add creators to your request.
+              <p className="text-slate-500 text-center py-16">
+                No creators selected. Add creators to proceed.
               </p>
             ) : (
               cart.map((creator) => (
                 <div
                   key={creator.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                  className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.08] rounded-xl hover:bg-white/[0.05] transition-all"
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/[0.08] flex items-center justify-center">
-                        <span className="text-lg font-semibold text-white">
-                          {creator.name?.[0]?.toUpperCase() || "?"}
-                        </span>
-                      </div>
+                    {/* Avatar */}
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-white font-semibold text-lg">
+                      {creator.name?.[0]?.toUpperCase() || "?"}
                     </div>
+
+                    {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-white text-sm truncate">
+                      <h4 className="text-white font-medium text-sm truncate">
                         {creator.name || "Unknown Creator"}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">
                         {creator.handle && (
                           <p className="text-xs text-slate-400 truncate">
-                            @{creator.handle.startsWith("@") ? creator.handle.slice(1) : creator.handle}
+                            @{creator.handle.replace(/^@/, "")}
                           </p>
                         )}
-                        {creator.platform && (
-                          <PlatformBadge platform={creator.platform as any} />
-                        )}
+                        {creator.platform && <PlatformBadge platform={creator.platform as any} />}
                       </div>
                       {creator.follower_count && (
                         <p className="text-xs text-slate-500 mt-1">
-                          {(creator.follower_count / 1000).toFixed(0)}K followers
+                          {(creator.follower_count / 1000).toFixed(1)}K followers
                         </p>
                       )}
                     </div>
                   </div>
+
+                  {/* Remove Button */}
                   <button
                     onClick={() => removeCreator(creator.id)}
-                    className="flex-shrink-0 w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors ml-2"
+                    className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-red-500/20 transition-colors"
                     aria-label={`Remove ${creator.name}`}
                   >
-                    <X className="w-4 h-4 text-slate-400" />
+                    <X className="w-4 h-4 text-red-400" />
                   </button>
                 </div>
               ))
             )}
           </div>
 
-          {/* What Happens Next Section */}
+          {/* What Happens Next */}
           {cart.length > 0 && (
-            <div className="mt-6 p-4 rounded-lg border border-primary/20 bg-primary/5">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="font-medium text-white text-sm mb-2">
-                    What happens next?
-                  </h4>
-                  <ol className="space-y-2 text-xs text-slate-400 list-decimal list-inside">
-                    <li>
-                      Provide campaign details including type, brief, deliverables,
-                      and timeline
-                    </li>
-                    <li>
-                      DTTracker will review your request and provide a quote
-                    </li>
-                    <li>
-                      Once approved, our team will coordinate with the selected
-                      creators
-                    </li>
-                    <li>
-                      Track your request status and receive updates as it progresses
-                    </li>
-                  </ol>
-                </div>
+            <div className="flex items-start gap-3 p-5 bg-primary/5 border border-primary/20 rounded-xl">
+              <Info className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-white font-medium text-sm mb-2">What happens next?</h4>
+                <ol className="list-decimal list-inside text-slate-400 text-xs space-y-2">
+                  <li>Provide campaign details: type, brief, deliverables, and timeline</li>
+                  <li>DTTracker will review your request and provide a quote</li>
+                  <li>Once approved, our team coordinates with selected creators</li>
+                  <li>Track your request status and receive updates</li>
+                </ol>
               </div>
             </div>
           )}
         </div>
 
-        <DialogFooter className="flex-shrink-0 pt-4 border-t border-white/[0.08]">
+        <DialogFooter className="flex-shrink-0 border-t border-white/[0.08] p-6 flex justify-end gap-3">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -144,10 +129,9 @@ export function ReviewRequestModal({
           <Button
             onClick={handleContinue}
             disabled={cart.length === 0}
-            className="bg-primary hover:bg-primary/90 text-black font-medium"
+            className="bg-primary hover:bg-primary/90 text-black font-medium flex items-center gap-2"
           >
-            Continue to Brief
-            <ArrowRight className="w-4 h-4 ml-2" />
+            Continue to Brief <ArrowRight className="w-4 h-4" />
           </Button>
         </DialogFooter>
       </DialogContent>

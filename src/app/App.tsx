@@ -14,7 +14,6 @@ import { CampaignCreate } from "./components/campaign-create";
 import { CampaignEdit } from "./components/campaign-edit";
 import { Creators } from "./components/creators";
 import { CreatorScraper } from "./components/creator-scraper";
-import { Requests } from "./components/requests";
 import { Settings } from "./components/settings";
 import { TeamManagement } from "./components/team-management";
 import { Subscription } from "./components/subscription";
@@ -32,6 +31,9 @@ import { TeamInviteAccept } from "./components/team-invite-accept";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useAuth } from "../contexts/AuthContext";
+import { cn } from "./components/ui/utils";
+import { Requests } from "./components/requests";
+
 
 function AppRoutes() {
   const location = useLocation();
@@ -50,7 +52,7 @@ function AppRoutes() {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setCommandPaletteOpen((open) => !open);
+        setCommandPaletteOpen((open ) => !open);
       }
     };
 
@@ -67,7 +69,7 @@ function AppRoutes() {
 
   return (
     <ToastProvider>
-      <div className="dark min-h-screen bg-background text-foreground">
+      <div className="dark h-screen w-screen overflow-hidden bg-[#0A0A0A] text-foreground flex flex-col">
         {!isPublicRoute && (
           <>
             <Sidebar
@@ -81,9 +83,21 @@ function AppRoutes() {
           </>
         )}
 
-        <main className={isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8"}>
+        <main className={cn(
+        "flex-1 overflow-y-auto overflow-x-hidden", 
+        isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 md:pt-20 sm:pt-20 "
+      )}>
           <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
             <Routes>
+              <Route
+                  path="/requests"
+                  element={
+                    <ProtectedRoute>
+                      <Requests onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+
               {/* Public routes */}
               <Route
                 path="/home"
@@ -170,14 +184,6 @@ function AppRoutes() {
                 element={
                   <ProtectedRoute>
                     <CreatorScraper onNavigate={(path) => navigate(path)} />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/requests"
-                element={
-                  <ProtectedRoute>
-                    <Requests onNavigate={(path) => navigate(path)} />
                   </ProtectedRoute>
                 }
               />

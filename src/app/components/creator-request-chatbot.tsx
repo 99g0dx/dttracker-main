@@ -60,22 +60,11 @@ export function CreatorRequestChatbot({
 
   const totalSteps = 7;
 
-  const handleNext = () => {
-    if (currentStep < totalSteps) {
-      setCurrentStep((prev) => (prev + 1) as Step);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep((prev) => (prev - 1) as Step);
-    }
-  };
+  const handleNext = () => currentStep < totalSteps && setCurrentStep((prev) => (prev + 1) as Step);
+  const handleBack = () => currentStep > 1 && setCurrentStep((prev) => (prev - 1) as Step);
 
   const handleSubmit = async () => {
-    if (!formData.campaign_type || !formData.campaign_brief) {
-      return;
-    }
+    if (!formData.campaign_type || !formData.campaign_brief) return;
 
     const requestData: CreatorRequestInsert = {
       user_id: "", // Will be set by API
@@ -83,11 +72,10 @@ export function CreatorRequestChatbot({
       campaign_brief: formData.campaign_brief,
       song_asset_links: formData.song_asset_links?.filter(Boolean) || [],
       deliverables: selectedDeliverables,
-      posts_per_creator:
-        formData.posts_per_creator || parseInt(customPostsPerCreator) || 1,
+      posts_per_creator: formData.posts_per_creator || parseInt(customPostsPerCreator) || 1,
       usage_rights: formData.usage_rights || null,
       deadline: formData.deadline || null,
-      urgency: (formData.urgency as Urgency) || "normal",
+      urgency: formData.urgency || "normal",
       contact_person_name: formData.contact_person_name || null,
       contact_person_email: formData.contact_person_email || null,
       contact_person_phone: formData.contact_person_phone || null,
@@ -124,22 +112,14 @@ export function CreatorRequestChatbot({
 
   const canProceed = () => {
     switch (currentStep) {
-      case 1:
-        return !!formData.campaign_type;
-      case 2:
-        return !!(formData.campaign_brief && formData.campaign_brief.trim().length > 0);
-      case 3:
-        return true; // Optional step
-      case 4:
-        return selectedDeliverables.length > 0;
-      case 5:
-        return !!formData.usage_rights;
-      case 6:
-        return !!formData.deadline;
-      case 7:
-        return true; // Review step
-      default:
-        return false;
+      case 1: return !!formData.campaign_type;
+      case 2: return !!(formData.campaign_brief?.trim().length);
+      case 3: return true;
+      case 4: return selectedDeliverables.length > 0;
+      case 5: return !!formData.usage_rights;
+      case 6: return !!formData.deadline;
+      case 7: return true;
+      default: return false;
     }
   };
 
@@ -173,20 +153,21 @@ export function CreatorRequestChatbot({
       case 1:
         return (
           <div className="space-y-4">
-            <Label className="text-white text-sm font-medium">
-              What type of campaign is this?
-            </Label>
-            <div className="space-y-3">
+            <Label className="text-white text-base font-semibold">Campaign Type</Label>
+            <p className="text-sm text-slate-400">
+              Select the type of campaign you want to run.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               {[
-                { value: "music_promotion", label: "Music promotion" },
-                { value: "brand_promotion", label: "Brand promotion" },
-                { value: "product_launch", label: "Product launch" },
-                { value: "event_activation", label: "Event/activation" },
+                { value: "music_promotion", label: "Music Promotion" },
+                { value: "brand_promotion", label: "Brand Promotion" },
+                { value: "product_launch", label: "Product Launch" },
+                { value: "event_activation", label: "Event / Activation" },
                 { value: "other", label: "Other" },
               ].map((option) => (
                 <label
                   key={option.value}
-                  className="flex items-center gap-3 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] cursor-pointer transition-colors"
+                  className="flex items-center gap-3 p-4 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05] cursor-pointer transition"
                 >
                   <input
                     type="radio"
@@ -194,14 +175,11 @@ export function CreatorRequestChatbot({
                     value={option.value}
                     checked={formData.campaign_type === option.value}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        campaign_type: e.target.value as CampaignType,
-                      }))
+                      setFormData((prev) => ({ ...prev, campaign_type: e.target.value as CampaignType }))
                     }
                     className="w-4 h-4 text-primary border-white/[0.2] bg-white/[0.03] focus:ring-primary"
                   />
-                  <span className="text-white text-sm">{option.label}</span>
+                  <span className="text-white text-sm font-medium">{option.label}</span>
                 </label>
               ))}
             </div>
@@ -211,98 +189,49 @@ export function CreatorRequestChatbot({
       case 2:
         return (
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="campaign_brief" className="text-white text-sm font-medium">
-                Campaign Brief
-              </Label>
-              <p className="text-xs text-slate-400 mt-1">
-                Provide details about your campaign, goals, target audience, and key
-                messages.
-              </p>
-            </div>
-            <Textarea
-              id="campaign_brief"
-              value={formData.campaign_brief || ""}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, campaign_brief: e.target.value }))
-              }
-              placeholder="Describe your campaign..."
-              className="min-h-[200px] bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
-              rows={8}
-            />
-            <p className="text-xs text-slate-400">
-              {(formData.campaign_brief || "").length} characters
+            <Label className="text-white text-base font-semibold">Campaign Brief</Label>
+            <p className="text-sm text-slate-400">
+              Describe your campaign, goals, target audience, and key messages.
             </p>
+            <Textarea
+              value={formData.campaign_brief || ""}
+              onChange={(e) => setFormData((prev) => ({ ...prev, campaign_brief: e.target.value }))}
+              placeholder="Describe your campaign..."
+              className="w-full min-h-[180px] bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-slate-500"
+            />
+            <p className="text-xs text-slate-400">{(formData.campaign_brief || "").length} characters</p>
           </div>
         );
 
       case 3:
         return (
           <div className="space-y-4">
-            <div>
-              <Label className="text-white text-sm font-medium">
-                Song/Asset Links (Optional)
-              </Label>
-              <p className="text-xs text-slate-400 mt-1">
-                Add links to assets like TikTok sounds, Spotify tracks, YouTube videos,
-                Google Drive, or Dropbox files.
-              </p>
-            </div>
-            <div className="flex gap-2">
+            <Label className="text-white text-base font-semibold">Asset Links (Optional)</Label>
+            <p className="text-sm text-slate-400">
+              Add links to songs, TikTok sounds, Spotify, YouTube, or files.
+            </p>
+            <div className="flex gap-2 mt-2">
               <Input
                 value={assetLinkInput}
                 onChange={(e) => setAssetLinkInput(e.target.value)}
                 placeholder="https://..."
-                className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addAssetLink();
-                  }
-                }}
+                className="bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-slate-500 flex-1"
+                onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addAssetLink(); } }}
               />
-              <Button
-                type="button"
-                onClick={addAssetLink}
-                variant="outline"
-                className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
-              >
-                Add
-              </Button>
-              <Button
-                type="button"
-                onClick={() => handleNext()}
-                variant="outline"
-                className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
-              >
-                Skip
-              </Button>
+              <Button onClick={addAssetLink} variant="outline" className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300">Add</Button>
+              <Button onClick={handleNext} variant="outline" className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300">Skip</Button>
             </div>
-            {formData.song_asset_links && formData.song_asset_links.length > 0 && (
-              <div className="space-y-2">
-                {formData.song_asset_links.map((link, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 rounded-lg border border-white/[0.08] bg-white/[0.02]"
-                  >
-                    <a
-                      href={link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline truncate flex-1"
-                    >
-                      {link}
-                    </a>
-                    <button
-                      onClick={() => removeAssetLink(index)}
-                      className="ml-2 text-slate-400 hover:text-white"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+            {(formData.song_asset_links || []).length > 0 && (
+              <div className="mt-3 space-y-2">
+                {(formData.song_asset_links || []).map((link, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="truncate text-primary text-sm hover:underline flex-1">{link}</a>
+                    <button onClick={() => removeAssetLink(index)} className="ml-2 text-slate-400 hover:text-white"><X className="w-4 h-4"/></button>
                   </div>
                 ))}
               </div>
             )}
+
           </div>
         );
 
@@ -310,9 +239,7 @@ export function CreatorRequestChatbot({
         return (
           <div className="space-y-6">
             <div>
-              <Label className="text-white text-sm font-medium">
-                Deliverables
-              </Label>
+              <Label className="text-white text-sm font-medium">Deliverables</Label>
               <p className="text-xs text-slate-400 mt-1">
                 Select the types of content you need from creators.
               </p>
@@ -340,9 +267,7 @@ export function CreatorRequestChatbot({
               ))}
             </div>
             <div className="space-y-3">
-              <Label className="text-white text-sm font-medium">
-                Posts per creator
-              </Label>
+              <Label className="text-white text-sm font-medium">Posts per creator</Label>
               <div className="space-y-2">
                 {[1, 2, 3].map((num) => (
                   <label
@@ -397,9 +322,7 @@ export function CreatorRequestChatbot({
       case 5:
         return (
           <div className="space-y-4">
-            <Label className="text-white text-sm font-medium">
-              Usage Rights
-            </Label>
+            <Label className="text-white text-sm font-medium">Usage Rights</Label>
             <p className="text-xs text-slate-400 mt-1">
               How would you like to use the content created by these creators?
             </p>
@@ -444,12 +367,8 @@ export function CreatorRequestChatbot({
                     className="w-4 h-4 mt-0.5 text-primary border-white/[0.2] bg-white/[0.03] focus:ring-primary"
                   />
                   <div className="flex-1">
-                    <span className="text-white text-sm font-medium block">
-                      {option.label}
-                    </span>
-                    <span className="text-slate-400 text-xs block mt-1">
-                      {option.description}
-                    </span>
+                    <span className="text-white text-sm font-medium block">{option.label}</span>
+                    <span className="text-slate-400 text-xs block mt-1">{option.description}</span>
                   </div>
                 </label>
               ))}
@@ -509,12 +428,8 @@ export function CreatorRequestChatbot({
                       className="w-4 h-4 mt-0.5 text-primary border-white/[0.2] bg-white/[0.03] focus:ring-primary"
                     />
                     <div className="flex-1">
-                      <span className="text-white text-sm font-medium block">
-                        {option.label}
-                      </span>
-                      <span className="text-slate-400 text-xs block mt-1">
-                        {option.description}
-                      </span>
+                      <span className="text-white text-sm font-medium block">{option.label}</span>
+                      <span className="text-slate-400 text-xs block mt-1">{option.description}</span>
                     </div>
                   </label>
                 ))}
@@ -585,9 +500,7 @@ export function CreatorRequestChatbot({
                 <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
                   <p className="text-slate-400 mb-1">Deliverables</p>
                   <p className="text-white font-medium">
-                    {selectedDeliverables
-                      .map((d) => d.replace("_", " "))
-                      .join(", ")}
+                    {selectedDeliverables.map((d) => d.replace("_", " ")).join(", ")}
                   </p>
                 </div>
                 <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
@@ -609,60 +522,36 @@ export function CreatorRequestChatbot({
           </div>
         );
 
-      default:
-        return null;
+      default: return null;
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-white">
-            Create Creator Request
-          </DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Step {currentStep} of {totalSteps}
-          </DialogDescription>
-          {/* Progress bar */}
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-2xl bg-[#111111] border border-white/[0.08] shadow-xl">
+        <DialogHeader className="p-6 border-b border-white/[0.08]">
+          <DialogTitle className="text-2xl font-semibold text-white">Create Creator Request</DialogTitle>
+          <DialogDescription className="text-sm text-slate-400 mt-1">Step {currentStep} of {totalSteps}</DialogDescription>
           <div className="w-full h-2 bg-white/[0.03] rounded-full mt-4">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-            />
+            <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }} />
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-6">{renderStepContent()}</div>
+        <div className="flex-1 overflow-y-auto p-6">{renderStepContent()}</div>
 
-        <DialogFooter className="flex-shrink-0 pt-4 border-t border-white/[0.08]">
+        <DialogFooter className="flex-shrink-0 flex justify-end gap-3 border-t border-white/[0.08] p-6">
           {currentStep > 1 && (
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+            <Button variant="outline" onClick={handleBack} className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300">
+              <ArrowLeft className="w-4 h-4 mr-2"/> Back
             </Button>
           )}
           {currentStep < totalSteps ? (
-            <Button
-              onClick={handleNext}
-              disabled={!canProceed()}
-              className="bg-primary hover:bg-primary/90 text-black font-medium"
-            >
-              Next
-              <ArrowRight className="w-4 h-4 ml-2" />
+            <Button onClick={handleNext} disabled={!canProceed()} className="bg-primary hover:bg-primary/90 text-black font-medium flex items-center gap-2">
+              Next <ArrowRight className="w-4 h-4"/>
             </Button>
           ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={!canProceed() || createRequestMutation.isPending}
-              className="bg-primary hover:bg-primary/90 text-black font-medium"
-            >
-              {createRequestMutation.isPending ? "Submitting..." : "Submit Request"}
-              <Check className="w-4 h-4 ml-2" />
+            <Button onClick={handleSubmit} disabled={!canProceed() || createRequestMutation.isPending} className="bg-primary hover:bg-primary/90 text-black font-medium flex items-center gap-2">
+              {createRequestMutation.isPending ? "Submitting..." : "Submit Request"} <Check className="w-4 h-4"/>
             </Button>
           )}
         </DialogFooter>

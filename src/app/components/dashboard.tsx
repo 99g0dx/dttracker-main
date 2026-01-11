@@ -343,7 +343,7 @@ useEffect(() => {
 
     // Platform colors and display names
     const platformConfig = [
-      { key: 'tiktok', name: 'TikTok', color: '#7a54a0' },
+       { key: 'tiktok', name: 'TikTok', color: '#7a54a0' },
       { key: 'instagram', name: 'Instagram', color: '#E4405F' },
       { key: 'youtube', name: 'YouTube', color: '#FF0000' },
       { key: 'twitter', name: 'Twitter', color: '#1DA1F2' },

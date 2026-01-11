@@ -1,5 +1,5 @@
-import React from 'react';
-import { LayoutDashboard, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut, FileText } from 'lucide-react';
+import React, { useId } from 'react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
     requiredPermission: (userId) => canManageTeam(userId)
   },
   { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
+  
 ];
 
 interface SidebarProps {
@@ -41,6 +42,13 @@ interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
   onLogout: () => void;
 }
+
+
+const getInitial = (name: string | null | undefined, email: string | null | undefined) => {
+  if (name) return name.charAt(0).toUpperCase();
+  if (email) return email.charAt(0).toUpperCase();
+  return 'U'; // Fallback
+}; 
 
 export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
   const currentUser = getCurrentUser();
@@ -65,6 +73,8 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     }
   };
 
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const userInitial = getInitial(user?.user_metadata?.full_name, user?.email);
   return (
     <>
       {/* Mobile Menu Button */}
@@ -92,7 +102,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -101,7 +111,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
       <aside className={cn(
         "fixed top-0 h-screen w-64 bg-[#0A0A0A] border-r border-white/[0.08] flex flex-col z-50 transition-transform duration-300 ease-in-out",
         "lg:translate-x-0",
-        sidebarOpen ? "translate-x-0 mt-16 lg:mt-0" : "-translate-x-full"
+        sidebarOpen ? "translate-x-0  lg:mt-0" : "-translate-x-full"
       )}>
         {/* Logo - Hidden on mobile, visible on desktop */}
         <button
@@ -145,7 +155,11 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                 </li>
               );
             })}
+            <li>
+              
+            </li>
           </ul>
+          
         </nav>
 
         {/* User */}
@@ -155,10 +169,10 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             className="flex items-center gap-3 px-3 h-11 rounded-md hover:bg-white/[0.04] transition-colors cursor-pointer mb-1"
           >
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white text-[13px] font-medium">
-              U
+              {userInitial}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-white truncate">User Name</p>
+              <p className="text-[13px] font-medium text-white truncate">{userName}</p>
               <p className="text-[11px] text-slate-500 truncate">Free Plan</p>
             </div>
           </div>
