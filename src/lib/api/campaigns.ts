@@ -194,27 +194,12 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Get user's workspace_id from team_members
-    const { data: memberData, error: memberError } = await supabase
-      .from('team_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (memberError || !memberData) {
-      return { 
-        data: null, 
-        error: new Error('User is not part of any workspace. Please contact support.') 
-      };
-    }
-
-    // Create campaign with workspace_id
+    // Create campaign (RLS policy will check user_id = auth.uid())
     const { data, error } = await supabase
       .from('campaigns')
       .insert({
         ...campaign,
         user_id: user.id,
-        workspace_id: memberData.workspace_id, // Add workspace_id
       })
       .select()
       .single();
@@ -323,20 +308,6 @@ export async function duplicate(id: string): Promise<ApiResponse<Campaign>> {
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Get user's workspace_id
-    const { data: memberData, error: memberError } = await supabase
-      .from('team_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (memberError || !memberData) {
-      return { 
-        data: null, 
-        error: new Error('User is not part of any workspace.') 
-      };
-    }
-
     // Fetch original campaign (RLS checks access automatically)
     const { data: original, error: fetchError } = await supabase
       .from('campaigns')
@@ -348,12 +319,11 @@ export async function duplicate(id: string): Promise<ApiResponse<Campaign>> {
       return { data: null, error: fetchError || new Error('Campaign not found') };
     }
 
-    // Create duplicate with workspace_id
+    // Create duplicate (RLS policy will check user_id = auth.uid())
     const { data: duplicate, error: createError } = await supabase
       .from('campaigns')
       .insert({
         user_id: user.id,
-        workspace_id: memberData.workspace_id, // Add workspace_id
         name: `${original.name} (Copy)`,
         brand_name: original.brand_name,
         cover_image_url: original.cover_image_url,
