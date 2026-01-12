@@ -6,6 +6,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
 import { queryClient } from "./lib/query-client";
 import "./styles/index.css";
+// Import connection test utilities (makes them available in browser console)
+import "./lib/utils/test-connection";
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
