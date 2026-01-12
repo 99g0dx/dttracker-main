@@ -100,8 +100,7 @@ export async function list(): Promise<ApiResponse<Creator[]>> {
 }
 
 /**
- * Get creators that have posts in a specific campaign
- * Useful for matching posts to creators in a campaign
+ * Get creators assigned to a specific campaign roster
  */
 export async function getByCampaign(campaignId: string): Promise<ApiResponse<Creator[]>> {
   try {
@@ -110,21 +109,70 @@ export async function getByCampaign(campaignId: string): Promise<ApiResponse<Cre
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Get all creators for the user (they can add posts for any of their creators)
-    // In the future, we could filter to only creators that have posts in this campaign
-    const { data: allCreators, error: allCreatorsError } = await supabase
+    // Primary source: Query campaign_creators table
+    const { data: rosterRows, error: rosterError } = await supabase
+      .from('campaign_creators')
+      .select('creator_id')
+      .eq('campaign_id', campaignId);
+
+    if (rosterError) {
+      return { data: null, error: rosterError };
+    }
+
+    let creatorIds = new Set<string>();
+    
+    // Get creator IDs from campaign_creators table
+    if (rosterRows && rosterRows.length > 0) {
+      rosterRows.forEach((row) => {
+        if (row.creator_id) {
+          creatorIds.add(row.creator_id);
+        }
+      });
+    }
+
+    // Fallback: Query posts table for unique creator_ids if roster is empty or incomplete
+    const { data: posts, error: postsError } = await supabase
+      .from('posts')
+      .select('creator_id')
+      .eq('campaign_id', campaignId)
+      .not('creator_id', 'is', null);
+
+    if (!postsError && posts && posts.length > 0) {
+      // If roster is empty or has fewer creators than posts, use posts as fallback
+      if (creatorIds.size === 0 || posts.length > creatorIds.size) {
+        posts.forEach((post) => {
+          if (post.creator_id) {
+            creatorIds.add(post.creator_id);
+          }
+        });
+      }
+    }
+
+    if (creatorIds.size === 0) {
+      return { data: [], error: null };
+    }
+
+    // Fetch creators for all unique IDs
+    const { data: creators, error: creatorsError } = await supabase
       .from('creators')
       .select('*')
       .eq('user_id', user.id)
+      .in('id', Array.from(creatorIds))
       .order('name', { ascending: true });
 
-    if (allCreatorsError) {
-      return { data: null, error: allCreatorsError };
+    if (creatorsError) {
+      return { data: null, error: creatorsError };
     }
 
-    const combinedCreators = allCreators || [];
+    // Deduplicate by creator_id to ensure uniqueness
+    const uniqueCreatorsMap = new Map<string, Creator>();
+    (creators || []).forEach((creator) => {
+      if (creator.id && !uniqueCreatorsMap.has(creator.id)) {
+        uniqueCreatorsMap.set(creator.id, creator);
+      }
+    });
 
-    return { data: combinedCreators, error: null };
+    return { data: Array.from(uniqueCreatorsMap.values()), error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }

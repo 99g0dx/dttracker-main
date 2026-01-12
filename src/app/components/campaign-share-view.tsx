@@ -13,7 +13,11 @@ import {
   Lock,
   LineChart as LineChartIcon,
 } from 'lucide-react';
-import { PlatformBadge } from './platform-badge';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 import * as sharingApi from '../../lib/api/campaign-sharing-v2';
 import type { SubcampaignSummary } from '../../lib/types/database';
 import {
@@ -658,7 +662,26 @@ export function CampaignShareView() {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-2">
-                            <PlatformBadge platform={post.platform} />
+                            {(() => {
+                              const platformIcon = normalizePlatform(post.platform);
+                              if (!platformIcon) return null;
+                              return (
+                                <>
+                                  <PlatformIcon
+                                    platform={platformIcon}
+                                    size="sm"
+                                    className="sm:hidden"
+                                    aria-label={`${getPlatformLabel(platformIcon)} post`}
+                                  />
+                                  <PlatformIcon
+                                    platform={platformIcon}
+                                    size="md"
+                                    className="hidden sm:flex"
+                                    aria-label={`${getPlatformLabel(platformIcon)} post`}
+                                  />
+                                </>
+                              );
+                            })()}
                             {/* Status badge removed - not relevant for public viewers */}
                             {post.creator && (
                               <span className="text-sm text-slate-300">

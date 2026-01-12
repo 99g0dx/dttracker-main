@@ -53,7 +53,6 @@ const getInitial = (name: string | null | undefined, email: string | null | unde
 export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
   const currentUser = getCurrentUser();
   const { user } = useAuth();
-  
   // Filter navigation items based on permissions
   const filteredNavItems = navItems.filter(item => {
     if (!item.requiredPermission) return true;
@@ -75,44 +74,63 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
   const userInitial = getInitial(user?.user_metadata?.full_name, user?.email);
+  React.useEffect(() => {
+    setSidebarOpen(false);
+  }, [currentPath, setSidebarOpen]);
   return (
     <>
-      {/* Mobile Menu Button */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0A0A0A] border-b border-white/[0.08] flex items-center justify-between px-4 z-40">
-        <button
-          onClick={handleLogoClick}
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-        >
-          <img src={logoImage} alt="DTTracker" className="w-8 h-8 object-contain" />
-          <h1 className="text-[15px] font-semibold tracking-tight text-white">
-            DTTracker
-          </h1>
-        </button>
-        <div className="flex items-center gap-2">
-          <NotificationsCenter />
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
-          >
-            {sidebarOpen ? <X className="w-5 h-5 text-slate-300" /> : <Menu className="w-5 h-5 text-slate-300" />}
-          </button>
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-[#0A0A0A] border-b border-white/[0.08] flex items-center px-4 z-40">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center w-full gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+              aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
+            >
+              {sidebarOpen ? (
+                <X className="w-5 h-5 text-slate-300" />
+              ) : (
+                <Menu className="w-5 h-5 text-slate-300" />
+              )}
+            </button>
+            <button
+              onClick={handleLogoClick}
+              className="h-11 min-h-[44px] flex items-center gap-2 rounded-md px-2 text-white hover:bg-white/[0.04] transition-colors"
+              aria-label="Go to dashboard"
+            >
+              <img src={logoImage} alt="DTTracker" className="w-6 h-6 object-contain" />
+              <span className="text-[13px] font-semibold tracking-tight truncate max-w-[96px]">
+                DTTracker
+              </span>
+            </button>
+          </div>
+          <div className="flex items-center justify-end">
+            <div className="w-11 h-11 flex items-center justify-center">
+              <NotificationsCenter />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu overlay"
         />
       )}
 
       {/* Sidebar */}
-      <aside className={cn(
-        "fixed top-0 h-screen w-64 bg-[#0A0A0A] border-r border-white/[0.08] flex flex-col z-50 transition-transform duration-300 ease-in-out",
-        "lg:translate-x-0",
-        sidebarOpen ? "translate-x-0  lg:mt-0" : "-translate-x-full"
-      )}>
+      <aside
+        className={cn(
+          "fixed top-0 h-[100dvh] w-64 bg-[#0A0A0A] border-r border-white/[0.08] flex flex-col z-50 transition-transform duration-300 ease-in-out",
+          "lg:translate-x-0",
+          sidebarOpen ? "translate-x-0  lg:mt-0" : "-translate-x-full"
+        )}
+        aria-label="Main navigation"
+      >
         {/* Logo - Hidden on mobile, visible on desktop */}
         <button
           onClick={handleLogoClick}
@@ -129,7 +147,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
         </div>
         
         {/* Navigation */}
-        <nav className="flex-1 px-3 pt-2">
+        <nav className="flex-1 px-3 pt-2 overflow-y-auto custom-scrollbar">
           <ul className="space-y-0.5">
             {filteredNavItems.map((item) => {
               const isActive = currentPath === item.href;

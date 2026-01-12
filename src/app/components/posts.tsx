@@ -3,7 +3,11 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search, ExternalLink, RefreshCw, FileText as FileTextIcon } from 'lucide-react';
-import { PlatformBadge } from './platform-badge';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 import { StatusBadge } from './status-badge';
 import {
   Table,
@@ -228,7 +232,26 @@ export function Posts() {
                         {post.campaign}
                       </TableCell>
                       <TableCell>
-                        <PlatformBadge platform={post.platform} />
+                        {(() => {
+                          const platformIcon = normalizePlatform(post.platform);
+                          if (!platformIcon) return null;
+                          return (
+                            <>
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="sm"
+                                className="sm:hidden"
+                                aria-label={`${getPlatformLabel(platformIcon)} post`}
+                              />
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="md"
+                                className="hidden sm:flex"
+                                aria-label={`${getPlatformLabel(platformIcon)} post`}
+                              />
+                            </>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={post.status} />

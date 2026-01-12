@@ -19,12 +19,19 @@ import {
   Filter
 } from 'lucide-react';
 import { NotificationsCenter } from './notifications-center';
-import { PlatformBadge } from './platform-badge';
 import { StatusBadge } from './status-badge';
 import { useCampaigns } from '../../hooks/useCampaigns';
-import { usePosts } from '../../hooks/usePosts';
-import { useCreators } from '../../hooks/useCreators';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { supabase } from '../../lib/supabase';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from './ui/pagination';
 import {
   LineChart,
   Line,
@@ -125,6 +132,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [campaignPage, setCampaignPage] = useState(1);
   const [filters, setFilters] = useState({
     status: [] as string[],
     budgetRange: [] as string[],
@@ -136,12 +144,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     engagement: number;
   }[]>([]);
   const [allPosts, setAllPosts] = useState<any[]>([]);
+  const isMobileCampaigns = useMediaQuery('(max-width: 1023px)');
 
 
   // Fetch real campaign data
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
-  const { data: allCreators = [] } = useCreators();
-  
 
   const dateRangeOptions = [
     'Last 24 hours',
@@ -219,7 +226,51 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     return true;
   });
-  }, [campaigns, dateRange,searchQuery, filters]);
+  }, [campaigns, searchQuery, filters]);
+
+  useEffect(() => {
+    setCampaignPage(1);
+  }, [searchQuery, filters]);
+
+  const campaignsPerPage = isMobileCampaigns ? 12 : 15;
+  const totalCampaignPages = Math.max(
+    1,
+    Math.ceil(filteredCampaigns.length / campaignsPerPage)
+  );
+  const safeCampaignPage = Math.min(campaignPage, totalCampaignPages);
+  const campaignStartIndex = (safeCampaignPage - 1) * campaignsPerPage;
+  const campaignEndIndex = Math.min(
+    campaignStartIndex + campaignsPerPage,
+    filteredCampaigns.length
+  );
+
+  useEffect(() => {
+    if (campaignPage !== safeCampaignPage) {
+      setCampaignPage(safeCampaignPage);
+    }
+  }, [campaignPage, safeCampaignPage]);
+
+  const pagedCampaigns = useMemo(() => {
+    return filteredCampaigns.slice(
+      campaignStartIndex,
+      campaignStartIndex + campaignsPerPage
+    );
+  }, [filteredCampaigns, campaignStartIndex, campaignsPerPage]);
+
+  const paginationPages = useMemo(() => {
+    if (totalCampaignPages <= 5) {
+      return Array.from({ length: totalCampaignPages }, (_, i) => i + 1);
+    }
+    const pages = new Set<number>();
+    pages.add(1);
+    pages.add(totalCampaignPages);
+    pages.add(safeCampaignPage);
+    pages.add(safeCampaignPage - 1);
+    pages.add(safeCampaignPage + 1);
+    return Array.from(pages)
+      .filter((page) => page >= 1 && page <= totalCampaignPages)
+      .sort((a, b) => a - b);
+  }, [safeCampaignPage, totalCampaignPages]);
 
   // Fetch all posts across all campaigns for platform breakdown
   const [postsLoading, setPostsLoading] = useState(true);
@@ -245,6 +296,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const postsInRange = useMemo(() => {
   return allPosts.filter(post => isPostInRange(post, dateRange));
 }, [allPosts, dateRange]);
+
+  // Filter posts to only include those with valid dates (for consistent KPI and chart calculations)
+  // This ensures that posts counted in the KPI are also included in the chart, and vice versa
+  // The sum of all daily reach values in the chart should equal the total reach KPI
+  const postsInRangeWithDates = useMemo(() => {
+    return postsInRange.filter(post => {
+      const dateStr = getPostDateKey(post);
+      return dateStr !== null;
+    });
+  }, [postsInRange]);
 
  // Remove the useMemo for kpiMetrics entirely
 // Instead, just use state that gets set by your useEffect
@@ -291,13 +352,19 @@ useEffect(() => {
         setAllPosts(data || []);
 
         const postsInRange = (data || []).filter(post => isPostInRange(post, dateRange));
+        
+        // Filter out posts without valid dates to ensure consistency between KPI and chart
+        const postsInRangeWithDates = postsInRange.filter(post => {
+          const dateStr = getPostDateKey(post);
+          return dateStr !== null;
+        });
 
-        const totalReachValue = postsInRange.reduce((sum, p) => sum + Number(p.views || 0), 0);
-        const totalEngagementValue = postsInRange.reduce((sum, p) =>
+        const totalReachValue = postsInRangeWithDates.reduce((sum, p) => sum + Number(p.views || 0), 0);
+        const totalEngagementValue = postsInRangeWithDates.reduce((sum, p) =>
           sum + Number(p.likes || 0) + Number(p.comments || 0) + Number(p.shares || 0), 0
         );
         const engagementRateValue = totalReachValue > 0 ? (totalEngagementValue / totalReachValue) * 100 : 0;
-        const activeCreators = new Set(postsInRange.map(p => p.creator_id)).size;
+        const activeCreators = new Set(postsInRangeWithDates.map(p => p.creator_id)).size;
 
         setKpiMetrics({
           totalReach: formatReach(totalReachValue),
@@ -305,7 +372,7 @@ useEffect(() => {
           engagementRate: engagementRateValue.toFixed(1),
           engagementRateValue,
           activeCreators,
-          totalPosts: postsInRange.length,
+          totalPosts: postsInRangeWithDates.length,
         });
       }
     } catch (err) {
@@ -403,91 +470,62 @@ useEffect(() => {
     ];
   }, [postsInRange, kpiMetrics.totalPosts]);
 
-  // Fetch time-series data for all campaigns
-  
+  // Time-series data derived from posts in the selected range
   const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
-  
 
   useEffect(() => {
-  const fetchAllTimeSeries = async () => {
-    if (campaigns.length === 0) {
+    if (postsLoading) {
+      setTimeSeriesLoading(true);
+      return;
+    }
+
+    if (postsInRangeWithDates.length === 0) {
       setTimeSeriesData([]);
       setTimeSeriesLoading(false);
       return;
     }
 
-    try {
-      setTimeSeriesLoading(true);
-      const campaignIds = campaigns.map(c => c.id);
-      
-      const { data, error } = await supabase
-        .from('posts')
-        .select('views, likes, comments, shares, last_scraped_at, created_at, updated_at, campaign_id')
-        .in('campaign_id', campaignIds)
-        .in('platform', ['tiktok', 'instagram']);
+    const grouped: Record<string, { reach: number; engagement: number }> = {};
 
-      if (error) {
-        console.error('Error fetching time series data:', error);
-        setTimeSeriesData([]);
-        return;
+    // Use postsInRangeWithDates to ensure consistency with KPI calculations
+    postsInRangeWithDates.forEach((post: any) => {
+      const dateStr = getPostDateKey(post);
+      // This should never be null since we filtered, but keep as safety check
+      if (!dateStr) return;
+
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = { reach: 0, engagement: 0 };
       }
 
-      const postsInRange = (data || []).filter(post => isPostInRange(post, dateRange));
+      const views = Number(post.views || 0);
+      const likes = Number(post.likes || 0);
+      const comments = Number(post.comments || 0);
+      const shares = Number(post.shares || 0);
 
-      if (postsInRange.length === 0) {
-        setTimeSeriesData([]);
-        return;
-      }
+      grouped[dateStr].reach += views;
+      grouped[dateStr].engagement += likes + comments + shares;
+    });
 
-      // Group metrics by date across all campaigns
-      const allTimeSeries: Record<string, { views: number; engagement: number }> = {};
+    const sorted = Object.entries(grouped)
+      .map(([date, metrics]) => ({
+        date,
+        reach: metrics.reach,
+        engagement: metrics.engagement,
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      postsInRange.forEach((post: any) => {
-        const dateStr = getPostDateKey(post);
-        if (!dateStr) return;
+    const formatted = sorted.map((point) => ({
+      date: new Date(point.date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      reach: point.reach,
+      engagement: point.engagement,
+    }));
 
-        if (!allTimeSeries[dateStr]) {
-          allTimeSeries[dateStr] = { views: 0, engagement: 0 };
-        }
-
-        const views = Number(post.views || 0);
-        const likes = Number(post.likes || 0);
-        const comments = Number(post.comments || 0);
-        const shares = Number(post.shares || 0);
-        const engagement = likes + comments + shares;
-
-        allTimeSeries[dateStr].views += views;
-        allTimeSeries[dateStr].engagement += engagement;
-      });
-
-      // Convert to array and sort by date
-      const sortedData = Object.entries(allTimeSeries)
-        .map(([date, metrics]) => ({
-          date,
-          reach: metrics.views,
-          engagement: metrics.engagement,
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-7);
-
-      // Format dates for display
-      const formattedData = sortedData.map(point => ({
-        date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        reach: point.reach,
-        engagement: point.engagement,
-      }));
-
-      setTimeSeriesData(formattedData);
-    } catch (err) {
-      console.error('Error fetching time series data:', err);
-      setTimeSeriesData([]);
-    } finally {
-      setTimeSeriesLoading(false);
-    }
-  };
-
-  fetchAllTimeSeries();
-}, [campaignIds, dateRange.start, dateRange.end]);
+    setTimeSeriesData(formatted);
+    setTimeSeriesLoading(false);
+  }, [postsInRangeWithDates, postsLoading, dateRange.start, dateRange.end]);
   
   const handleExportCSV = () => {
       const rows: string[][] = [];
@@ -562,12 +600,44 @@ useEffect(() => {
     return timeSeriesData;
   }, [timeSeriesData]);
 
+  // Verify chart data matches KPI (for debugging)
+  const chartTotalReach = useMemo(() => {
+    if (timeSeriesData.length === 0) return 0;
+    return timeSeriesData.reduce((sum, point) => sum + point.reach, 0);
+  }, [timeSeriesData]);
+
+  // Log verification in development
+  useEffect(() => {
+    if (chartTotalReach > 0 && kpiMetrics.totalReachValue > 0) {
+      if (chartTotalReach !== kpiMetrics.totalReachValue) {
+        console.warn(
+          '[Dashboard Data Mismatch]',
+          `Chart total reach (${chartTotalReach}) does not match KPI total reach (${kpiMetrics.totalReachValue})`
+        );
+      } else {
+        console.log(
+          '[Dashboard Data Verified]',
+          `Chart and KPI match: ${chartTotalReach} total reach`
+        );
+      }
+      // Log chart data points for debugging
+      console.log('[Performance Overview Chart Data]', {
+        dataPoints: timeSeriesData.length,
+        firstPoint: timeSeriesData[0],
+        lastPoint: timeSeriesData[timeSeriesData.length - 1],
+        sampleData: timeSeriesData.slice(0, 3),
+        totalReach: chartTotalReach,
+        kpiReach: kpiMetrics.totalReachValue
+      });
+    }
+  }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Dashboard</h1>
           <p className="text-sm text-slate-400 mt-1">Track your campaign performance</p>
         </div>
         
@@ -576,7 +646,7 @@ useEffect(() => {
           <div className="relative">
             <button 
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-              className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+              className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
             >
               <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">{formatDateRange(dateRange)}</span>
@@ -616,7 +686,11 @@ useEffect(() => {
             <NotificationsCenter /> 
           </div>
           
-          <button onClick={handleExportCSV} className="h-9 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 transition-colors">
+          <button
+            onClick={handleExportCSV}
+            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            aria-label="Export analytics"
+          >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
@@ -624,63 +698,71 @@ useEffect(() => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-[#0ea5e9]/10 flex items-center justify-center">
-                <Eye className="w-5 h-5 text-[#0ea5e9]" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[#0ea5e9]/10 flex items-center justify-center">
+                <Eye className="w-4 h-4 text-[#0ea5e9]" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">{formatDateRange(dateRange)}</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.totalReach}</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.totalReach}
+            </div>
             <p className="text-sm text-slate-400">Total Reach</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
-                <Heart className="w-5 h-5 text-purple-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                <Heart className="w-4 h-4 text-purple-400" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">Average</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.engagementRate}%</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.engagementRate}%
+            </div>
             <p className="text-sm text-slate-400">Engagement Rate</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
-                <Users className="w-5 h-5 text-cyan-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+                <Users className="w-4 h-4 text-cyan-400" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">Total</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.activeCreators}</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.activeCreators}
+            </div>
             <p className="text-sm text-slate-400">Active Creators</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
-                <FileText className="w-5 h-5 text-amber-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+                <FileText className="w-4 h-4 text-amber-400" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">All campaigns</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.totalPosts}</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.totalPosts}
+            </div>
             <p className="text-sm text-slate-400">Total Posts</p>
           </CardContent>
         </Card>
@@ -847,7 +929,7 @@ useEffect(() => {
               {/* Filters Button */}
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+                className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex flex-wrap items-center gap-2 transition-colors w-fit"
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
@@ -862,11 +944,11 @@ useEffect(() => {
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
-                  type="text"
+                  type="search"
                   placeholder="Search campaigns..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
+                  className="h-11 sm:h-10 pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
                 />
               </div>
             </div>
@@ -876,7 +958,155 @@ useEffect(() => {
             
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {campaignsLoading ? (
+              <div className="text-sm text-slate-400 col-span-full">Loading campaigns...</div>
+            ) : filteredCampaigns.length === 0 ? (
+              <div className="text-sm text-slate-400 col-span-full">No campaigns found</div>
+            ) : (
+              pagedCampaigns.map((campaign) => {
+                const formattedViews =
+                  campaign.total_views >= 1000000
+                    ? `${(campaign.total_views / 1000000).toFixed(1)}M`
+                    : campaign.total_views >= 1000
+                    ? `${(campaign.total_views / 1000).toFixed(1)}K`
+                    : campaign.total_views.toString();
+                return (
+                  <Card
+                    key={campaign.id}
+                    className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer"
+                    onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
+                  >
+                    <CardContent className="p-3 space-y-2">
+                      {campaign.cover_image_url ? (
+                        <div className="h-24 sm:h-28 rounded-md overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+                          <img
+                            src={campaign.cover_image_url}
+                            alt={`${campaign.name} cover`}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-24 sm:h-28 rounded-md border border-white/[0.06] bg-white/[0.02]" />
+                      )}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm sm:text-base font-semibold text-white truncate">
+                            {campaign.name}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1 truncate">
+                            {campaign.brand_name || 'Active campaign'}
+                          </p>
+                        </div>
+                        <StatusBadge status={campaign.status} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-0.5">
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-slate-500 truncate">
+                            Posts
+                          </p>
+                          <p className="text-sm text-white mt-1">
+                            {campaign.posts_count || 0}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-slate-500 truncate">
+                            Reach
+                          </p>
+                          <p className="text-sm text-white mt-1">
+                            {formattedViews}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-slate-500 truncate">
+                            Engagement
+                          </p>
+                          <p className="text-sm text-emerald-400 mt-1">
+                            {campaign.avg_engagement_rate?.toFixed(1) || "0.0"}%
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {filteredCampaigns.length > 0 && !campaignsLoading && (
+            <div className="lg:hidden px-4 sm:px-6 pb-6 space-y-3">
+              <p className="text-xs text-slate-400">
+                Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}
+                {filteredCampaigns.length} campaigns
+              </p>
+              {totalCampaignPages > 1 && (
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === 1) return;
+                          setCampaignPage((prev) => Math.max(1, prev - 1));
+                        }}
+                        className="min-h-[44px] bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === 1}
+                      />
+                    </PaginationItem>
+                    {paginationPages.map((page, index) => {
+                      const prevPage = paginationPages[index - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsis && (
+                            <PaginationItem>
+                              <PaginationEllipsis className="text-slate-500" />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink
+                              href="#"
+                              isActive={page === safeCampaignPage}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setCampaignPage(page);
+                              }}
+                              className={cn(
+                                "min-h-[44px]",
+                                page === safeCampaignPage
+                                  ? "bg-primary text-black"
+                                  : "bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                              )}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </React.Fragment>
+                      );
+                    })}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === totalCampaignPages) return;
+                          setCampaignPage((prev) =>
+                            Math.min(totalCampaignPages, prev + 1)
+                          );
+                        }}
+                        className="min-h-[44px] bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === totalCampaignPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
+          )}
+
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/[0.08]">
@@ -905,7 +1135,7 @@ useEffect(() => {
                     </td>
                   </tr>
                 ) : (
-                  filteredCampaigns.map((campaign) => {
+                  pagedCampaigns.map((campaign) => {
                     // Format views
                     const formattedViews = campaign.total_views >= 1000000
                       ? `${(campaign.total_views / 1000000).toFixed(1)}M`
@@ -966,6 +1196,7 @@ useEffect(() => {
                               e.stopPropagation();
                             }}
                             className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Open campaign actions"
                           >
                         <MoreVertical className="w-4 h-4 text-slate-400" />
                       </button>
@@ -977,13 +1208,83 @@ useEffect(() => {
               </tbody>
             </table>
           </div>
+          {filteredCampaigns.length > 0 && !campaignsLoading && (
+            <div className="hidden lg:flex items-center justify-between px-6 py-4 border-t border-white/[0.08]">
+              <p className="text-sm text-slate-400">
+                Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}
+                {filteredCampaigns.length} campaigns
+              </p>
+              {totalCampaignPages > 1 && (
+                <Pagination className="mx-0">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === 1) return;
+                          setCampaignPage((prev) => Math.max(1, prev - 1));
+                        }}
+                        className="bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === 1}
+                      />
+                    </PaginationItem>
+                    {paginationPages.map((page, index) => {
+                      const prevPage = paginationPages[index - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsis && (
+                            <PaginationItem>
+                              <PaginationEllipsis className="text-slate-500" />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink
+                              href="#"
+                              isActive={page === safeCampaignPage}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setCampaignPage(page);
+                              }}
+                              className={cn(
+                                page === safeCampaignPage
+                                  ? "bg-primary text-black"
+                                  : "bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                              )}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </React.Fragment>
+                      );
+                    })}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === totalCampaignPages) return;
+                          setCampaignPage((prev) =>
+                            Math.min(totalCampaignPages, prev + 1)
+                          );
+                        }}
+                        className="bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === totalCampaignPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Filter Modal */}
       {isFilterOpen && (
-        <div className="fixed inset-0 bg-black/[0.5] z-50 p-4">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/[0.5] z-50 p-4 flex items-end sm:items-center justify-center">
+          <div className="w-full max-w-md bg-[#0D0D0D] border border-white/[0.08] rounded-t-2xl sm:rounded-lg shadow-xl max-h-[90dvh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-base font-semibold text-white mb-4">Filters</h3>
 
