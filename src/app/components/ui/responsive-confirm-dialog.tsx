@@ -130,7 +130,7 @@ export function ResponsiveConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "relative w-[92vw] max-w-md max-h-[80vh] overflow-y-auto bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4 sm:p-6 !top-1/2 !left-1/2 !bottom-auto !right-auto !translate-x-1/2 !translate-y-1/2",
+          "w-[92vw] max-w-md bg-[#0D0D0D] border-white/[0.08] p-4 sm:p-6",
           className
         )}
       >
