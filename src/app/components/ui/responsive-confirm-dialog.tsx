@@ -1,5 +1,4 @@
 import React from "react";
-import { X } from "lucide-react";
 import { useIsMobile } from "./use-mobile";
 import { cn } from "./utils";
 import { Button } from "./button";
@@ -61,16 +60,6 @@ export function ResponsiveConfirmDialog({
 
   const content = (
     <>
-      <div className="absolute right-3 top-3">
-        <button
-          type="button"
-          onClick={handleClose}
-          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] flex items-center justify-center"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
       <div className="space-y-2">
         <div className="text-base font-semibold text-white">{title}</div>
         {description && (

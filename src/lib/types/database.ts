@@ -48,6 +48,7 @@ export interface Creator {
   location: string | null;
   source_type: "manual" | "csv_import" | "scraper_extraction" | null;
   imported_by_user_id: string | null;
+  owner_workspace_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -213,6 +214,7 @@ export interface CreatorInsert {
   location?: string | null;
   source_type?: "manual" | "csv_import" | "scraper_extraction" | null;
   imported_by_user_id?: string | null;
+  owner_workspace_id?: string | null;
 }
 
 export interface CampaignInsert {
@@ -332,6 +334,7 @@ export interface CreatorUpdate {
   niche?: string | null;
   location?: string | null;
   source_type?: "manual" | "csv_import" | "scraper_extraction" | null;
+  owner_workspace_id?: string | null;
 }
 
 export interface CampaignUpdate {
