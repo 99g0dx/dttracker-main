@@ -10,7 +10,11 @@ import {
   SelectValue,
 } from './ui/select';
 import { X, Link as LinkIcon, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { PlatformBadge } from './platform-badge';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 import { parsePostURL, normalizeHandle } from '../../lib/utils/urlParser';
 import { useAddPostWithScrape } from '../../hooks/usePosts';
 import { useIsParentCampaign } from '../../hooks/useSubcampaigns';
@@ -194,7 +198,26 @@ export function AddPostDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-400">Platform:</span>
                   {parsedUrl.platform ? (
-                    <PlatformBadge platform={parsedUrl.platform} />
+                    (() => {
+                      const platformIcon = normalizePlatform(parsedUrl.platform);
+                      if (!platformIcon) return null;
+                      return (
+                        <>
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="sm"
+                            className="sm:hidden"
+                            aria-label={`${getPlatformLabel(platformIcon)} post`}
+                          />
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="md"
+                            className="hidden sm:flex"
+                            aria-label={`${getPlatformLabel(platformIcon)} post`}
+                          />
+                        </>
+                      );
+                    })()
                   ) : (
                     <span className="text-sm text-slate-500">Not detected</span>
                   )}

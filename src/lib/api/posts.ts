@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase } from "../supabase";
 import type {
   Post,
   PostInsert,
@@ -8,27 +8,35 @@ import type {
   CampaignMetrics,
   ApiResponse,
   ApiListResponse,
-} from '../types/database';
+} from "../types/database";
 
 /**
  * Fetch all posts for a campaign
  */
-export async function listByCampaign(campaignId: string): Promise<ApiListResponse<PostWithCreator>> {
+export async function listByCampaign(
+  campaignId: string
+): Promise<ApiListResponse<PostWithCreator>> {
   try {
     const { data, error } = await supabase
-      .from('posts')
-      .select(`
+      .from("posts")
+      .select(
+        `
         *,
         creator:creators(*)
-      `)
-      .eq('campaign_id', campaignId)
-      .order('created_at', { ascending: false });
+      `
+      )
+      .eq("campaign_id", campaignId)
+      .order("created_at", { ascending: false });
 
     if (error) {
       return { data: null, error };
     }
 
-    return { data: data as PostWithCreator[], error: null, count: data?.length || 0 };
+    return {
+      data: data as PostWithCreator[],
+      error: null,
+      count: data?.length || 0,
+    };
   } catch (err) {
     return { data: null, error: err as Error };
   }
@@ -40,7 +48,7 @@ export async function listByCampaign(campaignId: string): Promise<ApiListRespons
 export async function create(post: PostInsert): Promise<ApiResponse<Post>> {
   try {
     const { data, error } = await supabase
-      .from('posts')
+      .from("posts")
       .insert(post)
       .select()
       .single();
@@ -58,12 +66,11 @@ export async function create(post: PostInsert): Promise<ApiResponse<Post>> {
 /**
  * Create multiple posts (for CSV import)
  */
-export async function createMany(posts: PostInsert[]): Promise<ApiListResponse<Post>> {
+export async function createMany(
+  posts: PostInsert[]
+): Promise<ApiListResponse<Post>> {
   try {
-    const { data, error } = await supabase
-      .from('posts')
-      .insert(posts)
-      .select();
+    const { data, error } = await supabase.from("posts").insert(posts).select();
 
     if (error) {
       return { data: null, error };
@@ -78,12 +85,15 @@ export async function createMany(posts: PostInsert[]): Promise<ApiListResponse<P
 /**
  * Update a post
  */
-export async function update(id: string, updates: PostUpdate): Promise<ApiResponse<Post>> {
+export async function update(
+  id: string,
+  updates: PostUpdate
+): Promise<ApiResponse<Post>> {
   try {
     const { data, error } = await supabase
-      .from('posts')
+      .from("posts")
       .update(updates)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -102,10 +112,7 @@ export async function update(id: string, updates: PostUpdate): Promise<ApiRespon
  */
 export async function deletePost(id: string): Promise<ApiResponse<void>> {
   try {
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from("posts").delete().eq("id", id);
 
     if (error) {
       return { data: null, error };
@@ -120,12 +127,14 @@ export async function deletePost(id: string): Promise<ApiResponse<void>> {
 /**
  * Delete all posts in a campaign
  */
-export async function deleteAllInCampaign(campaignId: string): Promise<ApiResponse<void>> {
+export async function deleteAllInCampaign(
+  campaignId: string
+): Promise<ApiResponse<void>> {
   try {
     const { error } = await supabase
-      .from('posts')
+      .from("posts")
       .delete()
-      .eq('campaign_id', campaignId);
+      .eq("campaign_id", campaignId);
 
     if (error) {
       return { data: null, error };
@@ -140,10 +149,12 @@ export async function deleteAllInCampaign(campaignId: string): Promise<ApiRespon
 /**
  * Get aggregated metrics for a campaign
  */
-export async function getCampaignMetrics(campaignId: string): Promise<ApiResponse<CampaignMetrics>> {
+export async function getCampaignMetrics(
+  campaignId: string
+): Promise<ApiResponse<CampaignMetrics>> {
   try {
     const { data, error } = await supabase.rpc(
-      'get_campaign_metrics_with_subcampaigns',
+      "get_campaign_metrics_with_subcampaigns",
       { campaign_id: campaignId }
     );
 
@@ -155,7 +166,7 @@ export async function getCampaignMetrics(campaignId: string): Promise<ApiRespons
     const metrics = payload?.aggregated_metrics ?? payload;
 
     if (!metrics) {
-      return { data: null, error: new Error('No metrics returned') };
+      return { data: null, error: new Error("No metrics returned") };
     }
 
     return { data: metrics as CampaignMetrics, error: null };
@@ -176,9 +187,9 @@ export async function listByCampaignHierarchy(
 
     if (includeSubcampaigns) {
       const { data: subcampaigns, error: subcampaignsError } = await supabase
-        .from('campaigns')
-        .select('id')
-        .eq('parent_campaign_id', campaignId);
+        .from("campaigns")
+        .select("id")
+        .eq("parent_campaign_id", campaignId);
 
       if (subcampaignsError) {
         return { data: null, error: subcampaignsError };
@@ -189,21 +200,25 @@ export async function listByCampaignHierarchy(
     }
 
     const { data, error } = await supabase
-      .from('posts')
+      .from("posts")
       .select(
         `
         *,
         creator:creators(*)
       `
       )
-      .in('campaign_id', campaignIds)
-      .order('created_at', { ascending: false });
+      .in("campaign_id", campaignIds)
+      .order("created_at", { ascending: false });
 
     if (error) {
       return { data: null, error };
     }
 
-    return { data: data as PostWithCreator[], error: null, count: data?.length || 0 };
+    return {
+      data: data as PostWithCreator[],
+      error: null,
+      count: data?.length || 0,
+    };
   } catch (err) {
     return { data: null, error: err as Error };
   }
@@ -218,11 +233,25 @@ export async function getCampaignMetricsTimeSeries(
   campaignId: string
 ): Promise<ApiResponse<TimeSeriesDataPoint[]>> {
   try {
+    // Get all campaign IDs (parent + subcampaigns) to ensure chart matches total metrics
+    let campaignIds = [campaignId];
+
+    const { data: subcampaigns } = await supabase
+      .from("campaigns")
+      .select("id")
+      .eq("parent_campaign_id", campaignId);
+
+    if (subcampaigns && subcampaigns.length > 0) {
+      campaignIds = campaignIds.concat(subcampaigns.map((c: any) => c.id));
+    }
+
     // First, try to fetch from post_metrics table (historical snapshots)
     // This provides more accurate daily growth tracking
     const { data: metricsHistory, error: historyError } = await supabase
-      .from('post_metrics')
-      .select(`
+      .from("post_metrics")
+      .select(
+        `
+        post_id,
         views,
         likes,
         comments,
@@ -230,57 +259,68 @@ export async function getCampaignMetricsTimeSeries(
         engagement_rate,
         scraped_at,
         posts!inner(campaign_id, platform)
-      `)
-      .eq('posts.campaign_id', campaignId)
-      .in('posts.platform', ['tiktok', 'instagram'])
-      .order('scraped_at', { ascending: true });
+      `
+      )
+      .in("posts.campaign_id", campaignIds)
+      .order("scraped_at", { ascending: true });
 
     // If we have historical data, use it
     if (!historyError && metricsHistory && metricsHistory.length > 0) {
-      // Group metrics by date from scraped_at
-      const metricsByDate = new Map<string, TimeSeriesDataPoint>();
+      // Group metrics by date
+      const metricsByDate = new Map<string, any[]>();
 
       metricsHistory.forEach((metric: any) => {
-        // Extract date from scraped_at timestamp
-        const dateStr = metric.scraped_at ? metric.scraped_at.split('T')[0] : null;
+        const dateStr = metric.scraped_at
+          ? metric.scraped_at.split("T")[0]
+          : null;
         if (!dateStr) return;
 
         if (!metricsByDate.has(dateStr)) {
-          metricsByDate.set(dateStr, {
-            date: dateStr,
-            views: 0,
-            likes: 0,
-            comments: 0,
-            shares: 0,
-            engagement_rate: 0,
-          });
+          metricsByDate.set(dateStr, []);
         }
-
-        const point = metricsByDate.get(dateStr)!;
-        // Sum metrics for each date (aggregate all posts scraped on that date)
-        point.views += Number(metric.views || 0);
-        point.likes += Number(metric.likes || 0);
-        point.comments += Number(metric.comments || 0);
-        point.shares += Number(metric.shares || 0);
+        metricsByDate.get(dateStr)!.push(metric);
       });
 
-      // Calculate engagement rate for each date and sort by date
-      const timeSeriesData = Array.from(metricsByDate.values())
-        .map(point => {
-          const totalEngagement = point.likes + point.comments + point.shares;
-          const engagement_rate = point.views > 0
-            ? Number(((totalEngagement / point.views) * 100).toFixed(2))
-            : 0;
+      // Sort dates
+      const sortedDates = Array.from(metricsByDate.keys()).sort();
 
-          return {
-            ...point,
-            engagement_rate,
-          };
-        })
-        .sort((a, b) => {
-          // Sort by date ascending
-          return new Date(a.date).getTime() - new Date(b.date).getTime();
+      // Track latest metric for each post to handle cumulative totals (fill-forward)
+      const currentPostMetrics = new Map<string, any>();
+      const timeSeriesData: TimeSeriesDataPoint[] = [];
+
+      sortedDates.forEach((date) => {
+        // Update current metrics with data from this date
+        const daysMetrics = metricsByDate.get(date) || [];
+        daysMetrics.forEach((m) => {
+          currentPostMetrics.set(m.post_id, m);
         });
+
+        // Calculate daily totals from current state of all posts
+        let views = 0,
+          likes = 0,
+          comments = 0,
+          shares = 0;
+
+        currentPostMetrics.forEach((m) => {
+          views += Number(m.views || 0);
+          likes += Number(m.likes || 0);
+          comments += Number(m.comments || 0);
+          shares += Number(m.shares || 0);
+        });
+
+        const totalEngagement = likes + comments + shares;
+        const engagement_rate =
+          views > 0 ? Number(((totalEngagement / views) * 100).toFixed(2)) : 0;
+
+        timeSeriesData.push({
+          date,
+          views,
+          likes,
+          comments,
+          shares,
+          engagement_rate,
+        });
+      });
 
       return { data: timeSeriesData, error: null };
     }
@@ -288,10 +328,11 @@ export async function getCampaignMetricsTimeSeries(
     // Fallback to posts table if no historical data exists
     // This ensures backward compatibility and works for new campaigns
     const { data, error } = await supabase
-      .from('posts')
-      .select('views, likes, comments, shares, last_scraped_at, created_at, updated_at')
-      .eq('campaign_id', campaignId)
-      .in('platform', ['tiktok', 'instagram']);
+      .from("posts")
+      .select(
+        "id, views, likes, comments, shares, last_scraped_at, created_at, updated_at"
+      )
+      .in("campaign_id", campaignIds);
 
     if (error) {
       return { data: null, error };
@@ -301,59 +342,69 @@ export async function getCampaignMetricsTimeSeries(
       return { data: [], error: null };
     }
 
-    // Group metrics by date using last_scraped_at, with fallback to created_at
-    const metricsByDate = new Map<string, TimeSeriesDataPoint>();
+    // Group posts by date using last_scraped_at, with fallback to created_at
+    const postsByDate = new Map<string, any[]>();
 
     data.forEach((post: any) => {
       // Use last_scraped_at if available, otherwise fall back to created_at or updated_at
       let dateStr: string;
       if (post.last_scraped_at) {
-        dateStr = post.last_scraped_at.split('T')[0];
+        dateStr = post.last_scraped_at.split("T")[0];
       } else if (post.created_at) {
-        dateStr = post.created_at.split('T')[0];
+        dateStr = post.created_at.split("T")[0];
       } else if (post.updated_at) {
-        dateStr = post.updated_at.split('T')[0];
+        dateStr = post.updated_at.split("T")[0];
       } else {
         // If no date available, use today's date
-        dateStr = new Date().toISOString().split('T')[0];
+        dateStr = new Date().toISOString().split("T")[0];
       }
 
-      if (!metricsByDate.has(dateStr)) {
-        metricsByDate.set(dateStr, {
-          date: dateStr,
-          views: 0,
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          engagement_rate: 0,
-        });
+      if (!postsByDate.has(dateStr)) {
+        postsByDate.set(dateStr, []);
       }
-
-      const point = metricsByDate.get(dateStr)!;
-      // Ensure all values are numbers and handle null/undefined
-      point.views += Number(post.views || 0);
-      point.likes += Number(post.likes || 0);
-      point.comments += Number(post.comments || 0);
-      point.shares += Number(post.shares || 0);
+      postsByDate.get(dateStr)!.push(post);
     });
 
-    // Calculate engagement rate for each date and sort by date
-    const timeSeriesData = Array.from(metricsByDate.values())
-      .map(point => {
-        const totalEngagement = point.likes + point.comments + point.shares;
-        const engagement_rate = point.views > 0
-          ? Number(((totalEngagement / point.views) * 100).toFixed(2))
-          : 0;
+    // Sort dates
+    const sortedDates = Array.from(postsByDate.keys()).sort();
 
-        return {
-          ...point,
-          engagement_rate,
-        };
-      })
-      .sort((a, b) => {
-        // Sort by date ascending
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+    // Track latest state for each post
+    const currentPosts = new Map<string, any>();
+    const timeSeriesData: TimeSeriesDataPoint[] = [];
+
+    sortedDates.forEach((date) => {
+      // Update current posts with data from this date
+      const daysPosts = postsByDate.get(date) || [];
+      daysPosts.forEach((p) => {
+        currentPosts.set(p.id, p);
       });
+
+      // Calculate daily totals
+      let views = 0,
+        likes = 0,
+        comments = 0,
+        shares = 0;
+
+      currentPosts.forEach((p) => {
+        views += Number(p.views || 0);
+        likes += Number(p.likes || 0);
+        comments += Number(p.comments || 0);
+        shares += Number(p.shares || 0);
+      });
+
+      const totalEngagement = likes + comments + shares;
+      const engagement_rate =
+        views > 0 ? Number(((totalEngagement / views) * 100).toFixed(2)) : 0;
+
+      timeSeriesData.push({
+        date,
+        views,
+        likes,
+        comments,
+        shares,
+        engagement_rate,
+      });
+    });
 
     return { data: timeSeriesData, error: null };
   } catch (err) {
