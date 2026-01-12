@@ -457,14 +457,17 @@ export async function parseCreatorHandlesCSV(
 
 /**
  * Export creators to CSV format
+ * Note: Contact fields (email/phone) will only be included if they exist in the creator data.
+ * The API layer filters contacts based on networkFilter, so My Network creators will have contacts,
+ * while All Creators will have null contacts.
  */
 export function exportCreatorsToCSV(creators: CreatorWithStats[]): string {
   const csvData = creators.map((creator) => ({
     name: creator.name,
     handle: creator.handle,
     platform: creator.platform,
-    email: creator.email || '',
-    phone: creator.phone || '',
+    email: creator.email || '', // Will be empty string for All Creators (API filters to null)
+    phone: creator.phone || '', // Will be empty string for All Creators (API filters to null)
     follower_count: creator.follower_count,
     avg_engagement: creator.avg_engagement,
     campaigns: creator.campaigns,
