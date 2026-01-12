@@ -895,15 +895,17 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           </div>
                         </div>
                         <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() => {
-                              setRequestCreatorId(creator.id);
-                              setShowSingleCreatorRequestModal(true);
-                            }}
-                            className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
-                          >
-                            Request Creator
-                          </button>
+                          {networkFilter === "all" && (
+                            <button
+                              onClick={() => {
+                                setRequestCreatorId(creator.id);
+                                setShowSingleCreatorRequestModal(true);
+                              }}
+                              className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
+                            >
+                              Request Creator
+                            </button>
+                          )}
                           <div className="flex items-center gap-2">
                             <Button
                               size="sm"
@@ -1121,32 +1123,21 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           </TableCell>
                           {networkFilter === "my_network" && (
                             <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-3">
+                              <div className="flex items-center justify-center gap-2">
                                 <button
-                                  onClick={() => {
-                                    setRequestCreatorId(creator.id);
-                                    setShowSingleCreatorRequestModal(true);
-                                  }}
-                                  className="h-7 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
+                                  onClick={() => openViewDialog(creator)}
+                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                  aria-label="View creator"
                                 >
-                                  Request Creator
+                                  <Eye className="w-5 h-5 text-slate-400" />
                                 </button>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => openViewDialog(creator)}
-                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-                                    aria-label="View creator"
-                                  >
-                                    <Eye className="w-5 h-5 text-slate-400" />
-                                  </button>
-                                  <button
-                                    onClick={() => openEditDialog(creator)}
-                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-                                    aria-label="Edit creator"
-                                  >
-                                    <Edit2 className="w-5 h-5 text-slate-400" />
-                                  </button>
-                                </div>
+                                <button
+                                  onClick={() => openEditDialog(creator)}
+                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                  aria-label="Edit creator"
+                                >
+                                  <Edit2 className="w-5 h-5 text-slate-400" />
+                                </button>
                                 <button
                                   type="button"
                                   onClick={(e) => {
