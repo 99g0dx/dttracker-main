@@ -299,6 +299,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const createManyPostsMutation = useCreateManyPosts();
   const scrapeAllPostsMutation = useScrapeAllPosts();
   const scrapePostMutation = useScrapePost();
+  const activeScrapePostId = scrapePostMutation.isPending
+    ? scrapePostMutation.variables?.postId ?? null
+    : null;
+  const isScrapeAllPending = scrapeAllPostsMutation.isPending;
 
   // 3-tier smart polling system for auto-refresh
   const lastMutationTimeRef = useRef<number>(0);
@@ -639,12 +643,20 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       // Step 1: Apply search filter
       let filtered = posts.filter((post) => {
         if (!post) return false;
-        const creator = post.creator;
-        if (!creator) return false;
-        const searchLower = searchQuery.toLowerCase();
-        const name = creator.name?.toLowerCase() || "";
-        const handle = creator.handle?.toLowerCase() || "";
-        return name.includes(searchLower) || handle.includes(searchLower);
+        const searchLower = searchQuery.trim().toLowerCase();
+        if (!searchLower) return true;
+        const name = post.creator?.name?.toLowerCase() || "";
+        const handle = post.creator?.handle?.toLowerCase() || "";
+        const postUrl = post.post_url?.toLowerCase() || "";
+        const platform = post.platform?.toLowerCase() || "";
+        const status = post.status?.toLowerCase() || "";
+        return (
+          name.includes(searchLower) ||
+          handle.includes(searchLower) ||
+          postUrl.includes(searchLower) ||
+          platform.includes(searchLower) ||
+          status.includes(searchLower)
+        );
       });
 
       // Step 2: Apply filters
@@ -705,8 +717,18 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
           case "engagement":
             return (b.engagement_rate || 0) - (a.engagement_rate || 0);
           case "latest":
-            const aDate = a.last_scraped_at || a.updated_at || "";
-            const bDate = b.last_scraped_at || b.updated_at || "";
+            const aDate =
+              a.posted_date ||
+              a.last_scraped_at ||
+              a.updated_at ||
+              a.created_at ||
+              "";
+            const bDate =
+              b.posted_date ||
+              b.last_scraped_at ||
+              b.updated_at ||
+              b.created_at ||
+              "";
             return new Date(bDate).getTime() - new Date(aDate).getTime();
           default:
             return 0;
@@ -814,10 +836,18 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   }, [activeCreator, posts]);
 
   const activePostFilterCount = React.useMemo(() => {
-    return [postPlatformFilter, postStatusFilter, postCreatorFilter, postDateFilter].filter(
-      (value) => value !== "all"
-    ).length;
+    return [
+      postPlatformFilter,
+      postStatusFilter,
+      postCreatorFilter,
+      postDateFilter,
+    ].filter((value) => value !== "all").length;
   }, [postPlatformFilter, postStatusFilter, postCreatorFilter, postDateFilter]);
+
+  const hasPostRefinements = React.useMemo(
+    () => searchQuery.trim().length > 0 || activePostFilterCount > 0,
+    [searchQuery, activePostFilterCount]
+  );
 
   const activePostFilters = React.useMemo(() => {
     const filters: Array<{ key: string; label: string; onClear: () => void }> = [];
@@ -999,13 +1029,13 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     });
   }, [filteredPosts]);
 
-  // Calculate global top 5 posts from ALL posts (not filtered)
-  // This ensures top 5 is consistent regardless of search/filters/pagination
+  // Calculate top 5 posts, respecting search/filters when active
   const topPosts = React.useMemo(() => {
-    if (!Array.isArray(posts)) return [];
+    const sourcePosts = hasPostRefinements ? filteredPosts : posts;
+    if (!Array.isArray(sourcePosts)) return [];
 
-    // Calculate scores for ALL posts (before any filtering)
-    const allPostsWithScores = posts
+    // Calculate scores for source posts
+    const allPostsWithScores = sourcePosts
       .filter((post) => post && post.creator && isKpiPlatform(post.platform))
       .map((post) => ({
         ...post,
@@ -1017,12 +1047,24 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       (a, b) => (b.score || 0) - (a.score || 0)
     );
     return sortedByScore.slice(0, 5);
-  }, [posts]); // Depend on raw posts, not filtered posts
+  }, [posts, filteredPosts, hasPostRefinements]);
+
+  const shouldHighlightTopPosts = sortBy === "score";
+  const highlightedTopPosts = React.useMemo(
+    () => (shouldHighlightTopPosts ? topPosts : []),
+    [shouldHighlightTopPosts, topPosts]
+  );
+
+  React.useEffect(() => {
+    if (!shouldHighlightTopPosts && showTopPerformers) {
+      setShowTopPerformers(false);
+    }
+  }, [shouldHighlightTopPosts, showTopPerformers]);
 
   const remainingPosts = React.useMemo(() => {
-    const topPostIds = new Set(topPosts.map((p) => p.id));
+    const topPostIds = new Set(highlightedTopPosts.map((p) => p.id));
     return postsWithRankings.filter((p) => !topPostIds.has(p.id));
-  }, [postsWithRankings, topPosts]);
+  }, [postsWithRankings, highlightedTopPosts]);
 
   // Track top performers and send notifications
   React.useEffect(() => {
@@ -2119,100 +2161,124 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 })}
               </div>
             ) : (
-              <EmptyState searchQuery={creatorSearchQuery} />
+              <EmptyState
+                searchQuery={creatorSearchQuery}
+                selectedPlatform={selectedPlatform}
+              />
             )}
           </CardContent>
         </Card>
       )}
 
       {/* Posts Table */}
-      <Card id="campaign-posts" className="bg-[#0D0D0D] border-white/[0.08]">
-        <CardContent className="p-0">
-          <div className="p-4 sm:p-6 border-b border-white/[0.08]">
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-white">
-                    Posts
-                  </h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
-                    Track creator posts and performance
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => setShowScrapeAllDialog(true)}
-                    disabled={posts.length === 0}
-                    className="min-h-[44px] px-3 text-sm gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    {isCompactMobile ? "Scrape" : "Scrape All"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleExportCSV}
-                    disabled={posts.length === 0}
-                    className="min-h-[44px] px-3 text-sm gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export
-                  </Button>
-                  {!isCompactMobile && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowAddPostDialog(true)}
-                      className="min-h-[44px] px-3 text-sm gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Post
-                    </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="min-h-[44px] px-3 text-sm gap-2"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                        More
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      {isCompactMobile && (
-                        <>
-                          <DropdownMenuItem
-                            onSelect={() => setShowAddPostDialog(true)}
-                          >
-                            <Plus className="w-4 h-4" />
-                            Add Post
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                        </>
-                      )}
-                      <DropdownMenuItem onSelect={handleImportCreators}>
-                        <Upload className="w-4 h-4" />
-                        Import Creators
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={handleImportPosts}>
-                        <Upload className="w-4 h-4" />
-                        Import Posts CSV
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={() => setShowDeleteAllDialog(true)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete All Posts
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+      <Card
+        id="campaign-posts"
+        className="relative overflow-hidden bg-[#0B0C10] border-white/[0.08] shadow-[0_12px_40px_-20px_rgba(0,0,0,0.8)]"
+      >
+        <CardContent className="relative p-0">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.08),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(16,185,129,0.08),transparent_40%)]" />
+          <div className="relative p-4 sm:p-6 border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-xl">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4 sm:mb-5">
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+                  Posts
+                </h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  {posts.length} posts
+                  {highlightedTopPosts.length > 0
+                    ? ` · ${highlightedTopPosts.length} top`
+                    : ""}
+                </p>
               </div>
+              <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-end sm:gap-3 md:w-auto">
+                <button
+                  onClick={() => setShowAddPostDialog(true)}
+                  className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)]"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Post
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto"
+                      aria-label="Post actions"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                      Actions
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem
+                      onSelect={() => setShowScrapeAllDialog(true)}
+                      disabled={posts.length === 0}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Scrape all posts
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={handleExportCSV}
+                      disabled={posts.length === 0}
+                    >
+                      <Download className="w-4 h-4" />
+                      Export CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={handleImportCreators}>
+                      <Upload className="w-4 h-4" />
+                      Import creators
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleImportPosts}>
+                      <Upload className="w-4 h-4" />
+                      Import posts CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setShowDeleteAllDialog(true)}
+                      disabled={posts.length === 0}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete all posts
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="hidden md:block w-full md:w-auto">
+                <Select
+                  value={sortBy}
+                  onValueChange={(
+                    value: "score" | "views" | "engagement" | "latest"
+                  ) => setSortBy(value)}
+                >
+                  <SelectTrigger className="h-9 w-fit md:w-[170px] bg-white/[0.02] border-white/[0.08] text-slate-300 text-xs">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="score">Sort by: Score</SelectItem>
+                    <SelectItem value="views">Sort by: Views</SelectItem>
+                    <SelectItem value="engagement">
+                      Sort by: Engagement
+                    </SelectItem>
+                    <SelectItem value="latest">Sort by: Latest</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <button
+                      onClick={() => setPostFiltersOpen(true)}
+                      className="h-11 min-h-[44px] px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Filter className="w-4 h-4" />
+                      Filters
+                      {activePostFilterCount > 0 && (
+                        <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
+                          {activePostFilterCount}
+                        </span>
+                      )}
+                    </button>
             </div>
           </div>
 
@@ -2222,7 +2288,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 <PostRowSkeleton key={i} />
               ))}
             </div>
-          ) : topPosts.length > 0 || visibleRemainingPosts.length > 0 ? (
+          ) : highlightedTopPosts.length > 0 || visibleRemainingPosts.length > 0 ? (
             <>
               {/* Search, Sort, and Filters */}
               <div className="px-4 sm:px-6 pb-4">
@@ -2234,38 +2300,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       placeholder="Search posts..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-11 w-full pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="h-11 w-full pl-9 pr-3 bg-slate-950/40 border border-white/[0.08] rounded-lg text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
-                  </div>
-                  <div className="grid grid-cols-1 min-[360px]:grid-cols-[1fr_auto] gap-2">
-                    <Select
-                      value={sortBy}
-                      onValueChange={(
-                        value: "score" | "views" | "engagement" | "latest"
-                      ) => setSortBy(value)}
-                    >
-                      <SelectTrigger className="h-11 min-h-[44px] w-full bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
-                        <SelectValue placeholder="Sort by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="views">Views</SelectItem>
-                        <SelectItem value="engagement">Engagement</SelectItem>
-                        <SelectItem value="score">Rate</SelectItem>
-                        <SelectItem value="latest">Newest</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <button
-                      onClick={() => setPostFiltersOpen(true)}
-                      className="h-11 min-h-[44px] px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
-                    >
-                      <Filter className="w-4 h-4" />
-                      Filters
-                      {activePostFilterCount > 0 && (
-                        <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
-                          {activePostFilterCount}
-                        </span>
-                      )}
-                    </button>
                   </div>
                   {activePostFilters.length > 0 && (
                     <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -2273,7 +2309,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <button
                           key={filter.key}
                           onClick={filter.onClear}
-                          className="min-h-[44px] px-2.5 rounded-full border border-white/[0.08] bg-white/[0.03] text-xs text-slate-300 flex items-center gap-1 transition-colors hover:bg-white/[0.06]"
+                          className="min-h-[44px] px-3 rounded-full border border-white/[0.08] bg-white/[0.04] text-xs text-slate-300 flex items-center gap-1 transition-colors hover:bg-white/[0.07]"
                           aria-label={`Remove ${filter.label}`}
                         >
                           <span className="max-w-[180px] truncate">
@@ -2290,21 +2326,23 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               {/* Mobile: Card Layout */}
               <div className="lg:hidden px-4 sm:px-6 space-y-2 pb-4">
                 {/* Top Performers Toggle and Filter Button */}
-                <div className="flex items-center gap-2 pb-2">
-                  <button
-                    onClick={() => setShowTopPerformers(!showTopPerformers)}
-                    className={`h-11 min-h-[44px] px-3 rounded-md border text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                      showTopPerformers
-                        ? "bg-primary/20 border-primary/30 text-primary"
-                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {showTopPerformers ? "All Posts" : "Top Performers"}
-                  </button>
-                </div>
+                {highlightedTopPosts.length > 0 && (
+                  <div className="flex items-center gap-2 pb-2">
+                    <button
+                      onClick={() => setShowTopPerformers(!showTopPerformers)}
+                      className={`h-11 min-h-[44px] px-3 rounded-md border text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                        showTopPerformers
+                          ? "bg-primary/20 border-primary/30 text-primary"
+                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      {showTopPerformers ? "All Posts" : "Top Performers"}
+                    </button>
+                  </div>
+                )}
 
                 {/* Top Performing Cards */}
-                {topPosts.length > 0 && !showTopPerformers && (
+                {highlightedTopPosts.length > 0 && !showTopPerformers && (
                   <>
                     <div className="flex items-center gap-2 pb-1">
                       <span className="text-xs font-semibold text-primary">
@@ -2313,13 +2351,18 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <div className="flex-1 h-px bg-primary/20"></div>
                     </div>
                     <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
-                      {topPosts.map((post) => (
+                      {highlightedTopPosts.map((post) => (
                         <PostCard
                           key={post.id}
                           post={post}
                           onScrape={handleScrapePost}
                           onDelete={setShowDeletePostDialog}
-                          isScraping={scrapePostMutation.isPending}
+                          isScraping={
+                            isScrapeAllPending ||
+                            post.status === "scraping" ||
+                            (scrapePostMutation.isPending &&
+                              activeScrapePostId === post.id)
+                          }
                         />
                       ))}
                     </div>
@@ -2342,7 +2385,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           post={post}
                           onScrape={handleScrapePost}
                           onDelete={setShowDeletePostDialog}
-                          isScraping={scrapePostMutation.isPending}
+                          isScraping={
+                            isScrapeAllPending ||
+                            post.status === "scraping" ||
+                            (scrapePostMutation.isPending &&
+                              activeScrapePostId === post.id)
+                          }
                         />
                       ))}
                     </div>
@@ -2353,13 +2401,19 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 {showTopPerformers && (
                   <>
                     <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
-                      {[...topPosts, ...visibleRemainingPosts].map((post) => (
+                      {[...highlightedTopPosts, ...visibleRemainingPosts].map(
+                        (post) => (
                         <PostCard
                           key={post.id}
                           post={post}
                           onScrape={handleScrapePost}
                           onDelete={setShowDeletePostDialog}
-                          isScraping={scrapePostMutation.isPending}
+                          isScraping={
+                            isScrapeAllPending ||
+                            post.status === "scraping" ||
+                            (scrapePostMutation.isPending &&
+                              activeScrapePostId === post.id)
+                          }
                         />
                       ))}
                     </div>
@@ -2371,42 +2425,42 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/[0.08]">
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
+                    <tr className="border-b border-white/[0.08] bg-white/[0.02]">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Creator
                       </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Platform
                       </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Post URL
                       </th>
-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Status
                       </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Views
                       </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Likes
                       </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Comments
                       </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Engagement
                       </th>
-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3"></th>
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {/* Top 5 Posts Section */}
-                    {topPosts.length > 0 && !showTopPerformers && (
+                    {highlightedTopPosts.length > 0 && !showTopPerformers && (
                       <>
                         <tr>
                           <td
                             colSpan={9}
-                            className="px-6 py-3 bg-primary/5 border-b border-primary/20"
+                            className="px-6 py-3 bg-gradient-to-r from-primary/10 via-white/[0.02] to-transparent border-b border-primary/20"
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-semibold text-primary">
@@ -2467,10 +2521,15 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                             </div>
                           </td>
                         </tr>
-                        {topPosts.map((post) => {
+                        {highlightedTopPosts.map((post) => {
                           const isTop3 = post.rank <= 3;
                           const isTop5 = post.rank <= 5;
                           const platformIcon = normalizePlatform(post.platform);
+                          const isScrapingPost =
+                            isScrapeAllPending ||
+                            post.status === "scraping" ||
+                            (scrapePostMutation.isPending &&
+                              activeScrapePostId === post.id);
                           return (
                             <tr
                               key={post.id}
@@ -2583,18 +2642,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                         }
                                       }}
                                       disabled={
-                                        scrapePostMutation.isPending ||
-                                        post.status === "scraping"
+                                        isScrapingPost
                                       }
                                       className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       title={
-                                        post.status === "scraping"
+                                        isScrapingPost
                                           ? "Scraping..."
                                           : "Scrape this post"
                                       }
                                     >
-                                      {scrapePostMutation.isPending ||
-                                      post.status === "scraping" ? (
+                                      {isScrapingPost ? (
                                         <RefreshCw className="w-4 h-4 text-primary animate-spin" />
                                       ) : (
                                         <RefreshCw className="w-4 h-4 text-primary" />
@@ -2631,6 +2688,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     {paginatedRemainingPosts.map((post) => {
                       const isTop3 = post.rank <= 3;
                       const platformIcon = normalizePlatform(post.platform);
+                      const isScrapingPost =
+                        isScrapeAllPending ||
+                        post.status === "scraping" ||
+                        (scrapePostMutation.isPending &&
+                          activeScrapePostId === post.id);
                       return (
                         <tr
                           key={post.id}
@@ -2737,19 +2799,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     }
                                   }}
                                   disabled={
-                                    scrapePostMutation.isPending ||
-                                    post.status === "scraping"
+                                    isScrapingPost
                                   }
                                   className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Refresh metrics"
                                   title={
-                                    post.status === "scraping"
+                                    isScrapingPost
                                       ? "Scraping..."
                                       : "Scrape this post"
                                   }
                                 >
-                                  {scrapePostMutation.isPending ||
-                                  post.status === "scraping" ? (
+                                  {isScrapingPost ? (
                                     <RefreshCw className="w-4 h-4 text-primary animate-spin" />
                                   ) : (
                                     <RefreshCw className="w-4 h-4 text-primary" />
@@ -2834,15 +2894,15 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               {totalPages > 1 && (
                 <div className="hidden lg:flex p-4 border-t border-white/[0.08] items-center justify-between">
                   <p className="text-sm text-slate-400">
-                    {topPosts.length > 0 && !showTopPerformers
-                      ? `${topPosts.length} top posts + `
+                    {highlightedTopPosts.length > 0 && !showTopPerformers
+                      ? `${highlightedTopPosts.length} top posts + `
                       : ""}
                     Showing {startIndex + 1} to{" "}
                     {Math.min(startIndex + postsPerPage, remainingPosts.length)}{" "}
                     of {remainingPosts.length} remaining posts
-                    {topPosts.length > 0 &&
+                    {highlightedTopPosts.length > 0 &&
                       !showTopPerformers &&
-                      ` (${topPosts.length + remainingPosts.length} total)`}
+                      ` (${highlightedTopPosts.length + remainingPosts.length} total)`}
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -3335,3 +3395,45 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
     </div>
   );
 }
+
+type EmptyStateProps = {
+  searchQuery?: string;
+  selectedPlatform?: string;
+};
+
+const EmptyState = ({ searchQuery, selectedPlatform }: EmptyStateProps) => {
+  const trimmedQuery = searchQuery?.trim() || "";
+  const hasQuery = trimmedQuery.length > 0;
+  const platformLabels: Record<string, string> = {
+    tiktok: "TikTok",
+    instagram: "Instagram",
+    youtube: "YouTube",
+    twitter: "X",
+    facebook: "Facebook",
+  };
+  const platformLabel =
+    selectedPlatform && selectedPlatform !== "all"
+      ? platformLabels[selectedPlatform] || selectedPlatform
+      : null;
+
+  const title = hasQuery
+    ? "No creators found"
+    : platformLabel
+    ? `No ${platformLabel} creators yet`
+    : "No creators yet";
+  const description = hasQuery
+    ? "Try adjusting your search or filters."
+    : platformLabel
+    ? "Add creators or import a roster to get started."
+    : "Add creators or import a roster to get started.";
+
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
+        <Search className="w-6 h-6 text-slate-600" />
+      </div>
+      <h3 className="text-base font-semibold text-white mb-1">{title}</h3>
+      <p className="text-sm text-slate-400 max-w-md">{description}</p>
+    </div>
+  );
+};

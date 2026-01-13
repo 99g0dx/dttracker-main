@@ -195,7 +195,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
 
       {/* Campaigns Grid */}
       {filteredCampaigns.length > 0 ? (
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredCampaigns.map((campaign) => (
             <Card
               key={campaign.id}
@@ -204,7 +204,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
             >
               <CardContent className="p-0">
                 {/* Cover Image Header */}
-                <div className="relative w-full h-24 sm:h-28 overflow-hidden bg-gradient-to-br from-primary to-cyan-400">
+                <div className="relative w-full h-24 sm:h-28 bg-gradient-to-br from-primary to-cyan-400">
                   {campaign.cover_image_url ? (
                     <img
                       src={campaign.cover_image_url}
