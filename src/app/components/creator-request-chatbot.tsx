@@ -13,7 +13,16 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar as CalendarIcon,
+  Check,
+  X,
+} from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCart } from "../../contexts/CartContext";
 import { useCreateCreatorRequest } from "../../hooks/useCreatorRequests";
 import type {
@@ -167,6 +176,15 @@ export function CreatorRequestChatbot({
         ? prev.filter((d) => d !== deliverable)
         : [...prev, deliverable]
     );
+  };
+
+  const formatDateLabel = (value?: string | null) => {
+    if (!value) return "Select date";
+    try {
+      return format(parseISO(value), "MMM d, yyyy");
+    } catch {
+      return "Select date";
+    }
   };
 
   const renderStepContent = () => {
@@ -486,16 +504,40 @@ export function CreatorRequestChatbot({
               >
                 Deadline
               </Label>
-              <Input
-                id="deadline"
-                type="date"
-                value={formData.deadline || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, deadline: e.target.value }))
-                }
-                className="bg-white/[0.03] border-white/[0.08] text-white"
-                min={new Date().toISOString().split("T")[0]}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="h-10 w-full rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-between px-3 transition-colors"
+                  >
+                    <span
+                      className={
+                        formData.deadline ? "text-white" : "text-slate-500"
+                      }
+                    >
+                      {formatDateLabel(formData.deadline)}
+                    </span>
+                    <CalendarIcon className="w-4 h-4 text-slate-500" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      formData.deadline
+                        ? parseISO(formData.deadline)
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        deadline: date ? format(date, "yyyy-MM-dd") : "",
+                      }));
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-4">
               <Label className="text-white text-sm font-medium">Urgency</Label>

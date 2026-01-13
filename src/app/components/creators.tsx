@@ -537,11 +537,18 @@ export function Creators({ onNavigate }: CreatorsProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                  className="relative h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
                   aria-label="Creator actions"
                 >
                   <MoreHorizontal className="w-4 h-4" />
-                  Actions
+                  {networkFilter === "all" && totalItems > 0
+                    ? "Requests"
+                    : "Actions"}
+                  {networkFilter === "all" && totalItems > 0 && (
+                    <span className="ml-1 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-black text-xs font-semibold flex items-center justify-center">
+                      {totalItems}
+                    </span>
+                  )}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

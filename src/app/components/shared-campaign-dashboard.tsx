@@ -38,6 +38,7 @@ import {
   Legend,
 } from "recharts";
 import type { SubcampaignSummary } from "../../lib/types/database";
+import * as csvUtils from "../../lib/utils/csv";
 
 type SortBy = "views" | "platform" | "likes" | "comments" | "top-performer";
 
@@ -291,6 +292,32 @@ export function SharedCampaignDashboard() {
     }
   }, [filteredPosts, sortBy]);
 
+  const handleExportCSV = () => {
+    if (!data?.share?.allowExport) return;
+    if (!filteredPosts.length) {
+      toast.error("No posts to export");
+      return;
+    }
+
+    const exportRows = filteredPosts.map((post) => ({
+      creator: post.creator,
+      platform: post.platform,
+      post_url: post.postUrl,
+      posted_date: post.postedDate || "",
+      views: post.views || 0,
+      likes: post.likes || 0,
+      comments: post.comments || 0,
+      shares: post.shares || 0,
+    }));
+
+    const csvContent = csvUtils.exportToCSV(exportRows as any);
+    const filename = `${data.campaign.name.replace(/[^a-z0-9]/gi, "_")}_posts_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
+    csvUtils.downloadCSV(csvContent, filename);
+    toast.success("CSV exported successfully");
+  };
+
   // Format chart data
   const seriesData = useMemo(() => {
     if (!data) return null;
@@ -441,10 +468,21 @@ export function SharedCampaignDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {/* Campaign Header */}
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">{data.campaign.name}</h2>
-            {data.campaign.brand_name && (
-              <p className="text-lg text-slate-300">{data.campaign.brand_name}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-3xl font-bold text-white mb-2">{data.campaign.name}</h2>
+              {data.campaign.brand_name && (
+                <p className="text-lg text-slate-300">{data.campaign.brand_name}</p>
+              )}
+            </div>
+            {data.share?.allowExport && (
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                className="h-10 px-3 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+              >
+                Export CSV
+              </Button>
             )}
           </div>
 
