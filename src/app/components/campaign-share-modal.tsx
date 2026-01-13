@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { X, Copy, Link2, Check, RefreshCw, Lock } from "lucide-react";
 import { toast } from "sonner";
 import * as sharingApi from "../../lib/api/campaign-sharing-v2";
+import { useIsParentCampaign, useSubcampaigns } from "../../hooks/useSubcampaigns";
 import {
   Select,
   SelectContent,
@@ -21,14 +22,17 @@ interface CampaignShareModalProps {
 }
 
 type ExpiryOption = "never" | "24" | "168" | "720" | "1440" | "2160"; // 24 hours, 168 hours (7 days), 720 hours (30 days), 1440 hours (60 days), 2160 hours (90 days)
+type ShareMode = "unified" | "individual";
 
 export function CampaignShareModal({
   campaignId,
   campaignName,
   onClose,
 }: CampaignShareModalProps) {
+  const { data: isParent } = useIsParentCampaign(campaignId);
   const [shareEnabled, setShareEnabled] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareMode, setShareMode] = useState<ShareMode>("unified");
   const [expiryOption, setExpiryOption] = useState<ExpiryOption>("never");
   const [allowExport, setAllowExport] = useState(false);
   const [passwordProtected, setPasswordProtected] = useState(false);
@@ -37,11 +41,33 @@ export function CampaignShareModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedSubcampaignId, setCopiedSubcampaignId] = useState<string | null>(
+    null
+  );
+  const [subcampaignLinks, setSubcampaignLinks] = useState<
+    Record<string, { url: string | null; isLoading: boolean }>
+  >({});
+
+  const {
+    data: subcampaigns = [],
+    isLoading: subcampaignsLoading,
+  } = useSubcampaigns(isParent ? campaignId : "");
 
   // Load current share settings
   useEffect(() => {
     loadShareSettings();
   }, [campaignId]);
+
+  useEffect(() => {
+    setSubcampaignLinks({});
+    setCopiedSubcampaignId(null);
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (isParent === false && shareMode !== "unified") {
+      setShareMode("unified");
+    }
+  }, [isParent, shareMode]);
 
   const loadShareSettings = async () => {
     setIsLoading(true);
@@ -84,6 +110,16 @@ export function CampaignShareModal({
     }
   };
 
+  const getExpiryHours = () => {
+    if (expiryOption === "never") return null;
+    if (expiryOption === "24") return 24;
+    if (expiryOption === "168") return 168;
+    if (expiryOption === "720") return 720;
+    if (expiryOption === "1440") return 1440;
+    if (expiryOption === "2160") return 2160;
+    return null;
+  };
+
   const handleToggleShare = async (enabled: boolean) => {
     if (enabled) {
       // Enable sharing
@@ -97,20 +133,7 @@ export function CampaignShareModal({
   const handleEnableShare = async () => {
     setIsSaving(true);
     try {
-      const expiresInHours =
-        expiryOption === "never"
-          ? null
-          : expiryOption === "24"
-          ? 24
-          : expiryOption === "168"
-          ? 168
-          : expiryOption === "720"
-          ? 720
-          : expiryOption === "1440"
-          ? 1440
-          : expiryOption === "2160"
-          ? 2160
-          : null;
+      const expiresInHours = getExpiryHours();
 
       const result = await sharingApi.enableCampaignShare({
         campaignId,
@@ -159,21 +182,7 @@ export function CampaignShareModal({
   const handleRegenerate = async () => {
     setIsRegenerating(true);
     try {
-      // Convert expiryOption to hours
-      const expiresInHours =
-        expiryOption === "never"
-          ? null
-          : expiryOption === "24"
-          ? 24
-          : expiryOption === "168"
-          ? 168
-          : expiryOption === "720"
-          ? 720
-          : expiryOption === "1440"
-          ? 1440
-          : expiryOption === "2160"
-          ? 2160
-          : null;
+      const expiresInHours = getExpiryHours();
 
       // Pass expiration to regenerate function
       const result = await sharingApi.regenerateCampaignShareToken(
@@ -219,27 +228,77 @@ export function CampaignShareModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const updateSubcampaignLink = (
+    subcampaignId: string,
+    updates: { url?: string | null; isLoading?: boolean }
+  ) => {
+    setSubcampaignLinks((prev) => ({
+      ...prev,
+      [subcampaignId]: {
+        url: null,
+        isLoading: false,
+        ...prev[subcampaignId],
+        ...updates,
+      },
+    }));
+  };
+
+  const handleGetSubcampaignLink = async (subcampaignId: string) => {
+    updateSubcampaignLink(subcampaignId, { isLoading: true });
+    try {
+      const settings = await sharingApi.getCampaignShareSettings(subcampaignId);
+      if (settings.error) {
+        toast.error(`Failed to load subcampaign link: ${settings.error.message}`);
+        updateSubcampaignLink(subcampaignId, { isLoading: false });
+        return;
+      }
+
+      if (settings.data?.shareEnabled && settings.data.shareUrl) {
+        updateSubcampaignLink(subcampaignId, {
+          url: settings.data.shareUrl,
+          isLoading: false,
+        });
+        return;
+      }
+
+      const result = await sharingApi.enableCampaignShare({
+        campaignId: subcampaignId,
+        expiresInHours: getExpiryHours(),
+        allowExport,
+        password: passwordProtected && password.trim() ? password : null,
+      });
+
+      if (result.error) {
+        toast.error(`Failed to enable sharing: ${result.error.message}`);
+        updateSubcampaignLink(subcampaignId, { isLoading: false });
+        return;
+      }
+
+      updateSubcampaignLink(subcampaignId, {
+        url: result.data?.shareUrl || null,
+        isLoading: false,
+      });
+    } catch (error) {
+      toast.error("Failed to generate subcampaign link");
+      updateSubcampaignLink(subcampaignId, { isLoading: false });
+    }
+  };
+
+  const handleCopySubcampaignLink = (subcampaignId: string, url: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedSubcampaignId(subcampaignId);
+    toast.success("Link copied to clipboard");
+    setTimeout(() => setCopiedSubcampaignId(null), 2000);
+  };
+
   const handleUpdateSettings = async () => {
-    if (!shareEnabled) return;
+    if (shareMode !== "unified" || !shareEnabled) return;
 
     setIsSaving(true);
     try {
       // Disable and re-enable to update settings
       await sharingApi.disableCampaignShare(campaignId);
-      const expiresInHours =
-        expiryOption === "never"
-          ? null
-          : expiryOption === "24"
-          ? 24
-          : expiryOption === "168"
-          ? 168
-          : expiryOption === "720"
-          ? 720
-          : expiryOption === "1440"
-          ? 1440
-          : expiryOption === "2160"
-          ? 2160
-          : null;
+      const expiresInHours = getExpiryHours();
 
       const result = await sharingApi.enableCampaignShare({
         campaignId,
@@ -260,6 +319,10 @@ export function CampaignShareModal({
       setIsSaving(false);
     }
   };
+
+  const showUnifiedControls = !isParent || shareMode === "unified";
+  const showIndividualControls = Boolean(isParent && shareMode === "individual");
+  const showSettings = showIndividualControls || shareEnabled;
 
   return (
     <div
@@ -298,31 +361,67 @@ export function CampaignShareModal({
               </div>
             ) : (
               <>
-                {/* Enable/Disable Toggle */}
-                <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Link2 className="w-5 h-5 text-primary" />
-                    <div>
-                      <div className="font-medium text-white text-sm">
-                        Enable view-only link
+                {isParent && (
+                  <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          Share mode
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Unified link shares the parent and all subcampaigns. Individual links create one link per subcampaign.
+                        </p>
                       </div>
-                      <div className="text-xs text-slate-400 mt-0.5">
-                        Allow anyone with the link to view this campaign dashboard
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setShareMode("unified")}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                            shareMode === "unified"
+                              ? "bg-primary text-black border-primary"
+                              : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          Unified Link
+                        </button>
+                        <button
+                          onClick={() => setShareMode("individual")}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                            shareMode === "individual"
+                              ? "bg-primary text-black border-primary"
+                              : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          Individual Links
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <Switch
-                    checked={shareEnabled}
-                    onCheckedChange={handleToggleShare}
-                    disabled={isSaving}
-                  />
-                </div>
+                )}
 
-                {/* Share Settings (only show when enabled) */}
-                {shareEnabled && (
+                {showUnifiedControls && (
+                  <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Link2 className="w-5 h-5 text-primary" />
+                      <div>
+                        <div className="font-medium text-white text-sm">
+                          Enable view-only link
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          Allow anyone with the link to view this campaign dashboard
+                        </div>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={shareEnabled}
+                      onCheckedChange={handleToggleShare}
+                      disabled={isSaving}
+                    />
+                  </div>
+                )}
+
+                {showSettings && (
                   <>
-                    {/* Share URL */}
-                    {shareUrl && (
+                    {showUnifiedControls && shareEnabled && shareUrl && (
                       <div className="space-y-3">
                         <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
                           Share Link
@@ -462,6 +561,82 @@ export function CampaignShareModal({
                     </div>
                   </>
                 )}
+
+                {showIndividualControls && (
+                  <div className="space-y-3">
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Subcampaign Links
+                    </div>
+                    {subcampaignsLoading ? (
+                      <div className="text-sm text-slate-400">Loading subcampaigns...</div>
+                    ) : subcampaigns.length === 0 ? (
+                      <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-4 text-sm text-slate-400">
+                        No subcampaigns available yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {subcampaigns.map((subcampaign) => {
+                          const linkState = subcampaignLinks[subcampaign.id];
+                          const linkUrl = linkState?.url || null;
+                          const isLinkLoading = Boolean(linkState?.isLoading);
+
+                          return (
+                            <div
+                              key={subcampaign.id}
+                              className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-4 space-y-3"
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-white truncate">
+                                    {subcampaign.name}
+                                  </p>
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    Status: {subcampaign.status}
+                                  </p>
+                                </div>
+                                {linkUrl ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      handleCopySubcampaignLink(subcampaign.id, linkUrl)
+                                    }
+                                  >
+                                    {copiedSubcampaignId === subcampaign.id ? (
+                                      <>
+                                        <Check className="w-4 h-4 mr-2" />
+                                        Copied
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-4 h-4 mr-2" />
+                                        Copy
+                                      </>
+                                    )}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleGetSubcampaignLink(subcampaign.id)}
+                                    disabled={isLinkLoading}
+                                  >
+                                    {isLinkLoading ? "Generating..." : "Get Link"}
+                                  </Button>
+                                )}
+                              </div>
+                              {linkUrl && (
+                                <div className="text-xs font-mono text-slate-300 break-all">
+                                  {linkUrl}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -480,4 +655,3 @@ export function CampaignShareModal({
     </div>
   );
 }
-

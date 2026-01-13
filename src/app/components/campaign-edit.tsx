@@ -12,6 +12,7 @@ import {
 import * as storageApi from "../../lib/api/storage";
 import type { CampaignUpdate } from "../../lib/types/database";
 import { FormSkeleton } from "./ui/skeleton";
+import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
 
 interface CampaignEditProps {
   onNavigate: (path: string) => void;
@@ -372,35 +373,17 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      {showDeleteDialog && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Delete Campaign?
-              </h3>
-              <p className="text-sm text-slate-400 mb-6">
-                This will permanently delete "{formData.name}" and all
-                associated posts and data. This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteDialog(false)}
-                  className="flex-1 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="flex-1 h-9 rounded-md bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <ResponsiveConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete campaign?"
+        description={`"${formData.name}" will be deleted along with all posts and data. This action cannot be undone.`}
+        confirmLabel={
+          deleteCampaignMutation.isPending ? "Deleting..." : "Delete campaign"
+        }
+        confirmDisabled={deleteCampaignMutation.isPending}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

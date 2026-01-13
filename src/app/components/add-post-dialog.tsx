@@ -10,9 +10,14 @@ import {
   SelectValue,
 } from './ui/select';
 import { X, Link as LinkIcon, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { PlatformBadge } from './platform-badge';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 import { parsePostURL, normalizeHandle } from '../../lib/utils/urlParser';
 import { useAddPostWithScrape } from '../../hooks/usePosts';
+import { useIsParentCampaign } from '../../hooks/useSubcampaigns';
 import type { Creator, Platform } from '../../lib/types/database';
 
 interface AddPostDialogProps {
@@ -39,6 +44,7 @@ export function AddPostDialog({
   const [error, setError] = useState<string | null>(null);
 
   const addPostMutation = useAddPostWithScrape();
+  const { data: isParent } = useIsParentCampaign(campaignId);
 
   // Filter creators by detected platform
   const availableCreators = parsedUrl?.platform
@@ -116,6 +122,11 @@ export function AddPostDialog({
       return;
     }
 
+    if (isParent) {
+      setError('Parent campaigns cannot have posts. Please select a subcampaign.');
+      return;
+    }
+
     if (availableCreators.length === 0) {
       setError(`No creators found for ${parsedUrl.platform}. Please import creators first.`);
       return;
@@ -187,7 +198,26 @@ export function AddPostDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-400">Platform:</span>
                   {parsedUrl.platform ? (
-                    <PlatformBadge platform={parsedUrl.platform} />
+                    (() => {
+                      const platformIcon = normalizePlatform(parsedUrl.platform);
+                      if (!platformIcon) return null;
+                      return (
+                        <>
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="sm"
+                            className="sm:hidden"
+                            aria-label={`${getPlatformLabel(platformIcon)} post`}
+                          />
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="md"
+                            className="hidden sm:flex"
+                            aria-label={`${getPlatformLabel(platformIcon)} post`}
+                          />
+                        </>
+                      );
+                    })()
                   ) : (
                     <span className="text-sm text-slate-500">Not detected</span>
                   )}

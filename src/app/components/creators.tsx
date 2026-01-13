@@ -3,10 +3,20 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
+import { CreatorHandleLink } from "./ui/creator-handle-link";
+import {
   Plus,
   Search,
+  Filter,
   Users as UsersIcon,
-  Lock,
   Sparkles,
   X,
   Edit2,
@@ -20,7 +30,11 @@ import {
   Upload,
   Check,
 } from "lucide-react";
-import { PlatformBadge } from "./platform-badge";
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from "./ui/PlatformIcon";
 import {
   Table,
   TableBody,
@@ -109,11 +123,16 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } = useCart();
   const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
   const [showChatbotModal, setShowChatbotModal] = useState(false);
+  const [showSingleCreatorRequestModal, setShowSingleCreatorRequestModal] = useState(false);
+  const [requestCreatorId, setRequestCreatorId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
   const [selectedNiche, setSelectedNiche] = useState<string>("all");
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
+  const [followerRange, setFollowerRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
+  const [postsRange, setPostsRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
   const [isPaidUser] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -122,7 +141,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [selectedCreator, setSelectedCreator] =
     useState<CreatorWithStats | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Sorting state
   const [sortField, setSortField] = useState<
@@ -175,44 +193,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
     location: "",
   });
 
-  // Get current user ID on mount
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-      }
-    };
-    getCurrentUser();
-  }, []);
 
-  // Helper function to check if user can view contact details
-  const canViewContact = (creator: CreatorWithStats): boolean => {
-    if (!currentUserId) return false;
-
-    // In "My Network", show full contacts if imported by current user
-    if (networkFilter === "my_network") {
-      return creator.imported_by_user_id === currentUserId;
-    }
-
-    // In "All Creators", lock if not imported by current user or null
-    return creator.imported_by_user_id === currentUserId;
-  };
-
-  const maskEmail = (email: string) => {
-    const [username, domain] = email.split("@");
-    const maskedUsername = username.charAt(0) + "****";
-    return `${maskedUsername}@${domain}`;
-  };
-
-  const maskPhone = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, "");
-    const visibleStart = phone.substring(0, 4);
-    const visibleEnd = cleanPhone.slice(-4);
-    return `${visibleStart} *** *** ${visibleEnd}`;
-  };
 
   // Filter and sort creators
   const filteredAndSortedCreators = useMemo(() => {
@@ -235,6 +216,26 @@ export function Creators({ onNavigate }: CreatorsProps) {
       filtered = filtered.filter(
         (creator) => creator.location === selectedLocation
       );
+    }
+
+    // Followers range filter
+    if (followerRange.min || followerRange.max) {
+      filtered = filtered.filter((creator) => {
+        const followers = creator.follower_count || 0;
+        const min = followerRange.min ? parseInt(followerRange.min) : 0;
+        const max = followerRange.max ? parseInt(followerRange.max) : Infinity;
+        return followers >= min && followers <= max;
+      });
+    }
+
+    // Posts range filter
+    if (postsRange.min || postsRange.max) {
+      filtered = filtered.filter((creator) => {
+        const posts = creator.totalPosts || 0;
+        const min = postsRange.min ? parseInt(postsRange.min) : 0;
+        const max = postsRange.max ? parseInt(postsRange.max) : Infinity;
+        return posts >= min && posts <= max;
+      });
     }
 
     // Text search (existing)
@@ -289,10 +290,22 @@ export function Creators({ onNavigate }: CreatorsProps) {
     selectedPlatforms,
     selectedNiche,
     selectedLocation,
+    followerRange,
+    postsRange,
     searchQuery,
     sortField,
     sortDirection,
   ]);
+
+  const activeCreatorFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedPlatforms.length > 0) count += 1;
+    if (selectedNiche !== "all") count += 1;
+    if (selectedLocation !== "all") count += 1;
+    if (followerRange.min || followerRange.max) count += 1;
+    if (postsRange.min || postsRange.max) count += 1;
+    return count;
+  }, [selectedPlatforms, selectedNiche, selectedLocation, followerRange, postsRange]);
 
   // Paginate creators
   const totalPages = Math.ceil(filteredAndSortedCreators.length / itemsPerPage);
@@ -313,6 +326,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
     setSelectedPlatforms([]);
     setSelectedNiche("all");
     setSelectedLocation("all");
+    setFollowerRange({ min: "", max: "" });
+    setPostsRange({ min: "", max: "" });
     setSearchQuery("");
   };
 
@@ -327,9 +342,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
     }
   };
 
-  const handleUnlockContact = () => {
-    alert("Upgrade to Pro to unlock full contact details");
-  };
 
   const handleAdd = async () => {
     if (!formData.name || !formData.handle || !formData.platform) {
@@ -421,6 +433,17 @@ export function Creators({ onNavigate }: CreatorsProps) {
     }
   };
 
+  const handleDeleteRequest = (creator: CreatorWithStats) => {
+    console.log('[Delete Request]', { creatorId: creator.id, creatorName: creator.name });
+    if (!creator?.id) {
+      toast.error("Creator not found");
+      return;
+    }
+    setSelectedCreator(creator);
+    setDeleteConfirm(creator.id);
+    console.log('[Delete State Updated]', { deleteConfirm: creator.id });
+  };
+
   const openEditDialog = (creator: CreatorWithStats) => {
     setSelectedCreator(creator);
     setFormData({
@@ -462,7 +485,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate?.("/")}
-            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -479,22 +503,22 @@ export function Creators({ onNavigate }: CreatorsProps) {
           {networkFilter === "all" && totalItems > 0 && (
             <button
               onClick={() => setShowReviewRequestModal(true)}
-              className="flex-1 sm:flex-none min-w-[160px] h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors justify-center"
-            >
+            className="flex-1 sm:flex-none min-w-[160px] h-11 sm:h-10 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors justify-center"
+          >
               <Check className="w-4 h-4" />
               Review Request ({totalItems})
             </button>
           )}
           <button
             onClick={() => onNavigate?.("/creators/scraper")}
-            className="flex-1 sm:flex-none min-w-[140px] h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center"
+            className="flex-1 sm:flex-none min-w-[140px] h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center"
           >
             <Sparkles className="w-4 h-4" />
             Creator Scraper
           </button>
           <button
             onClick={() => setShowImportDialog(true)}
-            className="flex-1 sm:flex-none min-w-[140px] h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center"
+            className="flex-1 sm:flex-none min-w-[140px] h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center"
           >
             <Upload className="w-4 h-4" />
             Import CSV
@@ -502,7 +526,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
           <button
             onClick={handleExportCSV}
             disabled={creators.length === 0 || isLoading}
-            className="flex-1 sm:flex-none min-w-[120px] h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center disabled:opacity-50"
+            className="flex-1 sm:flex-none min-w-[120px] h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             Export CSV
@@ -559,7 +583,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="text-2xl font-semibold text-white">
@@ -568,32 +592,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 <p className="text-sm text-slate-400 mt-1">Total Creators</p>
               </CardContent>
             </Card>
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-4">
-                <div className="text-2xl font-semibold text-primary">
-                  {(
-                    creators.reduce((sum, c) => sum + c.follower_count, 0) /
-                    1000000
-                  ).toFixed(1)}
-                  M
-                </div>
-                <p className="text-sm text-slate-400 mt-1">Total Reach</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-4">
-                <div className="text-2xl font-semibold text-emerald-400">
-                  {creators.length > 0
-                    ? (
-                        creators.reduce((sum, c) => sum + c.avg_engagement, 0) /
-                        creators.length
-                      ).toFixed(1)
-                    : 0}
-                  %
-                </div>
-                <p className="text-sm text-slate-400 mt-1">Avg. Engagement</p>
-              </CardContent>
-            </Card>
+
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="text-2xl font-semibold text-purple-400">
@@ -610,15 +609,32 @@ export function Creators({ onNavigate }: CreatorsProps) {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <Input
+                type="search"
                 placeholder="Search creators by name, handle, email, or location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+                className="pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
               />
             </div>
 
             {/* Filters Row */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 sm:hidden">
+              <button
+                onClick={() => setFiltersOpen(true)}
+                className="w-full h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {activeCreatorFilterCount > 0 && (
+                  <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
+                    {activeCreatorFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Filters Row */}
+            <div className="hidden sm:flex flex-wrap items-center gap-3">
               {/* Platform Multi-Select */}
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -638,7 +654,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 <select
                   value={selectedNiche}
                   onChange={(e) => setSelectedNiche(e.target.value)}
-                  className="h-9 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                  className="h-11 sm:h-10 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
                 >
                   <option value="all">All Niches</option>
                   {uniqueNiches
@@ -659,7 +675,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 <select
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="h-9 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                  className="h-11 sm:h-10 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
                 >
                   <option value="all">All Locations</option>
                   {uniqueLocations
@@ -672,14 +688,42 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </select>
               </div>
 
+              {/* Posts Range Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Posts:
+                </span>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={postsRange.min}
+                    onChange={(e) => setPostsRange({ ...postsRange, min: e.target.value })}
+                    className="h-11 sm:h-10 w-20 px-2 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white"
+                  />
+                  <span className="text-slate-400">-</span>
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={postsRange.max}
+                    onChange={(e) => setPostsRange({ ...postsRange, max: e.target.value })}
+                    className="h-11 sm:h-10 w-20 px-2 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white"
+                  />
+                </div>
+              </div>
+
               {/* Clear Filters Button */}
               {(selectedPlatforms.length > 0 ||
                 selectedNiche !== "all" ||
                 selectedLocation !== "all" ||
+                followerRange.min ||
+                followerRange.max ||
+                postsRange.min ||
+                postsRange.max ||
                 searchQuery) && (
                 <button
                   onClick={clearAllFilters}
-                  className="ml-auto h-9 px-4 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] rounded-lg text-sm text-slate-400 hover:text-white transition-all"
+                  className="ml-auto h-11 sm:h-10 px-4 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] rounded-lg text-sm text-slate-400 hover:text-white transition-all"
                 >
                   Clear Filters
                 </button>
@@ -689,7 +733,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
             {/* Active Filters Count */}
             {(selectedPlatforms.length > 0 ||
               selectedNiche !== "all" ||
-              selectedLocation !== "all") && (
+              selectedLocation !== "all" ||
+              followerRange.min ||
+              followerRange.max ||
+              postsRange.min ||
+              postsRange.max) && (
               <div className="text-sm text-slate-400">
                 Showing {filteredAndSortedCreators.length} of {creators.length}{" "}
                 creators
@@ -699,6 +747,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   }`}
                 {selectedNiche !== "all" && ` • ${selectedNiche}`}
                 {selectedLocation !== "all" && ` • ${selectedLocation}`}
+                {(followerRange.min || followerRange.max) && (
+                  ` • Followers: ${followerRange.min || "0"}-${followerRange.max || "∞"}`
+                )}
+                {(postsRange.min || postsRange.max) && (
+                  ` • Posts: ${postsRange.min || "0"}-${postsRange.max || "∞"}`
+                )}
               </div>
             )}
 
@@ -710,7 +764,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               <div className="flex flex-wrap gap-1 w-full sm:w-auto">
                 <button
                   onClick={() => handleSort("platform")}
-                  className={`h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
+                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
                     sortField === "platform"
                       ? "bg-primary text-black"
                       : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
@@ -726,7 +780,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </button>
                 <button
                   onClick={() => handleSort("follower_count")}
-                  className={`h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
+                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
                     sortField === "follower_count"
                       ? "bg-primary text-black"
                       : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
@@ -742,7 +796,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </button>
                 <button
                   onClick={() => handleSort("niche")}
-                  className={`h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
+                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
                     sortField === "niche"
                       ? "bg-primary text-black"
                       : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
@@ -758,7 +812,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </button>
                 <button
                   onClick={() => handleSort("location")}
-                  className={`h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
+                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
                     sortField === "location"
                       ? "bg-primary text-black"
                       : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
@@ -787,7 +841,133 @@ export function Creators({ onNavigate }: CreatorsProps) {
           ) : filteredAndSortedCreators.length > 0 ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="lg:hidden p-4 grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
+                  {paginatedCreators.map((creator) => (
+                    <Card
+                      key={creator.id}
+                      className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors"
+                    >
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-cyan-400/20 border border-primary/30 flex items-center justify-center text-xs font-semibold text-primary">
+                              {creator.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-white truncate">
+                                {creator.name}
+                              </p>
+                              <CreatorHandleLink
+                                handle={creator.handle}
+                                platform={creator.platform}
+                                className="truncate block"
+                              />
+                            </div>
+                          </div>
+                          {(() => {
+                            const platformIcon = normalizePlatform(creator.platform);
+                            if (!platformIcon) return null;
+                            return (
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="sm"
+                                aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                              />
+                            );
+                          })()}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Followers
+                            </p>
+                            <p className="text-sm text-white mt-0.5">
+                              {(creator.follower_count / 1000).toFixed(0)}K
+                            </p>
+                          </div>
+                          <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Engagement
+                            </p>
+                            <p className="text-sm text-emerald-400 mt-0.5">
+                              {creator.avg_engagement}%
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {networkFilter === "all" && (
+                            <button
+                              onClick={() => {
+                                setRequestCreatorId(creator.id);
+                                setShowSingleCreatorRequestModal(true);
+                              }}
+                              className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
+                            >
+                              Request Creator
+                            </button>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openViewDialog(creator)}
+                              className="min-h-[44px] flex-1 border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View
+                            </Button>
+                            {networkFilter === "my_network" && (
+                              <>
+                                <button
+                                  onClick={() => openEditDialog(creator)}
+                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
+                                  aria-label="Edit creator"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    console.log('[Mobile Delete Button Clicked]', creator.id);
+                                    handleDeleteRequest(creator);
+                                  }}
+                                  disabled={false}
+                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 flex items-center justify-center transition-colors"
+                                  aria-label="Delete creator"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                            {networkFilter === "all" && (
+                              isInCart(creator.id) ? (
+                                <button
+                                  onClick={() => removeCreator(creator.id)}
+                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary flex items-center justify-center transition-colors"
+                                  aria-label="Remove creator"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => addCreator(creator)}
+                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
+                                  aria-label="Add creator"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="hidden lg:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="border-white/[0.08] hover:bg-transparent">
@@ -810,9 +990,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         <TableHead className="text-slate-400 font-medium">
                           Creator
                         </TableHead>
-                        <TableHead className="text-slate-400 font-medium">
-                          Contact
-                        </TableHead>
+                        {networkFilter === "my_network" && (
+                          <TableHead className="text-slate-400 font-medium">
+                            Contact
+                          </TableHead>
+                        )}
                         <TableHead className="text-slate-400 font-medium">
                           Platform
                         </TableHead>
@@ -832,14 +1014,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           Engagement
                         </TableHead>
                         {networkFilter === "my_network" && (
-                          <TableHead className="text-slate-400 font-medium text-right">
+                          <TableHead className="text-slate-400 font-medium text-center">
                             Actions
                           </TableHead>
                         )}
                         {networkFilter === "all" && (
-                          <TableHead className="text-slate-400 font-medium text-right w-20">
-                            Add
-                          </TableHead>
+                          <>
+                            <TableHead className="text-slate-400 font-medium text-right">
+                              Actions
+                            </TableHead>
+                            <TableHead className="text-slate-400 font-medium text-right w-20">
+                              Add
+                            </TableHead>
+                          </>
                         )}
                       </TableRow>
                     </TableHeader>
@@ -869,68 +1056,47 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             <div className="font-medium text-white text-sm">
                               {creator.name}
                             </div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              @{creator.handle.startsWith('@') ? creator.handle.slice(1) : creator.handle}
-                            </div>
+                            <CreatorHandleLink
+                              handle={creator.handle}
+                              platform={creator.platform}
+                              className="mt-0.5 block"
+                            />
                           </TableCell>
-
-                          <TableCell>
-                            <div className="space-y-1.5 min-w-[180px]">
-                              {creator.email && (
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`text-sm ${
-                                      canViewContact(creator)
-                                        ? "text-white"
-                                        : "text-slate-400"
-                                    }`}
-                                  >
-                                    {canViewContact(creator)
-                                      ? creator.email
-                                      : maskEmail(creator.email)}
-                                  </span>
-                                  {!canViewContact(creator) && (
-                                    <Lock className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                                  )}
-                                </div>
-                              )}
-                              {creator.phone && (
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`text-sm ${
-                                      canViewContact(creator)
-                                        ? "text-white"
-                                        : "text-slate-400"
-                                    }`}
-                                  >
-                                    {canViewContact(creator)
-                                      ? creator.phone
-                                      : maskPhone(creator.phone)}
-                                  </span>
-                                  {!canViewContact(creator) && (
-                                    <Lock className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                                  )}
-                                </div>
-                              )}
-                              {!canViewContact(creator) &&
-                                (creator.email || creator.phone) && (
-                                  <button
-                                    onClick={handleUnlockContact}
-                                    className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 mt-1.5"
-                                  >
-                                    <Lock className="w-3 h-3" />
-                                    Unlock Contact
-                                  </button>
+                          {networkFilter === "my_network" && (
+                            <TableCell>
+                              <div className="space-y-1.5 min-w-[180px]">
+                                {creator.email && (
+                                  <div className="text-sm text-white">
+                                    {creator.email}
+                                  </div>
                                 )}
-                              {!creator.email && !creator.phone && (
-                                <span className="text-xs text-slate-500">
-                                  No contact info
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
+                                {creator.phone && (
+                                  <div className="text-sm text-white">
+                                    {creator.phone}
+                                  </div>
+                                )}
+                                {!creator.email && !creator.phone && (
+                                  <span className="text-xs text-slate-500">
+                                    No contact info
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
                           <TableCell>
-                            <PlatformBadge platform={creator.platform} />
+                            {(() => {
+                              const platformIcon = normalizePlatform(
+                                creator.platform
+                              );
+                              if (!platformIcon) return null;
+                              return (
+                                <PlatformIcon
+                                  platform={platformIcon}
+                                  size="md"
+                                  aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                />
+                              );
+                            })()}
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-slate-300">
@@ -956,48 +1122,71 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             </span>
                           </TableCell>
                           {networkFilter === "my_network" && (
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => openViewDialog(creator)}
-                                  className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                  aria-label="View creator"
                                 >
-                                  <Eye className="w-4 h-4 text-slate-400" />
+                                  <Eye className="w-5 h-5 text-slate-400" />
                                 </button>
                                 <button
                                   onClick={() => openEditDialog(creator)}
-                                  className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                  aria-label="Edit creator"
                                 >
-                                  <Edit2 className="w-4 h-4 text-slate-400" />
+                                  <Edit2 className="w-5 h-5 text-slate-400" />
                                 </button>
                                 <button
-                                  onClick={() => setDeleteConfirm(creator.id)}
-                                  className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors"
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    console.log('[Desktop Delete Button Clicked]', creator.id);
+                                    handleDeleteRequest(creator);
+                                  }}
+                                  disabled={false}
+                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 flex items-center justify-center transition-colors"
+                                  aria-label="Delete creator"
                                 >
-                                  <Trash2 className="w-4 h-4 text-red-400" />
+                                  <Trash2 className="w-5 h-5" />
                                 </button>
                               </div>
                             </TableCell>
                           )}
                           {networkFilter === "all" && (
-                            <TableCell className="text-right">
-                              {isInCart(creator.id) ? (
+                            <>
+                              <TableCell className="text-right">
                                 <button
-                                  onClick={() => removeCreator(creator.id)}
-                                  className="h-7 px-3 rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary text-xs font-medium flex items-center gap-1.5 transition-colors"
+                                  onClick={() => {
+                                    setRequestCreatorId(creator.id);
+                                    setShowSingleCreatorRequestModal(true);
+                                  }}
+                                  className="h-7 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
                                 >
-                                  <Check className="w-3 h-3" />
-                                  Added
+                                  Request Creator
                                 </button>
-                              ) : (
-                                <button
-                                  onClick={() => addCreator(creator)}
-                                  className="h-7 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 text-xs font-medium transition-colors"
-                                >
-                                  Add
-                                </button>
-                              )}
-                            </TableCell>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isInCart(creator.id) ? (
+                                  <button
+                                    onClick={() => removeCreator(creator.id)}
+                                    className="h-7 px-3 rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary text-xs font-medium flex items-center gap-1.5 transition-colors"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    Added
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => addCreator(creator)}
+                                    className="h-7 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 text-xs font-medium transition-colors"
+                                  >
+                                    Add
+                                  </button>
+                                )}
+                              </TableCell>
+                            </>
                           )}
                         </TableRow>
                       ))}
@@ -1128,6 +1317,130 @@ export function Creators({ onNavigate }: CreatorsProps) {
           <CampaignCreatorSelector onNavigate={onNavigate} />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="bg-[#0D0D0D] border-white/[0.08] w-[92vw] max-w-md p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg font-semibold text-white">
+              Filters
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-slate-400">
+              Filter creators by platform, niche, location, and followers.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Platform
+              </p>
+              <PlatformSelect
+                selected={selectedPlatforms}
+                onChange={setSelectedPlatforms}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Niche
+              </label>
+              <select
+                value={selectedNiche}
+                onChange={(e) => setSelectedNiche(e.target.value)}
+                className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+              >
+                <option value="all">All Niches</option>
+                {uniqueNiches
+                  .filter((n) => n !== "all")
+                  .map((niche) => (
+                    <option key={niche} value={niche}>
+                      {niche}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Location
+              </label>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+              >
+                <option value="all">All Locations</option>
+                {uniqueLocations
+                  .filter((l) => l !== "all")
+                  .map((location) => (
+                    <option key={location} value={location}>
+                      {location}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Followers
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex-1 min-w-[120px]">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={followerRange.min}
+                    onChange={(e) => setFollowerRange({ ...followerRange, min: e.target.value })}
+                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                  />
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={followerRange.max}
+                    onChange={(e) => setFollowerRange({ ...followerRange, max: e.target.value })}
+                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Posts
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex-1 min-w-[120px]">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={postsRange.min}
+                    onChange={(e) => setPostsRange({ ...postsRange, min: e.target.value })}
+                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                  />
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={postsRange.max}
+                    onChange={(e) => setPostsRange({ ...postsRange, max: e.target.value })}
+                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-wrap gap-2 pt-3 sm:pt-4">
+            <Button
+              variant="outline"
+              onClick={clearAllFilters}
+              className="flex-1 sm:flex-initial"
+            >
+              Clear
+            </Button>
+            <Button onClick={() => setFiltersOpen(false)} className="flex-1 sm:flex-initial">
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Dialog */}
       {(addDialogOpen || editDialogOpen) && (
@@ -1351,7 +1664,28 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <h4 className="font-semibold text-white text-lg">
                       {selectedCreator.name}
                     </h4>
-                    <PlatformBadge platform={selectedCreator.platform} />
+                    {(() => {
+                      const platformIcon = normalizePlatform(
+                        selectedCreator.platform
+                      );
+                      if (!platformIcon) return null;
+                      return (
+                        <>
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="sm"
+                            className="sm:hidden"
+                            aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                          />
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="md"
+                            className="hidden sm:flex"
+                            aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                          />
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -1385,47 +1719,55 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 <div className="space-y-3 pt-2">
                   <div>
                     <label className="text-xs text-slate-500">Handle</label>
-                    <div className="text-sm text-white mt-1">
-                      @{selectedCreator.handle}
-                    </div>
+                    <CreatorHandleLink
+                      handle={selectedCreator.handle}
+                      platform={selectedCreator.platform}
+                      className="mt-1 inline-block text-sm"
+                    />
                   </div>
-                  {selectedCreator.email && (
-                    <div>
-                      <label className="text-xs text-slate-500">Email</label>
-                      <div className="text-sm text-white mt-1 flex items-center gap-2">
-                        {canViewContact(selectedCreator)
-                          ? selectedCreator.email
-                          : maskEmail(selectedCreator.email)}
-                        {!canViewContact(selectedCreator) && (
-                          <Lock className="w-3.5 h-3.5 text-slate-500" />
-                        )}
-                      </div>
-                    </div>
+                  {networkFilter === "my_network" && (
+                    <>
+                      {selectedCreator.email && (
+                        <div>
+                          <label className="text-xs text-slate-500">Email</label>
+                          <div className="text-sm text-white mt-1">
+                            {selectedCreator.email}
+                          </div>
+                        </div>
+                      )}
+                      {selectedCreator.phone && (
+                        <div>
+                          <label className="text-xs text-slate-500">Phone</label>
+                          <div className="text-sm text-white mt-1">
+                            {selectedCreator.phone}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
-                  {selectedCreator.phone && (
-                    <div>
-                      <label className="text-xs text-slate-500">Phone</label>
-                      <div className="text-sm text-white mt-1 flex items-center gap-2">
-                        {canViewContact(selectedCreator)
-                          ? selectedCreator.phone
-                          : maskPhone(selectedCreator.phone)}
-                        {!canViewContact(selectedCreator) && (
-                          <Lock className="w-3.5 h-3.5 text-slate-500" />
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {!canViewContact(selectedCreator) &&
-                    (selectedCreator.email || selectedCreator.phone) && (
-                      <button
-                        onClick={handleUnlockContact}
-                        className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <Lock className="w-4 h-4" />
-                        Unlock Full Contact Info
-                      </button>
-                    )}
                 </div>
+
+                {/* Request Creator CTA - Show for All Creators */}
+                {networkFilter === "all" && (
+                  <div className="mt-6 pt-6 border-t border-white/[0.08]">
+                    <h4 className="text-base font-semibold text-white mb-2">
+                      Want to work with this creator?
+                    </h4>
+                    <p className="text-sm text-slate-400 mb-4">
+                      Submit a request and our team will reach out and confirm availability, pricing, and delivery timeline.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setRequestCreatorId(selectedCreator.id);
+                        setShowSingleCreatorRequestModal(true);
+                        setViewDialogOpen(false);
+                      }}
+                      className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                    >
+                      Request this creator
+                    </button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1433,36 +1775,20 @@ export function Creators({ onNavigate }: CreatorsProps) {
       )}
 
       {/* Delete Confirmation */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="bg-[#1A1A1A] border-white/[0.08] max-w-md w-full">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Delete Creator
-              </h3>
-              <p className="text-sm text-slate-400 mb-6">
-                Are you sure you want to delete this creator? This action cannot
-                be undone.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-                  className="flex-1 h-9 bg-red-500 hover:bg-red-500/90 text-white"
-                >
-                  Delete
-                </Button>
-                <Button
-                  onClick={() => setDeleteConfirm(null)}
-                  variant="outline"
-                  className="flex-1 h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <ResponsiveConfirmDialog
+        open={Boolean(deleteConfirm)}
+        onOpenChange={(open) => {
+          console.log('[Delete Dialog]', { open, deleteConfirm });
+          if (!open) setDeleteConfirm(null);
+        }}
+        title="Delete creator?"
+        description="This creator will be deleted. This action cannot be undone."
+        confirmLabel="Delete creator"
+        onConfirm={() => {
+          console.log('[Delete Confirmed]', deleteConfirm);
+          deleteConfirm && handleDelete(deleteConfirm);
+        }}
+      />
 
       {/* Import Creators Dialog */}
       <ImportCreatorsDialog
@@ -1488,6 +1814,22 @@ export function Creators({ onNavigate }: CreatorsProps) {
           toast.success("Request submitted successfully!");
           onNavigate?.("/requests");
         }}
+      />
+
+      {/* Single Creator Request Modal */}
+      <CreatorRequestChatbot
+        open={showSingleCreatorRequestModal}
+        onOpenChange={(open) => {
+          setShowSingleCreatorRequestModal(open);
+          if (!open) {
+            setRequestCreatorId(null);
+          }
+        }}
+        onComplete={() => {
+          toast.success("Request submitted. Our team will reach out shortly.");
+          setRequestCreatorId(null);
+        }}
+        initialCreatorIds={requestCreatorId ? [requestCreatorId] : undefined}
       />
     </div>
   );

@@ -156,7 +156,6 @@ export function useCreatorsWithStats(networkFilter?: 'my_network' | 'all') {
         throw result.error;
       }
       return result.data || [];
-      
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

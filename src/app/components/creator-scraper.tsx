@@ -87,6 +87,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
   });
   const [isPaused, setIsPaused] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const successfulExtractions = React.useMemo(
+    () =>
+      uploadedImages.filter(
+        (img) => img.status === "success" && img.extractedData && img.platform
+      ),
+    [uploadedImages]
+  );
 
   const platforms = ["TikTok", "Instagram", "YouTube", "Twitter", "Facebook"];
   const categories = [
@@ -427,39 +434,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
           category: category,
         };
 
-        // Auto-save creator
-        const followerCount = parseFollowerCount(extractedInfo.followers);
-        const platformMap: Record<string, Platform> = {
-          TikTok: "tiktok",
-          Instagram: "instagram",
-          YouTube: "youtube",
-          Twitter: "twitter",
-          Facebook: "facebook",
-        };
-
-        const platformValue = platformMap[platform];
-        if (!platformValue) {
-          throw new Error("Invalid platform");
-        }
-
-        const { data: creator, error: saveError } =
-          await creatorsApi.getOrCreate(
-            extractedInfo.handle,
-            extractedInfo.handle,
-            platformValue,
-            followerCount,
-            extractedInfo.contact || null,
-            null,
-            extractedInfo.niche || null,
-            extractedInfo.location || null,
-            "scraper_extraction"
-          );
-
-        if (saveError || !creator) {
-          throw new Error(saveError?.message || "Failed to save creator");
-        }
-
-        // Update image item with success
+        // Update image item with success (extracted, not saved yet)
         setUploadedImages((prev) =>
           prev.map((img, idx) =>
             idx === i
@@ -475,7 +450,6 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
         );
 
         setProcessingStats((prev) => ({ ...prev, success: prev.success + 1 }));
-        toast.success(`Saved: ${extractedInfo.handle}`);
       } catch (error: any) {
         console.error("Processing error:", error);
         setUploadedImages((prev) =>
@@ -501,9 +475,6 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
     setCurrentProcessingIndex(-1);
     setShowSummary(true);
 
-    // Invalidate queries to refresh creator list
-    await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
-
     // Get final stats
     setUploadedImages((prev) => {
       const finalStats = {
@@ -514,7 +485,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
       };
 
       toast.success(
-        `Processing complete: ${finalStats.success} saved, ${finalStats.failed} failed, ${finalStats.skipped} skipped`
+        `Extraction complete: ${finalStats.success} extracted, ${finalStats.failed} failed, ${finalStats.skipped} skipped. Review and confirm to add to library.`
       );
       return prev;
     });
@@ -531,6 +502,105 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
   const togglePause = () => {
     isPausedRef.current = !isPausedRef.current;
     setIsPaused(isPausedRef.current);
+  };
+
+  const updateExtractedData = (
+    id: string,
+    field: keyof ExtractedData,
+    value: string
+  ) => {
+    setUploadedImages((prev) =>
+      prev.map((img) =>
+        img.id === id && img.extractedData
+          ? {
+              ...img,
+              extractedData: {
+                ...img.extractedData,
+                [field]: value,
+              },
+            }
+          : img
+      )
+    );
+  };
+
+  const confirmAndSaveAll = async () => {
+    const successfulExtractions = uploadedImages.filter(
+      (img) => img.status === "success" && img.extractedData && img.platform
+    );
+
+    if (successfulExtractions.length === 0) {
+      toast.error("No creators to save");
+      return;
+    }
+
+    const platformMap: Record<string, Platform> = {
+      TikTok: "tiktok",
+      Instagram: "instagram",
+      YouTube: "youtube",
+      Twitter: "twitter",
+      Facebook: "facebook",
+    };
+
+    let savedCount = 0;
+    let failedCount = 0;
+
+    toast.info(`Saving ${successfulExtractions.length} creator(s)...`);
+
+    for (const imageItem of successfulExtractions) {
+      try {
+        const followerCount = parseFollowerCount(
+          imageItem.extractedData!.followers
+        );
+        const platformValue = platformMap[imageItem.platform!];
+
+        if (!platformValue) {
+          throw new Error("Invalid platform");
+        }
+
+        const { data: creator, error: saveError } =
+          await creatorsApi.getOrCreate(
+            imageItem.extractedData!.handle,
+            imageItem.extractedData!.handle,
+            platformValue,
+            followerCount,
+            imageItem.extractedData!.contact || null,
+            null,
+            imageItem.extractedData!.niche || null,
+            imageItem.extractedData!.location || null,
+            "scraper_extraction"
+          );
+
+        if (saveError || !creator) {
+          throw new Error(saveError?.message || "Failed to save creator");
+        }
+
+        savedCount++;
+      } catch (error: any) {
+        console.error("Failed to save creator:", error);
+        failedCount++;
+      }
+    }
+
+    // Invalidate queries to refresh creator list
+    await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
+
+    if (savedCount > 0) {
+      toast.success(`${savedCount} creator(s) added to library!`);
+      // Clear the uploaded images after successful save
+      setUploadedImages([]);
+      setShowSummary(false);
+      setProcessingStats({
+        total: 0,
+        success: 0,
+        failed: 0,
+        skipped: 0,
+      });
+    }
+
+    if (failedCount > 0) {
+      toast.error(`Failed to save ${failedCount} creator(s)`);
+    }
   };
 
   const removeImage = () => {
@@ -695,8 +765,12 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
   const parseFollowerCount = (str: string): number => {
     if (!str) return 0;
 
-    const normalized = str.toLowerCase().replace(/,/g, "").trim();
+    // Remove commas and spaces (some locales use space as thousand separator)
+    const normalized = str.toLowerCase().replace(/[, ]/g, "").trim();
 
+    if (normalized.includes("b")) {
+      return parseFloat(normalized) * 1000000000;
+    }
     if (normalized.includes("m")) {
       return parseFloat(normalized) * 1000000;
     }
@@ -1151,7 +1225,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                           Add More
                         </Button>
                       </label>
-                      {!isProcessingBulk && (
+                      {!isProcessingBulk && !showSummary && (
                         <Button
                           onClick={processBulkImages}
                           disabled={
@@ -1167,6 +1241,21 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         >
                           <Play className="w-4 h-4 mr-2" />
                           Start Processing
+                        </Button>
+                      )}
+                      {!isProcessingBulk && showSummary && (
+                        <Button
+                          onClick={confirmAndSaveAll}
+                          disabled={
+                            uploadedImages.filter(
+                              (img) =>
+                                img.status === "success" && img.extractedData
+                            ).length === 0
+                          }
+                          className="h-9 bg-emerald-500 hover:bg-emerald-600 text-white"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Confirm & Add All
                         </Button>
                       )}
                       {isProcessingBulk && (
@@ -1320,17 +1409,86 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                               {/* Status Message */}
                               {imageItem.status === "success" &&
                                 imageItem.extractedData && (
-                                  <div className="mt-2 p-3 bg-white/[0.03] rounded border border-white/[0.08]">
-                                    <p className="text-xs text-slate-400 mb-1">
-                                      Extracted:
+                                  <div className="mt-2 p-3 bg-white/[0.03] rounded border border-white/[0.08] space-y-2">
+                                    <p className="text-xs text-slate-400 mb-2">
+                                      Extracted data (editable):
                                     </p>
-                                    <p className="text-sm text-white font-medium">
-                                      @{imageItem.extractedData.handle} •{" "}
-                                      {imageItem.extractedData.followers}{" "}
-                                      followers
-                                    </p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="block text-xs text-slate-500 mb-1">
+                                          Handle
+                                        </label>
+                                        <Input
+                                          value={imageItem.extractedData.handle}
+                                          onChange={(e) =>
+                                            updateExtractedData(
+                                              imageItem.id,
+                                              "handle",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          placeholder="@username"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-slate-500 mb-1">
+                                          Followers
+                                        </label>
+                                        <Input
+                                          value={
+                                            imageItem.extractedData.followers
+                                          }
+                                          onChange={(e) =>
+                                            updateExtractedData(
+                                              imageItem.id,
+                                              "followers",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          placeholder="125K"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-slate-500 mb-1">
+                                          Contact
+                                        </label>
+                                        <Input
+                                          value={
+                                            imageItem.extractedData.contact
+                                          }
+                                          onChange={(e) =>
+                                            updateExtractedData(
+                                              imageItem.id,
+                                              "contact",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          placeholder="Email"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-slate-500 mb-1">
+                                          Niche
+                                        </label>
+                                        <Input
+                                          value={imageItem.extractedData.niche}
+                                          onChange={(e) =>
+                                            updateExtractedData(
+                                              imageItem.id,
+                                              "niche",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          placeholder="Fashion, Tech"
+                                        />
+                                      </div>
+                                    </div>
                                     {imageItem.platform && (
-                                      <p className="text-xs text-slate-500 mt-1">
+                                      <p className="text-xs text-slate-500 mt-2">
                                         Platform: {imageItem.platform}
                                       </p>
                                     )}
@@ -1415,7 +1573,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                     variant="outline"
                     className="flex-1 h-10 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
                   >
-                    View Creators
+                    Back to Library
                   </Button>
                 </div>
               </CardContent>
