@@ -36,8 +36,6 @@ const checkEmailExists = async (email: string): Promise<boolean> => {
   }
 };
 
-
-
 export function Signup({ onNavigate }: SignupProps) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -126,9 +124,6 @@ const [emailExists, setEmailExists] = useState(false);
 
 
 
-
-
-
   const handleBlur = (field: keyof typeof touched) => {
     setTouched({ ...touched, [field]: true });
   };
@@ -156,6 +151,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (exists) {
       setEmailExists(true);
       toast.error('An account with this email already exists');
+      setIsLoading(false);
       return;
     }
 
@@ -186,9 +182,6 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
-
-
-
 const updateFormData = (field: keyof typeof formData, value: string) => {
   setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -197,8 +190,6 @@ const updateFormData = (field: keyof typeof formData, value: string) => {
   }
 };
 
-
- 
   // Disable submit button if form is invalid
   const isFormValid =
   formData.fullName &&

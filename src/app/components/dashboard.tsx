@@ -19,13 +19,19 @@ import {
   Filter
 } from 'lucide-react';
 import { NotificationsCenter } from './notifications-center';
-import { PlatformBadge } from './platform-badge';
 import { StatusBadge } from './status-badge';
 import { useCampaigns } from '../../hooks/useCampaigns';
-import { usePosts } from '../../hooks/usePosts';
-import { useCreators } from '../../hooks/useCreators';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { supabase } from '../../lib/supabase';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from './ui/pagination';
 import {
   LineChart,
   Line,
@@ -119,7 +125,6 @@ function getPostDateKey(post: any): string | null {
   if (time === null) return null;
   return new Date(time).toISOString().split('T')[0];
 }
-
 
 
 export function Dashboard({ onNavigate }: DashboardProps) {
@@ -632,7 +637,7 @@ useEffect(() => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Dashboard</h1>
           <p className="text-sm text-slate-400 mt-1">Track your campaign performance</p>
         </div>
         
@@ -641,7 +646,7 @@ useEffect(() => {
           <div className="relative">
             <button 
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-              className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+              className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
             >
               <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">{formatDateRange(dateRange)}</span>
@@ -681,7 +686,11 @@ useEffect(() => {
             <NotificationsCenter /> 
           </div>
           
-          <button onClick={handleExportCSV} className="h-9 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 transition-colors">
+          <button
+            onClick={handleExportCSV}
+            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            aria-label="Export analytics"
+          >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
@@ -689,63 +698,71 @@ useEffect(() => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-[#0ea5e9]/10 flex items-center justify-center">
-                <Eye className="w-5 h-5 text-[#0ea5e9]" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[#0ea5e9]/10 flex items-center justify-center">
+                <Eye className="w-4 h-4 text-[#0ea5e9]" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">{formatDateRange(dateRange)}</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.totalReach}</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.totalReach}
+            </div>
             <p className="text-sm text-slate-400">Total Reach</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
-                <Heart className="w-5 h-5 text-purple-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                <Heart className="w-4 h-4 text-purple-400" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">Average</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.engagementRate}%</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.engagementRate}%
+            </div>
             <p className="text-sm text-slate-400">Engagement Rate</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
-                <Users className="w-5 h-5 text-cyan-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+                <Users className="w-4 h-4 text-cyan-400" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">Total</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.activeCreators}</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.activeCreators}
+            </div>
             <p className="text-sm text-slate-400">Active Creators</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
-                <FileText className="w-5 h-5 text-amber-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+                <FileText className="w-4 h-4 text-amber-400" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
+              <div className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="font-medium">All campaigns</span>
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-white mb-1">{kpiMetrics.totalPosts}</div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {kpiMetrics.totalPosts}
+            </div>
             <p className="text-sm text-slate-400">Total Posts</p>
           </CardContent>
         </Card>
@@ -912,7 +929,7 @@ useEffect(() => {
               {/* Filters Button */}
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+                className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex flex-wrap items-center gap-2 transition-colors w-fit"
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
@@ -927,11 +944,11 @@ useEffect(() => {
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
-                  type="text"
+                  type="search"
                   placeholder="Search campaigns..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
+                  className="h-11 sm:h-10 pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
                 />
               </div>
             </div>
@@ -941,7 +958,155 @@ useEffect(() => {
             
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {campaignsLoading ? (
+              <div className="text-sm text-slate-400 col-span-full">Loading campaigns...</div>
+            ) : filteredCampaigns.length === 0 ? (
+              <div className="text-sm text-slate-400 col-span-full">No campaigns found</div>
+            ) : (
+              pagedCampaigns.map((campaign) => {
+                const formattedViews =
+                  campaign.total_views >= 1000000
+                    ? `${(campaign.total_views / 1000000).toFixed(1)}M`
+                    : campaign.total_views >= 1000
+                    ? `${(campaign.total_views / 1000).toFixed(1)}K`
+                    : campaign.total_views.toString();
+                return (
+                  <Card
+                    key={campaign.id}
+                    className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer"
+                    onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
+                  >
+                    <CardContent className="p-3 space-y-2">
+                      {campaign.cover_image_url ? (
+                        <div className="h-24 sm:h-28 rounded-md overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+                          <img
+                            src={campaign.cover_image_url}
+                            alt={`${campaign.name} cover`}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-24 sm:h-28 rounded-md border border-white/[0.06] bg-white/[0.02]" />
+                      )}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm sm:text-base font-semibold text-white truncate">
+                            {campaign.name}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1 truncate">
+                            {campaign.brand_name || 'Active campaign'}
+                          </p>
+                        </div>
+                        <StatusBadge status={campaign.status} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-0.5">
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-slate-500 truncate">
+                            Posts
+                          </p>
+                          <p className="text-sm text-white mt-1">
+                            {campaign.posts_count || 0}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-slate-500 truncate">
+                            Reach
+                          </p>
+                          <p className="text-sm text-white mt-1">
+                            {formattedViews}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-slate-500 truncate">
+                            Engagement
+                          </p>
+                          <p className="text-sm text-emerald-400 mt-1">
+                            {campaign.avg_engagement_rate?.toFixed(1) || "0.0"}%
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {filteredCampaigns.length > 0 && !campaignsLoading && (
+            <div className="lg:hidden px-4 sm:px-6 pb-6 space-y-3">
+              <p className="text-xs text-slate-400">
+                Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}
+                {filteredCampaigns.length} campaigns
+              </p>
+              {totalCampaignPages > 1 && (
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === 1) return;
+                          setCampaignPage((prev) => Math.max(1, prev - 1));
+                        }}
+                        className="min-h-[44px] bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === 1}
+                      />
+                    </PaginationItem>
+                    {paginationPages.map((page, index) => {
+                      const prevPage = paginationPages[index - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsis && (
+                            <PaginationItem>
+                              <PaginationEllipsis className="text-slate-500" />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink
+                              href="#"
+                              isActive={page === safeCampaignPage}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setCampaignPage(page);
+                              }}
+                              className={cn(
+                                "min-h-[44px]",
+                                page === safeCampaignPage
+                                  ? "bg-primary text-black"
+                                  : "bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                              )}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </React.Fragment>
+                      );
+                    })}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === totalCampaignPages) return;
+                          setCampaignPage((prev) =>
+                            Math.min(totalCampaignPages, prev + 1)
+                          );
+                        }}
+                        className="min-h-[44px] bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === totalCampaignPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
+          )}
+
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/[0.08]">
@@ -970,7 +1135,7 @@ useEffect(() => {
                     </td>
                   </tr>
                 ) : (
-                  filteredCampaigns.map((campaign) => {
+                  pagedCampaigns.map((campaign) => {
                     // Format views
                     const formattedViews = campaign.total_views >= 1000000
                       ? `${(campaign.total_views / 1000000).toFixed(1)}M`
@@ -1031,6 +1196,7 @@ useEffect(() => {
                               e.stopPropagation();
                             }}
                             className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Open campaign actions"
                           >
                         <MoreVertical className="w-4 h-4 text-slate-400" />
                       </button>
@@ -1042,13 +1208,83 @@ useEffect(() => {
               </tbody>
             </table>
           </div>
+          {filteredCampaigns.length > 0 && !campaignsLoading && (
+            <div className="hidden lg:flex items-center justify-between px-6 py-4 border-t border-white/[0.08]">
+              <p className="text-sm text-slate-400">
+                Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}
+                {filteredCampaigns.length} campaigns
+              </p>
+              {totalCampaignPages > 1 && (
+                <Pagination className="mx-0">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === 1) return;
+                          setCampaignPage((prev) => Math.max(1, prev - 1));
+                        }}
+                        className="bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === 1}
+                      />
+                    </PaginationItem>
+                    {paginationPages.map((page, index) => {
+                      const prevPage = paginationPages[index - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsis && (
+                            <PaginationItem>
+                              <PaginationEllipsis className="text-slate-500" />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink
+                              href="#"
+                              isActive={page === safeCampaignPage}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setCampaignPage(page);
+                              }}
+                              className={cn(
+                                page === safeCampaignPage
+                                  ? "bg-primary text-black"
+                                  : "bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                              )}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </React.Fragment>
+                      );
+                    })}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (safeCampaignPage === totalCampaignPages) return;
+                          setCampaignPage((prev) =>
+                            Math.min(totalCampaignPages, prev + 1)
+                          );
+                        }}
+                        className="bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        aria-disabled={safeCampaignPage === totalCampaignPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Filter Modal */}
       {isFilterOpen && (
-        <div className="fixed inset-0 bg-black/[0.5] z-50 p-4">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/[0.5] z-50 p-4 flex items-end sm:items-center justify-center">
+          <div className="w-full max-w-md bg-[#0D0D0D] border border-white/[0.08] rounded-t-2xl sm:rounded-lg shadow-xl max-h-[90dvh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-base font-semibold text-white mb-4">Filters</h3>
 

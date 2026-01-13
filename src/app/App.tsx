@@ -142,6 +142,14 @@ function AppRoutes() {
                 }
               />
               <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard onNavigate={(path) => navigate(path)} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/campaigns"
                 element={
                   <ProtectedRoute>

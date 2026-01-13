@@ -21,6 +21,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { ResponsiveConfirmDialog } from './ui/responsive-confirm-dialog';
 import {
   getTeamMembers,
   getTeamInvites,
@@ -417,33 +418,16 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       )}
 
       {/* Delete Confirmation */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-md w-full">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">Remove Team Member</h3>
-              <p className="text-sm text-slate-400 mb-6">
-                Are you sure you want to remove this member? They will lose access immediately.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => showDeleteConfirm && handleDeleteMember(showDeleteConfirm)}
-                  className="flex-1 h-9 bg-red-500 hover:bg-red-500/90 text-white"
-                >
-                  Remove
-                </Button>
-                <Button
-                  onClick={() => setShowDeleteConfirm(null)}
-                  variant="outline"
-                  className="flex-1 h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <ResponsiveConfirmDialog
+        open={Boolean(showDeleteConfirm)}
+        onOpenChange={(open) => {
+          if (!open) setShowDeleteConfirm(null);
+        }}
+        title="Remove team member?"
+        description="This member will lose access immediately."
+        confirmLabel="Remove member"
+        onConfirm={() => showDeleteConfirm && handleDeleteMember(showDeleteConfirm)}
+      />
 
       {/* Bulk Invite Modal */}
       {showBulkInviteModal && (
