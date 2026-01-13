@@ -79,17 +79,23 @@ export async function createRequest(
     }
 
     // Send email notification to agency (don't fail request creation if email fails)
-    try {
-      await supabase.functions.invoke('create-creator-request', {
-        body: {
-          request_id: createdRequest.id,
-          agencyEmail: 'agency@dobbletap.com',
-        },
-      });
-    } catch (emailError) {
-      console.error('Failed to send email notification to agency:', emailError);
-      // Don't throw - request was created successfully, email is secondary
+    // Send email notification to agency (don't fail request creation if email fails)
+  try {
+    const { data, error } = await supabase.functions.invoke('create-creator-request', {
+      body: {
+        request_id: createdRequest.id,
+      },
+    });
+    
+    if (error) {
+      console.error('Email notification error:', error);
+    } else {
+      console.log('Email notification sent successfully:', data);
     }
+  } catch (emailError) {
+    console.error('Failed to send email notification to agency:', emailError);
+    // Don't throw - request was created successfully, email is secondary
+  }
 
     // Fetch the request with creators
     return await getRequestWithCreators(createdRequest.id);

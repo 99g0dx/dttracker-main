@@ -10,23 +10,27 @@ async function ensureWorkspaceCreator(
   sourceType: 'manual' | 'csv_import' | 'scraper_extraction' | null = 'manual'
 ): Promise<void> {
   const sourceMap: Record<string, 'scraper' | 'csv' | 'manual'> = {
-    'scraper_extraction': 'scraper',
-    'csv_import': 'csv',
-    'manual': 'manual',
+    scraper_extraction: 'scraper',
+    csv_import: 'csv',
+    manual: 'manual',
   };
-  const mappedSource = sourceMap[sourceType || 'manual'] || 'manual';
 
-  await supabase
+  const mappedSource = sourceMap[sourceType ?? 'manual'] ?? 'manual';
+
+  const { error } = await supabase
     .from('workspace_creators')
-    .upsert({
-      workspace_id: workspaceId,
-      creator_id: creatorId,
-      source: mappedSource,
-    }, {
-      onConflict: 'workspace_id,creator_id',
-      ignoreDuplicates: false,
-    });
+    .upsert(
+      {
+        workspace_id: workspaceId,
+        creator_id: creatorId,
+        source: mappedSource,
+      },
+      { onConflict: 'workspace_id,creator_id' }
+    );
+
+  if (error) throw error;
 }
+
 
 /**
  * Get or create a creator by handle and platform
@@ -82,7 +86,7 @@ export async function getOrCreate(
         location: location || null,
         source_type: sourceType || 'manual',
         imported_by_user_id: user.id,
-        created_by_workspace_id: user.id, // Track who introduced this creator
+        // created_by_workspace_id: user.id, // Track who introduced this creator
       };
 
       const { data: created, error: createError } = await supabase
@@ -110,7 +114,7 @@ export async function getOrCreate(
 /**
  * List all creators for the current workspace (My Network)
  */
-export async function list(): Promise<ApiResponse<Creator[]>> {
+export async function list( scope: "my_network" | "all" = "my_network"): Promise<ApiResponse<Creator[]>> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -118,27 +122,50 @@ export async function list(): Promise<ApiResponse<Creator[]>> {
     }
 
     // Join workspace_creators with creators
-    const { data: workspaceCreators, error } = await supabase
-      .from('workspace_creators')
-      .select(`
-        creator_id,
-        creators:creator_id (*)
-      `)
-      .eq('workspace_id', user.id)
-      .order('created_at', { ascending: false });
+    if (scope === "my_network") {
+        const { data, error } = await supabase
+          .from("workspace_creators")
+          .select(`
+            creator_id,
+            creators:creator_id (*)
+          `)
+          .eq("workspace_id", user.id)
+          .order("created_at", { ascending: false });
 
-    if (error) {
-      return { data: null, error };
-    }
+        if (error) return { data: null, error };
 
-    const creators = (workspaceCreators || [])
-      .map((wc: any) => wc.creators)
-      .filter(Boolean) as Creator[];
+        const creators = (data ?? [])
+          .map((wc: any) => wc.creators)
+          .filter(Boolean)
+          .sort((a, b) => a.name.localeCompare(b.name));
 
-    // Sort by name
-    creators.sort((a, b) => a.name.localeCompare(b.name));
+        return { data: creators, error: null };
+      }
 
-    return { data: creators, error: null };
+      const { data: myCreators } = await supabase
+          .from("workspace_creators")
+          .select("creator_id")
+          .eq("workspace_id", user.id);
+
+        const myCreatorIds = myCreators?.map(c => c.creator_id) ?? [];
+
+        let query = supabase
+          .from("creators")
+          .select("*")
+          .order("name", { ascending: true });
+
+        if (myCreatorIds.length > 0) {
+          const formattedIds = myCreatorIds.map(id => `"${id}"`).join(",");
+          query = query.not("id", "in", `(${formattedIds})`);
+        }
+
+        const { data, error } = await query;
+
+        if (error) return { data: null, error };
+
+        return { data, error: null };
+
+
   } catch (err) {
     return { data: null, error: err as Error };
   }
@@ -264,7 +291,7 @@ export async function createMany(creators: CreatorInsert[]): Promise<ApiResponse
     if (creators.length === 0) {
       return { data: result, error: null };
     }
-
+    
     // Step 1: Deduplicate creators within batch
     const processedKeys = new Set<string>();
     const uniqueCreators: CreatorInsert[] = [];
@@ -283,7 +310,7 @@ export async function createMany(creators: CreatorInsert[]): Promise<ApiResponse
         user_id: user.id,
         imported_by_user_id: creatorData.imported_by_user_id || user.id,
         source_type: creatorData.source_type || 'csv_import',
-        created_by_workspace_id: user.id, // Track who introduced this creator
+        // created_by_workspace_id: user.id, // Track who introduced this creator
       });
     }
 
@@ -291,7 +318,6 @@ export async function createMany(creators: CreatorInsert[]): Promise<ApiResponse
     const upsertedCreators: Creator[] = [];
 
     for (const creatorData of uniqueCreators) {
-      // First check if creator exists
       const { data: existing } = await supabase
         .from('creators')
         .select('*')
@@ -302,10 +328,8 @@ export async function createMany(creators: CreatorInsert[]): Promise<ApiResponse
       let creator: Creator;
 
       if (existing) {
-        // Creator exists, use it
         creator = existing;
       } else {
-        // Create new creator
         const { data: created, error: createError } = await supabase
           .from('creators')
           .insert(creatorData)
@@ -321,13 +345,16 @@ export async function createMany(creators: CreatorInsert[]): Promise<ApiResponse
           });
           continue;
         }
+
         creator = created;
       }
 
       // Ensure creator is in workspace_creators
       await ensureWorkspaceCreator(user.id, creator.id, creatorData.source_type || 'csv_import');
+
       upsertedCreators.push(creator);
     }
+
 
     result.success_count = upsertedCreators.length;
     result.creators = upsertedCreators;
@@ -378,25 +405,17 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
 
       console.log(`📥 Fetched ${creators.length} creators from My Network`);
     } else if (networkFilter === 'all') {
-      // All Creators: Join agency_inventory with creators
-      const { data: inventory, error: inventoryError } = await supabase
-        .from('agency_inventory')
-        .select(`
-          creator_id,
-          creators:creator_id (*)
-        `)
-        .eq('status', 'active');
+       const { data, error } = await supabase
+            .from('creators')
+            .select('*')
+            .order('name', { ascending: true });
 
-      if (inventoryError) {
-        console.error('❌ Error fetching agency inventory:', inventoryError);
-        return { data: null, error: inventoryError };
-      }
+          if (error) {
+            console.error('❌ Error fetching all creators:', error);
+            return { data: null, error };
+          }
 
-      creators = (inventory || [])
-        .map((ai: any) => ai.creators)
-        .filter(Boolean) as Creator[];
-
-      console.log(`📥 Fetched ${creators.length} creators from All Creators marketplace`);
+          creators = (data || []) as Creator[];
     } else {
       // Default to my_network
       const { data: workspaceCreators, error: workspaceError } = await supabase

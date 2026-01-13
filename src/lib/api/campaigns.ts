@@ -194,7 +194,21 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Create campaign (RLS policy will check user_id = auth.uid())
+    // Get user's workspace_id from team_members
+    const { data: memberData, error: memberError } = await supabase
+      .from('team_members')
+      .select('workspace_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (memberError || !memberData) {
+      return { 
+        data: null, 
+        error: new Error('User is not part of any workspace. Please contact support.') 
+      };
+    }
+
+    // Create campaign with workspace_id
     const { data, error } = await supabase
       .from('campaigns')
       .insert({
@@ -262,6 +276,7 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
     return { data: null, error: err as Error };
   }
 }
+
 
 /**
  * Update an existing campaign
@@ -340,6 +355,7 @@ export async function duplicate(id: string): Promise<ApiResponse<Campaign>> {
       .from('campaigns')
       .insert({
         user_id: user.id,
+        workspace_id: original.workspace_id,
         name: `${original.name} (Copy)`,
         brand_name: original.brand_name,
         cover_image_url: original.cover_image_url,

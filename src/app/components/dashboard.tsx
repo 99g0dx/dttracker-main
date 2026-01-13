@@ -958,7 +958,7 @@ useEffect(() => {
             
           </div>
 
-          <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {campaignsLoading ? (
               <div className="text-sm text-slate-400 col-span-full">Loading campaigns...</div>
             ) : filteredCampaigns.length === 0 ? (
