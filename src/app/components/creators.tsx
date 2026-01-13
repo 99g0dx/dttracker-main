@@ -22,6 +22,7 @@ import {
   Edit2,
   Trash2,
   Eye,
+  MoreHorizontal,
   Download,
   ArrowUpDown,
   ArrowUp,
@@ -53,6 +54,13 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from "./ui/pagination";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import {
   useCreatorsWithStats,
   useCreateCreator,
@@ -499,63 +507,72 @@ export function Creators({ onNavigate }: CreatorsProps) {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {networkFilter === "all" && totalItems > 0 && (
-            <button
-              onClick={() => setShowReviewRequestModal(true)}
-            className="flex-1 sm:flex-none min-w-[160px] h-11 sm:h-10 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors justify-center"
-          >
-              <Check className="w-4 h-4" />
-              Review Request ({totalItems})
-            </button>
-          )}
-          <button
-            onClick={() => onNavigate?.("/creators/scraper")}
-            className="flex-1 sm:flex-none min-w-[140px] h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center"
-          >
-            <Sparkles className="w-4 h-4" />
-            Creator Scraper
-          </button>
-          <button
-            onClick={() => setShowImportDialog(true)}
-            className="flex-1 sm:flex-none min-w-[140px] h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center"
-          >
-            <Upload className="w-4 h-4" />
-            Import CSV
-          </button>
-          <button
-            onClick={handleExportCSV}
-            disabled={creators.length === 0 || isLoading}
-            className="flex-1 sm:flex-none min-w-[120px] h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors justify-center disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
-          <button
-            onClick={() => setAddDialogOpen(true)}
-            className="flex-1 sm:flex-none min-w-[140px] h-9 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-medium flex items-center gap-2 rounded-md transition-colors justify-center"
-          >
-            <Plus className="w-4 h-4" />
-            Add Creator
-          </button>
-        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-white/[0.03] border border-white/[0.08]">
-          <TabsTrigger
-            value="library"
-            className="data-[state=active]:bg-white/[0.06] data-[state=active]:text-white text-slate-400"
-          >
-            Creator Library
-          </TabsTrigger>
-          <TabsTrigger
-            value="campaign"
-            className="data-[state=active]:bg-white/[0.06] data-[state=active]:text-white text-slate-400"
-          >
-            Add to Campaign
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-1">
+            <TabsTrigger
+              value="library"
+              className="data-[state=active]:bg-white/[0.06] data-[state=active]:text-white text-slate-400"
+            >
+              Creator Library
+            </TabsTrigger>
+            <TabsTrigger
+              value="campaign"
+              className="data-[state=active]:bg-white/[0.06] data-[state=active]:text-white text-slate-400"
+            >
+              Add to Campaign
+            </TabsTrigger>
+          </TabsList>
+          <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <button
+              onClick={() => setAddDialogOpen(true)}
+              className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-semibold flex items-center justify-center gap-2 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)]"
+            >
+              <Plus className="w-4 h-4" />
+              Add Creator
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                  aria-label="Creator actions"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                  Actions
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {networkFilter === "all" && totalItems > 0 && (
+                  <>
+                    <DropdownMenuItem onSelect={() => setShowReviewRequestModal(true)}>
+                      <Check className="w-4 h-4" />
+                      Review request ({totalItems})
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onSelect={() => onNavigate?.("/creators/scraper")}>
+                  <Sparkles className="w-4 h-4" />
+                  Creator scraper
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setShowImportDialog(true)}>
+                  <Upload className="w-4 h-4" />
+                  Import CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={handleExportCSV}
+                  disabled={creators.length === 0 || isLoading}
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
 
         <TabsContent value="library" className="space-y-4 mt-4">
           {/* Network Filter Tabs */}
@@ -603,25 +620,22 @@ export function Creators({ onNavigate }: CreatorsProps) {
             </Card>
           </div>
 
-          {/* Search and Filters */}
-          <div className="flex flex-col gap-4">
-            {/* Search Box */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <Input
-                type="search"
-                placeholder="Search creators by name, handle, email, or location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
-              />
-            </div>
-
-            {/* Filters Row */}
-            <div className="flex items-center gap-2 sm:hidden">
+          {/* Search, Filters, and Sort */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Input
+                  type="search"
+                  placeholder="Search creators by name, handle, email, or location..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+                />
+              </div>
               <button
                 onClick={() => setFiltersOpen(true)}
-                className="w-full h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                className="h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
               >
                 <Filter className="w-4 h-4" />
                 Filters
@@ -631,203 +645,77 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   </span>
                 )}
               </button>
-            </div>
-
-            {/* Filters Row */}
-            <div className="hidden sm:flex flex-wrap items-center gap-3">
-              {/* Platform Multi-Select */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Platform:
-                </span>
-                <PlatformSelect
-                  selected={selectedPlatforms}
-                  onChange={setSelectedPlatforms}
-                />
-              </div>
-
-              {/* Niche Dropdown */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Niche:
-                </span>
+              <div className="flex w-full sm:w-auto items-center gap-2">
                 <select
-                  value={selectedNiche}
-                  onChange={(e) => setSelectedNiche(e.target.value)}
-                  className="h-11 sm:h-10 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                  value={sortField ?? "none"}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "none") {
+                      setSortField(null);
+                      return;
+                    }
+                    if (sortField !== value) {
+                      setSortDirection("asc");
+                    }
+                    setSortField(value as "platform" | "follower_count" | "niche" | "location");
+                  }}
+                  className="h-11 w-full sm:w-[200px] px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
                 >
-                  <option value="all">All Niches</option>
-                  {uniqueNiches
-                    .filter((n) => n !== "all")
-                    .map((niche) => (
-                      <option key={niche} value={niche}>
-                        {niche}
-                      </option>
-                    ))}
+                  <option value="none">Sort: Default</option>
+                  <option value="platform">Sort: Platform</option>
+                  <option value="follower_count">Sort: Followers</option>
+                  <option value="niche">Sort: Niche</option>
+                  <option value="location">Sort: Location</option>
                 </select>
-              </div>
-
-              {/* Location Dropdown */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Location:
-                </span>
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="h-11 sm:h-10 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
-                >
-                  <option value="all">All Locations</option>
-                  {uniqueLocations
-                    .filter((l) => l !== "all")
-                    .map((location) => (
-                      <option key={location} value={location}>
-                        {location}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Posts Range Filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Posts:
-                </span>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min"
-                    value={postsRange.min}
-                    onChange={(e) => setPostsRange({ ...postsRange, min: e.target.value })}
-                    className="h-11 sm:h-10 w-20 px-2 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white"
-                  />
-                  <span className="text-slate-400">-</span>
-                  <Input
-                    type="number"
-                    placeholder="Max"
-                    value={postsRange.max}
-                    onChange={(e) => setPostsRange({ ...postsRange, max: e.target.value })}
-                    className="h-11 sm:h-10 w-20 px-2 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Clear Filters Button */}
-              {(selectedPlatforms.length > 0 ||
-                selectedNiche !== "all" ||
-                selectedLocation !== "all" ||
-                followerRange.min ||
-                followerRange.max ||
-                postsRange.min ||
-                postsRange.max ||
-                searchQuery) && (
                 <button
-                  onClick={clearAllFilters}
-                  className="ml-auto h-11 sm:h-10 px-4 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] rounded-lg text-sm text-slate-400 hover:text-white transition-all"
+                  onClick={() =>
+                    setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+                  }
+                  disabled={!sortField}
+                  className="h-11 w-11 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Toggle sort direction"
                 >
-                  Clear Filters
+                  <ArrowUpDown className="w-4 h-4" />
                 </button>
-              )}
+              </div>
             </div>
 
-            {/* Active Filters Count */}
             {(selectedPlatforms.length > 0 ||
               selectedNiche !== "all" ||
               selectedLocation !== "all" ||
               followerRange.min ||
               followerRange.max ||
               postsRange.min ||
-              postsRange.max) && (
-              <div className="text-sm text-slate-400">
-                Showing {filteredAndSortedCreators.length} of {creators.length}{" "}
-                creators
-                {selectedPlatforms.length > 0 &&
-                  ` • ${selectedPlatforms.length} platform${
-                    selectedPlatforms.length > 1 ? "s" : ""
-                  }`}
-                {selectedNiche !== "all" && ` • ${selectedNiche}`}
-                {selectedLocation !== "all" && ` • ${selectedLocation}`}
+              postsRange.max ||
+              searchQuery) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <span>
+                  Showing {filteredAndSortedCreators.length} of {creators.length}
+                </span>
+                <span className="text-slate-500">•</span>
+                {selectedPlatforms.length > 0 && (
+                  <span>{selectedPlatforms.length} platform(s)</span>
+                )}
+                {selectedNiche !== "all" && <span>{selectedNiche}</span>}
+                {selectedLocation !== "all" && <span>{selectedLocation}</span>}
                 {(followerRange.min || followerRange.max) && (
-                  ` • Followers: ${followerRange.min || "0"}-${followerRange.max || "∞"}`
+                  <span>
+                    Followers: {followerRange.min || "0"}-{followerRange.max || "∞"}
+                  </span>
                 )}
                 {(postsRange.min || postsRange.max) && (
-                  ` • Posts: ${postsRange.min || "0"}-${postsRange.max || "∞"}`
+                  <span>
+                    Posts: {postsRange.min || "0"}-{postsRange.max || "∞"}
+                  </span>
                 )}
+                <button
+                  onClick={clearAllFilters}
+                  className="ml-auto h-8 px-3 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] text-xs text-slate-300 hover:text-white transition-all"
+                >
+                  Clear all
+                </button>
               </div>
             )}
-
-            {/* Sort By Row */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-              <span className="text-sm text-slate-400 whitespace-nowrap">
-                Sort by:
-              </span>
-              <div className="flex flex-wrap gap-1 w-full sm:w-auto">
-                <button
-                  onClick={() => handleSort("platform")}
-                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
-                    sortField === "platform"
-                      ? "bg-primary text-black"
-                      : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
-                  }`}
-                >
-                  Platform
-                  {sortField === "platform" &&
-                    (sortDirection === "asc" ? (
-                      <ArrowUp className="w-3 h-3" />
-                    ) : (
-                      <ArrowDown className="w-3 h-3" />
-                    ))}
-                </button>
-                <button
-                  onClick={() => handleSort("follower_count")}
-                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
-                    sortField === "follower_count"
-                      ? "bg-primary text-black"
-                      : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
-                  }`}
-                >
-                  Followers
-                  {sortField === "follower_count" &&
-                    (sortDirection === "asc" ? (
-                      <ArrowUp className="w-3 h-3" />
-                    ) : (
-                      <ArrowDown className="w-3 h-3" />
-                    ))}
-                </button>
-                <button
-                  onClick={() => handleSort("niche")}
-                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
-                    sortField === "niche"
-                      ? "bg-primary text-black"
-                      : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
-                  }`}
-                >
-                  Niche
-                  {sortField === "niche" &&
-                    (sortDirection === "asc" ? (
-                      <ArrowUp className="w-3 h-3" />
-                    ) : (
-                      <ArrowDown className="w-3 h-3" />
-                    ))}
-                </button>
-                <button
-                  onClick={() => handleSort("location")}
-                  className={`h-11 sm:h-9 px-3 rounded-md text-sm flex items-center gap-1 transition-colors flex-shrink-0 ${
-                    sortField === "location"
-                      ? "bg-primary text-black"
-                      : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
-                  }`}
-                >
-                  Location
-                  {sortField === "location" &&
-                    (sortDirection === "asc" ? (
-                      <ArrowUp className="w-3 h-3" />
-                    ) : (
-                      <ArrowDown className="w-3 h-3" />
-                    ))}
-                </button>
-              </div>
-            </div>
           </div>
           {isLoading ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
