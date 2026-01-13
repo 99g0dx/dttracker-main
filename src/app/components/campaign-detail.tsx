@@ -3,17 +3,17 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   ArrowLeft,
   Plus,
   Search,
+  Filter,
   Trash2,
   RefreshCw,
   Download,
   Upload,
   Edit2,
-  MoreVertical,
+  MoreHorizontal,
   ExternalLink,
   Link as LinkIcon,
   Eye,
@@ -21,10 +21,16 @@ import {
   MessageCircle,
   Share2,
   Users,
+  X,
 } from "lucide-react";
 import { StatusBadge } from "./status-badge";
-import { PlatformBadge } from "./platform-badge";
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from "./ui/PlatformIcon";
 import { CampaignHeaderSkeleton, PostRowSkeleton } from "./ui/skeleton";
+import { cn } from "./ui/utils";
 import {
   Select,
   SelectContent,
@@ -44,38 +50,49 @@ import {
 import { useCampaign } from "../../hooks/useCampaigns";
 import {
   usePosts,
-  useCampaignMetrics,
   useCampaignMetricsTimeSeries,
   useDeletePost,
   useDeleteAllPosts,
   useCreateManyPosts,
   postsKeys,
 } from "../../hooks/usePosts";
+import {
+  useCampaignHierarchyMetrics,
+  useIsParentCampaign,
+  subcampaignsKeys,
+} from "../../hooks/useSubcampaigns";
 import { useScrapeAllPosts, useScrapePost } from "../../hooks/useScraping";
 import { addNotification } from "../../lib/utils/notifications";
-import { useCreatorsByCampaign } from "../../hooks/useCreators";
+import { useCreatorsByCampaign, useRemoveCreatorFromCampaign } from "../../hooks/useCreators";
 import * as csvUtils from "../../lib/utils/csv";
 import type { CSVImportResult } from "../../lib/types/database";
 import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
+import { SubcampaignSection } from "./subcampaign-section";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
 import { supabase } from "../../lib/supabase";
-import { DropdownMenuItem, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
-import { Skeleton } from "./ui/skeleton";
-import { MoreHorizontal } from "lucide-react";
-import { cn } from "./ui/utils";
-
-
-async function getUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
-// Call it
-getUser();
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { PostCard } from "./post-card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import type { Creator } from "../../lib/types/database";
 
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
@@ -106,35 +123,54 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     null
   );
   const [renderError, setRenderError] = useState<Error | null>(null);
-   const [activeMetric, setActiveMetric] = useState<
+  const [activeMetric, setActiveMetric] = useState<
     "views" | "likes" | "comments" | "shares"
   >("views");
+  const isMobile = useMediaQuery("(max-width: 640px)");
+  const isCompactMobile = useMediaQuery("(max-width: 479px)");
+  const [chartRange, setChartRange] = useState<"7d" | "14d" | "30d" | "all">(
+    "14d"
+  );
+  const [chartsReady, setChartsReady] = useState(false);
+  const [postFiltersOpen, setPostFiltersOpen] = useState(false);
+  const [postPlatformFilter, setPostPlatformFilter] = useState("all");
+  const [postStatusFilter, setPostStatusFilter] = useState("all");
+  const [postCreatorFilter, setPostCreatorFilter] = useState("all");
+  const [postDateFilter, setPostDateFilter] = useState("all");
+  const [activeCreator, setActiveCreator] = useState<Creator | null>(null);
+  const [creatorDrawerOpen, setCreatorDrawerOpen] = useState(false);
+  const [creatorToRemove, setCreatorToRemove] = useState<{ id: string; name: string } | null>(null);
+  const removeCreatorMutation = useRemoveCreatorFromCampaign();
+  const [expandedPlatforms, setExpandedPlatforms] = useState<
+    Record<string, boolean>
+  >({});
   const postsPerPage = 10;
 
-  const EmptyState = ({ searchQuery }: { searchQuery: string }) => (
-  <div className="flex flex-col items-center justify-center py-20 px-4">
-    <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center mb-4 shadow-inner">
-      <Search className="w-8 h-8 text-zinc-700" />
-    </div>
-    <h3 className="text-lg font-bold text-white mb-1">
-      {searchQuery ? "No matches found" : "No posts yet"}
-    </h3>
-    <p className="text-sm text-zinc-500 text-center max-w-[280px] leading-relaxed">
-      {searchQuery 
-        ? `We couldn't find anything matching "${searchQuery}". Try a different search term.` 
-        : "Start tracking performance by adding your first social media post to this campaign."
+  React.useEffect(() => {
+    setChartRange(isMobile ? "14d" : "30d");
+  }, [isMobile]);
+
+  React.useEffect(() => {
+    if (chartsReady) return;
+    if (typeof window === "undefined") return;
+    const idleCallback =
+      "requestIdleCallback" in window
+        ? (window.requestIdleCallback as (cb: () => void) => number)
+        : null;
+    const timeoutId = idleCallback
+      ? idleCallback(() => setChartsReady(true))
+      : window.setTimeout(() => setChartsReady(true), 1);
+    return () => {
+      if (idleCallback) {
+        (window as typeof window & {
+          cancelIdleCallback?: (id: number) => void;
+        }).cancelIdleCallback?.(timeoutId);
+        return;
       }
-    </p>
-    {!searchQuery && (
-      <button
-        onClick={() => setShowAddPostDialog(true)}
-        className="mt-6 h-9 px-4 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-lg transition-colors"
-      >
-        Add First Post
-      </button>
-    )}
-  </div>
-);
+      window.clearTimeout(timeoutId);
+    };
+  }, [chartsReady]);
+
   // Validate ID
   if (!id) {
     return (
@@ -142,7 +178,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -166,7 +203,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -202,14 +240,59 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     isLoading: campaignLoading,
     error: campaignError,
   } = useCampaign(id);
+  const { data: isParent } = useIsParentCampaign(id || "");
   const {
     data: posts = [],
     isLoading: postsLoading,
     refetch: refetchPosts,
-  } = usePosts(id);
-  const { data: metrics, refetch: refetchMetrics } = useCampaignMetrics(id);
+  } = usePosts(id, Boolean(isParent));
+  const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
   const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
+
+  // Calculate metrics for KPI cards (all platforms) with fallback to RPC when posts are unavailable
+  const metrics = React.useMemo(() => {
+    if (posts && posts.length > 0) {
+      const calculated = {
+        total_posts: posts.length,
+        total_views: posts.reduce((sum, p) => sum + (Number(p.views) || 0), 0),
+        total_likes: posts.reduce((sum, p) => sum + (Number(p.likes) || 0), 0),
+        total_comments: posts.reduce(
+          (sum, p) => sum + (Number(p.comments) || 0),
+          0
+        ),
+        total_shares: posts.reduce(
+          (sum, p) => sum + (Number(p.shares) || 0),
+          0
+        ),
+        avg_engagement_rate:
+          posts.length > 0
+            ? posts.reduce(
+                (sum, p) => sum + (Number(p.engagement_rate) || 0),
+                0
+              ) / posts.length
+            : 0,
+        total_reach: posts.reduce((sum, p) => sum + (Number(p.views) || 0), 0),
+      };
+
+      return calculated;
+    }
+
+    const rpcMetrics = hierarchyMetrics?.aggregated_metrics;
+
+    // Return RPC metrics if posts are not available
+    return (
+      rpcMetrics || {
+        total_posts: 0,
+        total_views: 0,
+        total_likes: 0,
+        total_comments: 0,
+        total_shares: 0,
+        avg_engagement_rate: 0,
+        total_reach: 0,
+      }
+    );
+  }, [hierarchyMetrics, posts]);
 
   const deletePostMutation = useDeletePost();
   const deleteAllPostsMutation = useDeleteAllPosts();
@@ -224,8 +307,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     if (!id) return;
 
     const refetch = () => {
-      queryClient.refetchQueries({ queryKey: postsKeys.list(id) });
-      queryClient.refetchQueries({ queryKey: postsKeys.campaignMetrics(id) });
+      queryClient.refetchQueries({
+        queryKey: postsKeys.list(id, Boolean(isParent)),
+      });
+      queryClient.refetchQueries({ queryKey: subcampaignsKeys.metrics(id) });
     };
 
     // Track when mutations occur
@@ -302,7 +387,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
       // Refetch after reset
       setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: postsKeys.list(id) });
+        queryClient.refetchQueries({ queryKey: postsKeys.lists() });
       }, 1000);
     }
   }, [posts, id, queryClient]);
@@ -312,6 +397,12 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   > = ["tiktok", "instagram", "youtube", "twitter", "facebook"];
 
   // Helper functions for scoring and KPI filtering
+  // Updated to return true for all platforms (previously filtered to TikTok/Instagram only)
+  const isKpiPlatform = (platform?: string | null) => {
+    // Now includes all platforms in KPIs and charts
+    return true;
+  };
+
   const calculatePostScore = (post: PostWithCreator): number => {
     const views = Number(post.views || 0);
     const likes = Number(post.likes || 0);
@@ -320,9 +411,31 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     return views + likes * 8 + comments * 20 + shares * 25;
   };
 
-  const isKpiPlatform = (platform: string): boolean => {
-    return ["tiktok", "instagram"].includes(platform);
-  };
+  // Calculate KPI metrics from all posts (all platforms) to match displayed KPI cards
+  const kpiMetrics = React.useMemo(() => {
+    if (!posts || posts.length === 0) {
+      return {
+        total_views: 0,
+        total_likes: 0,
+        total_comments: 0,
+        total_shares: 0,
+      };
+    }
+
+    // Include all platforms to match chart data
+    return {
+      total_views: posts.reduce((sum, p) => sum + (Number(p.views) || 0), 0),
+      total_likes: posts.reduce((sum, p) => sum + (Number(p.likes) || 0), 0),
+      total_comments: posts.reduce(
+        (sum, p) => sum + (Number(p.comments) || 0),
+        0
+      ),
+      total_shares: posts.reduce(
+        (sum, p) => sum + (Number(p.shares) || 0),
+        0
+      ),
+    };
+  }, [posts]);
 
   // Format chart data for recharts with error handling
   const formattedChartData = React.useMemo(() => {
@@ -335,6 +448,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
           if (!point || typeof point !== "object") return null;
           try {
             const date = point.date ? new Date(point.date) : new Date();
+            const dateValue = isNaN(date.getTime()) ? null : date;
             return {
               date: isNaN(date.getTime())
                 ? "Invalid Date"
@@ -342,6 +456,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
                     month: "numeric",
                     day: "numeric",
                   }),
+              dateValue,
               views: Number(point.views) || 0,
               likes: Number(point.likes) || 0,
               comments: Number(point.comments) || 0,
@@ -354,45 +469,45 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         })
         .filter(Boolean);
 
-      // Dev-only: Verify graph totals match KPI card totals
-      if (process.env.NODE_ENV === "development" && metrics) {
-        const chartTotalViews = formatted.reduce(
-          (sum, p) => sum + (p?.views || 0),
-          0
+      // Dev-only: Verify latest chart point matches KPI card totals
+      if (process.env.NODE_ENV === "development") {
+        const latestPoint = formatted.reduce(
+          (latest, point) => {
+            if (!point?.dateValue) return latest;
+            if (!latest?.dateValue || point.dateValue > latest.dateValue) {
+              return point;
+            }
+            return latest;
+          },
+          null as (typeof formatted)[number] | null
         );
-        const chartTotalLikes = formatted.reduce(
-          (sum, p) => sum + (p?.likes || 0),
-          0
-        );
-        const chartTotalComments = formatted.reduce(
-          (sum, p) => sum + (p?.comments || 0),
-          0
-        );
-        const chartTotalShares = formatted.reduce(
-          (sum, p) => sum + (p?.shares || 0),
-          0
-        );
+        const chartLatestViews = latestPoint?.views ?? 0;
+        const chartLatestLikes = latestPoint?.likes ?? 0;
+        const chartLatestComments = latestPoint?.comments ?? 0;
+        const chartLatestShares = latestPoint?.shares ?? 0;
 
-        // Both now use the same data source (posts table), so totals should match
-        const viewsMatch = Math.abs(chartTotalViews - metrics.total_views) < 1;
-        const likesMatch = Math.abs(chartTotalLikes - metrics.total_likes) < 1;
+        // Chart data now includes all platforms, so compare against KPI totals
+        const viewsMatch =
+          Math.abs(chartLatestViews - kpiMetrics.total_views) < 1;
+        const likesMatch =
+          Math.abs(chartLatestLikes - kpiMetrics.total_likes) < 1;
         const commentsMatch =
-          Math.abs(chartTotalComments - metrics.total_comments) < 1;
+          Math.abs(chartLatestComments - kpiMetrics.total_comments) < 1;
         const sharesMatch =
-          Math.abs(chartTotalShares - metrics.total_shares) < 1;
+          Math.abs(chartLatestShares - kpiMetrics.total_shares) < 1;
 
         console.log("[Graph Alignment Check]", {
-          "KPI Card Totals": {
-            views: metrics.total_views,
-            likes: metrics.total_likes,
-            comments: metrics.total_comments,
-            shares: metrics.total_shares,
+          "KPI Totals (All Platforms)": {
+            views: kpiMetrics.total_views,
+            likes: kpiMetrics.total_likes,
+            comments: kpiMetrics.total_comments,
+            shares: kpiMetrics.total_shares,
           },
-          "Chart Series Totals (sum of all dates)": {
-            views: chartTotalViews,
-            likes: chartTotalLikes,
-            comments: chartTotalComments,
-            shares: chartTotalShares,
+          "Chart Latest Point Totals": {
+            views: chartLatestViews,
+            likes: chartLatestLikes,
+            comments: chartLatestComments,
+            shares: chartLatestShares,
           },
           "Alignment Status": {
             views: viewsMatch ? "✓ Aligned" : "✗ Mismatch",
@@ -400,7 +515,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
             comments: commentsMatch ? "✓ Aligned" : "✗ Mismatch",
             shares: sharesMatch ? "✓ Aligned" : "✗ Mismatch",
           },
-          Note: "Both use posts table with KPI platform filtering (TikTok + Instagram). Totals should match.",
+          Note: "Chart uses latest snapshot per date. Latest point should match KPI cards.",
         });
 
         // Warn if there's a mismatch
@@ -417,7 +532,105 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       console.error("Error formatting chart data:", e);
       return [];
     }
-  }, [chartData, metrics]);
+  }, [chartData, kpiMetrics]);
+
+  const chartRangeLabel = React.useMemo(() => {
+    switch (chartRange) {
+      case "7d":
+        return "Last 7 days";
+      case "14d":
+        return "Last 14 days";
+      case "30d":
+        return "Last 30 days";
+      default:
+        return "All time";
+    }
+  }, [chartRange]);
+
+  const filteredChartData = React.useMemo(() => {
+    if (chartRange === "all") return formattedChartData;
+    const daysMap: Record<string, number> = {
+      "7d": 7,
+      "14d": 14,
+      "30d": 30,
+    };
+    const days = daysMap[chartRange] || 14;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days + 1);
+    return formattedChartData.filter((point) => {
+      if (!point?.dateValue) return false;
+      return point.dateValue >= cutoff;
+    });
+  }, [formattedChartData, chartRange]);
+
+  // Calculate metrics from the latest chart point in the selected range
+  const filteredMetrics = React.useMemo(() => {
+    const fallback = {
+      total_views: kpiMetrics.total_views ?? 0,
+      total_likes: kpiMetrics.total_likes ?? 0,
+      total_comments: kpiMetrics.total_comments ?? 0,
+      total_shares: kpiMetrics.total_shares ?? 0,
+    };
+
+    if (!filteredChartData || filteredChartData.length === 0) {
+      return fallback;
+    }
+
+    const latestPoint = filteredChartData.reduce(
+      (latest, point) => {
+        if (!point?.dateValue) return latest;
+        if (!latest?.dateValue || point.dateValue > latest.dateValue) {
+          return point;
+        }
+        return latest;
+      },
+      null as (typeof filteredChartData)[number] | null
+    );
+
+    if (!latestPoint) {
+      return fallback;
+    }
+
+    const totals = {
+      total_views: Number(latestPoint.views) || 0,
+      total_likes: Number(latestPoint.likes) || 0,
+      total_comments: Number(latestPoint.comments) || 0,
+      total_shares: Number(latestPoint.shares) || 0,
+    };
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Filtered Metrics Latest Point]", {
+        chartRange,
+        latestDate: latestPoint.dateValue,
+        totals,
+      });
+    }
+
+    return totals;
+  }, [filteredChartData, kpiMetrics, chartRange]);
+
+  const chartXAxisProps = React.useMemo(
+    () => ({
+      stroke: "#64748b",
+      fontSize: 11,
+      tickLine: false,
+      axisLine: { stroke: "#ffffff08" },
+      minTickGap: isMobile ? 18 : 8,
+      interval: isMobile ? "preserveStartEnd" : "preserveEnd",
+    }),
+    [isMobile]
+  );
+
+  const chartTooltipStyle = React.useMemo(
+    () => ({
+      backgroundColor: "#0D0D0D",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: "12px",
+      fontSize: "12px",
+      padding: "10px 12px",
+    }),
+    []
+  );
 
   // Filter, score, and sort posts
   const filteredPosts = React.useMemo(() => {
@@ -434,13 +647,45 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         return name.includes(searchLower) || handle.includes(searchLower);
       });
 
-      // Step 2: Add scores to posts
+      // Step 2: Apply filters
+      if (postPlatformFilter !== "all") {
+        filtered = filtered.filter((post) => post.platform === postPlatformFilter);
+      }
+
+      if (postStatusFilter !== "all") {
+        filtered = filtered.filter((post) => post.status === postStatusFilter);
+      }
+
+      if (postCreatorFilter !== "all") {
+        filtered = filtered.filter((post) => post.creator_id === postCreatorFilter);
+      }
+
+      if (postDateFilter !== "all") {
+        const daysMap: Record<string, number> = {
+          "7d": 7,
+          "30d": 30,
+          "90d": 90,
+        };
+        const days = daysMap[postDateFilter];
+        if (days) {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - days);
+          filtered = filtered.filter((post) => {
+            const rawDate =
+              post.posted_date || post.updated_at || post.created_at || "";
+            if (!rawDate) return false;
+            return new Date(rawDate) >= cutoff;
+          });
+        }
+      }
+
+      // Step 3: Add scores to posts
       const postsWithScores = filtered.map((post) => ({
         ...post,
         score: calculatePostScore(post),
       }));
 
-      // Step 3: Apply Top Performers filter if enabled
+      // Step 4: Apply Top Performers filter if enabled
       if (showTopPerformers) {
         const kpiPosts = postsWithScores.filter((post) =>
           isKpiPlatform(post.platform)
@@ -450,7 +695,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         return sorted.slice(0, 15);
       }
 
-      // Step 4: Sort by selected method
+      // Step 5: Sort by selected method
       const sorted = [...postsWithScores].sort((a, b) => {
         switch (sortBy) {
           case "score":
@@ -473,12 +718,33 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       console.error("Error filtering posts:", e);
       return posts;
     }
-  }, [posts, searchQuery, sortBy, showTopPerformers]);
+  }, [
+    posts,
+    searchQuery,
+    sortBy,
+    showTopPerformers,
+    postPlatformFilter,
+    postStatusFilter,
+    postCreatorFilter,
+    postDateFilter,
+  ]);
+
+  // Deduplicate campaign creators by creator_id to ensure uniqueness
+  const uniqueRosterCreators = React.useMemo(() => {
+    if (!Array.isArray(campaignCreators)) return [];
+    const uniqueMap = new Map<string, typeof campaignCreators[0]>();
+    campaignCreators.forEach((creator) => {
+      if (creator.id && !uniqueMap.has(creator.id)) {
+        uniqueMap.set(creator.id, creator);
+      }
+    });
+    return Array.from(uniqueMap.values());
+  }, [campaignCreators]);
 
   const filteredCreators = React.useMemo(() => {
-    if (!Array.isArray(campaignCreators)) return [];
+    if (!Array.isArray(uniqueRosterCreators)) return [];
 
-    let filtered = campaignCreators;
+    let filtered = uniqueRosterCreators;
 
     // Search filter
     const searchLower = creatorSearchQuery.trim().toLowerCase();
@@ -497,17 +763,141 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       );
     }
 
-    return filtered;
-  }, [campaignCreators, creatorSearchQuery, selectedPlatform]);
+    // Ensure no duplicates in filtered results
+    const filteredMap = new Map<string, typeof uniqueRosterCreators[0]>();
+    filtered.forEach((creator) => {
+      if (creator.id && !filteredMap.has(creator.id)) {
+        filteredMap.set(creator.id, creator);
+      }
+    });
+    return Array.from(filteredMap.values());
+  }, [uniqueRosterCreators, creatorSearchQuery, selectedPlatform]);
+
+  const creatorPlatformCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {
+      all: uniqueRosterCreators.length,
+      tiktok: 0,
+      instagram: 0,
+      youtube: 0,
+      twitter: 0,
+      facebook: 0,
+    };
+    // Count unique creators by platform
+    const platformSet = new Map<string, Set<string>>();
+    uniqueRosterCreators.forEach((creator) => {
+      if (creator.id) {
+        if (!platformSet.has(creator.platform)) {
+          platformSet.set(creator.platform, new Set());
+        }
+        platformSet.get(creator.platform)?.add(creator.id);
+      }
+    });
+    platformSet.forEach((ids, platform) => {
+      counts[platform] = ids.size;
+    });
+    return counts;
+  }, [uniqueRosterCreators]);
+
+  const postCreatorOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    posts.forEach((post) => {
+      if (post.creator_id && post.creator?.name) {
+        map.set(post.creator_id, post.creator.name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [posts]);
+
+  const activeCreatorPosts = React.useMemo(() => {
+    if (!activeCreator) return [];
+    return posts.filter((post) => post.creator_id === activeCreator.id);
+  }, [activeCreator, posts]);
+
+  const activePostFilterCount = React.useMemo(() => {
+    return [postPlatformFilter, postStatusFilter, postCreatorFilter, postDateFilter].filter(
+      (value) => value !== "all"
+    ).length;
+  }, [postPlatformFilter, postStatusFilter, postCreatorFilter, postDateFilter]);
+
+  const activePostFilters = React.useMemo(() => {
+    const filters: Array<{ key: string; label: string; onClear: () => void }> = [];
+    const formatLabel = (value: string) =>
+      value
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+
+    if (postPlatformFilter !== "all") {
+      filters.push({
+        key: "platform",
+        label: `Platform: ${formatLabel(postPlatformFilter)}`,
+        onClear: () => setPostPlatformFilter("all"),
+      });
+    }
+
+    if (postStatusFilter !== "all") {
+      filters.push({
+        key: "status",
+        label: `Status: ${formatLabel(postStatusFilter)}`,
+        onClear: () => setPostStatusFilter("all"),
+      });
+    }
+
+    if (postCreatorFilter !== "all") {
+      const creatorName =
+        postCreatorOptions.find((creator) => creator.id === postCreatorFilter)
+          ?.name || "Creator";
+      filters.push({
+        key: "creator",
+        label: `Creator: ${creatorName}`,
+        onClear: () => setPostCreatorFilter("all"),
+      });
+    }
+
+    if (postDateFilter !== "all") {
+      const rangeLabelMap: Record<string, string> = {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+      };
+      filters.push({
+        key: "date",
+        label: `Date: ${rangeLabelMap[postDateFilter] || postDateFilter}`,
+        onClear: () => setPostDateFilter("all"),
+      });
+    }
+
+    return filters;
+  }, [
+    postPlatformFilter,
+    postStatusFilter,
+    postCreatorFilter,
+    postDateFilter,
+    postCreatorOptions,
+  ]);
 
   const groupedCreators = React.useMemo(() => {
-    const groups = new Map<string, typeof campaignCreators>();
+    const groups = new Map<string, typeof filteredCreators>();
     platformOrder.forEach((platform) => groups.set(platform, []));
+    
+    // Deduplicate while grouping by platform
+    const creatorIdsInGroup = new Map<string, Set<string>>();
     filteredCreators.forEach((creator) => {
-      const existing = groups.get(creator.platform) || [];
-      existing.push(creator);
-      groups.set(creator.platform, existing);
+      if (creator.id) {
+        const platform = creator.platform;
+        if (!creatorIdsInGroup.has(platform)) {
+          creatorIdsInGroup.set(platform, new Set());
+        }
+        
+        // Only add if not already in group
+        if (!creatorIdsInGroup.get(platform)?.has(creator.id)) {
+          const existing = groups.get(platform) || [];
+          existing.push(creator);
+          groups.set(platform, existing);
+          creatorIdsInGroup.get(platform)?.add(creator.id);
+        }
+      }
     });
+    
     return platformOrder
       .map((platform) => {
         const creators = (groups.get(platform) || [])
@@ -683,6 +1073,17 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     startIndex,
     startIndex + postsPerPage
   );
+  const visibleRemainingPosts = paginatedRemainingPosts;
+
+  const mobilePaginationPages = React.useMemo(() => {
+    if (totalPages <= 4) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+    const pages = new Set<number>([1, totalPages, safeCurrentPage]);
+    if (safeCurrentPage - 1 > 1) pages.add(safeCurrentPage - 1);
+    if (safeCurrentPage + 1 < totalPages) pages.add(safeCurrentPage + 1);
+    return Array.from(pages).sort((a, b) => a - b);
+  }, [totalPages, safeCurrentPage]);
 
   // Sync currentPage if it's out of bounds
   useEffect(() => {
@@ -726,7 +1127,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       // Close dialog after 3 seconds if successful
       if (result.error_count === 0) {
         setTimeout(() => {
-          setShowImportPostsDialog(false);
+          setShowImportDialog(false);
           setImportResult(null);
         }, 3000);
       }
@@ -745,23 +1146,40 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     scrapeAllPostsMutation.mutate(id);
     setShowScrapeAllDialog(false);
   };
-  const handleDeleteAll = async () => {
-    try {
-      if (!id) return; // campaign id check
 
-      await deleteAllPostsMutation.mutateAsync({ campaignId: id });
-      toast.success("All posts deleted successfully!");
-      setShowDeleteAllDialog(false);
-    } catch (err) {
-      toast.error("Failed to delete all posts.");
-    }
+  const handleDeleteAll = () => {
+    if (!id) return;
+    deleteAllPostsMutation.mutate(id);
+    setShowDeleteAllDialog(false);
   };
-
 
   const handleDeletePost = (postId: string) => {
     if (!id) return;
     deletePostMutation.mutate({ id: postId, campaignId: id });
     setShowDeletePostDialog(null);
+  };
+
+  const handleScrapePost = (postId: string) => {
+    if (!id) return;
+
+    // Find the post in the posts array
+    const post = posts?.find((p) => p.id === postId);
+    if (!post || !post.post_url) {
+      toast.error("Post not found or missing URL");
+      return;
+    }
+
+    scrapePostMutation.mutate({
+      postId: post.id,
+      postUrl: post.post_url,
+      platform: post.platform as
+        | "tiktok"
+        | "instagram"
+        | "youtube"
+        | "twitter"
+        | "facebook",
+      campaignId: id,
+    });
   };
 
   const handleExportCSV = () => {
@@ -801,7 +1219,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -831,7 +1250,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -854,37 +1274,50 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pt-6 sm:pt-8 lg:pt-0">
+      {campaign?.parent_campaign_id && (
+        <button
+          onClick={() =>
+            onNavigate(`/campaigns/${campaign.parent_campaign_id}`)
+          }
+          className="text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Parent Campaign
+        </button>
+      )}
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mt-2 sm:mt-0">
         <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white truncate">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1]">
                   {campaign.name}
                 </h1>
                 {campaign.brand_name && (
-                  <p className="text-sm text-slate-400 mt-1">
+                  <p className="text-sm text-slate-400 mt-1 break-words">
                     {campaign.brand_name}
                   </p>
                 )}
               </div>
-              <StatusBadge status={campaign.status} />
+              <StatusBadge status={campaign.status} className="flex-shrink-0" />
             </div>
           </div>
         </div>
         {campaign && (
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 w-full sm:flex sm:gap-2 sm:w-auto">
             <button
               onClick={() => setShowShareLinkModal(true)}
-              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+              aria-label="Share campaign link"
             >
               <Share2 className="w-4 h-4" />
               <span className="hidden sm:inline">Share Link</span>
@@ -892,7 +1325,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </button>
             <button
               onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
-              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              aria-label="Edit campaign"
             >
               <Edit2 className="w-4 h-4" />
               <span className="hidden sm:inline">Edit Campaign</span>
@@ -904,7 +1338,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
       {/* Cover Image Hero Section */}
       {campaign && (
-        <div className="relative w-full h-52 md:h-64 rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
+        <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/9] max-h-[240px] sm:max-h-[300px] rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
           {campaign.cover_image_url ? (
             <>
               <img
@@ -925,7 +1359,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 }}
               />
               <div className="gradient-fallback hidden w-full h-full bg-gradient-to-br from-primary via-primary/80 to-cyan-400 items-center justify-center">
-                <h2 className="text-5xl md:text-6xl font-bold text-white/90">
+                <h2 className="text-3xl sm:text-5xl font-bold text-white/90">
                   {campaign.name.charAt(0).toUpperCase()}
                 </h2>
               </div>
@@ -941,7 +1375,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   backgroundSize: "24px 24px",
                 }}
               />
-              <h2 className="text-5xl md:text-6xl font-bold text-white/90 relative z-10">
+              <h2 className="text-3xl sm:text-5xl font-bold text-white/90 relative z-10">
                 {campaign.name.charAt(0).toUpperCase()}
               </h2>
             </div>
@@ -950,11 +1384,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
           {/* Text content with improved spacing and typography */}
           <div className="absolute bottom-6 left-6 right-6">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg">
+            <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg">
               {campaign.name}
             </h2>
             {campaign.brand_name && (
-              <p className="text-lg md:text-xl text-white font-semibold drop-shadow-md">
+              <p className="text-sm sm:text-lg text-white font-semibold drop-shadow-md">
                 {campaign.brand_name}
               </p>
             )}
@@ -963,98 +1397,137 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       )}
 
       {/* KPI Cards - Performance Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Eye className="w-5 h-5 text-primary" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
-              {(metrics?.total_views ?? 0).toLocaleString()}
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_views ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Views</p>
+            <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                <Heart className="w-5 h-5 text-pink-400" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
-              {(metrics?.total_likes ?? 0).toLocaleString()}
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_likes ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Likes</p>
+            <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-cyan-400" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
-              {(metrics?.total_comments ?? 0).toLocaleString()}
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_comments ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Comments</p>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Total Comments
+            </p>
           </CardContent>
         </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Share2 className="w-5 h-5 text-purple-400" />
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
-              {(metrics?.total_shares ?? 0).toLocaleString()}
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_shares ?? 0).toLocaleString()}
             </div>
-            <p className="text-sm text-slate-400">Total Shares</p>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Total Shares
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Performance Charts */}
-     <Tabs
-        value={activeMetric}
-        onValueChange={(value) => setActiveMetric(value as typeof activeMetric)}
-        className="lg:hidden"
-      >
+      {/* Chart Range Selector */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          Timeframe
+        </span>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: "7d", label: "7D" },
+            { value: "14d", label: "14D" },
+            { value: "30d", label: "30D" },
+            { value: "all", label: "All" },
+          ].map((range) => (
+            <button
+              key={range.value}
+              onClick={() =>
+                setChartRange(range.value as "7d" | "14d" | "30d" | "all")
+              }
+              aria-pressed={chartRange === range.value}
+              className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
+                chartRange === range.value
+                  ? "bg-primary text-black border-primary"
+                  : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+              }`}
+            >
+              {range.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {chartsReady ? (
+        <>
+          {/* Performance Charts */}
+          {/* Mobile: Tabbed Interface */}
+          <Tabs
+            value={activeMetric}
+            onValueChange={(value) =>
+              setActiveMetric(value as typeof activeMetric)
+            }
+            className="lg:hidden"
+          >
         <TabsList className="grid w-full grid-cols-4 h-11 bg-white/[0.03] border border-white/[0.08] p-1">
           <TabsTrigger
             value="views"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Views</span>
+            <span>Views</span>
           </TabsTrigger>
           <TabsTrigger
             value="likes"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
           >
             <Heart className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Likes</span>
+            <span>Likes</span>
           </TabsTrigger>
           <TabsTrigger
             value="comments"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Comments</span>
+            <span>Comments</span>
           </TabsTrigger>
           <TabsTrigger
             value="shares"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-9 text-xs"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Shares</span>
+            <span>Shares</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1069,22 +1542,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <Eye className="w-4 h-4 text-primary" />
                   Views Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
               </div>
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={formattedChartData}>
+                <LineChart data={filteredChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="#ffffff08"
                     vertical={false}
                   />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: "#ffffff08" }}
-                  />
+                  <XAxis dataKey="date" {...chartXAxisProps} />
                   <YAxis
                     stroke="#64748b"
                     fontSize={11}
@@ -1094,14 +1561,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       value >= 1000 ? `${value / 1000}K` : value
                     }
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0D0D0D",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
+                  <Tooltip contentStyle={chartTooltipStyle} />
                   <Line
                     type="monotone"
                     dataKey="views"
@@ -1126,22 +1586,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <Heart className="w-4 h-4 text-pink-400" />
                   Likes Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
               </div>
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={formattedChartData}>
+                <LineChart data={filteredChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="#ffffff08"
                     vertical={false}
                   />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: "#ffffff08" }}
-                  />
+                  <XAxis dataKey="date" {...chartXAxisProps} />
                   <YAxis
                     stroke="#64748b"
                     fontSize={11}
@@ -1151,14 +1605,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       value >= 1000 ? `${value / 1000}K` : value
                     }
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0D0D0D",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
+                  <Tooltip contentStyle={chartTooltipStyle} />
                   <Line
                     type="monotone"
                     dataKey="likes"
@@ -1183,22 +1630,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <MessageCircle className="w-4 h-4 text-cyan-400" />
                   Comments Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
               </div>
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={formattedChartData}>
+                <LineChart data={filteredChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="#ffffff08"
                     vertical={false}
                   />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: "#ffffff08" }}
-                  />
+                  <XAxis dataKey="date" {...chartXAxisProps} />
                   <YAxis
                     stroke="#64748b"
                     fontSize={11}
@@ -1208,14 +1649,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       value >= 1000 ? `${value / 1000}K` : value
                     }
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0D0D0D",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
+                  <Tooltip contentStyle={chartTooltipStyle} />
                   <Line
                     type="monotone"
                     dataKey="comments"
@@ -1240,22 +1674,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <Share2 className="w-4 h-4 text-purple-400" />
                   Shares Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
               </div>
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={formattedChartData}>
+                <LineChart data={filteredChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="#ffffff08"
                     vertical={false}
                   />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: "#ffffff08" }}
-                  />
+                  <XAxis dataKey="date" {...chartXAxisProps} />
                   <YAxis
                     stroke="#64748b"
                     fontSize={11}
@@ -1265,14 +1693,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       value >= 1000 ? `${value / 1000}K` : value
                     }
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0D0D0D",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
+                  <Tooltip contentStyle={chartTooltipStyle} />
                   <Line
                     type="monotone"
                     dataKey="shares"
@@ -1296,22 +1717,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <h3 className="text-base font-semibold text-white">
                 Views Over Time
               </h3>
-              <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={formattedChartData}>
+              <LineChart data={filteredChartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#ffffff08"
                   vertical={false}
                 />
-                <XAxis
-                  dataKey="date"
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={{ stroke: "#ffffff08" }}
-                />
+                <XAxis dataKey="date" {...chartXAxisProps} />
                 <YAxis
                   stroke="#64748b"
                   fontSize={11}
@@ -1321,14 +1736,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     value >= 1000 ? `${value / 1000}K` : value
                   }
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0D0D0D",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
+                <Tooltip contentStyle={chartTooltipStyle} />
                 <Line
                   type="monotone"
                   dataKey="views"
@@ -1348,22 +1756,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <h3 className="text-base font-semibold text-white">
                 Likes Over Time
               </h3>
-              <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={formattedChartData}>
+              <LineChart data={filteredChartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#ffffff08"
                   vertical={false}
                 />
-                <XAxis
-                  dataKey="date"
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={{ stroke: "#ffffff08" }}
-                />
+                <XAxis dataKey="date" {...chartXAxisProps} />
                 <YAxis
                   stroke="#64748b"
                   fontSize={11}
@@ -1373,14 +1775,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     value >= 1000 ? `${value / 1000}K` : value
                   }
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0D0D0D",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
+                <Tooltip contentStyle={chartTooltipStyle} />
                 <Line
                   type="monotone"
                   dataKey="likes"
@@ -1400,22 +1795,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <h3 className="text-base font-semibold text-white">
                 Comments Over Time
               </h3>
-              <p className="text-sm text-slate-400 mt-0.5">Last 14 days</p>
+              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={formattedChartData}>
+              <LineChart data={filteredChartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#ffffff08"
                   vertical={false}
                 />
-                <XAxis
-                  dataKey="date"
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={{ stroke: "#ffffff08" }}
-                />
+                <XAxis dataKey="date" {...chartXAxisProps} />
                 <YAxis
                   stroke="#64748b"
                   fontSize={11}
@@ -1425,14 +1814,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     value >= 1000 ? `${value / 1000}K` : value
                   }
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0D0D0D",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
+                <Tooltip contentStyle={chartTooltipStyle} />
                 <Line
                   type="monotone"
                   dataKey="comments"
@@ -1452,22 +1834,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <h3 className="text-base font-semibold text-white">
                 Shares Over Time
               </h3>
-              <p className="text-sm text-slate-400 mt-0.5">Last 14 days</p>
+              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={formattedChartData}>
+              <LineChart data={filteredChartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#ffffff08"
                   vertical={false}
                 />
-                <XAxis
-                  dataKey="date"
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={{ stroke: "#ffffff08" }}
-                />
+                <XAxis dataKey="date" {...chartXAxisProps} />
                 <YAxis
                   stroke="#64748b"
                   fontSize={11}
@@ -1477,14 +1853,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     value >= 1000 ? `${value / 1000}K` : value
                   }
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0D0D0D",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
+                <Tooltip contentStyle={chartTooltipStyle} />
                 <Line
                   type="monotone"
                   dataKey="shares"
@@ -1497,363 +1866,749 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           </CardContent>
         </Card>
       </div>
+        </>
+      ) : (
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-6">
+            <div className="text-sm text-slate-400">Loading charts...</div>
+          </CardContent>
+        </Card>
+      )}
 
+      {isParent && campaign && (
+        <SubcampaignSection
+          parentCampaignId={campaign.id}
+          parentCampaignName={campaign.name}
+          parentBrandName={campaign.brand_name || null}
+        />
+      )}
 
       {/* Creators Section */}
-          {campaignCreators.length > 0 && (
-      <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
-        <CardContent className="p-5 md:p-6">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Campaign Roster</h3>
-              <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
-                {filteredCreators.length} of {campaignCreators.length} Active Participants
-              </p>
-            </div>
-
-            {/* Optimized Filters */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 md:w-64 group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
-                <Input
-                  value={creatorSearchQuery}
-                  onChange={(e) => setCreatorSearchQuery(e.target.value)}
-                  placeholder="Quick search..."
-                  className="h-10 pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
-                />
-              </div>
-              <select
-                value={selectedPlatform}
-                onChange={(e) => setSelectedPlatform(e.target.value)}
-                className="h-10 px-3 rounded-xl bg-zinc-950 border border-white/5 text-zinc-400 text-xs font-bold uppercase tracking-wider focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
-              >
-                <option value="all">All</option>
-                <option value="tiktok">TikTok</option>
-                <option value="instagram">Instagram</option>
-                <option value="youtube">YouTube</option>
-              </select>
-            </div>
-          </div>
-
-          {groupedCreators.length > 0 ? (
-            <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-              {groupedCreators.map((group) => {
-                const platformPosts = group.creators.reduce((total, creator) => {
-                  return total + posts.filter((p) => p.creator_id === creator.id).length;
-                }, 0);
-
-                return (
-                  <div key={group.platform} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    {/* Platform Section Header */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <PlatformBadge platform={group.platform} />
-                      <div className="h-px flex-1 bg-white/5" />
-                      <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
-                        {group.creators.length} Creators • {platformPosts} Total Posts
-                      </span>
-                    </div>
-
-                    {/* Optimized Grid Layout */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                      {group.creators.map((creator) => {
-                        const creatorPosts = posts.filter((p) => p.creator_id === creator.id);
-                        const hasPosts = creatorPosts.length > 0;
-
-                        return (
-                          <div
-                            key={creator.id}
-                            className={cn(
-                              "group relative p-3 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer",
-                              hasPosts
-                                ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
-                                : "bg-zinc-900/40 border-white/5 hover:border-white/20"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              {/* Avatar with Status Pip */}
-                              <div className="relative shrink-0">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
-                                  {creator.name.charAt(0).toUpperCase()}
-                                </div>
-                                {hasPosts && (
-                                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
-                                )}
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
-                                  {creator.name}
-                                </div>
-                                <div className="text-[11px] text-zinc-500 truncate font-medium">
-                                  @{creator.handle}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Post Counter Badge */}
-                            {hasPosts && (
-                              <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
-                                <span className="text-[10px] font-bold text-emerald-500/80 uppercase">Active</span>
-                                <span className="text-[10px] font-mono text-zinc-400">
-                                  {creatorPosts.length} {creatorPosts.length === 1 ? 'POST' : 'POSTS'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState searchQuery={creatorSearchQuery} />
-          )}
-        </CardContent>
-      </Card>
-    )}
-
-      {/* Posts Table */}
-
-
-
-      <Card className="bg-[#0A0A0A] border-white/[0.08] overflow-hidden">
-        <CardContent className="p-0">
-          {/* Header Section - Same as before */}
-          <div className="p-6 border-b border-white/[0.08]">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+      {campaignCreators.length > 0 && (
+        <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
+          <CardContent className="p-5 md:p-6">
+            {/* Header Section */}
+            <div className="flex flex-col gap-4 mb-6">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">Campaign Posts</h3>
-                <p className="text-sm text-slate-400">
-                  {posts.length} total • {filteredPosts.length} showing
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Campaign Roster
+                </h3>
+                <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+                  {creatorSearchQuery || selectedPlatform !== "all"
+                    ? `Showing ${filteredCreators.length} of ${uniqueRosterCreators.length} Active Participants`
+                    : `${uniqueRosterCreators.length} of ${uniqueRosterCreators.length} Active Participants`}
                 </p>
               </div>
-              
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  onClick={() => setShowAddPostDialog(true)}
-                  className="h-9 px-4 bg-primary hover:bg-primary/90 text-black font-medium gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Post
-                </Button>
-                
-                <Button
-                  onClick={() => setShowScrapeAllDialog(true)}
-                  disabled={posts.length === 0}
-                  variant="outline"
-                  className="h-9 px-4 gap-2"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span className="hidden sm:inline">Scrape All</span>
-                </Button>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-9 px-3">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
-                      <Download className="w-4 h-4" />
-                      Export to CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleImportCreators} className="gap-2">
-                      <Upload className="w-4 h-4" />
-                      Import Creators
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleImportPosts} className="gap-2">
-                      <Upload className="w-4 h-4" />
-                      Import Posts
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        console.log("clicked");
-                        setShowDeleteAllDialog(true);
-                      }}
-                      className="gap-2 text-red-400"
+              {/* Optimized Filters */}
+              <div className="flex flex-col gap-3">
+                <div className="relative w-full group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+                  <Input
+                    type="search"
+                    value={creatorSearchQuery}
+                    onChange={(e) => setCreatorSearchQuery(e.target.value)}
+                    placeholder="Search creators..."
+                    className="pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: "all", label: "All" },
+                    { value: "tiktok", label: "TikTok" },
+                    { value: "instagram", label: "Instagram" },
+                    { value: "youtube", label: "YouTube" },
+                  ].map((platform) => (
+                    <button
+                      key={platform.value}
+                      onClick={() => setSelectedPlatform(platform.value)}
+                      className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wider transition-colors flex items-center gap-2 ${
+                        selectedPlatform === platform.value
+                          ? "bg-primary text-black border-primary"
+                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                      }`}
                     >
-                      <Trash2 className="w-4 h-4" />
-                      Delete All Posts
-                    </DropdownMenuItem>
-
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      {platform.value === "all" ? (
+                        <span className="uppercase">All</span>
+                      ) : (
+                        (() => {
+                          const platformIcon = normalizePlatform(platform.value);
+                          if (!platformIcon) return null;
+                          return (
+                            <>
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="sm"
+                                className="sm:hidden"
+                                aria-label={`${getPlatformLabel(platformIcon)} creators`}
+                              />
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="md"
+                                className="hidden sm:flex"
+                                aria-label={`${getPlatformLabel(platformIcon)} creators`}
+                              />
+                            </>
+                          );
+                        })()
+                      )}
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        {creatorPlatformCounts[platform.value] ?? 0}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Filters & Search */}
-            <div className="flex flex-col lg:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <Input
-                  type="text"
-                  placeholder="Search by creator name or handle..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-white/[0.03] border-white/[0.08]"
-                />
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setShowTopPerformers(!showTopPerformers)}
-                  variant={showTopPerformers ? "default" : "outline"}
-                  className="h-10 px-4"
-                >
-                  {showTopPerformers ? "Showing Top 15" : "Top Performers"}
-                </Button>
+            {groupedCreators.length > 0 ? (
+              <div className="space-y-8">
+                {groupedCreators.map((group) => {
+                  // Count unique creators in this group
+                  const uniqueCreatorIds = new Set<string>();
+                  group.creators.forEach((creator) => {
+                    if (creator.id) {
+                      uniqueCreatorIds.add(creator.id);
+                    }
+                  });
+                  const uniqueCreatorCount = uniqueCreatorIds.size;
+                  
+                  // Count posts for creators in this group
+                  const platformPosts = posts.filter((p) => 
+                    p.creator_id && uniqueCreatorIds.has(p.creator_id)
+                  ).length;
 
-                <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
-                  <SelectTrigger className="w-[140px] h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="score">By Score</SelectItem>
-                    <SelectItem value="views">By Views</SelectItem>
-                    <SelectItem value="engagement">By Engagement</SelectItem>
-                    <SelectItem value="latest">Latest First</SelectItem>
-                  </SelectContent>
-                </Select>
+                  return (
+                    <div
+                      key={group.platform}
+                      className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+                    >
+                      {/* Platform Section Header */}
+                      <div className="flex items-center gap-3 mb-4">
+                        {(() => {
+                          const platformIcon = normalizePlatform(group.platform);
+                          if (!platformIcon) return null;
+                          return (
+                            <>
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="sm"
+                                className="sm:hidden"
+                                aria-label={`${getPlatformLabel(platformIcon)} creators`}
+                              />
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="md"
+                                className="hidden sm:flex"
+                                aria-label={`${getPlatformLabel(platformIcon)} creators`}
+                              />
+                            </>
+                          );
+                        })()}
+                        <div className="h-px flex-1 bg-white/5" />
+                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                          {uniqueCreatorCount} Creators • {platformPosts}{" "}
+                          Total Posts
+                        </span>
+                      </div>
+
+                      {/* Creator Cards */}
+                      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {(isMobile && !expandedPlatforms[group.platform]
+                          ? group.creators.slice(0, 8)
+                          : group.creators
+                        ).map((creator) => {
+                          const creatorPosts = posts.filter(
+                            (p) => p.creator_id === creator.id
+                          );
+                          const hasPosts = creatorPosts.length > 0;
+
+                          return (
+                            <div
+                              key={creator.id}
+                              className={cn(
+                                "group relative p-3 rounded-xl border text-left transition-all hover:scale-[1.01]",
+                                hasPosts
+                                  ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
+                                  : "bg-zinc-900/40 border-white/5 hover:border-white/20"
+                              )}
+                            >
+                              {/* Remove Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCreatorToRemove({ id: creator.id, name: creator.name });
+                                }}
+                                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10"
+                                aria-label={`Remove ${creator.name} from campaign`}
+                                title="Remove from campaign"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setActiveCreator(creator);
+                                  setCreatorDrawerOpen(true);
+                                }}
+                                className="w-full text-left"
+                                aria-label={`View ${creator.name}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  {/* Avatar with Status Pip */}
+                                  <div className="relative shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
+                                      {creator.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    {hasPosts && (
+                                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                                    )}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
+                                      {creator.name}
+                                    </div>
+                                    <div className="text-xs text-zinc-500 truncate font-medium">
+                                      @{creator.handle}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Post Counter Badge */}
+                                <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                                  <span
+                                    className={`text-[10px] font-bold uppercase ${
+                                      hasPosts
+                                        ? "text-emerald-500/80"
+                                        : "text-slate-500"
+                                    }`}
+                                  >
+                                    {hasPosts ? "Active" : "No Posts"}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-zinc-400">
+                                    {creatorPosts.length}{" "}
+                                    {creatorPosts.length === 1
+                                      ? "POST"
+                                      : "POSTS"}
+                                  </span>
+                                </div>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {isMobile &&
+                        group.creators.length > 8 &&
+                        !expandedPlatforms[group.platform] && (
+                          <button
+                            onClick={() =>
+                              setExpandedPlatforms((prev) => ({
+                                ...prev,
+                                [group.platform]: true,
+                              }))
+                            }
+                            className="mt-4 w-full h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+                          >
+                            Show more creators
+                          </button>
+                        )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState searchQuery={creatorSearchQuery} />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Posts Table */}
+      <Card id="campaign-posts" className="bg-[#0D0D0D] border-white/[0.08]">
+        <CardContent className="p-0">
+          <div className="p-4 sm:p-6 border-b border-white/[0.08]">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-white">
+                    Posts
+                  </h3>
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    Track creator posts and performance
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setShowScrapeAllDialog(true)}
+                    disabled={posts.length === 0}
+                    className="min-h-[44px] px-3 text-sm gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    {isCompactMobile ? "Scrape" : "Scrape All"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleExportCSV}
+                    disabled={posts.length === 0}
+                    className="min-h-[44px] px-3 text-sm gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export
+                  </Button>
+                  {!isCompactMobile && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowAddPostDialog(true)}
+                      className="min-h-[44px] px-3 text-sm gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Post
+                    </Button>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="min-h-[44px] px-3 text-sm gap-2"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                        More
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      {isCompactMobile && (
+                        <>
+                          <DropdownMenuItem
+                            onSelect={() => setShowAddPostDialog(true)}
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Post
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                      <DropdownMenuItem onSelect={handleImportCreators}>
+                        <Upload className="w-4 h-4" />
+                        Import Creators
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={handleImportPosts}>
+                        <Upload className="w-4 h-4" />
+                        Import Posts CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setShowDeleteAllDialog(true)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete All Posts
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             </div>
           </div>
 
-
-          {/* Table Content */}
-          <div className="overflow-x-auto">
-            {postsLoading ? (
-              <div className="p-6 space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <PostRowSkeleton key={i} />
-                ))}
+          {postsLoading ? (
+            <div className="space-y-0">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <PostRowSkeleton key={i} />
+              ))}
+            </div>
+          ) : topPosts.length > 0 || visibleRemainingPosts.length > 0 ? (
+            <>
+              {/* Search, Sort, and Filters */}
+              <div className="px-4 sm:px-6 pb-4">
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                      type="search"
+                      placeholder="Search posts..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-11 w-full pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 min-[360px]:grid-cols-[1fr_auto] gap-2">
+                    <Select
+                      value={sortBy}
+                      onValueChange={(
+                        value: "score" | "views" | "engagement" | "latest"
+                      ) => setSortBy(value)}
+                    >
+                      <SelectTrigger className="h-11 min-h-[44px] w-full bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="views">Views</SelectItem>
+                        <SelectItem value="engagement">Engagement</SelectItem>
+                        <SelectItem value="score">Rate</SelectItem>
+                        <SelectItem value="latest">Newest</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <button
+                      onClick={() => setPostFiltersOpen(true)}
+                      className="h-11 min-h-[44px] px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Filter className="w-4 h-4" />
+                      Filters
+                      {activePostFilterCount > 0 && (
+                        <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
+                          {activePostFilterCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                  {activePostFilters.length > 0 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                      {activePostFilters.map((filter) => (
+                        <button
+                          key={filter.key}
+                          onClick={filter.onClear}
+                          className="min-h-[44px] px-2.5 rounded-full border border-white/[0.08] bg-white/[0.03] text-xs text-slate-300 flex items-center gap-1 transition-colors hover:bg-white/[0.06]"
+                          aria-label={`Remove ${filter.label}`}
+                        >
+                          <span className="max-w-[180px] truncate">
+                            {filter.label}
+                          </span>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : topPosts.length > 0 || paginatedRemainingPosts.length > 0 ? (
-              <>
+
+              {/* Mobile: Card Layout */}
+              <div className="lg:hidden px-4 sm:px-6 space-y-2 pb-4">
+                {/* Top Performers Toggle and Filter Button */}
+                <div className="flex items-center gap-2 pb-2">
+                  <button
+                    onClick={() => setShowTopPerformers(!showTopPerformers)}
+                    className={`h-11 min-h-[44px] px-3 rounded-md border text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                      showTopPerformers
+                        ? "bg-primary/20 border-primary/30 text-primary"
+                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {showTopPerformers ? "All Posts" : "Top Performers"}
+                  </button>
+                </div>
+
+                {/* Top Performing Cards */}
+                {topPosts.length > 0 && !showTopPerformers && (
+                  <>
+                    <div className="flex items-center gap-2 pb-1">
+                      <span className="text-xs font-semibold text-primary">
+                        Top Performing
+                      </span>
+                      <div className="flex-1 h-px bg-primary/20"></div>
+                    </div>
+                    <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
+                      {topPosts.map((post) => (
+                        <PostCard
+                          key={post.id}
+                          post={post}
+                          onScrape={handleScrapePost}
+                          onDelete={setShowDeletePostDialog}
+                          isScraping={scrapePostMutation.isPending}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Remaining Posts Cards */}
+                {visibleRemainingPosts.length > 0 && !showTopPerformers && (
+                  <>
+                    <div className="flex items-center gap-2 pb-1 pt-2">
+                      <span className="text-xs font-semibold text-slate-400">
+                        Other Posts
+                      </span>
+                      <div className="flex-1 h-px bg-white/[0.08]"></div>
+                    </div>
+                    <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
+                      {visibleRemainingPosts.map((post) => (
+                        <PostCard
+                          key={post.id}
+                          post={post}
+                          onScrape={handleScrapePost}
+                          onDelete={setShowDeletePostDialog}
+                          isScraping={scrapePostMutation.isPending}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* All Posts when Top Performers is toggled */}
+                {showTopPerformers && (
+                  <>
+                    <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
+                      {[...topPosts, ...visibleRemainingPosts].map((post) => (
+                        <PostCard
+                          key={post.id}
+                          post={post}
+                          onScrape={handleScrapePost}
+                          onDelete={setShowDeletePostDialog}
+                          isScraping={scrapePostMutation.isPending}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-white/[0.02] border-b border-white/[0.08]">
-                    <tr>
-                      <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-16">
-                        Rank
-                      </th>
-                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <thead>
+                    <tr className="border-b border-white/[0.08]">
+                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
                         Creator
                       </th>
-                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
                         Platform
                       </th>
-                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        Views
+                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
+                        Post URL
                       </th>
-                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">
-                        Engagement
-                      </th>
-                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        Rate
-                      </th>
-                      <th className="text-center px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden lg:table-cell">
+                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
                         Status
                       </th>
-                      <th className="px-4 py-3 w-20"></th>
+                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                        Views
+                      </th>
+                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                        Likes
+                      </th>
+                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                        Comments
+                      </th>
+                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
+                        Engagement
+                      </th>
+                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
+                  <tbody>
                     {/* Top 5 Posts Section */}
-                    {topPosts.length > 0 && (
+                    {topPosts.length > 0 && !showTopPerformers && (
                       <>
-                        {topPosts.map((post, index) => {
-                          const postWithRanking = postsWithRankings.find(p => p.id === post.id);
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="px-6 py-3 bg-primary/5 border-b border-primary/20"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-primary">
+                                Top Performing
+                              </span>
+                              <div className="flex-1 h-px bg-primary/20"></div>
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Top Performers Button - Below Top Performing */}
+                        <tr>
+                          <td colSpan={9} className="px-6 py-2">
+                            <div className="flex items-center gap-2 flex-nowrap">
+                              <button
+                                onClick={() =>
+                                  setShowTopPerformers(!showTopPerformers)
+                                }
+                                className={`h-8 px-2 rounded-md border text-[11px] sm:text-xs font-medium flex flex-wrap items-center justify-center gap-1.5 transition-colors w-fit shrink-0 ${
+                                  showTopPerformers
+                                    ? "bg-primary/20 border-primary/30 text-primary"
+                                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                                }`}
+                              >
+                                {showTopPerformers
+                                  ? "All Posts"
+                                  : "Top Performers"}
+                              </button>
+                              <div className="w-[160px] md:hidden shrink-0">
+                                <Select
+                                  value={sortBy}
+                                  onValueChange={(
+                                    value:
+                                      | "score"
+                                      | "views"
+                                      | "engagement"
+                                      | "latest"
+                                  ) => setSortBy(value)}
+                                >
+                                  <SelectTrigger className="h-8 w-fit bg-white/[0.03] border-white/[0.08] text-slate-300 text-[11px] sm:text-xs">
+                                    <SelectValue placeholder="Sort by" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="score">
+                                      Sort by: Score
+                                    </SelectItem>
+                                    <SelectItem value="views">
+                                      Sort by: Views
+                                    </SelectItem>
+                                    <SelectItem value="engagement">
+                                      Sort by: Engagement
+                                    </SelectItem>
+                                    <SelectItem value="latest">
+                                      Sort by: Latest
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                        {topPosts.map((post) => {
+                          const isTop3 = post.rank <= 3;
+                          const isTop5 = post.rank <= 5;
+                          const platformIcon = normalizePlatform(post.platform);
                           return (
-                            <tr 
-                              key={post.id} 
-                              className="group hover:bg-white/[0.02] transition-colors"
+                            <tr
+                              key={post.id}
+                              className={`border-b border-white/[0.04] transition-colors group ${
+                                isTop3
+                                  ? "bg-primary/5 hover:bg-primary/10"
+                                  : isTop5
+                                  ? "bg-primary/2 hover:bg-primary/5"
+                                  : "hover:bg-white/[0.02]"
+                              } ${
+                                isTop5 ? "border-l-2 border-l-primary/30" : ""
+                              }`}
                             >
-                              {/* Rank Column */}
-                              <td className="px-4 py-4 text-center">
-                                {postWithRanking?.positionEmoji && (
-                                  <span className="text-2xl">{postWithRanking.positionEmoji}</span>
+                              <td className="px-6 py-4">
+                                <div>
+                                  <div className="font-medium text-sm text-white">
+                                    {post.creator?.name || "Unknown"}
+                                  </div>
+                                  <div className="text-xs text-slate-500">
+                                    @{post.creator?.handle || "unknown"}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  {platformIcon && (
+                                    <PlatformIcon
+                                      platform={platformIcon}
+                                      size="md"
+                                      aria-label={`${getPlatformLabel(platformIcon)} post`}
+                                    />
+                                  )}
+                                  {!isKpiPlatform(post.platform) && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
+                                      Not counted in KPIs
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                {post.post_url ? (
+                                  <a
+                                    href={post.post_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    View Post
+                                  </a>
+                                ) : (
+                                  <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
+                                    <LinkIcon className="w-3 h-3" />
+                                    Add Link
+                                  </button>
                                 )}
                               </td>
-                              
-                              {/* Creator Column */}
                               <td className="px-6 py-4">
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-sm font-medium text-white truncate">
-                                    {post.creator?.name || 'Unknown'}
-                                  </span>
-                                  <span className="text-xs text-slate-500">
-                                    @{post.creator?.handle || 'unknown'}
-                                  </span>
+                                <div className="flex items-center gap-2">
+                                  <StatusBadge status={post.status} />
+                                  {post.positionEmoji && (
+                                    <span className="text-base">
+                                      {post.positionEmoji}
+                                    </span>
+                                  )}
+                                  {post.badges?.trending && (
+                                    <span className="text-base">🔥</span>
+                                  )}
                                 </div>
                               </td>
-                              
-                              <td className="px-6 py-4">
-                                <PlatformBadge platform={post.platform} />
+                              <td className="px-6 py-4 text-right text-sm text-slate-300">
+                                {post.views && post.views > 0
+                                  ? post.views.toLocaleString()
+                                  : "-"}
+                              </td>
+                              <td className="px-6 py-4 text-right text-sm text-slate-300">
+                                {post.likes && post.likes > 0
+                                  ? post.likes.toLocaleString()
+                                  : "-"}
+                              </td>
+                              <td className="px-6 py-4 text-right text-sm text-slate-300">
+                                {post.comments && post.comments > 0
+                                  ? post.comments.toLocaleString()
+                                  : "-"}
                               </td>
                               <td className="px-6 py-4 text-right">
-                                <span className="text-sm font-mono text-white">
-                                  {(post.views || 0).toLocaleString()}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-right hidden md:table-cell">
-                                <div className="flex flex-col items-end gap-0.5">
-                                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                                    <Heart className="w-3 h-3" />
-                                    <span>{(post.likes || 0).toLocaleString()}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                                    <MessageCircle className="w-3 h-3" />
-                                    <span>{(post.comments || 0).toLocaleString()}</span>
-                                  </div>
-                                </div>
+                                {post.engagement_rate &&
+                                post.engagement_rate > 0 ? (
+                                  <span className="text-sm text-emerald-400 font-medium">
+                                    {post.engagement_rate}%
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-slate-500">
+                                    -
+                                  </span>
+                                )}
                               </td>
                               <td className="px-6 py-4 text-right">
-                                <span className="text-sm font-semibold text-emerald-400">
-                                  {(post.engagement_rate || 0).toFixed(1)}%
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-center hidden lg:table-cell">
-                                <StatusBadge status={post.status} />
-                              </td>
-                              <td className="px-4 py-4">
-                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center justify-end gap-1">
                                   {post.post_url && (
                                     <button
-                                      onClick={() => window.open(post.post_url, '_blank')}
-                                      className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-white transition-colors"
-                                      title="View Post"
+                                      onClick={() => {
+                                        if (id) {
+                                          scrapePostMutation.mutate({
+                                            postId: post.id,
+                                            postUrl: post.post_url,
+                                            platform: post.platform,
+                                            campaignId: id,
+                                          });
+                                        }
+                                      }}
+                                      disabled={
+                                        scrapePostMutation.isPending ||
+                                        post.status === "scraping"
+                                      }
+                                      className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title={
+                                        post.status === "scraping"
+                                          ? "Scraping..."
+                                          : "Scrape this post"
+                                      }
                                     >
-                                      <ExternalLink className="w-4 h-4" />
+                                      {scrapePostMutation.isPending ||
+                                      post.status === "scraping" ? (
+                                        <RefreshCw className="w-4 h-4 text-primary animate-spin" />
+                                      ) : (
+                                        <RefreshCw className="w-4 h-4 text-primary" />
+                                      )}
                                     </button>
                                   )}
                                   <button
-                                    onClick={() => {
-                                      if (post.post_url && id) {
-                                        scrapePostMutation.mutate({ postId: post.id, campaignId: id,
-                                         postUrl: post.post_url,
-                                          platform: post.platform, });
-                                      }
-                                    }}
-                                    disabled={!post.post_url || post.status === 'scraping'}
-                                    className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                                    title="Refresh Metrics"
+                                    onClick={() =>
+                                      setShowDeletePostDialog(post.id)
+                                    }
+                                    className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Delete this post"
                                   >
-                                    <RefreshCw className={cn(
-                                      "w-4 h-4",
-                                      post.status === 'scraping' && "animate-spin"
-                                    )} />
-                                  </button>
-                                  <button
-                                    onClick={() => setShowDeletePostDialog(post.id)}
-                                    className="p-2 hover:bg-red-500/10 rounded-md text-slate-400 hover:text-red-400 transition-colors"
-                                    title="Delete Post"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-4 h-4 text-red-400" />
                                   </button>
                                 </div>
                               </td>
@@ -1862,179 +2617,497 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         })}
                         {paginatedRemainingPosts.length > 0 && (
                           <tr>
-                            <td colSpan={8} className="px-6 py-2">
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 h-px bg-white/[0.08]" />
-                                <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                  Other Posts
-                                </span>
-                                <div className="flex-1 h-px bg-white/[0.08]" />
-                              </div>
+                            <td
+                              colSpan={9}
+                              className="px-6 py-2 border-b border-white/[0.08]"
+                            >
+                              <div className="h-px"></div>
                             </td>
                           </tr>
                         )}
                       </>
                     )}
-
                     {/* Remaining Posts */}
-                    {paginatedRemainingPosts.map((post) => (
-                      <tr 
-                        key={post.id} 
-                        className="group hover:bg-white/[0.02] transition-colors"
-                      >
-                        {/* Rank Column - Trending Badge */}
-                        <td className="px-4 py-4 text-center">
-                          {post.badges?.trending && (
-                            <div className="inline-flex items-center justify-center w-12 h-6 rounded-full bg-orange-500/10 border border-orange-500/20">
-                              <span className="text-[10px] font-bold text-orange-400">🔥</span>
+                    {paginatedRemainingPosts.map((post) => {
+                      const isTop3 = post.rank <= 3;
+                      const platformIcon = normalizePlatform(post.platform);
+                      return (
+                        <tr
+                          key={post.id}
+                          className={`border-b border-white/[0.04] transition-colors group ${
+                            isTop3
+                              ? "bg-primary/5 hover:bg-primary/10"
+                              : "hover:bg-white/[0.02]"
+                          }`}
+                        >
+                          <td className="px-6 py-4">
+                            <div>
+                              <div className="font-medium text-sm text-white">
+                                {post.creator?.name || "Unknown"}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                @{post.creator?.handle || "unknown"}
+                              </div>
                             </div>
-                          )}
-                        </td>
-                        
-                        {/* Creator Column */}
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-medium text-white truncate">
-                              {post.creator?.name || 'Unknown'}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              @{post.creator?.handle || 'unknown'}
-                            </span>
-                          </div>
-                        </td>
-                        
-                        <td className="px-6 py-4">
-                          <PlatformBadge platform={post.platform} />
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-sm font-mono text-white">
-                            {(post.views || 0).toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right hidden md:table-cell">
-                          <div className="flex flex-col items-end gap-0.5">
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
-                              <Heart className="w-3 h-3" />
-                              <span>{(post.likes || 0).toLocaleString()}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              {platformIcon && (
+                                <PlatformIcon
+                                  platform={platformIcon}
+                                  size="md"
+                                  aria-label={`${getPlatformLabel(platformIcon)} post`}
+                                />
+                              )}
+                              {!isKpiPlatform(post.platform) && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
+                                  Not counted in KPIs
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
-                              <MessageCircle className="w-3 h-3" />
-                              <span>{(post.comments || 0).toLocaleString()}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-sm font-semibold text-emerald-400">
-                            {(post.engagement_rate || 0).toFixed(1)}%
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center hidden lg:table-cell">
-                          <StatusBadge status={post.status} />
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {post.post_url && (
-                              <button
-                                onClick={() => window.open(post.post_url, '_blank')}
-                                className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-white transition-colors"
-                                title="View Post"
+                          </td>
+                          <td className="px-6 py-4">
+                            {post.post_url ? (
+                              <a
+                                href={post.post_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
                               >
-                                <ExternalLink className="w-4 h-4" />
+                                <ExternalLink className="w-3 h-3" />
+                                View Post
+                              </a>
+                            ) : (
+                              <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
+                                <LinkIcon className="w-3 h-3" />
+                                Add Link
                               </button>
                             )}
-                            <button
-                              onClick={() => {
-                                if (post.post_url && id) {
-                                  scrapePostMutation.mutate({ postId: post.id, campaignId: id });
-                                }
-                              }}
-                              disabled={!post.post_url || post.status === 'scraping'}
-                              className="p-2 hover:bg-white/[0.06] rounded-md text-slate-400 hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                              title="Refresh Metrics"
-                            >
-                              <RefreshCw className={cn(
-                                "w-4 h-4",
-                                post.status === 'scraping' && "animate-spin"
-                              )} />
-                            </button>
-                            <button
-                              onClick={() => setShowDeletePostDialog(post.id)}
-                              className="p-2 hover:bg-red-500/10 rounded-md text-slate-400 hover:text-red-400 transition-colors"
-                              title="Delete Post"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={post.status} />
+                              {post.positionEmoji && (
+                                <span className="text-base">
+                                  {post.positionEmoji}
+                                </span>
+                              )}
+                              {post.badges?.trending && (
+                                <span className="text-base">🔥</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right text-sm text-slate-300">
+                            {post.views && post.views > 0
+                              ? post.views.toLocaleString()
+                              : "-"}
+                          </td>
+                          <td className="px-6 py-4 text-right text-sm text-slate-300">
+                            {post.likes && post.likes > 0
+                              ? post.likes.toLocaleString()
+                              : "-"}
+                          </td>
+                          <td className="px-6 py-4 text-right text-sm text-slate-300">
+                            {post.comments && post.comments > 0
+                              ? post.comments.toLocaleString()
+                              : "-"}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            {post.engagement_rate &&
+                            post.engagement_rate > 0 ? (
+                              <span className="text-sm text-emerald-400 font-medium">
+                                {post.engagement_rate}%
+                              </span>
+                            ) : (
+                              <span className="text-sm text-slate-500">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {post.post_url && (
+                                <button
+                                  onClick={() => {
+                                    if (id) {
+                                      scrapePostMutation.mutate({
+                                        postId: post.id,
+                                        postUrl: post.post_url,
+                                        platform: post.platform,
+                                        campaignId: id,
+                                      });
+                                    }
+                                  }}
+                                  disabled={
+                                    scrapePostMutation.isPending ||
+                                    post.status === "scraping"
+                                  }
+                                  className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  aria-label="Refresh metrics"
+                                  title={
+                                    post.status === "scraping"
+                                      ? "Scraping..."
+                                      : "Scrape this post"
+                                  }
+                                >
+                                  {scrapePostMutation.isPending ||
+                                  post.status === "scraping" ? (
+                                    <RefreshCw className="w-4 h-4 text-primary animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-4 h-4 text-primary" />
+                                  )}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setShowDeletePostDialog(post.id)}
+                                className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                                aria-label="Delete post"
+                                title="Delete this post"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-400" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+              </div>
 
-                {/* Pagination - Same as before */}
-                {totalPages > 1 && (
-                  <div className="px-6 py-4 border-t border-white/[0.08] bg-white/[0.01]">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-slate-400">
-                        Showing {startIndex + 1} to {Math.min(startIndex + postsPerPage, remainingPosts.length)} of {remainingPosts.length} posts
-                      </p>
-                      
-                      <div className="flex items-center gap-2">
-                        <Button
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                          disabled={currentPage === 1}
-                          variant="outline"
-                          className="h-9 px-3"
-                        >
-                          Previous
-                        </Button>
-                        
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                            let pageNum;
-                            if (totalPages <= 5) {
-                              pageNum = i + 1;
-                            } else if (currentPage <= 3) {
-                              pageNum = i + 1;
-                            } else if (currentPage >= totalPages - 2) {
-                              pageNum = totalPages - 4 + i;
-                            } else {
-                              pageNum = currentPage - 2 + i;
-                            }
-                            
-                            return (
-                              <Button
-                                key={i}
-                                onClick={() => setCurrentPage(pageNum)}
-                                variant={currentPage === pageNum ? "default" : "outline"}
-                                className="h-9 w-9 p-0"
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                        
-                        <Button
-                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                          disabled={currentPage === totalPages}
-                          variant="outline"
-                          className="h-9 px-3"
-                        >
-                          Next
-                        </Button>
-                      </div>
+              {/* Mobile Pagination */}
+              {!showTopPerformers && totalPages > 1 && (
+                <div className="lg:hidden px-4 sm:px-6 pb-4 space-y-3">
+                  <p className="text-xs text-slate-400">
+                    Showing {startIndex + 1} to{" "}
+                    {Math.min(startIndex + postsPerPage, remainingPosts.length)}{" "}
+                    of {remainingPosts.length} posts
+                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.max(1, p - 1))
+                      }
+                      disabled={safeCurrentPage === 1}
+                      className="h-11 min-h-[44px] px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Prev
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {mobilePaginationPages.map((page, index) => {
+                        const prevPage = mobilePaginationPages[index - 1];
+                        const showEllipsis =
+                          prevPage && page - prevPage > 1;
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsis && (
+                              <span className="px-1 text-slate-500 text-xs">
+                                ...
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setCurrentPage(page)}
+                              className={`h-11 min-h-[44px] w-11 rounded-md text-sm transition-colors ${
+                                safeCurrentPage === page
+                                  ? "bg-primary text-black"
+                                  : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={safeCurrentPage === totalPages}
+                      className="h-11 min-h-[44px] px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
                   </div>
-                )}
-              </>
-            ) : (
-              <EmptyState searchQuery={searchQuery} />
-            )}
-          </div>
+                </div>
+              )}
+
+              {/* Desktop Pagination */}
+              {totalPages > 1 && (
+                <div className="hidden lg:flex p-4 border-t border-white/[0.08] items-center justify-between">
+                  <p className="text-sm text-slate-400">
+                    {topPosts.length > 0 && !showTopPerformers
+                      ? `${topPosts.length} top posts + `
+                      : ""}
+                    Showing {startIndex + 1} to{" "}
+                    {Math.min(startIndex + postsPerPage, remainingPosts.length)}{" "}
+                    of {remainingPosts.length} remaining posts
+                    {topPosts.length > 0 &&
+                      !showTopPerformers &&
+                      ` (${topPosts.length + remainingPosts.length} total)`}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (page) => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-md text-sm transition-colors ${
+                              currentPage === page
+                                ? "bg-primary text-black"
+                                : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      )}
+                    </div>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
+                <Search className="w-6 h-6 text-slate-600" />
+              </div>
+              <h3 className="text-base font-semibold text-white mb-1">
+                No posts found
+              </h3>
+              <p className="text-sm text-slate-400 text-center mb-6 max-w-md">
+                {searchQuery
+                  ? "Try adjusting your search query"
+                  : "Get started by adding posts manually or importing from CSV"}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
+
       {/* Import Creators Dialog */}
+      <Dialog open={postFiltersOpen} onOpenChange={setPostFiltersOpen}>
+        <DialogContent className="bg-[#0D0D0D] border-white/[0.08]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-white">
+              Filters
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-400">
+              Refine posts by platform, status, and creator.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Platform
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["all", "tiktok", "instagram", "youtube", "twitter", "facebook"].map(
+                  (platform) => (
+                    <button
+                      key={platform}
+                      onClick={() => setPostPlatformFilter(platform)}
+                      className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
+                        postPlatformFilter === platform
+                          ? "bg-primary text-black border-primary"
+                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      {platform === "all" ? "All" : platform}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Status
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["all", "pending", "scraping", "complete", "failed"].map(
+                  (status) => (
+                    <button
+                      key={status}
+                      onClick={() => setPostStatusFilter(status)}
+                      className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
+                        postStatusFilter === status
+                          ? "bg-primary text-black border-primary"
+                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      {status === "all" ? "All" : status}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Creator
+              </label>
+              <select
+                value={postCreatorFilter}
+                onChange={(e) => setPostCreatorFilter(e.target.value)}
+                className="h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-base text-white"
+              >
+                <option value="all">All creators</option>
+                {postCreatorOptions.map((creator) => (
+                  <option key={creator.id} value={creator.id}>
+                    {creator.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Date Range
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: "all", label: "All" },
+                  { value: "7d", label: "7D" },
+                  { value: "30d", label: "30D" },
+                  { value: "90d", label: "90D" },
+                ].map((range) => (
+                  <button
+                    key={range.value}
+                    onClick={() => setPostDateFilter(range.value)}
+                    className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
+                      postDateFilter === range.value
+                        ? "bg-primary text-black border-primary"
+                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPostPlatformFilter("all");
+                setPostStatusFilter("all");
+                setPostCreatorFilter("all");
+                setPostDateFilter("all");
+              }}
+            >
+              Clear
+            </Button>
+            <Button onClick={() => setPostFiltersOpen(false)}>Apply</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={creatorDrawerOpen} onOpenChange={setCreatorDrawerOpen}>
+        <DialogContent className="bg-[#0D0D0D] border-white/[0.08]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-white">
+              Creator Details
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-400">
+              Quick stats and actions for this creator.
+            </DialogDescription>
+          </DialogHeader>
+          {activeCreator && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-300 font-bold text-base border border-white/10">
+                  {activeCreator.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-semibold text-white truncate">
+                    {activeCreator.name}
+                  </p>
+                  <p className="text-sm text-slate-400 truncate">
+                    @{activeCreator.handle}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">
+                    Platform
+                  </p>
+                  {(() => {
+                    const platformIcon = normalizePlatform(activeCreator.platform);
+                    if (!platformIcon) {
+                      return (
+                        <p className="text-sm text-white mt-1">
+                          {activeCreator.platform}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="mt-2">
+                        <PlatformIcon
+                          platform={platformIcon}
+                          size="sm"
+                          className="sm:hidden"
+                          aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                        />
+                        <PlatformIcon
+                          platform={platformIcon}
+                          size="md"
+                          className="hidden sm:flex"
+                          aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                        />
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">
+                    Posts
+                  </p>
+                  <p className="text-sm text-white mt-1">
+                    {activeCreatorPosts.length}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setPostCreatorFilter(activeCreator.id);
+                    setCreatorDrawerOpen(false);
+                    const postsSection = document.getElementById("campaign-posts");
+                    postsSection?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
+                  Filter Posts
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreatorDrawerOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <ImportCreatorsDialog
         open={showImportCreatorsDialog}
         onClose={() => setShowImportCreatorsDialog(false)}
@@ -2176,67 +3249,70 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       )}
 
       {/* Delete All Confirmation Dialog */}
-      {showDeleteAllDialog && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Delete all posts?
-              </h3>
-              <p className="text-sm text-slate-400 mb-6">
-                This removes all posts in this campaign. This cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteAllDialog(false)}
-                  className="flex-1 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteAll}
-                  className="flex-1 h-9 rounded-md bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <ResponsiveConfirmDialog
+        open={showDeleteAllDialog}
+        onOpenChange={setShowDeleteAllDialog}
+        title="Delete all posts?"
+        description="This removes all posts in this campaign. This cannot be undone."
+        confirmLabel={
+          deleteAllPostsMutation.isPending ? "Deleting..." : "Delete all"
+        }
+        confirmDisabled={deleteAllPostsMutation.isPending}
+        onConfirm={handleDeleteAll}
+      />
 
+      <ResponsiveConfirmDialog
+        open={Boolean(showDeletePostDialog)}
+        onOpenChange={(open) => {
+          if (!open) setShowDeletePostDialog(null);
+        }}
+        title="Delete this post?"
+        description="This will permanently delete this post from the campaign. This cannot be undone."
+        confirmLabel={
+          deletePostMutation.isPending ? "Deleting..." : "Delete post"
+        }
+        confirmDisabled={deletePostMutation.isPending}
+        onConfirm={() =>
+          showDeletePostDialog && handleDeletePost(showDeletePostDialog)
+        }
+      />
 
-      {/* Delete Post Confirmation Dialog */}
-      {showDeletePostDialog && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Delete this post?
-              </h3>
-              <p className="text-sm text-slate-400 mb-6">
-                This will permanently delete this post from the campaign. This
-                cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeletePostDialog(null)}
-                  className="flex-1 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDeletePost(showDeletePostDialog)}
-                  className="flex-1 h-9 rounded-md bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      
+      {/* Remove Creator Confirmation Dialog */}
+      <ResponsiveConfirmDialog
+        open={Boolean(creatorToRemove)}
+        onOpenChange={(open) => {
+          if (!open) setCreatorToRemove(null);
+        }}
+        title="Remove creator?"
+        description={
+          creatorToRemove?.name
+            ? `${creatorToRemove.name} will be removed from this campaign. Their posts stay, but they will no longer be in the roster.`
+            : "This creator will be removed from this campaign."
+        }
+        confirmLabel={
+          removeCreatorMutation.isPending ? "Removing..." : "Remove creator"
+        }
+        confirmDisabled={removeCreatorMutation.isPending}
+        onConfirm={async () => {
+          if (creatorToRemove && id) {
+            try {
+              await removeCreatorMutation.mutateAsync({
+                campaignId: id,
+                creatorId: creatorToRemove.id,
+              });
+              setCreatorToRemove(null);
+              // Close creator drawer if the removed creator was being viewed
+              if (activeCreator?.id === creatorToRemove.id) {
+                setCreatorDrawerOpen(false);
+                setActiveCreator(null);
+              }
+            } catch (error) {
+              // Error toast is handled by the mutation
+            }
+          }
+        }}
+      />
+
       {/* Share Modal */}
       {showShareLinkModal && campaign && (
         <CampaignShareModal
@@ -2255,6 +3331,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           campaignCreators={campaignCreators}
         />
       )}
+
     </div>
   );
 }

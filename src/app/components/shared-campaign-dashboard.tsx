@@ -104,12 +104,12 @@ export function SharedCampaignDashboard() {
 
       if (result.error) {
         // Check if error is due to password requirement
-        const errorMsg = result.error.message?.toLowerCase() || "";
-        if (errorMsg.includes("password") || errorMsg.includes("required")) {
+        if ((result.error as any)?.code === "PASSWORD_REQUIRED") {
           setRequiresPassword(true);
           setIsLoading(false);
           return;
         }
+
         console.error("Failed to load shared campaign:", result.error);
         setError(result.error.message || "Failed to load campaign");
         setIsLoading(false);
@@ -141,36 +141,13 @@ export function SharedCampaignDashboard() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!password.trim()) {
       setPasswordError("Please enter a password");
       return;
     }
-    setPasswordError(null);
-    setIsLoading(true);
-    
-    try {
-      const result = await sharingApi.fetchSharedCampaignData(token!, password);
-      
-      if (result.error) {
-        const errorMsg = result.error.message?.toLowerCase() || "";
-        if (errorMsg.includes("incorrect") || errorMsg.includes("wrong")) {
-          setPasswordError("Incorrect password. Please try again.");
-        } else {
-          setPasswordError(result.error.message || "Failed to verify password");
-        }
-        setIsLoading(false);
-        return;
-      }
-      
-      if (result.data) {
-        setData(result.data);
-        setRequiresPassword(false);
-        setIsLoading(false);
-      }
-    } catch (err) {
-      setPasswordError("Failed to verify password");
-      setIsLoading(false);
-    }
+
+    await loadCampaign(password);
   };
 
   // Sort posts
@@ -298,7 +275,7 @@ export function SharedCampaignDashboard() {
     );
   }
 
-  if (error || !data) {
+  if ((error || !data) && !requiresPassword) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
         <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-md w-full text-center">

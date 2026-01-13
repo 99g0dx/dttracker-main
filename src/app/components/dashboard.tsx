@@ -24,6 +24,7 @@ import { StatusBadge } from './status-badge';
 import { useCampaigns } from '../../hooks/useCampaigns';
 import { usePosts } from '../../hooks/usePosts';
 import { useCreators } from '../../hooks/useCreators';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { supabase } from '../../lib/supabase';
 import {
   LineChart,
@@ -100,12 +101,33 @@ function formatReach(value: number): string {
   return value.toString();
 }
 
+function getPostTimestamp(post: any): number | null {
+  const date = post.last_scraped_at || post.created_at || post.updated_at;
+  if (!date) return null;
+  const time = new Date(date).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+function isPostInRange(post: any, range: DateRange): boolean {
+  const time = getPostTimestamp(post);
+  if (time === null) return false;
+  return time >= range.start.getTime() && time <= range.end.getTime();
+}
+
+function getPostDateKey(post: any): string | null {
+  const time = getPostTimestamp(post);
+  if (time === null) return null;
+  return new Date(time).toISOString().split('T')[0];
+}
+
+
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
+    const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [campaignPage, setCampaignPage] = useState(1);
   const [filters, setFilters] = useState({
     status: [] as string[],
     budgetRange: [] as string[],
@@ -117,12 +139,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     engagement: number;
   }[]>([]);
   const [allPosts, setAllPosts] = useState<any[]>([]);
+  const isMobileCampaigns = useMediaQuery('(max-width: 1023px)');
 
 
   // Fetch real campaign data
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
-  const { data: allCreators = [] } = useCreators();
-  
 
   const dateRangeOptions = [
     'Last 24 hours',
@@ -200,7 +221,51 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     return true;
   });
-  }, [campaigns, dateRange,searchQuery, filters]);
+  }, [campaigns, searchQuery, filters]);
+
+  useEffect(() => {
+    setCampaignPage(1);
+  }, [searchQuery, filters]);
+
+  const campaignsPerPage = isMobileCampaigns ? 12 : 15;
+  const totalCampaignPages = Math.max(
+    1,
+    Math.ceil(filteredCampaigns.length / campaignsPerPage)
+  );
+  const safeCampaignPage = Math.min(campaignPage, totalCampaignPages);
+  const campaignStartIndex = (safeCampaignPage - 1) * campaignsPerPage;
+  const campaignEndIndex = Math.min(
+    campaignStartIndex + campaignsPerPage,
+    filteredCampaigns.length
+  );
+
+  useEffect(() => {
+    if (campaignPage !== safeCampaignPage) {
+      setCampaignPage(safeCampaignPage);
+    }
+  }, [campaignPage, safeCampaignPage]);
+
+  const pagedCampaigns = useMemo(() => {
+    return filteredCampaigns.slice(
+      campaignStartIndex,
+      campaignStartIndex + campaignsPerPage
+    );
+  }, [filteredCampaigns, campaignStartIndex, campaignsPerPage]);
+
+  const paginationPages = useMemo(() => {
+    if (totalCampaignPages <= 5) {
+      return Array.from({ length: totalCampaignPages }, (_, i) => i + 1);
+    }
+    const pages = new Set<number>();
+    pages.add(1);
+    pages.add(totalCampaignPages);
+    pages.add(safeCampaignPage);
+    pages.add(safeCampaignPage - 1);
+    pages.add(safeCampaignPage + 1);
+    return Array.from(pages)
+      .filter((page) => page >= 1 && page <= totalCampaignPages)
+      .sort((a, b) => a - b);
+  }, [safeCampaignPage, totalCampaignPages]);
 
   // Fetch all posts across all campaigns for platform breakdown
   const [postsLoading, setPostsLoading] = useState(true);
@@ -224,13 +289,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 });
   
   const postsInRange = useMemo(() => {
-  return allPosts.filter(post => {
-    const date = post.last_scraped_at || post.created_at || post.updated_at;
-    if (!date) return false;
-    const postTime = new Date(date).getTime();
-    return postTime >= dateRange.start.getTime() && postTime <= dateRange.end.getTime();
-  });
+  return allPosts.filter(post => isPostInRange(post, dateRange));
 }, [allPosts, dateRange]);
+
+  // Filter posts to only include those with valid dates (for consistent KPI and chart calculations)
+  // This ensures that posts counted in the KPI are also included in the chart, and vice versa
+  // The sum of all daily reach values in the chart should equal the total reach KPI
+  const postsInRangeWithDates = useMemo(() => {
+    return postsInRange.filter(post => {
+      const dateStr = getPostDateKey(post);
+      return dateStr !== null;
+    });
+  }, [postsInRange]);
 
  // Remove the useMemo for kpiMetrics entirely
 // Instead, just use state that gets set by your useEffect
@@ -261,9 +331,7 @@ useEffect(() => {
       const { data, error } = await supabase
         .from('posts')
         .select('platform, views, likes, comments, shares, creator_id, last_scraped_at, created_at, updated_at')
-        .in('campaign_id', campaignIds)
-        .gte('last_scraped_at', dateRange.start.toISOString())
-        .lte('last_scraped_at', dateRange.end.toISOString());
+        .in('campaign_id', campaignIds);
 
       if (error) {
         setAllPosts([]);
@@ -278,19 +346,20 @@ useEffect(() => {
       } else {
         setAllPosts(data || []);
 
-        const postsInRange = (data || []).filter(post => {
-          const date = post.last_scraped_at || post.created_at || post.updated_at;
-          if (!date) return false;
-          const postTime = new Date(date).getTime();
-          return postTime >= dateRange.start.getTime() && postTime <= dateRange.end.getTime();
+        const postsInRange = (data || []).filter(post => isPostInRange(post, dateRange));
+        
+        // Filter out posts without valid dates to ensure consistency between KPI and chart
+        const postsInRangeWithDates = postsInRange.filter(post => {
+          const dateStr = getPostDateKey(post);
+          return dateStr !== null;
         });
 
-        const totalReachValue = postsInRange.reduce((sum, p) => sum + Number(p.views || 0), 0);
-        const totalEngagementValue = postsInRange.reduce((sum, p) =>
+        const totalReachValue = postsInRangeWithDates.reduce((sum, p) => sum + Number(p.views || 0), 0);
+        const totalEngagementValue = postsInRangeWithDates.reduce((sum, p) =>
           sum + Number(p.likes || 0) + Number(p.comments || 0) + Number(p.shares || 0), 0
         );
         const engagementRateValue = totalReachValue > 0 ? (totalEngagementValue / totalReachValue) * 100 : 0;
-        const activeCreators = new Set(postsInRange.map(p => p.creator_id)).size;
+        const activeCreators = new Set(postsInRangeWithDates.map(p => p.creator_id)).size;
 
         setKpiMetrics({
           totalReach: formatReach(totalReachValue),
@@ -298,7 +367,7 @@ useEffect(() => {
           engagementRate: engagementRateValue.toFixed(1),
           engagementRateValue,
           activeCreators,
-          totalPosts: postsInRange.length,
+          totalPosts: postsInRangeWithDates.length,
         });
       }
     } catch (err) {
@@ -323,6 +392,7 @@ useEffect(() => {
 
   // Generate platform breakdown from real post data
   const platformData = useMemo(() => {
+    const postsForBreakdown = postsInRange;
     const platformCounts: Record<string, number> = {
       tiktok: 0,
       instagram: 0,
@@ -332,14 +402,14 @@ useEffect(() => {
     };
 
     // Count posts by platform
-    allPosts.forEach(post => {
+    postsForBreakdown.forEach(post => {
       const platform = post.platform?.toLowerCase();
       if (platform && platformCounts.hasOwnProperty(platform)) {
         platformCounts[platform]++;
       }
     });
 
-    const totalPosts = allPosts.length;
+    const totalPosts = postsForBreakdown.length;
 
     // Platform colors and display names
     const platformConfig = [
@@ -393,101 +463,64 @@ useEffect(() => {
       { name: 'TikTok', value: 0, count: 0, color: '#7a54a0' },
       { name: 'Instagram', value: 0, count: 0, color: '#E4405F' },
     ];
-  }, [allPosts]);
+  }, [postsInRange, kpiMetrics.totalPosts]);
 
-  // Fetch time-series data for all campaigns
-  
+  // Time-series data derived from posts in the selected range
   const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
-  
 
   useEffect(() => {
-  const fetchAllTimeSeries = async () => {
-    if (campaigns.length === 0) {
+    if (postsLoading) {
+      setTimeSeriesLoading(true);
+      return;
+    }
+
+    if (postsInRangeWithDates.length === 0) {
       setTimeSeriesData([]);
       setTimeSeriesLoading(false);
       return;
     }
 
-    try {
-      setTimeSeriesLoading(true);
-      const campaignIds = campaigns.map(c => c.id);
-      
-      const { data, error } = await supabase
-        .from('posts')
-        .select('views, likes, comments, shares, last_scraped_at, created_at, updated_at, campaign_id')
-        .in('campaign_id', campaignIds)
-        .in('platform', ['tiktok', 'instagram'])
-        .gte('last_scraped_at', dateRange.start.toISOString())
-        .lte('last_scraped_at', dateRange.end.toISOString());
+    const grouped: Record<string, { reach: number; engagement: number }> = {};
 
-      if (error) {
-        console.error('Error fetching time series data:', error);
-        setTimeSeriesData([]);
-        return;
+    // Use postsInRangeWithDates to ensure consistency with KPI calculations
+    postsInRangeWithDates.forEach((post: any) => {
+      const dateStr = getPostDateKey(post);
+      // This should never be null since we filtered, but keep as safety check
+      if (!dateStr) return;
+
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = { reach: 0, engagement: 0 };
       }
 
-      if (!data || data.length === 0) {
-        setTimeSeriesData([]);
-        return;
-      }
+      const views = Number(post.views || 0);
+      const likes = Number(post.likes || 0);
+      const comments = Number(post.comments || 0);
+      const shares = Number(post.shares || 0);
 
-      // Group metrics by date across all campaigns
-      const allTimeSeries: Record<string, { views: number; engagement: number }> = {};
+      grouped[dateStr].reach += views;
+      grouped[dateStr].engagement += likes + comments + shares;
+    });
 
-      data.forEach((post: any) => {
-        let dateStr: string;
-        if (post.last_scraped_at) {
-          dateStr = post.last_scraped_at.split('T')[0];
-        } else if (post.created_at) {
-          dateStr = post.created_at.split('T')[0];
-        } else if (post.updated_at) {
-          dateStr = post.updated_at.split('T')[0];
-        } else {
-          dateStr = new Date().toISOString().split('T')[0];
-        }
+    const sorted = Object.entries(grouped)
+      .map(([date, metrics]) => ({
+        date,
+        reach: metrics.reach,
+        engagement: metrics.engagement,
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        if (!allTimeSeries[dateStr]) {
-          allTimeSeries[dateStr] = { views: 0, engagement: 0 };
-        }
+    const formatted = sorted.map((point) => ({
+      date: new Date(point.date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      reach: point.reach,
+      engagement: point.engagement,
+    }));
 
-        const views = Number(post.views || 0);
-        const likes = Number(post.likes || 0);
-        const comments = Number(post.comments || 0);
-        const shares = Number(post.shares || 0);
-        const engagement = likes + comments + shares;
-
-        allTimeSeries[dateStr].views += views;
-        allTimeSeries[dateStr].engagement += engagement;
-      });
-
-      // Convert to array and sort by date
-      const sortedData = Object.entries(allTimeSeries)
-        .map(([date, metrics]) => ({
-          date,
-          reach: metrics.views,
-          engagement: metrics.engagement,
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-7);
-
-      // Format dates for display
-      const formattedData = sortedData.map(point => ({
-        date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        reach: point.reach,
-        engagement: point.engagement,
-      }));
-
-      setTimeSeriesData(formattedData);
-    } catch (err) {
-      console.error('Error fetching time series data:', err);
-      setTimeSeriesData([]);
-    } finally {
-      setTimeSeriesLoading(false);
-    }
-  };
-
-  fetchAllTimeSeries();
-}, [campaignIds, dateRange.start, dateRange.end]);
+    setTimeSeriesData(formatted);
+    setTimeSeriesLoading(false);
+  }, [postsInRangeWithDates, postsLoading, dateRange.start, dateRange.end]);
   
   const handleExportCSV = () => {
       const rows: string[][] = [];
@@ -561,6 +594,38 @@ useEffect(() => {
     }
     return timeSeriesData;
   }, [timeSeriesData]);
+
+  // Verify chart data matches KPI (for debugging)
+  const chartTotalReach = useMemo(() => {
+    if (timeSeriesData.length === 0) return 0;
+    return timeSeriesData.reduce((sum, point) => sum + point.reach, 0);
+  }, [timeSeriesData]);
+
+  // Log verification in development
+  useEffect(() => {
+    if (chartTotalReach > 0 && kpiMetrics.totalReachValue > 0) {
+      if (chartTotalReach !== kpiMetrics.totalReachValue) {
+        console.warn(
+          '[Dashboard Data Mismatch]',
+          `Chart total reach (${chartTotalReach}) does not match KPI total reach (${kpiMetrics.totalReachValue})`
+        );
+      } else {
+        console.log(
+          '[Dashboard Data Verified]',
+          `Chart and KPI match: ${chartTotalReach} total reach`
+        );
+      }
+      // Log chart data points for debugging
+      console.log('[Performance Overview Chart Data]', {
+        dataPoints: timeSeriesData.length,
+        firstPoint: timeSeriesData[0],
+        lastPoint: timeSeriesData[timeSeriesData.length - 1],
+        sampleData: timeSeriesData.slice(0, 3),
+        totalReach: chartTotalReach,
+        kpiReach: kpiMetrics.totalReachValue
+      });
+    }
+  }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData]);
 
   return (
     <div className="space-y-6">

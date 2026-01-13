@@ -546,3 +546,12 @@ export interface BulkScrapeResult {
   failed: number;
   results: ScrapeResult[];
 }
+
+
+export interface CampaignHierarchyMetrics{
+
+}
+  
+export interface SubcampaignSummary{
+  
+}
