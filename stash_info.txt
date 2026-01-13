@@ -1,0 +1,7 @@
+stash@{0}: On main: Mobile optimizations: StatusBadge placement, unified charts, responsive layouts
+
+To restore these changes later, run:
+git stash apply stash@{0}
+
+Or to view the stash:
+git stash show -p stash@{0}

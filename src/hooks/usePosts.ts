@@ -9,7 +9,8 @@ import { campaignsKeys } from './useCampaigns';
 export const postsKeys = {
   all: ['posts'] as const,
   lists: () => [...postsKeys.all, 'list'] as const,
-  list: (campaignId: string) => [...postsKeys.lists(), campaignId] as const,
+  list: (campaignId: string, includeSubcampaigns = false) =>
+    [...postsKeys.lists(), campaignId, includeSubcampaigns ? 'hierarchy' : 'direct'] as const,
   metrics: () => [...postsKeys.all, 'metrics'] as const,
   campaignMetrics: (campaignId: string) => [...postsKeys.metrics(), campaignId] as const,
   timeSeries: (campaignId: string) => [...postsKeys.metrics(), 'timeSeries', campaignId] as const,
@@ -18,11 +19,11 @@ export const postsKeys = {
 /**
  * Hook to fetch all posts for a campaign
  */
-export function usePosts(campaignId: string) {
+export function usePosts(campaignId: string, includeSubcampaigns = false) {
   return useQuery({
-    queryKey: postsKeys.list(campaignId),
+    queryKey: postsKeys.list(campaignId, includeSubcampaigns),
     queryFn: async () => {
-      const result = await postsApi.listByCampaign(campaignId);
+      const result = await postsApi.listByCampaignHierarchy(campaignId, includeSubcampaigns);
       if (result.error) {
         throw result.error;
       }
@@ -86,9 +87,9 @@ export function useCreatePost() {
     onSuccess: (data) => {
       if (data) {
         // Invalidate posts list for this campaign
-        queryClient.invalidateQueries({ queryKey: postsKeys.list(data.campaign_id) });
+        queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
         // Invalidate metrics
-        queryClient.invalidateQueries({ queryKey: postsKeys.campaignMetrics(data.campaign_id) });
+        queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list (to update stats)
         queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
         toast.success('Post added successfully');
@@ -118,9 +119,9 @@ export function useCreateManyPosts() {
       if (variables.length > 0) {
         const campaignId = variables[0].campaign_id;
         // Invalidate posts list for this campaign
-        queryClient.invalidateQueries({ queryKey: postsKeys.list(campaignId) });
+        queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
         // Invalidate metrics
-        queryClient.invalidateQueries({ queryKey: postsKeys.campaignMetrics(campaignId) });
+        queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list
         queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
         toast.success(`${data.length} posts imported successfully`);
@@ -148,13 +149,13 @@ export function useUpdatePost() {
     },
     onMutate: async ({ id, updates, campaignId }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: postsKeys.list(campaignId) });
+      await queryClient.cancelQueries({ queryKey: postsKeys.lists() });
 
       // Snapshot previous value
-      const previousPosts = queryClient.getQueryData(postsKeys.list(campaignId));
+      const previousPosts = queryClient.getQueryData(postsKeys.list(campaignId, false));
 
       // Optimistically update posts list
-      queryClient.setQueryData(postsKeys.list(campaignId), (old: PostWithCreator[] | undefined) => {
+      queryClient.setQueryData(postsKeys.list(campaignId, false), (old: PostWithCreator[] | undefined) => {
         if (!old) return old;
         return old.map(post =>
           post.id === id
@@ -167,10 +168,10 @@ export function useUpdatePost() {
     },
     onSuccess: (data) => {
       if (data) {
-        // Invalidate posts list for this campaign
-        queryClient.invalidateQueries({ queryKey: postsKeys.list(data.campaign_id) });
+        // Invalidate posts list
+        queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
         // Invalidate metrics
-        queryClient.invalidateQueries({ queryKey: postsKeys.campaignMetrics(data.campaign_id) });
+        queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list
         queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
         toast.success('Post updated successfully');
@@ -179,7 +180,7 @@ export function useUpdatePost() {
     onError: (error: Error, _variables, context) => {
       // Rollback optimistic update
       if (context?.previousPosts && context?.campaignId) {
-        queryClient.setQueryData(postsKeys.list(context.campaignId), context.previousPosts);
+        queryClient.setQueryData(postsKeys.list(context.campaignId, false), context.previousPosts);
       }
       toast.error(`Failed to update post: ${error.message}`);
     },
@@ -202,13 +203,13 @@ export function useDeletePost() {
     },
     onMutate: async ({ id, campaignId }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: postsKeys.list(campaignId) });
+      await queryClient.cancelQueries({ queryKey: postsKeys.lists() });
 
       // Snapshot previous value
-      const previousPosts = queryClient.getQueryData(postsKeys.list(campaignId));
+      const previousPosts = queryClient.getQueryData(postsKeys.list(campaignId, false));
 
       // Optimistically remove from list
-      queryClient.setQueryData(postsKeys.list(campaignId), (old: PostWithCreator[] | undefined) => {
+      queryClient.setQueryData(postsKeys.list(campaignId, false), (old: PostWithCreator[] | undefined) => {
         if (!old) return old;
         return old.filter(post => post.id !== id);
       });
@@ -217,9 +218,9 @@ export function useDeletePost() {
     },
     onSuccess: (campaignId) => {
       // Invalidate posts list for this campaign
-      queryClient.invalidateQueries({ queryKey: postsKeys.list(campaignId) });
+      queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
       // Invalidate metrics
-      queryClient.invalidateQueries({ queryKey: postsKeys.campaignMetrics(campaignId) });
+      queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
       queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
       toast.success('Post deleted successfully');
@@ -227,7 +228,7 @@ export function useDeletePost() {
     onError: (error: Error, _variables, context) => {
       // Rollback optimistic update
       if (context?.previousPosts && context?.campaignId) {
-        queryClient.setQueryData(postsKeys.list(context.campaignId), context.previousPosts);
+        queryClient.setQueryData(postsKeys.list(context.campaignId, false), context.previousPosts);
       }
       toast.error(`Failed to delete post: ${error.message}`);
     },
@@ -250,9 +251,9 @@ export function useDeleteAllPosts() {
     },
     onSuccess: (campaignId) => {
       // Invalidate posts list for this campaign
-      queryClient.invalidateQueries({ queryKey: postsKeys.list(campaignId) });
+      queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
       // Invalidate metrics
-      queryClient.invalidateQueries({ queryKey: postsKeys.campaignMetrics(campaignId) });
+      queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
       queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
       toast.success('All posts deleted successfully');
@@ -329,9 +330,9 @@ export function useAddPostWithScrape() {
       const campaignId = variables.campaign_id;
       
       // Invalidate posts list for this campaign
-      queryClient.invalidateQueries({ queryKey: postsKeys.list(campaignId) });
+      queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
       // Invalidate metrics
-      queryClient.invalidateQueries({ queryKey: postsKeys.campaignMetrics(campaignId) });
+      queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
       queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
       

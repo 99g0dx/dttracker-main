@@ -3,7 +3,11 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search, Plus, Check, X } from 'lucide-react';
-import { PlatformBadge } from './platform-badge';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 import { useCreatorsWithStats } from '../../hooks/useCreators';
 import { useCampaigns } from '../../hooks/useCampaigns';
 import { useAddCreatorsToCampaign, useCampaignCreators } from '../../hooks/useCreators';
@@ -234,7 +238,26 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
                         <div className="text-xs text-slate-500 truncate">@{creator.handle}</div>
                       </div>
                     </div>
-                    <PlatformBadge platform={creator.platform} />
+                    {(() => {
+                      const platformIcon = normalizePlatform(creator.platform);
+                      if (!platformIcon) return null;
+                      return (
+                        <>
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="sm"
+                            className="sm:hidden"
+                            aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                          />
+                          <PlatformIcon
+                            platform={platformIcon}
+                            size="md"
+                            className="hidden sm:flex"
+                            aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                          />
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <div className="space-y-2">
@@ -280,4 +303,3 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
     </div>
   );
 }
-

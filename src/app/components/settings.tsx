@@ -2,100 +2,342 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { User, Lock, Users, Mail, X, Shield, Crown, ArrowRight, Bell, CreditCard, Key, Copy, Check, ArrowLeft } from 'lucide-react';
-import { TeamManagement } from './team-management';
-import { canManageTeam, getCurrentUser } from '../utils/permissions';
+import { Skeleton } from './ui/skeleton';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from './ui/select';
+import { User, Lock, Users, Mail, Crown, ArrowRight, Bell, CreditCard, ArrowLeft } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { createTeamInvite } from '../../lib/api/team';
+import { toast } from 'sonner';
 
 interface SettingsProps {
   onNavigate: (path: string) => void;
 }
 
-interface UserSettings {
+interface ProfileFormState {
   firstName: string;
   lastName: string;
   email: string;
   company: string;
-  notifications: {
-    campaignUpdates: boolean;
-    performanceAlerts: boolean;
-    teamMentions: boolean;
-    weeklyReports: boolean;
-  };
-  apiKey: string;
+  phone: string;
 }
 
-const defaultSettings: UserSettings = {
-  firstName: 'John',
-  lastName: 'Doe',
-  email: 'john.doe@example.com',
-  company: 'Acme Inc.',
-  notifications: {
-    campaignUpdates: true,
-    performanceAlerts: true,
-    teamMentions: true,
-    weeklyReports: false,
-  },
-  apiKey: 'dttr_sk_live_51H9x2H7KqLwZ8pN3vX4mY6tR2sB9cD1fG3hJ5kL8nM0pQ4rS6tU8vW0xY2zA4bC6dE8fG0hI2jK4',
+interface NotificationSettings {
+  campaignUpdates: boolean;
+  performanceAlerts: boolean;
+  teamMentions: boolean;
+  weeklyReports: boolean;
+}
+
+interface TeamMemberRow {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  isCurrentUser: boolean;
+}
+
+const defaultNotifications: NotificationSettings = {
+  campaignUpdates: true,
+  performanceAlerts: true,
+  teamMentions: true,
+  weeklyReports: false,
 };
 
+const splitFullName = (fullName: string) => {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.slice(1).join(' '),
+  };
+};
+
+const getInitial = (name: string, email: string) => {
+  if (name) return name.charAt(0).toUpperCase();
+  if (email) return email.charAt(0).toUpperCase();
+  return 'U';
+};
+
+const formatLabel = (value: string) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+
 export function Settings({ onNavigate }: SettingsProps) {
-  const [settings, setSettings] = useState<UserSettings>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('dttracker-settings');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          return defaultSettings;
-        }
-      }
-    }
-    return defaultSettings;
+  const { user, loading: authLoading } = useAuth();
+  const [profileForm, setProfileForm] = useState<ProfileFormState>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    company: '',
+    phone: '',
   });
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [supportsCompany, setSupportsCompany] = useState(false);
+
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings>(defaultNotifications);
 
   const [inviteEmail, setInviteEmail] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'viewer'>('member');
+  const [inviteSending, setInviteSending] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberRow[]>([]);
+  const [teamLoading, setTeamLoading] = useState(true);
+  const [teamError, setTeamError] = useState<string | null>(null);
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [apiKeyCopied, setApiKeyCopied] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
-  // Save to localStorage whenever settings change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('dttracker-settings', JSON.stringify(settings));
+  const resolveWorkspaceId = async () => {
+    if (!user?.id) return null;
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('workspace_id')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (error) {
+      return user.id;
     }
-  }, [settings]);
 
-  const handleSaveProfile = () => {
-    // Settings are already saved via useEffect
-    alert('Profile updated successfully!');
+    return data?.[0]?.workspace_id || user.id;
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      loadProfile();
+      loadTeamMembers();
+      return;
+    }
+    if (!authLoading) {
+      setProfileLoading(false);
+      setTeamLoading(false);
+      setProfileError('Not authenticated');
+      setTeamError('Not authenticated');
+    }
+  }, [user?.id, authLoading]);
+
+  const loadProfile = async () => {
+    if (!user?.id) return;
+    setProfileLoading(true);
+    setProfileError(null);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      setProfileError('Unable to load profile');
+      setProfileLoading(false);
+      return;
+    }
+
+    const fullName =
+      data?.full_name || user.user_metadata?.full_name || '';
+    const { firstName, lastName } = splitFullName(fullName);
+    const companyValue =
+      (data as any)?.company || user.user_metadata?.company || '';
+    const phoneValue =
+      data?.phone || user.phone || user.user_metadata?.phone || '';
+
+    setSupportsCompany(Object.prototype.hasOwnProperty.call(data || {}, 'company'));
+    setProfileForm({
+      firstName,
+      lastName,
+      email: user.email || '',
+      company: companyValue || '',
+      phone: phoneValue || '',
+    });
+    setProfileLoading(false);
+  };
+
+  const loadTeamMembers = async () => {
+    if (!user?.id) return;
+    setTeamLoading(true);
+    setTeamError(null);
+
+    const workspaceId = await resolveWorkspaceId();
+    if (!workspaceId) {
+      setTeamError('Unable to resolve workspace');
+      setTeamLoading(false);
+      return;
+    }
+
+    const { data: members, error } = await supabase
+      .from('team_members')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      setTeamError('Unable to load team members');
+      setTeamLoading(false);
+      return;
+    }
+
+    const memberIds = (members || []).map((member) => member.user_id);
+    const profileMap = new Map<string, any>();
+
+    if (memberIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', memberIds);
+
+      (profiles || []).forEach((profile) => {
+        profileMap.set(profile.id, profile);
+      });
+    }
+
+    const rows: TeamMemberRow[] = (members || []).map((member) => {
+      const profile = profileMap.get(member.user_id) || {};
+      const displayName =
+        profile.full_name ||
+        (member.user_id === user.id ? user.email?.split('@')[0] : 'Member') ||
+        'Member';
+      const emailValue =
+        profile.email ||
+        (member.user_id === user.id ? user.email : '') ||
+        'Email unavailable';
+
+      return {
+        id: member.id,
+        userId: member.user_id,
+        name: displayName,
+        email: emailValue,
+        role: member.role,
+        status: member.status,
+        isCurrentUser: member.user_id === user.id,
+      };
+    });
+
+    if (user && !rows.some((member) => member.userId === user.id)) {
+      rows.unshift({
+        id: user.id,
+        userId: user.id,
+        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You',
+        email: user.email || 'Email unavailable',
+        role: 'owner',
+        status: 'active',
+        isCurrentUser: true,
+      });
+    }
+
+    setTeamMembers(rows);
+    setTeamLoading(false);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    setProfileSaving(true);
+    setProfileError(null);
+
+    const fullName = [profileForm.firstName, profileForm.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    const updatePayload: Record<string, any> = {
+      full_name: fullName || null,
+      phone: profileForm.phone || null,
+    };
+
+    if (supportsCompany) {
+      updatePayload.company = profileForm.company || null;
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updatePayload)
+      .eq('id', user.id);
+
+    if (error) {
+      setProfileError(error.message || 'Unable to update profile');
+      toast.error('Failed to update profile');
+      setProfileSaving(false);
+      return;
+    }
+
+    const { error: authError } = await supabase.auth.updateUser({
+      data: {
+        full_name: fullName || null,
+        company: profileForm.company || null,
+        phone: profileForm.phone || null,
+      },
+    });
+
+    if (authError) {
+      toast.error(authError.message || 'Profile saved, but metadata update failed');
+    }
+
+    toast.success('Profile updated');
     addNotification({
       type: 'campaign',
       title: 'Profile Updated',
       message: 'Your profile information has been saved',
     });
+    setProfileSaving(false);
   };
 
-  const handleUpdatePassword = () => {
+  const handleUpdatePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      alert('Please fill in all password fields');
+      toast.error('Please fill in all password fields');
       return;
     }
     if (newPassword !== confirmPassword) {
-      alert('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
     if (newPassword.length < 8) {
-      alert('Password must be at least 8 characters long');
+      toast.error('Password must be at least 8 characters long');
       return;
     }
 
-    // In a real app, this would make an API call
-    alert('Password updated successfully!');
+    if (!user?.email) {
+      toast.error('Unable to update password');
+      return;
+    }
+
+    setPasswordSaving(true);
+
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (reauthError) {
+      toast.error('Current password is incorrect');
+      setPasswordSaving(false);
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateError) {
+      toast.error(updateError.message || 'Failed to update password');
+      setPasswordSaving(false);
+      return;
+    }
+
+    toast.success('Password updated successfully');
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
+    setPasswordSaving(false);
 
     addNotification({
       type: 'campaign',
@@ -104,54 +346,63 @@ export function Settings({ onNavigate }: SettingsProps) {
     });
   };
 
-  const handleSendInvite = () => {
+  const handleSendInvite = async () => {
     if (!inviteEmail) {
-      alert('Please enter an email address');
+      toast.error('Please enter an email address');
       return;
     }
     if (!inviteEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
-    alert(`Invite sent to ${inviteEmail}!`);
+    if (!user?.id) {
+      toast.error('You must be signed in to send invites');
+      return;
+    }
+
+    setInviteSending(true);
+
+    const emailValue = inviteEmail.trim().toLowerCase();
+    const workspaceId = await resolveWorkspaceId();
+    if (!workspaceId) {
+      toast.error('Unable to resolve workspace');
+      setInviteSending(false);
+      return;
+    }
+
+    const scopeValue = inviteRole === 'viewer' ? 'viewer' : 'editor';
+    const result = await createTeamInvite(
+      workspaceId,
+      emailValue,
+      inviteRole,
+      [{ scope_type: 'workspace', scope_value: scopeValue }],
+      null
+    );
+
+    if (result.error) {
+      toast.error(result.error.message || 'Failed to send invite');
+      setInviteSending(false);
+      return;
+    }
+
+    toast.success('Invite sent');
     setInviteEmail('');
+    await loadTeamMembers();
+    setInviteSending(false);
 
     addNotification({
       type: 'team',
       title: 'Invite Sent',
-      message: `Team invitation sent to ${inviteEmail}`,
+      message: `Team invitation sent to ${emailValue}`,
     });
   };
 
-  const toggleNotification = (key: keyof typeof settings.notifications) => {
-    setSettings({
-      ...settings,
-      notifications: {
-        ...settings.notifications,
-        [key]: !settings.notifications[key],
-      },
-    });
-  };
-
-  const copyApiKey = () => {
-    navigator.clipboard.writeText(settings.apiKey);
-    setApiKeyCopied(true);
-    setTimeout(() => setApiKeyCopied(false), 2000);
-  };
-
-  const generateNewApiKey = () => {
-    if (confirm('Are you sure you want to generate a new API key? Your old key will stop working.')) {
-      const newKey = 'dttr_sk_live_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      setSettings({ ...settings, apiKey: newKey });
-      alert('New API key generated successfully!');
-
-      addNotification({
-        type: 'campaign',
-        title: 'API Key Generated',
-        message: 'A new API key has been created. Update your integrations.',
-      });
-    }
+  const toggleNotification = (key: keyof NotificationSettings) => {
+    setNotificationSettings((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
   };
 
   const addNotification = (notification: any) => {
@@ -168,12 +419,24 @@ export function Settings({ onNavigate }: SettingsProps) {
     }
   };
 
+  const roleStyles: Record<string, string> = {
+    owner: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+    admin: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+    member: 'text-primary bg-primary/10 border-primary/20',
+    viewer: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+  };
+
+  const statusStyles: Record<string, string> = {
+    active: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+    pending: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => onNavigate('/')}
-          className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
@@ -198,7 +461,7 @@ export function Settings({ onNavigate }: SettingsProps) {
             </div>
             <Button 
               onClick={() => onNavigate('/subscription')}
-              className="h-9 px-4 bg-primary hover:bg-primary/90 text-black w-full sm:w-auto"
+              className="min-h-[44px] h-11 px-4 bg-primary hover:bg-primary/90 text-black w-full sm:w-auto"
             >
               Upgrade to Pro
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -236,46 +499,89 @@ export function Settings({ onNavigate }: SettingsProps) {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">First Name</label>
-                <Input
-                  value={settings.firstName}
-                  onChange={(e) => setSettings({ ...settings, firstName: e.target.value })}
-                  className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
-                />
+          {profileLoading || authLoading ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-32" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {profileError && (
+                <p className="text-sm text-red-400">{profileError}</p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">First Name</label>
+                  <Input
+                    value={profileForm.firstName}
+                    onChange={(e) =>
+                      setProfileForm({ ...profileForm, firstName: e.target.value })
+                    }
+                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Last Name</label>
+                  <Input
+                    value={profileForm.lastName}
+                    onChange={(e) =>
+                      setProfileForm({ ...profileForm, lastName: e.target.value })
+                    }
+                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Email</label>
+                  <Input
+                    type="email"
+                    value={profileForm.email}
+                    readOnly
+                    aria-readonly="true"
+                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white/80"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Phone</label>
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    value={profileForm.phone}
+                    onChange={(e) =>
+                      setProfileForm({ ...profileForm, phone: e.target.value })
+                    }
+                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Last Name</label>
+                <label className="block text-sm font-medium text-white mb-2">Company</label>
                 <Input
-                  value={settings.lastName}
-                  onChange={(e) => setSettings({ ...settings, lastName: e.target.value })}
-                  className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                  value={profileForm.company}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, company: e.target.value })
+                  }
+                  className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
                 />
               </div>
+              <Button
+                onClick={handleSaveProfile}
+                className="min-h-[44px] h-11 bg-primary hover:bg-primary/90 text-black"
+                disabled={profileSaving}
+              >
+                {profileSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Email</label>
-              <Input
-                type="email"
-                value={settings.email}
-                onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Company</label>
-              <Input
-                value={settings.company}
-                onChange={(e) => setSettings({ ...settings, company: e.target.value })}
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
-              />
-            </div>
-            <Button onClick={handleSaveProfile} className="h-9 bg-primary hover:bg-primary/90 text-black">
-              Save Changes
-            </Button>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -299,7 +605,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
               />
             </div>
             <div>
@@ -308,7 +614,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
               />
             </div>
             <div>
@@ -317,11 +623,15 @@ export function Settings({ onNavigate }: SettingsProps) {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
               />
             </div>
-            <Button onClick={handleUpdatePassword} className="h-9 bg-purple-500 hover:bg-purple-500/90 text-white">
-              Update Password
+            <Button
+              onClick={handleUpdatePassword}
+              className="min-h-[44px] h-11 bg-purple-500 hover:bg-purple-500/90 text-white"
+              disabled={passwordSaving}
+            >
+              {passwordSaving ? 'Updating...' : 'Update Password'}
             </Button>
           </div>
         </CardContent>
@@ -344,37 +654,87 @@ export function Settings({ onNavigate }: SettingsProps) {
           <div className="flex gap-3 mb-6 flex-col sm:flex-row">
             <Input
               type="email"
+              inputMode="email"
               placeholder="Enter email to invite..."
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="flex-1 h-10 bg-white/[0.03] border-white/[0.08] text-white"
+              className="flex-1 h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
             />
-            <Button onClick={handleSendInvite} className="h-10 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] w-full sm:w-auto">
+            <Select
+              value={inviteRole}
+              onValueChange={(value) =>
+                setInviteRole(value as 'admin' | 'member' | 'viewer')
+              }
+            >
+              <SelectTrigger className="h-11 min-h-[44px] bg-white/[0.03] border-white/[0.08] text-base text-white sm:w-40">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleSendInvite}
+              disabled={inviteSending}
+              className="min-h-[44px] h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] w-full sm:w-auto"
+            >
               <Mail className="w-4 h-4 mr-2" />
-              Send Invite
+              {inviteSending ? 'Sending...' : 'Send Invite'}
             </Button>
           </div>
 
           {/* Team Members List */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-medium">
-                  {settings.firstName.charAt(0)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-white">{settings.firstName} {settings.lastName}</span>
-                    <span className="text-xs text-slate-500">(You)</span>
+            {teamLoading ? (
+              <>
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </>
+            ) : teamError ? (
+              <p className="text-sm text-red-400">{teamError}</p>
+            ) : teamMembers.length === 0 ? (
+              <p className="text-sm text-slate-400">No team members found</p>
+            ) : (
+              teamMembers.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/80 to-cyan-400/80 flex items-center justify-center text-white text-sm font-medium">
+                      {getInitial(member.name, member.email)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-white">{member.name}</span>
+                        {member.isCurrentUser && (
+                          <span className="text-xs text-slate-500">(You)</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-400">{member.email}</div>
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-400">{settings.email}</div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-3 py-1 rounded-md text-xs border ${
+                        roleStyles[member.role] || roleStyles.member
+                      }`}
+                    >
+                      {formatLabel(member.role)}
+                    </span>
+                    <span
+                      className={`px-3 py-1 rounded-md text-xs border ${
+                        statusStyles[member.status] || statusStyles.active
+                      }`}
+                    >
+                      {formatLabel(member.status)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-md text-xs border border-primary/20">
-                <Shield className="w-3 h-3" />
-                Admin
-              </div>
-            </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -402,7 +762,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <input 
                   type="checkbox" 
                   className="sr-only peer" 
-                  checked={settings.notifications.campaignUpdates}
+                  checked={notificationSettings.campaignUpdates}
                   onChange={() => toggleNotification('campaignUpdates')}
                 />
                 <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ color: 'rgba(76, 72, 72, 1)', backgroundColor: 'var(--color-slate-800)' }}></div>
@@ -418,7 +778,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <input 
                   type="checkbox" 
                   className="sr-only peer" 
-                  checked={settings.notifications.performanceAlerts}
+                  checked={notificationSettings.performanceAlerts}
                   onChange={() => toggleNotification('performanceAlerts')}
                 />
                 <div className="w-11 h-6 bg-white/[0.08] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ color: 'rgba(76, 72, 72, 1)', backgroundColor: 'var(--color-slate-800)' }}></div>
@@ -434,7 +794,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <input 
                   type="checkbox" 
                   className="sr-only peer" 
-                  checked={settings.notifications.teamMentions}
+                  checked={notificationSettings.teamMentions}
                   onChange={() => toggleNotification('teamMentions')}
                 />
                 <div className="w-11 h-6 bg-[rgba(67,66,66,1)] peer-focus:outline-none rounded-[40px] peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ backgroundColor: 'var(--color-slate-800)' }}></div>
@@ -450,7 +810,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <input 
                   type="checkbox" 
                   className="sr-only peer" 
-                  checked={settings.notifications.weeklyReports}
+                  checked={notificationSettings.weeklyReports}
                   onChange={() => toggleNotification('weeklyReports')}
                 />
                 <div className="w-11 h-6 bg-white/[0.08] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ color: 'rgba(76, 72, 72, 1)', backgroundColor: 'var(--color-slate-800)' }}></div>
@@ -496,61 +856,6 @@ export function Settings({ onNavigate }: SettingsProps) {
         </CardContent>
       </Card>
 
-      {/* API Keys */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <Key className="w-5 h-5 text-purple-400" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-white">API Keys</h3>
-              <p className="text-sm text-slate-400">Manage API keys for custom integrations</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Production API Key</label>
-              <div className="flex gap-3 flex-col sm:flex-row">
-                <Input
-                  type={showApiKey ? 'text' : 'password'}
-                  value={settings.apiKey}
-                  readOnly
-                  className="flex-1 h-10 bg-white/[0.03] border-white/[0.08] text-white font-mono text-sm"
-                />
-                <Button
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  variant="outline"
-                  className="h-10 px-4 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-                >
-                  {showApiKey ? 'Hide' : 'Reveal'}
-                </Button>
-                <Button
-                  onClick={copyApiKey}
-                  variant="outline"
-                  className="h-10 px-4 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-                >
-                  {apiKeyCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                  {apiKeyCopied ? 'Copied!' : 'Copy'}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex gap-3 flex-col sm:flex-row">
-              <Button onClick={generateNewApiKey} className="h-9 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)]">
-                Generate New Key
-              </Button>
-              <Button
-                variant="outline"
-                className="h-9 px-4 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-              >
-                View API Docs
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

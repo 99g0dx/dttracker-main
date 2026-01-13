@@ -4,9 +4,11 @@ import type {
   CampaignInsert,
   CampaignUpdate,
   CampaignWithStats,
+  CampaignWithSubcampaigns,
   ApiResponse,
   ApiListResponse,
 } from '../types/database';
+import { getSubcampaigns } from './subcampaigns';
 
 /**
  * Fetch all campaigns for the current user's workspace with aggregated stats
@@ -19,7 +21,8 @@ export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
     }
 
     // RLS automatically filters campaigns by workspace
-    // No need to manually filter - the policy handles it!
+    // Fetch campaigns with posts count and aggregated metrics
+    // Use nested queries as they were working before
     const { data: campaigns, error } = await supabase
       .from('campaigns')
       .select(`
@@ -30,28 +33,78 @@ export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
           comments,
           shares,
           engagement_rate
-        )
+        ),
+        subcampaigns:campaigns!parent_campaign_id(count)
       `)
+      .eq('user_id', user.id)
+      .is('parent_campaign_id', null)
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Error fetching campaigns:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      
+      // Provide more helpful error messages
+      if (error.message?.includes('permission') || error.message?.includes('policy') || error.message?.includes('row-level security')) {
+        return { 
+          data: null, 
+          error: new Error(
+            `Permission denied: ${error.message}. ` +
+            'This usually means RLS policies are missing or incorrect. ' +
+            'Please check that RLS policies in database/schema.sql were created successfully.'
+          ) 
+        };
+      }
+      if (error.message?.includes('does not exist') || error.message?.includes('schema') || error.message?.includes('schema cache')) {
+        return { 
+          data: null, 
+          error: new Error(
+            'Database table not found. Run database/schema.sql in Supabase SQL Editor. See DATABASE_SETUP_FIX.md for step-by-step instructions.'
+          ) 
+        };
+      }
       return { data: null, error };
     }
 
+    // Log for debugging
+    console.log('Campaigns query result:', {
+      user_id: user.id,
+      campaigns_count: campaigns?.length || 0,
+      campaigns: campaigns?.map(c => ({ id: c.id, name: c.name })) || []
+    });
+    
+    if (!campaigns || campaigns.length === 0) {
+      console.log('No campaigns found for user:', user.id);
+    } else {
+      console.log(`Found ${campaigns.length} campaign(s) for user:`, user.id);
+    }
+
     // Transform data to include computed stats
+    // Handle cases where nested queries might return null or error
     const campaignsWithStats: CampaignWithStats[] = (campaigns || []).map((campaign: any) => {
-      const posts = campaign.posts || [];
+      // Safely handle posts - might be null if query failed
+      const posts = Array.isArray(campaign.posts) ? campaign.posts : [];
       const posts_count = posts.length;
-      const total_views = posts.reduce((sum: number, p: any) => sum + (p.views || 0), 0);
-      const total_likes = posts.reduce((sum: number, p: any) => sum + (p.likes || 0), 0);
-      const total_comments = posts.reduce((sum: number, p: any) => sum + (p.comments || 0), 0);
-      const total_shares = posts.reduce((sum: number, p: any) => sum + (p.shares || 0), 0);
+      const total_views = posts.reduce((sum: number, p: any) => sum + (Number(p?.views) || 0), 0);
+      const total_likes = posts.reduce((sum: number, p: any) => sum + (Number(p?.likes) || 0), 0);
+      const total_comments = posts.reduce((sum: number, p: any) => sum + (Number(p?.comments) || 0), 0);
+      const total_shares = posts.reduce((sum: number, p: any) => sum + (Number(p?.shares) || 0), 0);
       const avg_engagement_rate = posts_count > 0
-        ? posts.reduce((sum: number, p: any) => sum + (p.engagement_rate || 0), 0) / posts_count
+        ? posts.reduce((sum: number, p: any) => sum + (Number(p?.engagement_rate) || 0), 0) / posts_count
+        : 0;
+      
+      // Safely handle subcampaigns count
+      const subcampaigns_count = Array.isArray(campaign.subcampaigns) && campaign.subcampaigns.length > 0
+        ? (campaign.subcampaigns[0]?.count ?? 0)
         : 0;
 
-      // Remove posts from response, only keep stats
-      const { posts: _, ...campaignData } = campaign;
+      // Remove posts and subcampaigns from response, only keep stats
+      const { posts: _, subcampaigns: __, ...campaignData } = campaign;
 
       return {
         ...campaignData,
@@ -61,6 +114,7 @@ export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
         total_comments,
         total_shares,
         avg_engagement_rate: Number(avg_engagement_rate.toFixed(2)),
+        subcampaigns_count,
       };
     });
 
@@ -93,6 +147,44 @@ export async function getById(id: string): Promise<ApiResponse<Campaign>> {
 }
 
 /**
+ * Fetch a campaign with subcampaigns and hierarchy flags
+ */
+export async function getWithSubcampaigns(
+  id: string
+): Promise<ApiResponse<CampaignWithSubcampaigns>> {
+  try {
+    const { data: campaign, error } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !campaign) {
+      return { data: null, error: error || new Error('Campaign not found') };
+    }
+
+    const subcampaignsResult = await getSubcampaigns(id);
+    if (subcampaignsResult.error) {
+      return { data: null, error: subcampaignsResult.error };
+    }
+
+    const subcampaigns = subcampaignsResult.data || [];
+
+    return {
+      data: {
+        ...campaign,
+        subcampaigns,
+        is_parent: subcampaigns.length > 0,
+        is_subcampaign: !!campaign.parent_campaign_id,
+      },
+      error: null,
+    };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
  * Create a new campaign in the user's workspace
  */
 export async function create(campaign: CampaignInsert): Promise<ApiResponse<Campaign>> {
@@ -102,21 +194,7 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Get user's workspace_id from team_members
-    const { data: memberData, error: memberError } = await supabase
-      .from('team_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (memberError || !memberData) {
-      return { 
-        data: null, 
-        error: new Error('User is not part of any workspace. Please contact support.') 
-      };
-    }
-
-    // Create campaign with workspace_id
+    // Create campaign (RLS policy will check user_id = auth.uid())
     const { data, error } = await supabase
       .from('campaigns')
       .insert({
@@ -246,20 +324,6 @@ export async function duplicate(id: string): Promise<ApiResponse<Campaign>> {
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Get user's workspace_id
-    const { data: memberData, error: memberError } = await supabase
-      .from('team_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (memberError || !memberData) {
-      return { 
-        data: null, 
-        error: new Error('User is not part of any workspace.') 
-      };
-    }
-
     // Fetch original campaign (RLS checks access automatically)
     const { data: original, error: fetchError } = await supabase
       .from('campaigns')
@@ -271,15 +335,15 @@ export async function duplicate(id: string): Promise<ApiResponse<Campaign>> {
       return { data: null, error: fetchError || new Error('Campaign not found') };
     }
 
-    // Create duplicate with workspace_id
+    // Create duplicate (RLS policy will check user_id = auth.uid())
     const { data: duplicate, error: createError } = await supabase
       .from('campaigns')
       .insert({
         user_id: user.id,
-        workspace_id: memberData.workspace_id, // Add workspace_id
         name: `${original.name} (Copy)`,
         brand_name: original.brand_name,
         cover_image_url: original.cover_image_url,
+        parent_campaign_id: original.parent_campaign_id || null,
         status: 'active', // Reset to active
         start_date: original.start_date,
         end_date: original.end_date,
