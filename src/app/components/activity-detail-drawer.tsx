@@ -3,6 +3,11 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { X, Edit2, Trash2, MessageSquare, Clock, Link2, Users, CheckCircle2 } from 'lucide-react';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 import { format, parseISO } from 'date-fns';
 
 interface ActivityDetailDrawerProps {
@@ -260,7 +265,28 @@ export function ActivityDetailDrawer({
                         </div>
                         <div>
                           <div className="text-sm font-medium text-white">{creator.name}</div>
-                          <div className="text-xs text-slate-500">{creator.platform}</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-2">
+                            {(() => {
+                              const platformIcon = normalizePlatform(creator.platform);
+                              if (!platformIcon) return null;
+                              return (
+                                <>
+                                  <PlatformIcon
+                                    platform={platformIcon}
+                                    size="sm"
+                                    className="sm:hidden"
+                                    aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                  />
+                                  <PlatformIcon
+                                    platform={platformIcon}
+                                    size="md"
+                                    className="hidden sm:flex"
+                                    aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                  />
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
                       {hasPosted && (

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { ResponsiveConfirmDialog } from './ui/responsive-confirm-dialog';
 import {
   ChevronLeft,
   ChevronRight,
@@ -1019,33 +1020,16 @@ export function ActivityScheduler({ onNavigate }: ActivitySchedulerProps) {
       />
 
       {/* Delete Confirmation */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="bg-[#1A1A1A] border-white/[0.08] max-w-md w-full">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">Delete Activity</h3>
-              <p className="text-sm text-slate-400 mb-6">
-                Are you sure you want to delete this activity? This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => handleDeleteActivity(deleteConfirm)}
-                  className="flex-1 h-9 bg-red-500 hover:bg-red-500/90 text-white"
-                >
-                  Delete
-                </Button>
-                <Button
-                  onClick={() => setDeleteConfirm(null)}
-                  variant="outline"
-                  className="flex-1 h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <ResponsiveConfirmDialog
+        open={Boolean(deleteConfirm)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirm(null);
+        }}
+        title="Delete activity?"
+        description="This activity will be deleted. This action cannot be undone."
+        confirmLabel="Delete activity"
+        onConfirm={() => deleteConfirm && handleDeleteActivity(deleteConfirm)}
+      />
     </div>
   );
 }

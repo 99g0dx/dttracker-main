@@ -33,7 +33,7 @@ export const CartSheet = () => {
           creators: cart,
           campaignDetails,
           budget: budget || 'Not specified',
-          agencyEmail: "idrissolomonsu@yahoo.com",
+          agencyEmail: "agency@dobbletap.com",
           userEmail: user.email, 
         },
       });

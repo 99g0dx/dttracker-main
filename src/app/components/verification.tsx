@@ -55,6 +55,7 @@ export function Verification({ onNavigate }: VerificationProps) {
             .eq('user_id', session.user.id)
             .single();
 
+          const authMode = localStorage.getItem('auth_mode');
           if (authMode === 'signup' || !profile || !profile.onboarding_completed) {
             navigate('/onboarding');
           } else {

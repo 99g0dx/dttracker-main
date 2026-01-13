@@ -1,0 +1,2272 @@
+diff --git a/src/app/App.tsx b/src/app/App.tsx
+index 7401a3f..925bcd6 100644
+--- a/src/app/App.tsx
++++ b/src/app/App.tsx
+@@ -66,7 +66,7 @@ function AppRoutes() {
+ 
+   return (
+     <ToastProvider>
+-      <div className="dark min-h-screen bg-background text-foreground">
++      <div className="dark min-h-screen min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
+         {!isPublicRoute && (
+           <>
+             <Sidebar
+@@ -80,7 +80,7 @@ function AppRoutes() {
+           </>
+         )}
+ 
+-        <main className={isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8"}>
++        <main className={isPublicRoute ? "" : "lg:ml-64 p-2 sm:p-4 md:p-6 lg:p-8 pt-16 sm:pt-20"}>
+           <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
+             <Routes>
+               {/* Public routes */}
+diff --git a/src/app/components/campaign-detail.tsx b/src/app/components/campaign-detail.tsx
+index ece0145..903adb0 100644
+--- a/src/app/components/campaign-detail.tsx
++++ b/src/app/components/campaign-detail.tsx
+@@ -20,6 +20,7 @@ import {
+   MessageCircle,
+   Share2,
+   Users,
++  ChevronDown,
+ } from "lucide-react";
+ import { StatusBadge } from "./status-badge";
+ import { PlatformBadge } from "./platform-badge";
+@@ -85,6 +86,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
+     string | null
+   >(null);
+   const [showShareLinkModal, setShowShareLinkModal] = useState(false);
++  const [showCharts, setShowCharts] = useState(false);
++  const [selectedMetric, setSelectedMetric] = useState<'views' | 'likes' | 'comments'>('views');
+   const [currentPage, setCurrentPage] = useState(1);
+   const [isImporting, setIsImporting] = useState(false);
+   const [importResult, setImportResult] = useState<CSVImportResult | null>(
+@@ -806,10 +809,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+   }
+ 
+   return (
+-    <div className="space-y-6">
++    <div className="space-y-3 sm:space-y-4 md:space-y-6">
+       {/* Header */}
+-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+-        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
++      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 md:gap-4">
++        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto">
+           <button
+             onClick={() => onNavigate("/campaigns")}
+             className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+@@ -817,38 +820,40 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+             <ArrowLeft className="w-4 h-4" />
+           </button>
+           <div className="flex-1 min-w-0">
+-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+-              <div>
+-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white truncate">
+-                  {campaign.name}
+-                </h1>
+-                {campaign.brand_name && (
+-                  <p className="text-sm text-slate-400 mt-1">
++            <div className="flex flex-col gap-1.5 sm:gap-2">
++              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white truncate">
++                {campaign.name}
++              </h1>
++              {campaign.brand_name ? (
++                <div className="flex items-center gap-2 flex-wrap">
++                  <p className="text-sm text-slate-400">
+                     {campaign.brand_name}
+                   </p>
+-                )}
+-              </div>
+-              <StatusBadge status={campaign.status} />
++                  <StatusBadge status={campaign.status} />
++                </div>
++              ) : (
++                <StatusBadge status={campaign.status} />
++              )}
+             </div>
+           </div>
+         </div>
+         {campaign && (
+-          <div className="flex items-center gap-2 w-full sm:w-auto">
++          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+             <button
+               onClick={() => setShowShareLinkModal(true)}
+-              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
++              className="h-7 sm:h-8 px-1.5 sm:px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[10px] sm:text-xs text-slate-300 flex items-center justify-center gap-1 transition-colors whitespace-nowrap"
+             >
+-              <Share2 className="w-4 h-4" />
+-              <span className="hidden sm:inline">Share Link</span>
+-              <span className="sm:hidden">Share</span>
++              <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
++              <span className="hidden md:inline">Share Link</span>
++              <span className="hidden sm:inline md:hidden">Share</span>
+             </button>
+             <button
+               onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
+-              className="h-9 px-3 w-full sm:w-auto rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
++              className="h-7 sm:h-8 px-1.5 sm:px-2 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[10px] sm:text-xs text-slate-300 flex items-center justify-center gap-1 transition-colors whitespace-nowrap"
+             >
+-              <Edit2 className="w-4 h-4" />
+-              <span className="hidden sm:inline">Edit Campaign</span>
+-              <span className="sm:hidden">Edit</span>
++              <Edit2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
++              <span className="hidden md:inline">Edit Campaign</span>
++              <span className="hidden sm:inline md:hidden">Edit</span>
+             </button>
+           </div>
+         )}
+@@ -856,7 +861,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+ 
+       {/* Cover Image Hero Section */}
+       {campaign && (
+-        <div className="relative w-full h-52 md:h-64 rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
++        <div className="relative w-full h-32 sm:h-40 md:h-52 lg:h-64 rounded-lg sm:rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
+           {campaign.cover_image_url ? (
+             <>
+               <img
+@@ -901,12 +906,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+           {/* Enhanced gradient overlay for better text readability */}
+           <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
+           {/* Text content with improved spacing and typography */}
+-          <div className="absolute bottom-6 left-6 right-6">
+-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg">
++          <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6">
++            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-1 sm:mb-2 drop-shadow-lg">
+               {campaign.name}
+             </h2>
+             {campaign.brand_name && (
+-              <p className="text-lg md:text-xl text-white font-semibold drop-shadow-md">
++              <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white font-semibold drop-shadow-md">
+                 {campaign.brand_name}
+               </p>
+             )}
+@@ -915,15 +920,15 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+       )}
+ 
+       {/* KPI Cards - Performance Metrics */}
+-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
++      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+         <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-5">
+-            <div className="flex items-start justify-between mb-3">
+-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+-                <Eye className="w-5 h-5 text-primary" />
++          <CardContent className="p-3 sm:p-4 md:p-5">
++            <div className="flex items-start justify-between mb-2 sm:mb-3">
++              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
++                <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+               </div>
+             </div>
+-            <div className="text-2xl font-semibold text-white mb-1">
++            <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+               {(metrics?.total_views ?? 0).toLocaleString()}
+             </div>
+             <p className="text-sm text-slate-400">Total Views</p>
+@@ -931,13 +936,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+         </Card>
+ 
+         <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-5">
+-            <div className="flex items-start justify-between mb-3">
+-              <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+-                <Heart className="w-5 h-5 text-pink-400" />
++          <CardContent className="p-3 sm:p-4 md:p-5">
++            <div className="flex items-start justify-between mb-2 sm:mb-3">
++              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
++                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
+               </div>
+             </div>
+-            <div className="text-2xl font-semibold text-white mb-1">
++            <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+               {(metrics?.total_likes ?? 0).toLocaleString()}
+             </div>
+             <p className="text-sm text-slate-400">Total Likes</p>
+@@ -945,13 +950,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+         </Card>
+ 
+         <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-5">
+-            <div className="flex items-start justify-between mb-3">
+-              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+-                <MessageCircle className="w-5 h-5 text-cyan-400" />
++          <CardContent className="p-3 sm:p-4 md:p-5">
++            <div className="flex items-start justify-between mb-2 sm:mb-3">
++              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
++                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+               </div>
+             </div>
+-            <div className="text-2xl font-semibold text-white mb-1">
++            <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+               {(metrics?.total_comments ?? 0).toLocaleString()}
+             </div>
+             <p className="text-sm text-slate-400">Total Comments</p>
+@@ -959,13 +964,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+         </Card>
+ 
+         <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-5">
+-            <div className="flex items-start justify-between mb-3">
+-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+-                <Share2 className="w-5 h-5 text-purple-400" />
++          <CardContent className="p-3 sm:p-4 md:p-5">
++            <div className="flex items-start justify-between mb-2 sm:mb-3">
++              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
++                <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+               </div>
+             </div>
+-            <div className="text-2xl font-semibold text-white mb-1">
++            <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+               {(metrics?.total_shares ?? 0).toLocaleString()}
+             </div>
+             <p className="text-sm text-slate-400">Total Shares</p>
+@@ -974,17 +979,144 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+       </div>
+ 
+       {/* Performance Charts */}
+-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+-        {/* Views Over Time */}
+-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-6">
+-            <div className="mb-4">
+-              <h3 className="text-base font-semibold text-white">
+-                Views Over Time
+-              </h3>
+-              <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+-            </div>
+-            <ResponsiveContainer width="100%" height={220}>
++      <div className="space-y-3 sm:space-y-4 md:space-y-6">
++        {/* Mobile Collapsible Button */}
++        <button
++          onClick={() => setShowCharts(!showCharts)}
++          className="lg:hidden w-full flex items-center justify-between p-3 rounded-lg bg-[#0D0D0D] border border-white/[0.08] text-white hover:bg-white/[0.03] transition-colors"
++        >
++          <span className="text-sm font-medium">Performance Charts</span>
++          <ChevronDown className={`w-4 h-4 transition-transform ${showCharts ? 'rotate-180' : ''}`} />
++        </button>
++        
++        {/* Charts - Collapsible on mobile, always visible on desktop */}
++        <div className={`${showCharts ? 'block' : 'hidden'} lg:block`}>
++          {/* Mobile Unified Chart */}
++          <div className="lg:hidden mb-3 sm:mb-4">
++            <Card className="bg-[#0D0D0D] border-white/[0.08]">
++              <CardContent className="p-4 sm:p-6">
++                <div className="mb-3 sm:mb-4">
++                  <h3 className="text-sm sm:text-base font-semibold text-white">
++                    {selectedMetric === 'views' && 'Views Over Time'}
++                    {selectedMetric === 'likes' && 'Likes Over Time'}
++                    {selectedMetric === 'comments' && 'Comments Over Time'}
++                  </h3>
++                  <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
++                    {selectedMetric === 'comments' ? 'Last 14 days' : 'Historical data'}
++                  </p>
++                </div>
++                
++                {/* Metric Selector */}
++                <div className="flex items-center gap-1.5 mb-3 sm:mb-4">
++                  <button
++                    onClick={() => setSelectedMetric('views')}
++                    className={`flex-1 h-8 px-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
++                      selectedMetric === 'views'
++                        ? 'bg-primary/20 border border-primary/30 text-primary'
++                        : 'bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
++                    }`}
++                  >
++                    Views
++                  </button>
++                  <button
++                    onClick={() => setSelectedMetric('likes')}
++                    className={`flex-1 h-8 px-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
++                      selectedMetric === 'likes'
++                        ? 'bg-primary/20 border border-primary/30 text-primary'
++                        : 'bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
++                    }`}
++                  >
++                    Likes
++                  </button>
++                  <button
++                    onClick={() => setSelectedMetric('comments')}
++                    className={`flex-1 h-8 px-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
++                      selectedMetric === 'comments'
++                        ? 'bg-primary/20 border border-primary/30 text-primary'
++                        : 'bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
++                    }`}
++                  >
++                    Comments
++                  </button>
++                </div>
++
++                {/* Unified Chart */}
++                <ResponsiveContainer width="100%" height={200}>
++                  <LineChart data={formattedChartData}>
++                    <CartesianGrid
++                      strokeDasharray="3 3"
++                      stroke="#ffffff08"
++                      vertical={false}
++                    />
++                    <XAxis
++                      dataKey="date"
++                      stroke="#64748b"
++                      fontSize={10}
++                      tickLine={false}
++                      axisLine={{ stroke: "#ffffff08" }}
++                    />
++                    <YAxis
++                      stroke="#64748b"
++                      fontSize={10}
++                      tickLine={false}
++                      axisLine={false}
++                      tickFormatter={(value) =>
++                        value >= 1000 ? `${value / 1000}K` : value
++                      }
++                    />
++                    <Tooltip
++                      contentStyle={{
++                        backgroundColor: "#0D0D0D",
++                        border: "1px solid rgba(255,255,255,0.08)",
++                        borderRadius: "8px",
++                        fontSize: "11px",
++                      }}
++                    />
++                    {selectedMetric === 'views' && (
++                      <Line
++                        type="monotone"
++                        dataKey="views"
++                        stroke="#0ea5e9"
++                        strokeWidth={2}
++                        dot={false}
++                      />
++                    )}
++                    {selectedMetric === 'likes' && (
++                      <Line
++                        type="monotone"
++                        dataKey="likes"
++                        stroke="#ec4899"
++                        strokeWidth={2}
++                        dot={false}
++                      />
++                    )}
++                    {selectedMetric === 'comments' && (
++                      <Line
++                        type="monotone"
++                        dataKey="comments"
++                        stroke="#06b6d4"
++                        strokeWidth={2}
++                        dot={false}
++                      />
++                    )}
++                  </LineChart>
++                </ResponsiveContainer>
++              </CardContent>
++            </Card>
++          </div>
++
++          {/* Desktop Grid - Hidden on mobile */}
++          <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
++            {/* Views Over Time */}
++            <Card className="bg-[#0D0D0D] border-white/[0.08]">
++              <CardContent className="p-4 sm:p-6">
++                <div className="mb-3 sm:mb-4">
++                  <h3 className="text-base font-semibold text-white">
++                    Views Over Time
++                  </h3>
++                  <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
++                </div>
++                <ResponsiveContainer width="100%" height={180}>
+               <LineChart data={formattedChartData}>
+                 <CartesianGrid
+                   strokeDasharray="3 3"
+@@ -1027,16 +1159,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+           </CardContent>
+         </Card>
+ 
+-        {/* Likes Over Time */}
+-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-6">
+-            <div className="mb-4">
+-              <h3 className="text-base font-semibold text-white">
+-                Likes Over Time
+-              </h3>
+-              <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
+-            </div>
+-            <ResponsiveContainer width="100%" height={220}>
++            {/* Likes Over Time */}
++            <Card className="bg-[#0D0D0D] border-white/[0.08]">
++              <CardContent className="p-4 sm:p-6">
++                <div className="mb-3 sm:mb-4">
++                  <h3 className="text-base font-semibold text-white">
++                    Likes Over Time
++                  </h3>
++                  <p className="text-sm text-slate-400 mt-0.5">Historical data</p>
++                </div>
++                <ResponsiveContainer width="100%" height={180}>
+               <LineChart data={formattedChartData}>
+                 <CartesianGrid
+                   strokeDasharray="3 3"
+@@ -1079,16 +1211,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+           </CardContent>
+         </Card>
+ 
+-        {/* Comments Over Time */}
+-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-6">
+-            <div className="mb-4">
+-              <h3 className="text-base font-semibold text-white">
+-                Comments Over Time
+-              </h3>
+-              <p className="text-sm text-slate-400 mt-0.5">Last 14 days</p>
+-            </div>
+-            <ResponsiveContainer width="100%" height={220}>
++            {/* Comments Over Time */}
++            <Card className="bg-[#0D0D0D] border-white/[0.08]">
++              <CardContent className="p-4 sm:p-6">
++                <div className="mb-3 sm:mb-4">
++                  <h3 className="text-base font-semibold text-white">
++                    Comments Over Time
++                  </h3>
++                  <p className="text-sm text-slate-400 mt-0.5">Last 14 days</p>
++                </div>
++                <ResponsiveContainer width="100%" height={180}>
+               <LineChart data={formattedChartData}>
+                 <CartesianGrid
+                   strokeDasharray="3 3"
+@@ -1131,16 +1263,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+           </CardContent>
+         </Card>
+ 
+-        {/* Shares Over Time */}
+-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="p-6">
+-            <div className="mb-4">
+-              <h3 className="text-base font-semibold text-white">
+-                Shares Over Time
+-              </h3>
+-              <p className="text-sm text-slate-400 mt-0.5">Last 14 days</p>
+-            </div>
+-            <ResponsiveContainer width="100%" height={220}>
++            {/* Shares Over Time */}
++            <Card className="bg-[#0D0D0D] border-white/[0.08]">
++              <CardContent className="p-4 sm:p-6">
++                <div className="mb-3 sm:mb-4">
++                  <h3 className="text-base font-semibold text-white">
++                    Shares Over Time
++                  </h3>
++                  <p className="text-sm text-slate-400 mt-0.5">Last 14 days</p>
++                </div>
++                <ResponsiveContainer width="100%" height={180}>
+               <LineChart data={formattedChartData}>
+                 <CartesianGrid
+                   strokeDasharray="3 3"
+@@ -1180,8 +1312,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                 />
+               </LineChart>
+             </ResponsiveContainer>
+-          </CardContent>
+-        </Card>
++              </CardContent>
++            </Card>
++          </div>
++        </div>
+       </div>
+ 
+       {/* Creators Section */}
+@@ -1257,7 +1391,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                           </span>
+                         </div>
+                       </div>
+-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
++                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                         {group.creators.map((creator) => {
+                           const creatorPosts = posts.filter(
+                             (p) => p.creator_id === creator.id
+@@ -1340,103 +1474,115 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+       {/* Posts Table */}
+       <Card className="bg-[#0D0D0D] border-white/[0.08]">
+         <CardContent className="p-0">
+-          <div className="p-6 border-b border-white/[0.08]">
+-            <div className="flex items-center justify-between mb-4">
++          <div className="p-3 sm:p-4 md:p-6 border-b border-white/[0.08]">
++            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-4">
+               <div>
+-                <h3 className="text-base font-semibold text-white">Posts</h3>
+-                <p className="text-sm text-slate-400 mt-0.5">
++                <h3 className="text-sm sm:text-base font-semibold text-white">Posts</h3>
++                <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+                   Track creator posts and performance
+                 </p>
+               </div>
+-              <div className="flex items-center gap-3">
++              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 w-full sm:w-auto">
+                 <button
+                   onClick={() => setShowScrapeAllDialog(true)}
+                   disabled={posts.length === 0}
+-                  className="h-9 px-3 rounded-md bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
++                  className="h-7 sm:h-8 md:h-9 px-1.5 sm:px-2 md:px-3 rounded-md bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                 >
+-                  <RefreshCw className="w-4 h-4" />
+-                  Scrape All Posts
++                  <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
++                  <span className="hidden sm:inline">Scrape All Posts</span>
++                  <span className="sm:hidden">Scrape</span>
+                 </button>
+                 <button
+                   onClick={handleExportCSV}
+                   disabled={posts.length === 0}
+-                  className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
++                  className="h-7 sm:h-8 md:h-9 px-1.5 sm:px-2 md:px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[10px] sm:text-xs md:text-sm text-slate-300 flex items-center gap-1 sm:gap-1.5 md:gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                 >
+-                  <Download className="w-4 h-4" />
+-                  Export CSV
++                  <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
++                  <span className="hidden sm:inline">Export CSV</span>
++                  <span className="sm:hidden">Export</span>
+                 </button>
+                 <button
+                   onClick={() => setShowDeleteAllDialog(true)}
+                   disabled={posts.length === 0}
+-                  className="h-9 px-3 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
++                  className="h-7 sm:h-8 md:h-9 px-1.5 sm:px-2 md:px-3 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                 >
+-                  <Trash2 className="w-4 h-4" />
+-                  Delete All Posts
++                  <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
++                  <span className="hidden sm:inline">Delete All Posts</span>
++                  <span className="sm:hidden">Delete</span>
+                 </button>
+               </div>
+             </div>
+-            <div className="flex items-center gap-3">
+-              <button
+-                onClick={() => setShowTopPerformers(!showTopPerformers)}
+-                className={`h-9 px-3 rounded-md border text-sm font-medium flex items-center gap-2 transition-colors ${
+-                  showTopPerformers
+-                    ? "bg-primary/20 border-primary/30 text-primary"
+-                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+-                }`}
+-              >
+-                {showTopPerformers ? "All Posts" : "Top Performers"}
+-              </button>
+-              <Select
+-                value={sortBy}
+-                onValueChange={(
+-                  value: "score" | "views" | "engagement" | "latest"
+-                ) => setSortBy(value)}
+-              >
+-                <SelectTrigger className="h-9 w-[160px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
+-                  <SelectValue placeholder="Sort by" />
+-                </SelectTrigger>
+-                <SelectContent>
+-                  <SelectItem value="score">Sort by: Score</SelectItem>
+-                  <SelectItem value="views">Sort by: Views</SelectItem>
+-                  <SelectItem value="engagement">
+-                    Sort by: Engagement
+-                  </SelectItem>
+-                  <SelectItem value="latest">Sort by: Latest</SelectItem>
+-                </SelectContent>
+-              </Select>
+-              <div className="relative flex-1">
+-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+-                <input
+-                  type="text"
+-                  placeholder="Search posts..."
+-                  value={searchQuery}
+-                  onChange={(e) => setSearchQuery(e.target.value)}
+-                  className="h-9 w-full pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
+-                />
+-              </div>
+-              <div className="relative group">
++            <div className="flex flex-col gap-2 sm:gap-3">
++              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3">
+                 <button
+-                  onClick={handleImportCreators}
+-                  className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
++                  onClick={() => setShowTopPerformers(!showTopPerformers)}
++                  className={`h-7 sm:h-8 md:h-9 px-1.5 sm:px-2 md:px-3 rounded-md border text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2 transition-colors whitespace-nowrap ${
++                    showTopPerformers
++                      ? "bg-primary/20 border-primary/30 text-primary"
++                      : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
++                  }`}
+                 >
+-                  <Upload className="w-4 h-4" />
+-                  Import Creators
++                  {showTopPerformers ? "All Posts" : "Top Performers"}
+                 </button>
++                <Select
++                  value={sortBy}
++                  onValueChange={(
++                    value: "score" | "views" | "engagement" | "latest"
++                  ) => setSortBy(value)}
++                >
++                  <SelectTrigger className="h-7 sm:h-8 md:h-9 w-full sm:w-[140px] md:w-[160px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-[10px] sm:text-xs md:text-sm">
++                    <SelectValue placeholder="Sort by" />
++                  </SelectTrigger>
++                  <SelectContent>
++                    <SelectItem value="score">Sort by: Score</SelectItem>
++                    <SelectItem value="views">Sort by: Views</SelectItem>
++                    <SelectItem value="engagement">
++                      Sort by: Engagement
++                    </SelectItem>
++                    <SelectItem value="latest">Sort by: Latest</SelectItem>
++                  </SelectContent>
++                </Select>
++              </div>
++              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
++                <div className="relative w-full sm:flex-1 min-w-0">
++                  <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
++                  <input
++                    type="text"
++                    placeholder="Search posts..."
++                    value={searchQuery}
++                    onChange={(e) => setSearchQuery(e.target.value)}
++                    className="h-7 sm:h-8 md:h-9 w-full pl-8 sm:pl-9 pr-2 sm:pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-[10px] sm:text-xs md:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
++                  />
++                </div>
++                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3">
++                  <div className="relative group">
++                    <button
++                      onClick={handleImportCreators}
++                      className="h-7 sm:h-8 md:h-9 px-1.5 sm:px-2 md:px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[10px] sm:text-xs md:text-sm text-slate-300 flex items-center gap-1 sm:gap-1.5 md:gap-2 transition-colors whitespace-nowrap"
++                    >
++                      <Upload className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
++                      <span className="hidden sm:inline">Import Creators</span>
++                      <span className="sm:hidden">Import</span>
++                    </button>
++                  </div>
++                  <button
++                    onClick={handleImportPosts}
++                    className="h-7 sm:h-8 md:h-9 px-1.5 sm:px-2 md:px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-[10px] sm:text-xs md:text-sm text-slate-300 flex items-center gap-1 sm:gap-1.5 md:gap-2 transition-colors whitespace-nowrap"
++                  >
++                    <Upload className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
++                    <span className="hidden sm:inline">Import Posts CSV</span>
++                    <span className="sm:hidden">Import CSV</span>
++                  </button>
++                  <button
++                    onClick={() => setShowAddPostDialog(true)}
++                    className="h-7 sm:h-8 md:h-9 px-1.5 sm:px-2 md:px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2 rounded-md transition-colors whitespace-nowrap"
++                  >
++                    <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
++                    <span className="hidden sm:inline">Add Post</span>
++                    <span className="sm:hidden">Add</span>
++                  </button>
++                </div>
+               </div>
+-              <button
+-                onClick={handleImportPosts}
+-                className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+-              >
+-                <Upload className="w-4 h-4" />
+-                Import Posts CSV
+-              </button>
+-              <button
+-                onClick={() => setShowAddPostDialog(true)}
+-                className="h-9 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-medium flex items-center gap-2 rounded-md transition-colors"
+-              >
+-                <Plus className="w-4 h-4" />
+-                Add Post
+-              </button>
+             </div>
+           </div>
+ 
+@@ -1452,31 +1598,31 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                 <table className="w-full">
+                   <thead>
+                     <tr className="border-b border-white/[0.08]">
+-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-left text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Creator
+                       </th>
+-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-left text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Platform
+                       </th>
+-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-left text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Post URL
+                       </th>
+-                      <th className="text-left text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-left text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Status
+                       </th>
+-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-right text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Views
+                       </th>
+-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-right text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Likes
+                       </th>
+-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-right text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Comments
+                       </th>
+-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3">
++                      <th className="text-right text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3">
+                         Engagement
+                       </th>
+-                      <th className="text-right text-xs font-medium text-slate-400 px-6 py-3"></th>
++                      <th className="text-right text-[10px] sm:text-xs font-medium text-slate-400 px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3"></th>
+                     </tr>
+                   </thead>
+                   <tbody>
+@@ -1486,10 +1632,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                         <tr>
+                           <td
+                             colSpan={9}
+-                            className="px-6 py-3 bg-primary/5 border-b border-primary/20"
++                            className="px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-primary/5 border-b border-primary/20"
+                           >
+-                            <div className="flex items-center gap-2">
+-                              <span className="text-xs font-semibold text-primary">
++                            <div className="flex items-center gap-1.5 sm:gap-2">
++                              <span className="text-[10px] sm:text-xs font-semibold text-primary">
+                                 Top Performing
+                               </span>
+                               <div className="flex-1 h-px bg-primary/20"></div>
+@@ -1512,17 +1658,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                                 isTop5 ? "border-l-2 border-l-primary/30" : ""
+                               }`}
+                             >
+-                              <td className="px-6 py-4">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                                 <div>
+-                                  <div className="font-medium text-sm text-white">
++                                  <div className="font-medium text-xs sm:text-sm text-white">
+                                     {post.creator?.name || "Unknown"}
+                                   </div>
+-                                  <div className="text-xs text-slate-500">
++                                  <div className="text-[10px] sm:text-xs text-slate-500">
+                                     @{post.creator?.handle || "unknown"}
+                                   </div>
+                                 </div>
+                               </td>
+-                              <td className="px-6 py-4">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                                 <div className="flex items-center gap-2">
+                                   <PlatformBadge platform={post.platform} />
+                                   {!isKpiPlatform(post.platform) && (
+@@ -1532,25 +1678,25 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                                   )}
+                                 </div>
+                               </td>
+-                              <td className="px-6 py-4">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                                 {post.post_url ? (
+                                   <a
+                                     href={post.post_url}
+                                     target="_blank"
+                                     rel="noopener noreferrer"
+-                                    className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
++                                    className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-primary hover:text-primary/80"
+                                   >
+                                     <ExternalLink className="w-3 h-3" />
+                                     View Post
+                                   </a>
+                                 ) : (
+-                                  <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
+-                                    <LinkIcon className="w-3 h-3" />
++                                  <button className="text-[10px] sm:text-xs text-slate-400 hover:text-primary flex items-center gap-1">
++                                    <LinkIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                     Add Link
+                                   </button>
+                                 )}
+                               </td>
+-                              <td className="px-6 py-4">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                                 <div className="flex items-center gap-2">
+                                   <StatusBadge status={post.status} />
+                                   {post.positionEmoji && (
+@@ -1563,22 +1709,22 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                                   )}
+                                 </div>
+                               </td>
+-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right text-xs sm:text-sm text-slate-300">
+                                 {post.views && post.views > 0
+                                   ? post.views.toLocaleString()
+                                   : "-"}
+                               </td>
+-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right text-xs sm:text-sm text-slate-300">
+                                 {post.likes && post.likes > 0
+                                   ? post.likes.toLocaleString()
+                                   : "-"}
+                               </td>
+-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right text-xs sm:text-sm text-slate-300">
+                                 {post.comments && post.comments > 0
+                                   ? post.comments.toLocaleString()
+                                   : "-"}
+                               </td>
+-                              <td className="px-6 py-4 text-right">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right">
+                                 {post.engagement_rate &&
+                                 post.engagement_rate > 0 ? (
+                                   <span className="text-sm text-emerald-400 font-medium">
+@@ -1590,7 +1736,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                                   </span>
+                                 )}
+                               </td>
+-                              <td className="px-6 py-4 text-right">
++                              <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right">
+                                 <div className="flex items-center justify-end gap-1">
+                                   {post.post_url && (
+                                     <button
+@@ -1641,7 +1787,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                           <tr>
+                             <td
+                               colSpan={9}
+-                              className="px-6 py-2 border-b border-white/[0.08]"
++                              className="px-2 sm:px-4 md:px-6 py-1.5 sm:py-2 border-b border-white/[0.08]"
+                             >
+                               <div className="h-px"></div>
+                             </td>
+@@ -1661,7 +1807,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                               : "hover:bg-white/[0.02]"
+                           }`}
+                         >
+-                          <td className="px-6 py-4">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                             <div>
+                               <div className="font-medium text-sm text-white">
+                                 {post.creator?.name || "Unknown"}
+@@ -1671,7 +1817,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                               </div>
+                             </div>
+                           </td>
+-                          <td className="px-6 py-4">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                             <div className="flex items-center gap-2">
+                               <PlatformBadge platform={post.platform} />
+                               {!isKpiPlatform(post.platform) && (
+@@ -1681,7 +1827,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                               )}
+                             </div>
+                           </td>
+-                          <td className="px-6 py-4">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                             {post.post_url ? (
+                               <a
+                                 href={post.post_url}
+@@ -1699,7 +1845,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                               </button>
+                             )}
+                           </td>
+-                          <td className="px-6 py-4">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+                             <div className="flex items-center gap-2">
+                               <StatusBadge status={post.status} />
+                               {post.positionEmoji && (
+@@ -1712,22 +1858,22 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                               )}
+                             </div>
+                           </td>
+-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right text-xs sm:text-sm text-slate-300">
+                             {post.views && post.views > 0
+                               ? post.views.toLocaleString()
+                               : "-"}
+                           </td>
+-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right text-xs sm:text-sm text-slate-300">
+                             {post.likes && post.likes > 0
+                               ? post.likes.toLocaleString()
+                               : "-"}
+                           </td>
+-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right text-xs sm:text-sm text-slate-300">
+                             {post.comments && post.comments > 0
+                               ? post.comments.toLocaleString()
+                               : "-"}
+                           </td>
+-                          <td className="px-6 py-4 text-right">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right">
+                             {post.engagement_rate &&
+                             post.engagement_rate > 0 ? (
+                               <span className="text-sm text-emerald-400 font-medium">
+@@ -1737,7 +1883,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                               <span className="text-sm text-slate-500">-</span>
+                             )}
+                           </td>
+-                          <td className="px-6 py-4 text-right">
++                          <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-right">
+                             <div className="flex items-center justify-end gap-1">
+                               {post.post_url && (
+                                 <button
+@@ -1788,8 +1934,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+ 
+               {/* Pagination */}
+               {totalPages > 1 && (
+-                <div className="p-4 border-t border-white/[0.08] flex items-center justify-between">
+-                  <p className="text-sm text-slate-400">
++                <div className="p-3 sm:p-4 border-t border-white/[0.08] flex flex-col sm:flex-row items-center sm:items-center sm:justify-between gap-3 sm:gap-0">
++                  <p className="text-xs sm:text-sm text-slate-400 text-center sm:text-left">
+                     {topPosts.length > 0 && !showTopPerformers
+                       ? `${topPosts.length} top posts + `
+                       : ""}
+@@ -1800,21 +1946,21 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                       !showTopPerformers &&
+                       ` (${topPosts.length + remainingPosts.length} total)`}
+                   </p>
+-                  <div className="flex items-center gap-2">
++                  <div className="flex items-center gap-1 sm:gap-2">
+                     <button
+                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                       disabled={currentPage === 1}
+-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
++                      className="h-7 sm:h-8 px-2 sm:px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-xs sm:text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                     >
+                       Previous
+                     </button>
+-                    <div className="flex items-center gap-1">
++                    <div className="flex items-center gap-0.5 sm:gap-1">
+                       {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                         (page) => (
+                           <button
+                             key={page}
+                             onClick={() => setCurrentPage(page)}
+-                            className={`w-8 h-8 rounded-md text-sm transition-colors ${
++                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md text-xs sm:text-sm transition-colors ${
+                               currentPage === page
+                                 ? "bg-primary text-black"
+                                 : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+@@ -1830,7 +1976,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
+                         setCurrentPage((p) => Math.min(totalPages, p + 1))
+                       }
+                       disabled={currentPage === totalPages}
+-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
++                      className="h-7 sm:h-8 px-2 sm:px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-xs sm:text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                     >
+                       Next
+                     </button>
+diff --git a/src/app/components/campaign-share-view.tsx b/src/app/components/campaign-share-view.tsx
+index b384689..78f26e9 100644
+--- a/src/app/components/campaign-share-view.tsx
++++ b/src/app/components/campaign-share-view.tsx
+@@ -49,6 +49,7 @@ export function CampaignShareView() {
+   const [posts, setPosts] = useState<PostWithCreator[]>([]);
+   const [chartData, setChartData] = useState<TimeSeriesDataPoint[]>([]);
+   const [sortBy, setSortBy] = useState<SortBy>('views');
++  const [selectedMetric, setSelectedMetric] = useState<'views' | 'likes' | 'comments'>('views');
+   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
+ 
+   // Check if password is required
+@@ -249,160 +250,287 @@ export function CampaignShareView() {
+         <div className="space-y-6">
+           {/* Campaign Header */}
+           <div>
+-            <h2 className="text-3xl font-bold text-white mb-2">{campaign.name}</h2>
+-            {campaign.brand_name && (
+-              <p className="text-lg text-slate-300">{campaign.brand_name}</p>
++            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2">{campaign.name}</h2>
++            {campaign.brand_name ? (
++              <div className="flex items-center gap-2 flex-wrap">
++                <p className="text-sm sm:text-base md:text-lg text-slate-300">{campaign.brand_name}</p>
++                <StatusBadge status={campaign.status} />
++              </div>
++            ) : (
++              <StatusBadge status={campaign.status} />
+             )}
+           </div>
+ 
+           {/* KPI Cards */}
+-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
++          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+             <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-              <CardContent className="p-5">
+-                <div className="flex items-start justify-between mb-3">
+-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+-                    <Eye className="w-5 h-5 text-primary" />
++              <CardContent className="p-3 sm:p-4 md:p-5">
++                <div className="flex items-start justify-between mb-2 sm:mb-3">
++                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
++                    <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                   </div>
+                 </div>
+-                <div className="text-2xl font-semibold text-white mb-1">
++                <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+                   {metrics.total_views.toLocaleString()}
+                 </div>
+-                <p className="text-sm text-slate-400">Total Views</p>
++                <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
+               </CardContent>
+             </Card>
+ 
+             <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-              <CardContent className="p-5">
+-                <div className="flex items-start justify-between mb-3">
+-                  <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+-                    <Heart className="w-5 h-5 text-pink-400" />
++              <CardContent className="p-3 sm:p-4 md:p-5">
++                <div className="flex items-start justify-between mb-2 sm:mb-3">
++                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
++                    <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
+                   </div>
+                 </div>
+-                <div className="text-2xl font-semibold text-white mb-1">
++                <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+                   {metrics.total_likes.toLocaleString()}
+                 </div>
+-                <p className="text-sm text-slate-400">Total Likes</p>
++                <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
+               </CardContent>
+             </Card>
+ 
+             <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-              <CardContent className="p-5">
+-                <div className="flex items-start justify-between mb-3">
+-                  <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+-                    <MessageCircle className="w-5 h-5 text-cyan-400" />
++              <CardContent className="p-3 sm:p-4 md:p-5">
++                <div className="flex items-start justify-between mb-2 sm:mb-3">
++                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
++                    <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+                   </div>
+                 </div>
+-                <div className="text-2xl font-semibold text-white mb-1">
++                <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+                   {metrics.total_comments.toLocaleString()}
+                 </div>
+-                <p className="text-sm text-slate-400">Total Comments</p>
++                <p className="text-xs sm:text-sm text-slate-400">Total Comments</p>
+               </CardContent>
+             </Card>
+ 
+             <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-              <CardContent className="p-5">
+-                <div className="flex items-start justify-between mb-3">
+-                  <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+-                    <Share2 className="w-5 h-5 text-purple-400" />
++              <CardContent className="p-3 sm:p-4 md:p-5">
++                <div className="flex items-start justify-between mb-2 sm:mb-3">
++                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
++                    <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                   </div>
+                 </div>
+-                <div className="text-2xl font-semibold text-white mb-1">
++                <div className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
+                   {metrics.total_shares.toLocaleString()}
+                 </div>
+-                <p className="text-sm text-slate-400">Total Shares</p>
++                <p className="text-xs sm:text-sm text-slate-400">Total Shares</p>
+               </CardContent>
+             </Card>
+           </div>
+ 
+           {/* Charts Section */}
+           {chartData.length > 0 ? (
+-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-              <CardContent className="p-6">
+-                <h3 className="text-lg font-semibold text-white mb-4">Performance Over Time</h3>
+-                <ResponsiveContainer width="100%" height={350}>
+-                  <LineChart data={chartData.map(point => ({
+-                    date: new Date(point.date).toLocaleDateString("en-US", {
+-                      month: "numeric",
+-                      day: "numeric",
+-                    }),
+-                    views: Number(point.views) || 0,
+-                    likes: Number(point.likes) || 0,
+-                    comments: Number(point.comments) || 0,
+-                    shares: Number(point.shares) || 0,
+-                  }))}>
+-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
+-                    <XAxis
+-                      dataKey="date"
+-                      stroke="#94a3b8"
+-                      style={{ fontSize: '12px' }}
+-                      axisLine={false}
+-                      tickLine={false}
+-                    />
+-                    <YAxis
+-                      stroke="#94a3b8"
+-                      style={{ fontSize: '12px' }}
+-                      axisLine={false}
+-                      tickLine={false}
+-                    />
+-                    <Tooltip
+-                      contentStyle={{
+-                        backgroundColor: 'rgba(13, 13, 13, 0.95)',
+-                        border: '1px solid rgba(148, 163, 184, 0.1)',
+-                        borderRadius: '12px',
+-                        backdropFilter: 'blur(12px)',
+-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+-                      }}
+-                      labelStyle={{ color: '#f1f5f9', fontWeight: 500 }}
+-                    />
+-                    <Legend
+-                      wrapperStyle={{ paddingTop: '20px' }}
+-                      iconType="circle"
+-                    />
+-                    <Line
+-                      type="monotone"
+-                      dataKey="views"
+-                      stroke="#0ea5e9"
+-                      strokeWidth={2}
+-                      dot={false}
+-                      name="Views"
+-                    />
+-                    <Line
+-                      type="monotone"
+-                      dataKey="likes"
+-                      stroke="#ec4899"
+-                      strokeWidth={2}
+-                      dot={false}
+-                      name="Likes"
+-                    />
+-                    <Line
+-                      type="monotone"
+-                      dataKey="comments"
+-                      stroke="#06b6d4"
+-                      strokeWidth={2}
+-                      dot={false}
+-                      name="Comments"
+-                    />
+-                    <Line
+-                      type="monotone"
+-                      dataKey="shares"
+-                      stroke="#8b5cf6"
+-                      strokeWidth={2}
+-                      dot={false}
+-                      name="Shares"
+-                    />
+-                  </LineChart>
+-                </ResponsiveContainer>
+-              </CardContent>
+-            </Card>
++            <>
++              {/* Mobile Unified Chart */}
++              <div className="lg:hidden">
++                <Card className="bg-[#0D0D0D] border-white/[0.08]">
++                  <CardContent className="p-4 sm:p-6">
++                    <div className="mb-3 sm:mb-4">
++                      <h3 className="text-sm sm:text-base md:text-lg font-semibold text-white">
++                        {selectedMetric === 'views' && 'Views Over Time'}
++                        {selectedMetric === 'likes' && 'Likes Over Time'}
++                        {selectedMetric === 'comments' && 'Comments Over Time'}
++                      </h3>
++                      <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Historical data</p>
++                    </div>
++                    
++                    {/* Metric Selector */}
++                    <div className="flex items-center gap-1.5 mb-3 sm:mb-4">
++                      <button
++                        onClick={() => setSelectedMetric('views')}
++                        className={`flex-1 h-8 px-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
++                          selectedMetric === 'views'
++                            ? 'bg-primary/20 border border-primary/30 text-primary'
++                            : 'bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
++                        }`}
++                      >
++                        Views
++                      </button>
++                      <button
++                        onClick={() => setSelectedMetric('likes')}
++                        className={`flex-1 h-8 px-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
++                          selectedMetric === 'likes'
++                            ? 'bg-primary/20 border border-primary/30 text-primary'
++                            : 'bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
++                        }`}
++                      >
++                        Likes
++                      </button>
++                      <button
++                        onClick={() => setSelectedMetric('comments')}
++                        className={`flex-1 h-8 px-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
++                          selectedMetric === 'comments'
++                            ? 'bg-primary/20 border border-primary/30 text-primary'
++                            : 'bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
++                        }`}
++                      >
++                        Comments
++                      </button>
++                    </div>
++
++                    {/* Unified Chart */}
++                    <ResponsiveContainer width="100%" height={200}>
++                      <LineChart data={chartData.map(point => ({
++                        date: new Date(point.date).toLocaleDateString("en-US", {
++                          month: "numeric",
++                          day: "numeric",
++                        }),
++                        views: Number(point.views) || 0,
++                        likes: Number(point.likes) || 0,
++                        comments: Number(point.comments) || 0,
++                      }))}>
++                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
++                        <XAxis
++                          dataKey="date"
++                          stroke="#94a3b8"
++                          fontSize={10}
++                          axisLine={false}
++                          tickLine={false}
++                        />
++                        <YAxis
++                          stroke="#94a3b8"
++                          fontSize={10}
++                          axisLine={false}
++                          tickLine={false}
++                          tickFormatter={(value) =>
++                            value >= 1000 ? `${value / 1000}K` : value
++                          }
++                        />
++                        <Tooltip
++                          contentStyle={{
++                            backgroundColor: 'rgba(13, 13, 13, 0.95)',
++                            border: '1px solid rgba(148, 163, 184, 0.1)',
++                            borderRadius: '8px',
++                            fontSize: '11px',
++                          }}
++                          labelStyle={{ color: '#f1f5f9', fontWeight: 500 }}
++                        />
++                        {selectedMetric === 'views' && (
++                          <Line
++                            type="monotone"
++                            dataKey="views"
++                            stroke="#0ea5e9"
++                            strokeWidth={2}
++                            dot={false}
++                          />
++                        )}
++                        {selectedMetric === 'likes' && (
++                          <Line
++                            type="monotone"
++                            dataKey="likes"
++                            stroke="#ec4899"
++                            strokeWidth={2}
++                            dot={false}
++                          />
++                        )}
++                        {selectedMetric === 'comments' && (
++                          <Line
++                            type="monotone"
++                            dataKey="comments"
++                            stroke="#06b6d4"
++                            strokeWidth={2}
++                            dot={false}
++                          />
++                        )}
++                      </LineChart>
++                    </ResponsiveContainer>
++                  </CardContent>
++                </Card>
++              </div>
++
++              {/* Desktop Combined Chart - Hidden on mobile */}
++              <div className="hidden lg:block">
++                <Card className="bg-[#0D0D0D] border-white/[0.08]">
++                  <CardContent className="p-6">
++                    <h3 className="text-lg font-semibold text-white mb-4">Performance Over Time</h3>
++                    <ResponsiveContainer width="100%" height={350}>
++                      <LineChart data={chartData.map(point => ({
++                        date: new Date(point.date).toLocaleDateString("en-US", {
++                          month: "numeric",
++                          day: "numeric",
++                        }),
++                        views: Number(point.views) || 0,
++                        likes: Number(point.likes) || 0,
++                        comments: Number(point.comments) || 0,
++                        shares: Number(point.shares) || 0,
++                      }))}>
++                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
++                        <XAxis
++                          dataKey="date"
++                          stroke="#94a3b8"
++                          style={{ fontSize: '12px' }}
++                          axisLine={false}
++                          tickLine={false}
++                        />
++                        <YAxis
++                          stroke="#94a3b8"
++                          style={{ fontSize: '12px' }}
++                          axisLine={false}
++                          tickLine={false}
++                        />
++                        <Tooltip
++                          contentStyle={{
++                            backgroundColor: 'rgba(13, 13, 13, 0.95)',
++                            border: '1px solid rgba(148, 163, 184, 0.1)',
++                            borderRadius: '12px',
++                            backdropFilter: 'blur(12px)',
++                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
++                          }}
++                          labelStyle={{ color: '#f1f5f9', fontWeight: 500 }}
++                        />
++                        <Legend
++                          wrapperStyle={{ paddingTop: '20px' }}
++                          iconType="circle"
++                        />
++                        <Line
++                          type="monotone"
++                          dataKey="views"
++                          stroke="#0ea5e9"
++                          strokeWidth={2}
++                          dot={false}
++                          name="Views"
++                        />
++                        <Line
++                          type="monotone"
++                          dataKey="likes"
++                          stroke="#ec4899"
++                          strokeWidth={2}
++                          dot={false}
++                          name="Likes"
++                        />
++                        <Line
++                          type="monotone"
++                          dataKey="comments"
++                          stroke="#06b6d4"
++                          strokeWidth={2}
++                          dot={false}
++                          name="Comments"
++                        />
++                        <Line
++                          type="monotone"
++                          dataKey="shares"
++                          stroke="#8b5cf6"
++                          strokeWidth={2}
++                          dot={false}
++                          name="Shares"
++                        />
++                      </LineChart>
++                    </ResponsiveContainer>
++                  </CardContent>
++                </Card>
++              </div>
++            </>
+           ) : (
+             <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-              <CardContent className="p-6">
+-                <div className="text-center py-12">
+-                  <div className="w-12 h-12 rounded-full bg-slate-500/10 flex items-center justify-center mx-auto mb-4">
+-                    <LineChartIcon className="w-6 h-6 text-slate-400" />
++              <CardContent className="p-4 sm:p-6">
++                <div className="text-center py-8 sm:py-12">
++                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-500/10 flex items-center justify-center mx-auto mb-3 sm:mb-4">
++                    <LineChartIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400" />
+                   </div>
+-                  <h3 className="text-lg font-semibold text-white mb-2">No Historical Data</h3>
+-                  <p className="text-sm text-slate-400 max-w-md mx-auto">
++                  <h3 className="text-sm sm:text-base md:text-lg font-semibold text-white mb-2">No Historical Data</h3>
++                  <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
+                     Chart data will appear here once metrics have been tracked over time.
+                     Check browser console for detailed error information if you expect data to be available.
+                   </p>
+@@ -413,17 +541,17 @@ export function CampaignShareView() {
+ 
+           {/* Posts Section */}
+           <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-            <CardContent className="p-6">
+-              <div className="flex items-center justify-between mb-6">
++            <CardContent className="p-3 sm:p-4 md:p-6">
++              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+                 <div>
+-                  <h3 className="text-lg font-semibold text-white">Posts</h3>
+-                  <p className="text-sm text-slate-400 mt-0.5">
++                  <h3 className="text-sm sm:text-base md:text-lg font-semibold text-white">Posts</h3>
++                  <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+                     {sortedPosts.length} post{sortedPosts.length !== 1 ? 's' : ''}
+                   </p>
+                 </div>
+                 <Select value={sortBy} onValueChange={(value: SortBy) => setSortBy(value)}>
+-                  <SelectTrigger className="h-9 w-[180px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
+-                    <ArrowUpDown className="w-4 h-4 mr-2" />
++                  <SelectTrigger className="h-7 sm:h-8 md:h-9 w-full sm:w-[160px] md:w-[180px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-xs sm:text-sm">
++                    <ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                     <SelectValue placeholder="Sort by" />
+                   </SelectTrigger>
+                   <SelectContent>
+@@ -437,23 +565,23 @@ export function CampaignShareView() {
+               </div>
+ 
+               {sortedPosts.length === 0 ? (
+-                <div className="text-center py-12">
+-                  <p className="text-slate-400">No posts available</p>
++                <div className="text-center py-8 sm:py-12">
++                  <p className="text-xs sm:text-sm text-slate-400">No posts available</p>
+                 </div>
+               ) : (
+-                <div className="space-y-3">
++                <div className="space-y-2 sm:space-y-3">
+                   {sortedPosts.map((post) => (
+                     <div
+                       key={post.id}
+-                      className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:bg-white/[0.04] transition-colors"
++                      className="p-3 sm:p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:bg-white/[0.04] transition-colors"
+                     >
+-                      <div className="flex items-start justify-between gap-4">
++                      <div className="flex items-start justify-between gap-2 sm:gap-4">
+                         <div className="flex-1 min-w-0">
+-                          <div className="flex items-center gap-3 mb-2">
++                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                             <PlatformBadge platform={post.platform} />
+                             {/* Status badge removed - not relevant for public viewers */}
+                             {post.creator && (
+-                              <span className="text-sm text-slate-300">
++                              <span className="text-xs sm:text-sm text-slate-300">
+                                 {post.creator.name} ({post.creator.handle})
+                               </span>
+                             )}
+@@ -462,31 +590,31 @@ export function CampaignShareView() {
+                             href={post.post_url}
+                             target="_blank"
+                             rel="noopener noreferrer"
+-                            className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 mb-3"
++                            className="text-xs sm:text-sm text-primary hover:text-primary/80 flex items-center gap-1 sm:gap-1.5 mb-2 sm:mb-3"
+                           >
+-                            View Post <ExternalLink className="w-3.5 h-3.5" />
++                            View Post <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                           </a>
+-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
++                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm">
+                             <div>
+-                              <div className="text-slate-400 mb-1">Views</div>
++                              <div className="text-slate-400 mb-0.5 sm:mb-1 text-[10px] sm:text-xs">Views</div>
+                               <div className="text-white font-medium">
+                                 {(post.views || 0).toLocaleString()}
+                               </div>
+                             </div>
+                             <div>
+-                              <div className="text-slate-400 mb-1">Likes</div>
++                              <div className="text-slate-400 mb-0.5 sm:mb-1 text-[10px] sm:text-xs">Likes</div>
+                               <div className="text-white font-medium">
+                                 {(post.likes || 0).toLocaleString()}
+                               </div>
+                             </div>
+                             <div>
+-                              <div className="text-slate-400 mb-1">Comments</div>
++                              <div className="text-slate-400 mb-0.5 sm:mb-1 text-[10px] sm:text-xs">Comments</div>
+                               <div className="text-white font-medium">
+                                 {(post.comments || 0).toLocaleString()}
+                               </div>
+                             </div>
+                             <div>
+-                              <div className="text-slate-400 mb-1">Shares</div>
++                              <div className="text-slate-400 mb-0.5 sm:mb-1 text-[10px] sm:text-xs">Shares</div>
+                               <div className="text-white font-medium">
+                                 {(post.shares || 0).toLocaleString()}
+                               </div>
+diff --git a/src/app/components/campaigns.tsx b/src/app/components/campaigns.tsx
+index 2da3259..59b4fcb 100644
+--- a/src/app/components/campaigns.tsx
++++ b/src/app/components/campaigns.tsx
+@@ -68,9 +68,9 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+   // Loading state
+   if (isLoading) {
+     return (
+-      <div className="space-y-6">
+-        <div className="flex items-center justify-between">
+-          <div className="flex items-center gap-4">
++      <div className="space-y-4 sm:space-y-6">
++        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
++          <div className="flex items-center gap-3 sm:gap-4">
+             <button
+               onClick={() => onNavigate('/')}
+               className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+@@ -84,13 +84,13 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+           </div>
+           <Button
+             onClick={() => onNavigate('/campaigns/new')}
+-            className="h-9 px-4 bg-primary hover:bg-primary/90 text-black"
++            className="h-9 px-4 w-full sm:w-auto bg-primary hover:bg-primary/90 text-black"
+           >
+             <Plus className="w-4 h-4 mr-2" />
+             New Campaign
+           </Button>
+         </div>
+-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
++        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+           {Array.from({ length: 6 }).map((_, i) => (
+             <CampaignCardSkeleton key={i} />
+           ))}
+@@ -102,9 +102,9 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+   // Error state
+   if (error) {
+     return (
+-      <div className="space-y-6">
+-        <div className="flex items-center justify-between">
+-          <div className="flex items-center gap-4">
++      <div className="space-y-4 sm:space-y-6">
++        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
++          <div className="flex items-center gap-3 sm:gap-4">
+             <button
+               onClick={() => onNavigate('/')}
+               className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+@@ -118,14 +118,14 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+           </div>
+           <Button
+             onClick={() => onNavigate('/campaigns/new')}
+-            className="h-9 px-4 bg-primary hover:bg-primary/90 text-black"
++            className="h-9 px-4 w-full sm:w-auto bg-primary hover:bg-primary/90 text-black"
+           >
+             <Plus className="w-4 h-4 mr-2" />
+             New Campaign
+           </Button>
+         </div>
+         <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="flex flex-col items-center justify-center py-16">
++          <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16">
+             <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center mb-4">
+               <FileText className="w-6 h-6 text-red-400" />
+             </div>
+@@ -138,7 +138,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+   }
+ 
+   return (
+-    <div className="space-y-6">
++    <div className="space-y-4 sm:space-y-6">
+       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+         <div className="flex items-center gap-3 sm:gap-4">
+           <button
+@@ -168,13 +168,13 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+           placeholder="Search campaigns..."
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+-          className="pl-9 h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
++          className="pl-9 h-9 sm:h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+         />
+       </div>
+ 
+       {/* Campaigns Grid */}
+       {filteredCampaigns.length > 0 ? (
+-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
++        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+           {filteredCampaigns.map((campaign) => (
+             <Card
+               key={campaign.id}
+@@ -182,111 +182,113 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+               onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
+             >
+               <CardContent className="p-0">
+-                {/* Cover Image Header */}
+-                <div className="relative w-full h-24 sm:h-28 md:h-32 overflow-hidden bg-gradient-to-br from-primary to-cyan-400">
+-                  {campaign.cover_image_url ? (
+-                    <img
+-                      src={campaign.cover_image_url}
+-                      alt={campaign.name}
+-                      className="w-full h-full object-cover"
+-                    />
+-                  ) : (
+-                    <div className="w-full h-full flex items-center justify-center">
+-                      <span className="text-3xl sm:text-4xl font-bold text-white">
+-                        {campaign.name.charAt(0).toUpperCase()}
+-                      </span>
+-                    </div>
+-                  )}
+-                  {/* Menu Button Overlay */}
+-                  <div className="absolute top-2 right-2">
+-                    <div className="relative">
+-                      <button
+-                        onClick={(e) => handleMenuClick(e, campaign.id)}
+-                        className="w-7 h-7 rounded-md bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+-                      >
+-                        <MoreVertical className="w-4 h-4 text-white" />
+-                      </button>
+-                      
+-                      {/* Dropdown Menu */}
+-                      {openMenuId === campaign.id && (
+-                        <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-50 overflow-hidden">
+-                          <button
+-                            onClick={(e) => handleEditClick(e, campaign.id)}
+-                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+-                          >
+-                            <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
+-                            Edit Campaign
+-                          </button>
+-                          <div className="h-px bg-white/[0.06]" />
+-                          <button
+-                            onClick={(e) => handleDeleteClick(e, campaign.id)}
+-                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
+-                          >
+-                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+-                            Delete Campaign
+-                          </button>
+-                          <div className="h-px bg-white/[0.06]" />
+-                          <button
+-                            onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
+-                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+-                          >
+-                            <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
+-                            Duplicate Campaign
+-                          </button>
+-                        </div>
+-                      )}
++                <div className="flex sm:block">
++                  {/* Cover Image Header */}
++                  <div className="relative w-24 h-24 sm:w-full sm:h-28 md:h-32 overflow-hidden bg-gradient-to-br from-primary to-cyan-400 flex-shrink-0">
++                    {campaign.cover_image_url ? (
++                      <img
++                        src={campaign.cover_image_url}
++                        alt={campaign.name}
++                        className="w-full h-full object-cover"
++                      />
++                    ) : (
++                      <div className="w-full h-full flex items-center justify-center">
++                        <span className="text-2xl sm:text-4xl font-bold text-white">
++                          {campaign.name.charAt(0).toUpperCase()}
++                        </span>
++                      </div>
++                    )}
++                    {/* Menu Button Overlay */}
++                    <div className="absolute top-2 right-2">
++                      <div className="relative">
++                        <button
++                          onClick={(e) => handleMenuClick(e, campaign.id)}
++                          className="w-7 h-7 rounded-md bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
++                        >
++                          <MoreVertical className="w-4 h-4 text-white" />
++                        </button>
++                        
++                        {/* Dropdown Menu */}
++                        {openMenuId === campaign.id && (
++                          <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-50 overflow-hidden">
++                            <button
++                              onClick={(e) => handleEditClick(e, campaign.id)}
++                              className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
++                            >
++                              <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
++                              Edit Campaign
++                            </button>
++                            <div className="h-px bg-white/[0.06]" />
++                            <button
++                              onClick={(e) => handleDeleteClick(e, campaign.id)}
++                              className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
++                            >
++                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
++                              Delete Campaign
++                            </button>
++                            <div className="h-px bg-white/[0.06]" />
++                            <button
++                              onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
++                              className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
++                            >
++                              <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
++                              Duplicate Campaign
++                            </button>
++                          </div>
++                        )}
++                      </div>
+                     </div>
+                   </div>
+-                </div>
+ 
+-                {/* Content Section */}
+-                <div className="p-3 sm:p-3.5">
+-                  {/* Header Row: Title, Brand, Status */}
+-                  <div className="flex items-start justify-between gap-2 mb-3">
+-                    <div className="flex-1 min-w-0">
+-                      <h3 className="text-sm sm:text-base font-semibold text-white group-hover:text-primary transition-colors truncate leading-tight">
+-                        {campaign.name}
+-                      </h3>
+-                      {campaign.brand_name && (
+-                        <p className="text-xs text-slate-400 truncate mt-0.5">
+-                          {campaign.brand_name}
+-                        </p>
+-                      )}
++                  {/* Content Section */}
++                  <div className="flex-1 min-w-0 p-2.5 sm:p-3.5">
++                    {/* Header Row: Title, Brand, Status */}
++                    <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
++                      <div className="flex-1 min-w-0">
++                        <h3 className="text-sm sm:text-base font-semibold text-white group-hover:text-primary transition-colors truncate leading-tight">
++                          {campaign.name}
++                        </h3>
++                        {campaign.brand_name && (
++                          <p className="text-xs text-slate-400 truncate mt-0.5">
++                            {campaign.brand_name}
++                          </p>
++                        )}
++                      </div>
++                      <StatusBadge status={campaign.status} />
+                     </div>
+-                    <StatusBadge status={campaign.status} />
+-                  </div>
+ 
+-                  {/* Metrics Row */}
+-                  <div className="grid grid-cols-3 gap-1.5">
+-                    <div className="text-center">
+-                      <div className="text-sm sm:text-base font-semibold text-white leading-tight">{campaign.posts_count}</div>
+-                      <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Posts</p>
+-                    </div>
+-                    <div className="text-center">
+-                      <div className="text-sm sm:text-base font-semibold text-white leading-tight">
+-                        {campaign.total_views >= 1000000
+-                          ? `${(campaign.total_views / 1000000).toFixed(1)}M`
+-                          : campaign.total_views >= 1000
+-                          ? `${(campaign.total_views / 1000).toFixed(1)}K`
+-                          : campaign.total_views}
++                    {/* Metrics Row */}
++                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
++                      <div className="text-center">
++                        <div className="text-sm sm:text-base font-semibold text-white leading-tight">{campaign.posts_count}</div>
++                        <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Posts</p>
++                      </div>
++                      <div className="text-center">
++                        <div className="text-sm sm:text-base font-semibold text-white leading-tight">
++                          {campaign.total_views >= 1000000
++                            ? `${(campaign.total_views / 1000000).toFixed(1)}M`
++                            : campaign.total_views >= 1000
++                            ? `${(campaign.total_views / 1000).toFixed(1)}K`
++                            : campaign.total_views}
++                        </div>
++                        <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Views</p>
++                      </div>
++                      <div className="text-center">
++                        <div className="text-sm sm:text-base font-semibold text-emerald-400 leading-tight">{campaign.avg_engagement_rate.toFixed(1)}%</div>
++                        <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Engagement</p>
+                       </div>
+-                      <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Views</p>
+-                    </div>
+-                    <div className="text-center">
+-                      <div className="text-sm sm:text-base font-semibold text-emerald-400 leading-tight">{campaign.avg_engagement_rate.toFixed(1)}%</div>
+-                      <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5">Engagement</p>
+                     </div>
+-                  </div>
+ 
+-                  {/* Date Range */}
+-                  {campaign.start_date && campaign.end_date && (
+-                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-400 mt-3 pt-3 border-t border-white/[0.06]">
+-                      <Calendar className="w-3 h-3 flex-shrink-0" />
+-                      <span className="truncate">
+-                        {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
+-                      </span>
+-                    </div>
+-                  )}
++                    {/* Date Range */}
++                    {campaign.start_date && campaign.end_date && (
++                      <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-400 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-white/[0.06]">
++                        <Calendar className="w-3 h-3 flex-shrink-0" />
++                        <span className="truncate">
++                          {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
++                        </span>
++                      </div>
++                    )}
++                  </div>
+                 </div>
+               </CardContent>
+             </Card>
+@@ -294,7 +296,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+         </div>
+       ) : (
+         <Card className="bg-[#0D0D0D] border-white/[0.08]">
+-          <CardContent className="flex flex-col items-center justify-center py-16">
++          <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16">
+             <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
+               <Search className="w-6 h-6 text-slate-600" />
+             </div>
+@@ -335,4 +337,4 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
+       )}
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/app/components/sidebar.tsx b/src/app/components/sidebar.tsx
+index 1c7b4be..7dd5231 100644
+--- a/src/app/components/sidebar.tsx
++++ b/src/app/components/sidebar.tsx
+@@ -91,16 +91,16 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
+       {/* Mobile Overlay */}
+       {sidebarOpen && (
+         <div 
+-          className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
++          className="lg:hidden fixed inset-x-0 bottom-0 top-16 bg-black/50 z-40"
+           onClick={() => setSidebarOpen(false)}
+         />
+       )}
+ 
+       {/* Sidebar */}
+       <aside className={cn(
+-        "fixed top-0 h-screen w-64 bg-[#0A0A0A] border-r border-white/[0.08] flex flex-col z-50 transition-transform duration-300 ease-in-out",
++        "fixed top-16 lg:top-0 h-[calc(100vh-4rem)] h-[calc(100dvh-4rem)] lg:h-screen w-64 bg-[#0A0A0A] border-r border-white/[0.08] flex flex-col z-50 transition-transform duration-300 ease-in-out",
+         "lg:translate-x-0",
+-        sidebarOpen ? "translate-x-0 mt-16 lg:mt-0" : "-translate-x-full"
++        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+       )}>
+         {/* Logo - Hidden on mobile, visible on desktop */}
+         <button
+@@ -118,7 +118,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
+         </div>
+         
+         {/* Navigation */}
+-        <nav className="flex-1 px-3 pt-2">
++        <nav className="flex-1 px-3 pt-2 overflow-y-auto">
+           <ul className="space-y-0.5">
+             {filteredNavItems.map((item) => {
+               const isActive = currentPath === item.href;
+diff --git a/src/app/components/status-badge.tsx b/src/app/components/status-badge.tsx
+index 4ebfb61..db1226c 100644
+--- a/src/app/components/status-badge.tsx
++++ b/src/app/components/status-badge.tsx
+@@ -63,7 +63,7 @@ const statusConfig = {
+ export function StatusBadge({ status }: StatusBadgeProps) {
+   if (!status) {
+     return (
+-      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20">
++      <span className="inline-flex flex-wrap items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20 w-fit">
+         Unknown
+       </span>
+     );
+@@ -73,7 +73,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
+ 
+   if (!config) {
+     return (
+-      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20">
++      <span className="inline-flex flex-wrap items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border bg-slate-500/10 text-slate-400 border-slate-500/20 w-fit">
+         {status}
+       </span>
+     );
+@@ -82,7 +82,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
+   return (
+     <span
+       className={cn(
+-        "inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border",
++        "inline-flex flex-wrap items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium border w-fit",
+         config.className
+       )}
+     >
+diff --git a/src/lib/api/campaign-sharing-v2.ts b/src/lib/api/campaign-sharing-v2.ts
+index a26b5e1..701bf5e 100644
+--- a/src/lib/api/campaign-sharing-v2.ts
++++ b/src/lib/api/campaign-sharing-v2.ts
+@@ -1,3 +1,4 @@
++import { createClient } from "@supabase/supabase-js";
+ import { supabase } from "../supabase";
+ import type { ApiResponse } from "../types/database";
+ 
+@@ -30,6 +31,312 @@ interface ShareLinkResponse {
+   shareUrl: string;
+ }
+ 
++type SharedCampaignResponse = {
++  campaign: {
++    id: string;
++    name: string;
++    brand_name: string | null;
++    status: string;
++    coverImageUrl: string | null;
++    createdAt: string;
++  };
++  totals: {
++    views: number;
++    likes: number;
++    comments: number;
++    shares: number;
++  };
++  series: {
++    views: Array<{ date: string; value: number }>;
++    likes: Array<{ date: string; value: number }>;
++    comments: Array<{ date: string; value: number }>;
++    shares: Array<{ date: string; value: number }>;
++  };
++  posts: Array<{
++    id: string;
++    platform: string;
++    postUrl: string;
++    status: string;
++    views: number;
++    likes: number;
++    comments: number;
++    shares: number;
++    engagementRate: number;
++    postedDate: string | null;
++    createdAt: string;
++    creator: {
++      id: string;
++      name: string;
++      handle: string;
++    } | null;
++  }>;
++  share: {
++    allowExport: boolean;
++  };
++};
++
++function getPublicClient() {
++  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
++  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
++
++  if (!supabaseUrl || !supabaseAnonKey) {
++    throw new Error("Missing Supabase configuration");
++  }
++
++  return createClient(supabaseUrl, supabaseAnonKey, {
++    auth: {
++      persistSession: false,
++      autoRefreshToken: false,
++    },
++  });
++}
++
++async function fetchSharedCampaignDataDirect(
++  token: string,
++  password?: string
++): Promise<ApiResponse<SharedCampaignResponse>> {
++  try {
++    const publicClient = getPublicClient();
++
++    const { data: campaign, error: campaignError } = await publicClient
++      .from("campaigns")
++      .select(
++        "id, name, brand_name, cover_image_url, status, share_expires_at, share_allow_export, share_password_hash, share_password_protected, created_at"
++      )
++      .eq("share_token", token)
++      .eq("share_enabled", true)
++      .single();
++
++    if (campaignError || !campaign) {
++      const errorMessage = campaignError?.message || "Share link not found or expired";
++      const isAccessError =
++        errorMessage.toLowerCase().includes("permission") ||
++        errorMessage.toLowerCase().includes("rls") ||
++        campaignError?.code === "42501";
++      return {
++        data: null,
++        error: new Error(
++          isAccessError
++            ? "Share link unavailable. Public access is blocked. Deploy the share-campaign Edge Function or add public RLS policies for shared campaigns."
++            : errorMessage
++        ),
++      };
++    }
++
++    if (campaign.share_expires_at) {
++      const expiresAt = new Date(campaign.share_expires_at);
++      if (new Date() > expiresAt) {
++        return { data: null, error: new Error("Link expired") };
++      }
++    }
++
++    if (campaign.share_password_protected) {
++      if (!password) {
++        return { data: null, error: new Error("Password required") };
++      }
++      if (!campaign.share_password_hash) {
++        return {
++          data: null,
++          error: new Error("Invalid share link configuration"),
++        };
++      }
++      const passwordHash = await hashPassword(password);
++      if (passwordHash !== campaign.share_password_hash) {
++        return { data: null, error: new Error("Incorrect password") };
++      }
++    }
++
++    const { data: posts, error: postsError } = await publicClient
++      .from("posts")
++      .select(
++        `
++        id,
++        platform,
++        post_url,
++        status,
++        views,
++        likes,
++        comments,
++        shares,
++        engagement_rate,
++        posted_date,
++        created_at,
++        creator:creators(id, name, handle)
++      `
++      )
++      .eq("campaign_id", campaign.id)
++      .order("created_at", { ascending: false });
++
++    if (postsError) {
++      return {
++        data: null,
++        error: new Error(postsError.message || "Failed to fetch posts"),
++      };
++    }
++
++    const kpiPosts = (posts || []).filter((post: any) =>
++      ["tiktok", "instagram"].includes(post.platform)
++    );
++
++    const totals = {
++      views: kpiPosts.reduce((sum: number, post: any) => sum + (post.views || 0), 0),
++      likes: kpiPosts.reduce((sum: number, post: any) => sum + (post.likes || 0), 0),
++      comments: kpiPosts.reduce(
++        (sum: number, post: any) => sum + (post.comments || 0),
++        0
++      ),
++      shares: kpiPosts.reduce((sum: number, post: any) => sum + (post.shares || 0), 0),
++    };
++
++    const { data: metricsHistory, error: metricsError } = await publicClient
++      .from("post_metrics")
++      .select(
++        `
++        views,
++        likes,
++        comments,
++        shares,
++        scraped_at,
++        posts!inner(campaign_id, platform)
++      `
++      )
++      .eq("posts.campaign_id", campaign.id)
++      .in("posts.platform", ["tiktok", "instagram"])
++      .order("scraped_at", { ascending: true });
++
++    const seriesData: SharedCampaignResponse["series"] = {
++      views: [],
++      likes: [],
++      comments: [],
++      shares: [],
++    };
++
++    if (!metricsError && metricsHistory && metricsHistory.length > 0) {
++      const metricsByDate = new Map<
++        string,
++        { views: number; likes: number; comments: number; shares: number }
++      >();
++
++      metricsHistory.forEach((metric: any) => {
++        const dateStr = metric.scraped_at ? metric.scraped_at.split("T")[0] : null;
++        if (!dateStr) return;
++
++        if (!metricsByDate.has(dateStr)) {
++          metricsByDate.set(dateStr, {
++            views: 0,
++            likes: 0,
++            comments: 0,
++            shares: 0,
++          });
++        }
++
++        const point = metricsByDate.get(dateStr)!;
++        point.views += Number(metric.views || 0);
++        point.likes += Number(metric.likes || 0);
++        point.comments += Number(metric.comments || 0);
++        point.shares += Number(metric.shares || 0);
++      });
++
++      Array.from(metricsByDate.entries())
++        .sort((a, b) => a[0].localeCompare(b[0]))
++        .forEach(([date, values]) => {
++          seriesData.views.push({ date, value: values.views });
++          seriesData.likes.push({ date, value: values.likes });
++          seriesData.comments.push({ date, value: values.comments });
++          seriesData.shares.push({ date, value: values.shares });
++        });
++    } else {
++      const postsByDate = new Map<string, any[]>();
++      kpiPosts.forEach((post: any) => {
++        const dateStr = post.posted_date
++          ? post.posted_date.split("T")[0]
++          : post.created_at
++          ? post.created_at.split("T")[0]
++          : new Date().toISOString().split("T")[0];
++
++        if (!postsByDate.has(dateStr)) {
++          postsByDate.set(dateStr, []);
++        }
++        postsByDate.get(dateStr)!.push(post);
++      });
++
++      Array.from(postsByDate.entries())
++        .sort((a, b) => a[0].localeCompare(b[0]))
++        .forEach(([date, datePosts]) => {
++          seriesData.views.push({
++            date,
++            value: datePosts.reduce(
++              (sum: number, post: any) => sum + (post.views || 0),
++              0
++            ),
++          });
++          seriesData.likes.push({
++            date,
++            value: datePosts.reduce(
++              (sum: number, post: any) => sum + (post.likes || 0),
++              0
++            ),
++          });
++          seriesData.comments.push({
++            date,
++            value: datePosts.reduce(
++              (sum: number, post: any) => sum + (post.comments || 0),
++              0
++            ),
++          });
++          seriesData.shares.push({
++            date,
++            value: datePosts.reduce(
++              (sum: number, post: any) => sum + (post.shares || 0),
++              0
++            ),
++          });
++        });
++    }
++
++    return {
++      data: {
++        campaign: {
++          id: campaign.id,
++          name: campaign.name,
++          brand_name: campaign.brand_name || null,
++          status: campaign.status,
++          coverImageUrl: campaign.cover_image_url || null,
++          createdAt: campaign.created_at,
++        },
++        totals,
++        series: seriesData,
++        posts: (posts || []).map((post: any) => ({
++          id: post.id,
++          platform: post.platform,
++          postUrl: post.post_url,
++          status: post.status,
++          views: post.views || 0,
++          likes: post.likes || 0,
++          comments: post.comments || 0,
++          shares: post.shares || 0,
++          engagementRate: post.engagement_rate || 0,
++          postedDate: post.posted_date || null,
++          createdAt: post.created_at,
++          creator: post.creator
++            ? {
++                id: post.creator.id,
++                name: post.creator.name,
++                handle: post.creator.handle,
++              }
++            : null,
++        })),
++        share: {
++          allowExport: campaign.share_allow_export || false,
++        },
++      },
++      error: null,
++    };
++  } catch (err) {
++    return { data: null, error: err as Error };
++  }
++}
++
+ /**
+  * Enable sharing for a campaign
+  */
+@@ -329,51 +636,7 @@ export async function getCampaignShareSettings(
+ export async function fetchSharedCampaignData(
+   token: string,
+   password?: string
+-): Promise<
+-  ApiResponse<{
+-    campaign: {
+-      id: string;
+-      name: string;
+-      brand_name: string | null;
+-      status: string;
+-      coverImageUrl: string | null;
+-      createdAt: string;
+-    };
+-    totals: {
+-      views: number;
+-      likes: number;
+-      comments: number;
+-      shares: number;
+-    };
+-    series: {
+-      views: Array<{ date: string; value: number }>;
+-      likes: Array<{ date: string; value: number }>;
+-      comments: Array<{ date: string; value: number }>;
+-      shares: Array<{ date: string; value: number }>;
+-    };
+-    posts: Array<{
+-      id: string;
+-      platform: string;
+-      postUrl: string;
+-      status: string;
+-      views: number;
+-      likes: number;
+-      comments: number;
+-      shares: number;
+-      engagementRate: number;
+-      postedDate: string | null;
+-      createdAt: string;
+-      creator: {
+-        id: string;
+-        name: string;
+-        handle: string;
+-      } | null;
+-    }>;
+-    share: {
+-      allowExport: boolean;
+-    };
+-  }>
+-> {
++): Promise<ApiResponse<SharedCampaignResponse>> {
+   try {
+     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+@@ -410,21 +673,44 @@ export async function fetchSharedCampaignData(
+ 
+     if (!response.ok) {
+       let errorMessage = "Failed to fetch shared campaign";
++      let isJson = false;
+       try {
+         const errorData = await response.json();
+         errorMessage = errorData.error || errorMessage;
++        isJson = true;
+       } catch {
+         // If we can't parse the error, use status text
+         errorMessage = response.statusText || errorMessage;
+       }
+ 
+-      if (response.status === 404) {
++      const shouldFallback = response.status != 401;
++      const isEdgeFunctionMissing =
++        response.status == 404 && !isJson && errorMessage.toLowerCase() == "not found";
++      let fallbackError: Error | null = null;
++
++      if (shouldFallback) {
++        const fallbackResult = await fetchSharedCampaignDataDirect(token, password);
++        if (!fallbackResult.error) {
++          return fallbackResult;
++        }
++        fallbackError = fallbackResult.error;
++        if (isEdgeFunctionMissing) {
++          return {
++            data: null,
++            error: new Error(
++              "Share link unavailable. The share-campaign Edge Function is not deployed, and direct access is blocked."
++            ),
++          };
++        }
++      }
++
++      if (response.status == 404) {
+         return {
+           data: null,
+-          error: new Error("Share link not found or expired"),
++          error: fallbackError || new Error("Share link not found or expired"),
+         };
+       }
+-      if (response.status === 401) {
++      if (response.status == 401) {
+         return {
+           data: null,
+           error: new Error(errorMessage || "Password required"),
+@@ -432,7 +718,7 @@ export async function fetchSharedCampaignData(
+       }
+       return {
+         data: null,
+-        error: new Error(errorMessage),
++        error: fallbackError || new Error(errorMessage),
+       };
+     }
+ 
+@@ -441,10 +727,10 @@ export async function fetchSharedCampaignData(
+   } catch (err) {
+     console.error("Error fetching shared campaign data:", err);
+     const errorMessage = err instanceof Error ? err.message : "Network error";
+-    return {
+-      data: null,
+-      error: new Error(errorMessage),
+-    };
++    const fallbackResult = await fetchSharedCampaignDataDirect(token, password);
++    if (!fallbackResult.error) {
++      return fallbackResult;
++    }
++    return { data: null, error: fallbackResult.error || new Error(errorMessage) };
+   }
+ }
+-

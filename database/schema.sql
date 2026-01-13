@@ -185,6 +185,7 @@ ADD COLUMN IF NOT EXISTS imported_by_user_id UUID REFERENCES auth.users(id) ON D
 -- Campaigns table
 CREATE TABLE IF NOT EXISTS public.campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parent_campaign_id UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   brand_name TEXT,
@@ -193,8 +194,14 @@ CREATE TABLE IF NOT EXISTS public.campaigns (
   start_date DATE,
   end_date DATE,
   notes TEXT,
+  share_enabled BOOLEAN NOT NULL DEFAULT false,
+  share_token TEXT UNIQUE,
+  share_created_at TIMESTAMPTZ,
+  share_expires_at TIMESTAMPTZ,
+  share_allow_export BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT campaigns_parent_not_self CHECK (parent_campaign_id IS NULL OR parent_campaign_id <> id)
 );
 
 -- Posts table
@@ -297,6 +304,37 @@ CREATE TABLE IF NOT EXISTS public.campaign_share_links (
   last_accessed_at TIMESTAMPTZ
 );
 
+-- Creator requests table (for brands requesting creators from DTTracker's network)
+CREATE TABLE IF NOT EXISTS public.creator_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted', 'reviewing', 'quoted', 'approved', 'in_fulfillment', 'delivered')),
+  campaign_type TEXT CHECK (campaign_type IN ('music_promotion', 'brand_promotion', 'product_launch', 'event_activation', 'other')),
+  campaign_brief TEXT,
+  song_asset_links TEXT[], -- Array of URLs
+  deliverables TEXT[], -- Array: tiktok_post, instagram_reel, instagram_story, youtube_short, other
+  posts_per_creator INTEGER,
+  usage_rights TEXT CHECK (usage_rights IN ('creator_page_only', 'repost_brand_pages', 'run_ads', 'all_above')),
+  deadline DATE,
+  urgency TEXT CHECK (urgency IN ('normal', 'fast_turnaround', 'asap')),
+  contact_person_name TEXT,
+  contact_person_email TEXT,
+  contact_person_phone TEXT,
+  quote_amount DECIMAL(10,2),
+  quote_details JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Creator request items table (many-to-many relationship between requests and creators)
+CREATE TABLE IF NOT EXISTS public.creator_request_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  request_id UUID NOT NULL REFERENCES public.creator_requests(id) ON DELETE CASCADE,
+  creator_id UUID NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(request_id, creator_id)
+);
+
 -- ============================================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
 -- ============================================================
@@ -333,6 +371,84 @@ BEGIN
 END
 $$;
 
+-- Prevent nested subcampaigns and ensure parent has no posts
+CREATE OR REPLACE FUNCTION public.validate_campaign_parent()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.parent_campaign_id IS NOT NULL THEN
+    -- Parent campaigns cannot themselves be subcampaigns
+    IF EXISTS (
+      SELECT 1 FROM public.campaigns
+      WHERE id = NEW.parent_campaign_id
+      AND parent_campaign_id IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'Subcampaigns cannot have subcampaigns';
+    END IF;
+
+    -- Parent campaigns cannot already have posts
+    IF EXISTS (
+      SELECT 1 FROM public.posts
+      WHERE campaign_id = NEW.parent_campaign_id
+    ) THEN
+      RAISE EXCEPTION 'Parent campaigns cannot have posts';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'trg_validate_campaign_parent'
+  ) THEN
+    CREATE TRIGGER trg_validate_campaign_parent
+    BEFORE INSERT OR UPDATE OF parent_campaign_id ON public.campaigns
+    FOR EACH ROW EXECUTE FUNCTION public.validate_campaign_parent();
+  END IF;
+END
+$$;
+
+-- Prevent adding posts to parent campaigns
+CREATE OR REPLACE FUNCTION public.prevent_posts_on_parent()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.campaigns parent_campaign
+    WHERE parent_campaign.id = NEW.campaign_id
+    AND EXISTS (
+      SELECT 1 FROM public.campaigns child_campaign
+      WHERE child_campaign.parent_campaign_id = parent_campaign.id
+    )
+  ) THEN
+    RAISE EXCEPTION 'Parent campaigns cannot have posts';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'trg_prevent_posts_on_parent'
+  ) THEN
+    CREATE TRIGGER trg_prevent_posts_on_parent
+    BEFORE INSERT OR UPDATE OF campaign_id ON public.posts
+    FOR EACH ROW EXECUTE FUNCTION public.prevent_posts_on_parent();
+  END IF;
+END
+$$;
+
 -- Posts
 DO $$
 BEGIN
@@ -349,6 +465,22 @@ BEGIN
 END
 $$;
 
+-- Creator Requests
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'set_creator_requests_updated_at'
+  ) THEN
+    CREATE TRIGGER set_creator_requests_updated_at
+    BEFORE UPDATE ON public.creator_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION public.set_updated_at();
+  END IF;
+END
+$$;
+
 -- ============================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================
@@ -357,6 +489,8 @@ CREATE INDEX IF NOT EXISTS idx_creators_user_id ON public.creators(user_id);
 CREATE INDEX IF NOT EXISTS idx_creators_platform ON public.creators(platform);
 CREATE INDEX IF NOT EXISTS idx_campaigns_user_id ON public.campaigns(user_id);
 CREATE INDEX IF NOT EXISTS idx_campaigns_status ON public.campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_campaigns_parent_campaign_id ON public.campaigns(parent_campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_share_token ON public.campaigns(share_token) WHERE share_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_posts_campaign_id ON public.posts(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_posts_creator_id ON public.posts(creator_id);
 CREATE INDEX IF NOT EXISTS idx_posts_platform ON public.posts(platform);
@@ -367,6 +501,11 @@ CREATE INDEX IF NOT EXISTS idx_campaign_members_campaign_id ON public.campaign_m
 CREATE INDEX IF NOT EXISTS idx_campaign_members_user_id ON public.campaign_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_creators_campaign_id ON public.campaign_creators(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_creators_creator_id ON public.campaign_creators(creator_id);
+CREATE INDEX IF NOT EXISTS idx_creator_requests_user_id ON public.creator_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_creator_requests_status ON public.creator_requests(status);
+CREATE INDEX IF NOT EXISTS idx_creator_requests_created_at ON public.creator_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_creator_request_items_request_id ON public.creator_request_items(request_id);
+CREATE INDEX IF NOT EXISTS idx_creator_request_items_creator_id ON public.creator_request_items(creator_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_workspace_id ON public.team_members(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON public.team_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_team_invites_workspace_id ON public.team_invites(workspace_id);
@@ -390,12 +529,14 @@ ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_scopes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_share_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.creator_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.creator_request_items ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- ROW LEVEL SECURITY - CREATORS POLICIES
 -- ============================================================
 
--- SELECT
+-- SELECT (users can view their own creators)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -406,6 +547,22 @@ BEGIN
     CREATE POLICY "Users can view their own creators"
       ON public.creators FOR SELECT
       USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+-- SELECT (all authenticated users can view all creators - for "All Creators" tab)
+-- This allows brands to browse DTTracker's wider network
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='creators'
+      AND policyname='Authenticated users can view all creators'
+  ) THEN
+    CREATE POLICY "Authenticated users can view all creators"
+      ON public.creators FOR SELECT
+      USING (auth.uid() IS NOT NULL);
   END IF;
 END
 $$;
@@ -615,6 +772,124 @@ BEGIN
               AND campaign_members.role IN ('owner', 'editor')
             )
           )
+        )
+      );
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ROW LEVEL SECURITY - CREATOR_REQUESTS POLICIES
+-- ============================================================
+
+-- SELECT (users can view their own requests)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='creator_requests'
+      AND policyname='Users can view their own creator requests'
+  ) THEN
+    CREATE POLICY "Users can view their own creator requests"
+      ON public.creator_requests FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+-- INSERT (users can create their own requests)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='creator_requests'
+      AND policyname='Users can create their own creator requests'
+  ) THEN
+    CREATE POLICY "Users can create their own creator requests"
+      ON public.creator_requests FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+-- UPDATE (users can update their own requests)
+-- Note: Status updates can be restricted later if needed via application logic
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='creator_requests'
+      AND policyname='Users can update their own creator requests'
+  ) THEN
+    CREATE POLICY "Users can update their own creator requests"
+      ON public.creator_requests FOR UPDATE
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ROW LEVEL SECURITY - CREATOR_REQUEST_ITEMS POLICIES
+-- ============================================================
+
+-- SELECT (users can view items for their own requests)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='creator_request_items'
+      AND policyname='Users can view creator request items for their requests'
+  ) THEN
+    CREATE POLICY "Users can view creator request items for their requests"
+      ON public.creator_request_items FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.creator_requests
+          WHERE creator_requests.id = creator_request_items.request_id
+          AND creator_requests.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- INSERT (users can add items to their own requests)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='creator_request_items'
+      AND policyname='Users can insert creator request items for their requests'
+  ) THEN
+    CREATE POLICY "Users can insert creator request items for their requests"
+      ON public.creator_request_items FOR INSERT
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.creator_requests
+          WHERE creator_requests.id = creator_request_items.request_id
+          AND creator_requests.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- DELETE (users can remove items from their own requests)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='creator_request_items'
+      AND policyname='Users can delete creator request items for their requests'
+  ) THEN
+    CREATE POLICY "Users can delete creator request items for their requests"
+      ON public.creator_request_items FOR DELETE
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.creator_requests
+          WHERE creator_requests.id = creator_request_items.request_id
+          AND creator_requests.user_id = auth.uid()
         )
       );
   END IF;

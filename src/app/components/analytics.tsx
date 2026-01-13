@@ -17,7 +17,11 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { PlatformBadge } from './platform-badge';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 import { motion } from 'motion/react';
 
 const performanceData = [
@@ -366,7 +370,26 @@ export function Analytics() {
                     
                     <div className="flex-1 min-w-0 ml-8">
                       <h4 className="mb-1 truncate">{performer.creator}</h4>
-                      <PlatformBadge platform={performer.platform} />
+                      {(() => {
+                        const platformIcon = normalizePlatform(performer.platform);
+                        if (!platformIcon) return null;
+                        return (
+                          <>
+                            <PlatformIcon
+                              platform={platformIcon}
+                              size="sm"
+                              className="sm:hidden"
+                              aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                            />
+                            <PlatformIcon
+                              platform={platformIcon}
+                              size="md"
+                              className="hidden sm:flex"
+                              aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                            />
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="text-right">
                       <div className="text-xl bg-gradient-to-br from-primary to-cyan-400 bg-clip-text text-transparent font-bold">
