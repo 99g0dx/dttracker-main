@@ -122,6 +122,8 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
       .insert({
         ...campaign,
         user_id: user.id,
+        owner_id: user.id,
+        created_by: user.id,
         workspace_id: memberData.workspace_id, // Add workspace_id
       })
       .select()
@@ -129,6 +131,19 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
 
     if (error) {
       // Provide helpful error messages
+      if (error.message?.includes('does not exist')) {
+    if (error.message?.includes('column')) {
+      return { 
+        data: null, 
+        error: new Error(`Database Schema Mismatch: ${error.message}. You might be missing a column like workspace_id.`) 
+      };
+    }
+    return { 
+      data: null, 
+      error: new Error('Database table not found. Please run the database schema.') 
+    };
+  }
+  
       if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
         return { 
           data: null, 
