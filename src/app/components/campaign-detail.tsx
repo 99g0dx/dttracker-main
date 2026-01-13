@@ -47,7 +47,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useCampaign } from "../../hooks/useCampaigns";
+import { campaignsKeys, useCampaign } from "../../hooks/useCampaigns";
 import {
   usePosts,
   useCampaignMetricsTimeSeries,
@@ -82,6 +82,7 @@ import {
 } from "./ui/dialog";
 import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
 import { supabase } from "../../lib/supabase";
+import * as campaignsApi from "../../lib/api/campaigns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { PostCard } from "./post-card";
@@ -249,6 +250,48 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
   const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
+
+  const derivedCampaignStatus = React.useMemo(() => {
+    if (!campaign) return null;
+    if (campaign.status === "archived") return campaign.status;
+    if (campaign.end_date) {
+      const endDate = new Date(campaign.end_date);
+      if (!Number.isNaN(endDate.getTime()) && new Date() > endDate) {
+        return "completed";
+      }
+    }
+    return campaign.status;
+  }, [campaign]);
+
+  const lastStatusUpdateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!campaign || !id || !derivedCampaignStatus) return;
+    if (derivedCampaignStatus === campaign.status) return;
+    if (lastStatusUpdateRef.current === derivedCampaignStatus) return;
+
+    lastStatusUpdateRef.current = derivedCampaignStatus;
+
+    const updateStatus = async () => {
+      const result = await campaignsApi.update(campaign.id, {
+        status: derivedCampaignStatus,
+      });
+
+      if (result.error) {
+        console.error("Failed to auto-update campaign status:", result.error);
+        lastStatusUpdateRef.current = null;
+        return;
+      }
+
+      queryClient.setQueryData(campaignsKeys.detail(campaign.id), (old: any) => {
+        if (!old) return old;
+        return { ...old, status: derivedCampaignStatus, updated_at: new Date().toISOString() };
+      });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+    };
+
+    updateStatus();
+  }, [campaign, derivedCampaignStatus, id, queryClient]);
 
   // Calculate metrics for KPI cards (all platforms) with fallback to RPC when posts are unavailable
   const metrics = React.useMemo(() => {
@@ -1350,7 +1393,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   </p>
                 )}
               </div>
-              <StatusBadge status={campaign.status} className="flex-shrink-0" />
+              <StatusBadge status={derivedCampaignStatus || campaign.status} className="flex-shrink-0" />
             </div>
           </div>
         </div>
