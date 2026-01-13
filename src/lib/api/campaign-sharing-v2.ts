@@ -394,25 +394,30 @@ export async function fetchSharedCampaignData(
     // Edge Functions require both apikey and Authorization headers
     if (supabaseAnonKey) {
       headers.apikey = supabaseAnonKey;
-      headers.Authorization = `Bearer ${supabaseAnonKey}`;
+      
     }
 
-    const requestOptions: RequestInit = {
-      method: password ? "POST" : "GET",
-      headers,
-    };
+    const body =
+        typeof password === "string"
+          ? JSON.stringify({ password })
+          : undefined;
 
-    if (password) {
-      requestOptions.body = JSON.stringify({ password });
-    }
+      const response = await fetch(edgeFunctionUrl, {
+        method: "POST",
+        headers,
+        ...(body ? { body } : {}),
+      });
 
-    const response = await fetch(edgeFunctionUrl, requestOptions);
 
     if (!response.ok) {
       let errorMessage = "Failed to fetch shared campaign";
       try {
         const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
+        errorMessage =
+                      errorData?.message ||
+                      errorData?.error ||
+                      errorMessage;
+
       } catch {
         // If we can't parse the error, use status text
         errorMessage = response.statusText || errorMessage;
@@ -427,9 +432,13 @@ export async function fetchSharedCampaignData(
       if (response.status === 401) {
         return {
           data: null,
-          error: new Error(errorMessage || "Password required"),
+          error: Object.assign(
+            new Error(errorMessage || "Password required"),
+            { code: "PASSWORD_REQUIRED" }
+          ),
         };
       }
+
       return {
         data: null,
         error: new Error(errorMessage),
