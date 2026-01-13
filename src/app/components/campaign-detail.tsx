@@ -16,6 +16,8 @@ import {
   MoreHorizontal,
   ExternalLink,
   Link as LinkIcon,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   Heart,
   MessageCircle,
@@ -1170,6 +1172,34 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     return Array.from(pages).sort((a, b) => a - b);
   }, [totalPages, safeCurrentPage]);
 
+  const mobileTotalPages = React.useMemo(() => {
+    if (!showTopPerformers) return totalPages;
+    return Math.max(1, Math.ceil((postsWithRankings?.length || 0) / postsPerPage));
+  }, [showTopPerformers, postsWithRankings, postsPerPage, totalPages]);
+
+  const mobileSafeCurrentPage = Math.min(
+    Math.max(1, currentPage),
+    mobileTotalPages
+  );
+  const mobileStartIndex = (mobileSafeCurrentPage - 1) * postsPerPage;
+  const mobilePaginatedPosts = showTopPerformers
+    ? (postsWithRankings || []).slice(
+        mobileStartIndex,
+        mobileStartIndex + postsPerPage
+      )
+    : visibleRemainingPosts;
+
+  const mobileAllPaginationPages = React.useMemo(() => {
+    if (mobileTotalPages <= 4) {
+      return Array.from({ length: mobileTotalPages }, (_, index) => index + 1);
+    }
+    const pages = new Set<number>([1, mobileTotalPages, mobileSafeCurrentPage]);
+    if (mobileSafeCurrentPage - 1 > 1) pages.add(mobileSafeCurrentPage - 1);
+    if (mobileSafeCurrentPage + 1 < mobileTotalPages)
+      pages.add(mobileSafeCurrentPage + 1);
+    return Array.from(pages).sort((a, b) => a - b);
+  }, [mobileTotalPages, mobileSafeCurrentPage]);
+
   // Sync currentPage if it's out of bounds
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
@@ -1372,53 +1402,58 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </button>
       )}
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mt-2 sm:mt-0">
-        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-          <button
-            onClick={() => onNavigate("/campaigns")}
-            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
-            aria-label="Back to campaigns"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1]">
-                  {campaign.name}
-                </h1>
-                {campaign.brand_name && (
-                  <p className="text-sm text-slate-400 mt-1 break-words">
-                    {campaign.brand_name}
-                  </p>
-                )}
+      <div className="flex flex-col gap-3 sm:gap-4 mt-2 sm:mt-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <button
+              onClick={() => onNavigate("/campaigns")}
+              className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+              aria-label="Back to campaigns"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1]">
+                    {campaign.name}
+                  </h1>
+                  {campaign.brand_name && (
+                    <p className="text-sm text-slate-400 mt-1 break-words">
+                      {campaign.brand_name}
+                    </p>
+                  )}
+                </div>
+                <StatusBadge
+                  status={derivedCampaignStatus || campaign.status}
+                  className="flex-shrink-0"
+                />
               </div>
-              <StatusBadge status={derivedCampaignStatus || campaign.status} className="flex-shrink-0" />
             </div>
           </div>
+          {campaign && (
+            <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 w-full sm:flex sm:gap-2 sm:w-auto">
+              <button
+                onClick={() => setShowShareLinkModal(true)}
+                className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                aria-label="Share campaign link"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Share Link</span>
+                <span className="sm:hidden">Share</span>
+              </button>
+              <button
+                onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
+                className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                aria-label="Edit campaign"
+              >
+                <Edit2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Edit Campaign</span>
+                <span className="sm:hidden">Edit</span>
+              </button>
+            </div>
+          )}
         </div>
-        {campaign && (
-          <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 w-full sm:flex sm:gap-2 sm:w-auto">
-            <button
-              onClick={() => setShowShareLinkModal(true)}
-              className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-              aria-label="Share campaign link"
-            >
-              <Share2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Share Link</span>
-              <span className="sm:hidden">Share</span>
-            </button>
-            <button
-              onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
-              className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
-              aria-label="Edit campaign"
-            >
-              <Edit2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Edit Campaign</span>
-              <span className="sm:hidden">Edit</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Cover Image Hero Section */}
@@ -1585,34 +1620,34 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             }
             className="lg:hidden"
           >
-        <TabsList className="grid w-full grid-cols-4 h-11 bg-white/[0.03] border border-white/[0.08] p-1">
+        <TabsList className="grid w-full max-w-[360px] sm:max-w-none grid-cols-4 gap-1 h-11 bg-white/[0.03] border border-white/[0.08] p-1 mx-auto sm:mx-0 overflow-y-hidden">
           <TabsTrigger
             value="views"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Views</span>
+            <span className="hidden sm:inline">Views</span>
           </TabsTrigger>
           <TabsTrigger
             value="likes"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <Heart className="w-3.5 h-3.5" />
-            <span>Likes</span>
+            <span className="hidden sm:inline">Likes</span>
           </TabsTrigger>
           <TabsTrigger
             value="comments"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            <span>Comments</span>
+            <span className="hidden sm:inline">Comments</span>
           </TabsTrigger>
           <TabsTrigger
             value="shares"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-sm"
+            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span>Shares</span>
+            <span className="hidden sm:inline">Shares</span>
           </TabsTrigger>
         </TabsList>
 
@@ -2442,25 +2477,22 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
                 {/* All Posts when Top Performers is toggled */}
                 {showTopPerformers && (
-                  <>
-                    <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
-                      {[...highlightedTopPosts, ...visibleRemainingPosts].map(
-                        (post) => (
-                        <PostCard
-                          key={post.id}
-                          post={post}
-                          onScrape={handleScrapePost}
-                          onDelete={setShowDeletePostDialog}
-                          isScraping={
-                            isScrapeAllPending ||
-                            post.status === "scraping" ||
-                            (scrapePostMutation.isPending &&
-                              activeScrapePostId === post.id)
-                          }
-                        />
-                      ))}
-                    </div>
-                  </>
+                  <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
+                    {mobilePaginatedPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onScrape={handleScrapePost}
+                        onDelete={setShowDeletePostDialog}
+                        isScraping={
+                          isScrapeAllPending ||
+                          post.status === "scraping" ||
+                          (scrapePostMutation.isPending &&
+                            activeScrapePostId === post.id)
+                        }
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
 
@@ -2487,10 +2519,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Likes
                       </th>
-                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="hidden xl:table-cell text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Comments
                       </th>
-                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="hidden 2xl:table-cell text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
                         Engagement
                       </th>
                       <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3"></th>
@@ -2653,12 +2685,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   ? post.likes.toLocaleString()
                                   : "-"}
                               </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
+                              <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
                                 {post.comments && post.comments > 0
                                   ? post.comments.toLocaleString()
                                   : "-"}
                               </td>
-                              <td className="px-6 py-4 text-right">
+                              <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                                 {post.engagement_rate &&
                                 post.engagement_rate > 0 ? (
                                   <span className="text-sm text-emerald-400 font-medium">
@@ -2812,12 +2844,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               ? post.likes.toLocaleString()
                               : "-"}
                           </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
+                          <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
                             {post.comments && post.comments > 0
                               ? post.comments.toLocaleString()
                               : "-"}
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                             {post.engagement_rate &&
                             post.engagement_rate > 0 ? (
                               <span className="text-sm text-emerald-400 font-medium">
@@ -2877,26 +2909,46 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               </div>
 
               {/* Mobile Pagination */}
-              {!showTopPerformers && totalPages > 1 && (
+              {mobileTotalPages > 1 && (
                 <div className="lg:hidden px-4 sm:px-6 pb-4 space-y-3">
                   <p className="text-xs text-slate-400">
-                    Showing {startIndex + 1} to{" "}
-                    {Math.min(startIndex + postsPerPage, remainingPosts.length)}{" "}
-                    of {remainingPosts.length} posts
+                    Showing {mobileStartIndex + 1} to{" "}
+                    {Math.min(
+                      mobileStartIndex + postsPerPage,
+                      showTopPerformers
+                        ? postsWithRankings.length
+                        : remainingPosts.length
+                    )}{" "}
+                    of{" "}
+                    {showTopPerformers
+                      ? postsWithRankings.length
+                      : remainingPosts.length}{" "}
+                    posts
                   </p>
                   <div className="flex items-center justify-between gap-2">
                     <button
                       onClick={() =>
                         setCurrentPage((p) => Math.max(1, p - 1))
                       }
-                      disabled={safeCurrentPage === 1}
-                      className="h-11 min-h-[44px] px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      disabled={mobileSafeCurrentPage === 1}
+                      className="h-9 w-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                     >
-                      Prev
+                      <ChevronLeft className="w-4 h-4" />
+                      <span className="sr-only">Previous page</span>
                     </button>
                     <div className="flex items-center gap-1">
-                      {mobilePaginationPages.map((page, index) => {
-                        const prevPage = mobilePaginationPages[index - 1];
+                      <div className="min-[360px]:hidden text-xs text-slate-400">
+                        Page {mobileSafeCurrentPage} / {mobileTotalPages}
+                      </div>
+                      <div className="hidden min-[360px]:flex items-center gap-1">
+                      {(showTopPerformers
+                        ? mobileAllPaginationPages
+                        : mobilePaginationPages
+                      ).map((page, index) => {
+                        const pages = showTopPerformers
+                          ? mobileAllPaginationPages
+                          : mobilePaginationPages;
+                        const prevPage = pages[index - 1];
                         const showEllipsis =
                           prevPage && page - prevPage > 1;
                         return (
@@ -2908,8 +2960,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                             )}
                             <button
                               onClick={() => setCurrentPage(page)}
-                              className={`h-11 min-h-[44px] w-11 rounded-md text-sm transition-colors ${
-                                safeCurrentPage === page
+                              className={`h-9 w-9 rounded-md text-xs transition-colors ${
+                                mobileSafeCurrentPage === page
                                   ? "bg-primary text-black"
                                   : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
                               }`}
@@ -2919,15 +2971,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           </React.Fragment>
                         );
                       })}
+                      </div>
                     </div>
                     <button
                       onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        setCurrentPage((p) => Math.min(mobileTotalPages, p + 1))
                       }
-                      disabled={safeCurrentPage === totalPages}
-                      className="h-11 min-h-[44px] px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      disabled={mobileSafeCurrentPage === mobileTotalPages}
+                      className="h-9 w-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                     >
-                      Next
+                      <ChevronRight className="w-4 h-4" />
+                      <span className="sr-only">Next page</span>
                     </button>
                   </div>
                 </div>

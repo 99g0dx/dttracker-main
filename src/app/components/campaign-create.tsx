@@ -3,7 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, Upload, X, Calendar as CalendarIcon } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { useCreateCampaign, useCampaigns } from '../../hooks/useCampaigns';
 import * as storageApi from '../../lib/api/storage';
 import type { CampaignInsert } from '../../lib/types/database';
@@ -14,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { Calendar } from './ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 interface CampaignCreateProps {
   onNavigate: (path: string) => void;
@@ -153,6 +156,15 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
     onNavigate('/campaigns');
   };
 
+  const formatDateLabel = (value: string) => {
+    if (!value) return 'Select date';
+    try {
+      return format(parseISO(value), 'MMM d, yyyy');
+    } catch {
+      return 'Select date';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -243,23 +255,72 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                     <label className="block text-sm font-medium text-white mb-2">
                       Start Date
                     </label>
-                    <Input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-10 w-full rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-between px-3 transition-colors"
+                        >
+                          <span className={formData.startDate ? 'text-white' : 'text-slate-500'}>
+                            {formatDateLabel(formData.startDate)}
+                          </span>
+                          <CalendarIcon className="w-4 h-4 text-slate-500" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={
+                            formData.startDate ? parseISO(formData.startDate) : undefined
+                          }
+                          onSelect={(date) => {
+                            setFormData({
+                              ...formData,
+                              startDate: date ? format(date, 'yyyy-MM-dd') : '',
+                            });
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-white mb-2">
                       End Date
                     </label>
-                    <Input
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-10 w-full rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-between px-3 transition-colors"
+                        >
+                          <span className={formData.endDate ? 'text-white' : 'text-slate-500'}>
+                            {formatDateLabel(formData.endDate)}
+                          </span>
+                          <CalendarIcon className="w-4 h-4 text-slate-500" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={
+                            formData.endDate ? parseISO(formData.endDate) : undefined
+                          }
+                          onSelect={(date) => {
+                            setFormData({
+                              ...formData,
+                              endDate: date ? format(date, 'yyyy-MM-dd') : '',
+                            });
+                          }}
+                          disabled={
+                            formData.startDate
+                              ? [{ before: parseISO(formData.startDate) }]
+                              : undefined
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
