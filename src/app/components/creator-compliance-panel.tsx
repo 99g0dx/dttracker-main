@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { X, Users, CheckCircle2, Clock, AlertCircle, Link2, TrendingUp } from 'lucide-react';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 
 interface CreatorCompliancePanelProps {
   open: boolean;
@@ -201,7 +206,30 @@ export function CreatorCompliancePanel({
                             </div>
                             <div>
                               <div className="text-sm font-medium text-white">{creator.name}</div>
-                              <div className="text-xs text-slate-500 capitalize">{creator.platform}</div>
+                              <div className="text-xs text-slate-500 flex items-center gap-2">
+                                {(() => {
+                                  const platformIcon = normalizePlatform(
+                                    creator.platform
+                                  );
+                                  if (!platformIcon) return null;
+                                  return (
+                                    <>
+                                      <PlatformIcon
+                                        platform={platformIcon}
+                                        size="sm"
+                                        className="sm:hidden"
+                                        aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                      />
+                                      <PlatformIcon
+                                        platform={platformIcon}
+                                        size="md"
+                                        className="hidden sm:flex"
+                                        aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                      />
+                                    </>
+                                  );
+                                })()}
+                              </div>
                             </div>
                           </div>
                           <div 

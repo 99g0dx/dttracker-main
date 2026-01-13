@@ -22,6 +22,11 @@ import {
   CheckSquare,
   Target
 } from 'lucide-react';
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from './ui/PlatformIcon';
 
 interface ActivityFormDialogProps {
   open: boolean;
@@ -387,7 +392,30 @@ export function ActivityFormDialog({
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-sm font-medium text-white group-hover:text-primary transition-colors truncate">{creator.name}</div>
-                                  <div className="text-xs text-slate-500 capitalize mt-0.5">{creator.platform}</div>
+                                  <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                                    {(() => {
+                                      const platformIcon = normalizePlatform(
+                                        creator.platform
+                                      );
+                                      if (!platformIcon) return null;
+                                      return (
+                                        <>
+                                          <PlatformIcon
+                                            platform={platformIcon}
+                                            size="sm"
+                                            className="sm:hidden"
+                                            aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                          />
+                                          <PlatformIcon
+                                            platform={platformIcon}
+                                            size="md"
+                                            className="hidden sm:flex"
+                                            aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                          />
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                               </div>
                             </label>

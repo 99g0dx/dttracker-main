@@ -83,10 +83,14 @@ function AppRoutes() {
           </>
         )}
 
-        <main className={cn(
-        "flex-1 overflow-y-auto overflow-x-hidden", 
-        isPublicRoute ? "" : "lg:ml-64 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 md:pt-20 sm:pt-20 "
-      )}>
+        <main
+          className={cn(
+            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden",
+            isPublicRoute
+              ? "px-4 sm:px-5 lg:px-8 py-6 sm:py-8"
+              : "lg:ml-64 px-4 sm:px-5 lg:px-8 pt-[max(5rem,env(safe-area-inset-top,5rem))] lg:pt-8 pb-8"
+          )}
+        >
           <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
             <Routes>
               <Route

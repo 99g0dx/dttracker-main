@@ -5,7 +5,9 @@ import App from "./app/App.tsx";
 import { AuthProvider } from "./contexts/AuthContext";
 import { queryClient } from "./lib/query-client";
 import "./styles/index.css";
-import { CartProvider } from "./contexts/CartContext.tsx";
+// Import connection test utilities (makes them available in browser console)
+import "./lib/utils/test-connection";
+
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
     <BrowserRouter

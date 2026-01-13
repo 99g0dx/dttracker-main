@@ -12,7 +12,11 @@ import {
 import { Button } from "./ui/button";
 import { X, ArrowRight, Info } from "lucide-react";
 import { useCart } from "../../contexts/CartContext";
-import { PlatformBadge } from "./platform-badge";
+import {
+  PlatformIcon,
+  normalizePlatform,
+  getPlatformLabel,
+} from "./ui/PlatformIcon";
 import type { CreatorWithStats } from "../../lib/types/database";
 
 interface ReviewRequestModalProps {
@@ -78,7 +82,28 @@ export function ReviewRequestModal({
                             @{creator.handle.replace(/^@/, "")}
                           </p>
                         )}
-                        {creator.platform && <PlatformBadge platform={creator.platform as any} />}
+                        {(() => {
+                          const platformIcon = normalizePlatform(
+                            creator.platform as string
+                          );
+                          if (!platformIcon) return null;
+                          return (
+                            <>
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="sm"
+                                className="sm:hidden"
+                                aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                              />
+                              <PlatformIcon
+                                platform={platformIcon}
+                                size="md"
+                                className="hidden sm:flex"
+                                aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                              />
+                            </>
+                          );
+                        })()}
                       </div>
                       {creator.follower_count && (
                         <p className="text-xs text-slate-500 mt-1">
