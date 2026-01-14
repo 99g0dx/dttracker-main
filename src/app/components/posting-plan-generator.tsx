@@ -9,6 +9,7 @@ import {
   getPlatformLabel,
 } from './ui/PlatformIcon';
 import { addDays, format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface PostingPlanGeneratorProps {
   open: boolean;
@@ -36,7 +37,7 @@ export function PostingPlanGenerator({
 
   const handleGenerate = () => {
     if (!selectedCampaign || selectedCreators.length === 0 || !startDate || !endDate) {
-      alert('Please fill in all fields');
+      toast.error('Please fill in all fields');
       return;
     }
 

@@ -24,12 +24,14 @@ const navItems: NavItem[] = [
     icon: <Calendar className="w-5 h-5" />,
     requiredPermission: (userId) => canAccessCalendar(userId)
   },
-  { 
-    name: 'Team', 
-    href: '/team', 
-    icon: <Shield className="w-5 h-5" />,
-    requiredPermission: (userId) => canManageTeam(userId)
-  },
+
+  //add teams once rls works
+  // { 
+  //   name: 'Team', 
+  //   href: '/team', 
+  //   icon: <Shield className="w-5 h-5" />,
+  //   requiredPermission: (userId) => canManageTeam(userId)
+  // },
   { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
   
 ];

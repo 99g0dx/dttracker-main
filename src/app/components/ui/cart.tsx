@@ -5,6 +5,7 @@ import { useCart } from '../../../contexts/CartContext';
 import { Trash, X, ShoppingCart, DollarSign, FileText } from 'lucide-react';
 import React, { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { toast } from 'sonner';
 
 export const CartSheet = () => {
   const { cart, totalItems, clearCart } = useCart();
@@ -16,7 +17,7 @@ export const CartSheet = () => {
     if (cart.length === 0) return;
     
     if (!campaignDetails.trim()) {
-      alert("Please provide campaign details before submitting.");
+      toast.error('Please provide campaign details before submitting.');
       return;
     }
 
@@ -24,7 +25,7 @@ export const CartSheet = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert("Please log in to submit an inquiry.");
+        toast.error('Please log in to submit an inquiry.');
         return;
       }
 
@@ -40,13 +41,13 @@ export const CartSheet = () => {
 
       if (error) throw error;
 
-      alert("Inquiry sent successfully to the agency!");
+      toast.success('Inquiry sent successfully to the agency!');
       clearCart();
       setCampaignDetails('');
       setBudget('');
     } catch (err) {
       console.error("Checkout Error:", err);
-      alert("Failed to send request. Please try again.");
+      toast.error('Failed to send request. Please try again.');
     } finally {
       setIsSending(false);
     }

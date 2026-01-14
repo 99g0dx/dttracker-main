@@ -165,6 +165,7 @@ export interface TeamInvite {
   invite_token: string;
   expires_at: string;
   accepted_at: string | null;
+  scopes: Array<{ scope_type: ScopeType; scope_value: string }> | null;
   message: string | null;
   created_at: string;
 }
@@ -308,6 +309,7 @@ export interface TeamInviteInsert {
   role: TeamRole;
   invite_token: string;
   expires_at: string;
+  scopes?: Array<{ scope_type: ScopeType; scope_value: string }> | null;
   message?: string | null;
 }
 

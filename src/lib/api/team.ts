@@ -29,29 +29,58 @@ function generateUUID(): string {
 
 /**
  * Get team members for a workspace
- * For now, workspace_id is the owner's user_id
  */
+async function resolveWorkspaceId(
+  workspaceId?: string
+): Promise<{ workspaceId: string | null; error: Error | null }> {
+  if (workspaceId) {
+    return { workspaceId, error: null };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { workspaceId: null, error: new Error("Not authenticated") };
+  }
+
+  const { data, error } = await supabase
+    .from("team_members")
+    .select("workspace_id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .single();
+
+  if (error || !data?.workspace_id) {
+    return { workspaceId: user.id, error: null };
+  }
+
+  return { workspaceId: data.workspace_id, error: null };
+}
+
 export async function getTeamMembers(
   workspaceId?: string
 ): Promise<ApiListResponse<TeamMemberWithScopes>> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error("Not authenticated") };
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return {
+        data: null,
+        error: workspaceError || new Error("Workspace not found"),
+      };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
-
-    const { data: members, error } = await supabase
+    const { data: members, error: membersError } = await supabase
       .from("team_members")
       .select("*")
       .eq("workspace_id", targetWorkspaceId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      return { data: null, error };
+    if (membersError) {
+      return { data: null, error: membersError };
     }
 
     // Fetch scopes for each member
@@ -86,16 +115,16 @@ export async function getTeamInvites(
   workspaceId?: string
 ): Promise<ApiListResponse<TeamInviteWithInviter>> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error("Not authenticated") };
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return {
+        data: null,
+        error: workspaceError || new Error("Workspace not found"),
+      };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
-
-    const { data: invites, error } = await supabase
+    const { data: invites, error: invitesError } = await supabase
       .from("team_invites")
       .select("*")
       .eq("workspace_id", targetWorkspaceId)
@@ -103,18 +132,18 @@ export async function getTeamInvites(
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
 
-    if (error) {
-      return { data: null, error };
+    if (invitesError) {
+      return { data: null, error: invitesError };
     }
 
     // Fetch inviter info for each invite
     const invitesWithInviter: TeamInviteWithInviter[] = await Promise.all(
       (invites || []).map(async (invite) => {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", invite.invited_by)
-          .single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", invite.invited_by)
+        .maybeSingle();
 
         // Note: Can't fetch email directly without admin API
         // We'll just use the profile name for now
@@ -140,7 +169,7 @@ export async function getTeamInvites(
  * Create a team invite
  */
 export async function createTeamInvite(
-  workspaceId: string,
+  workspaceId: string | undefined,
   email: string,
   role: TeamMember["role"],
   scopes: Array<{ scope_type: MemberScope["scope_type"]; scope_value: string }>,
@@ -161,13 +190,16 @@ export async function createTeamInvite(
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const targetWorkspaceId = workspaceId || user.id;
+
     const inviteData: TeamInviteInsert = {
-      workspace_id: workspaceId,
+      workspace_id: targetWorkspaceId,
       email: email.toLowerCase().trim(),
       invited_by: user.id,
       role,
       invite_token: inviteToken,
       expires_at: expiresAt.toISOString(),
+      scopes: scopes.length > 0 ? scopes : [],
       message: message || null,
     };
 
@@ -255,9 +287,6 @@ export async function createTeamInvite(
       console.warn("Error sending invitation email:", emailError);
     }
 
-    // Note: Member scopes will be added when the invite is accepted
-    // We can store them temporarily or add them to the invite acceptance flow
-
     // Return the invite with any email error info attached
     // The invite is created successfully, but email may have failed
     const result: ApiResponse<TeamInvite> & { emailError?: Error | null } = { 
@@ -335,6 +364,23 @@ export async function acceptTeamInvite(
       return { data: null, error: memberError };
     }
 
+    const inviteScopes = Array.isArray(invite.scopes) ? invite.scopes : [];
+    if (inviteScopes.length > 0) {
+      const scopeRows = inviteScopes.map((scope) => ({
+        team_member_id: member.id,
+        scope_type: scope.scope_type,
+        scope_value: scope.scope_value,
+      }));
+
+      const { error: scopesError } = await supabase
+        .from("member_scopes")
+        .insert(scopeRows);
+
+      if (scopesError) {
+        console.warn("Failed to add invite scopes:", scopesError);
+      }
+    }
+
     // Mark invite as accepted
     const { error: updateError } = await supabase
       .from("team_invites")
@@ -376,7 +422,7 @@ export async function getTeamInviteByToken(
       .from("profiles")
       .select("full_name")
       .eq("id", invite.invited_by)
-      .single();
+      .maybeSingle();
 
     // Note: We can't use admin API here, so we'll need to fetch from profiles
     // For now, we'll just use the profile name

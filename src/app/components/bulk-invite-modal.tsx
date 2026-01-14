@@ -155,7 +155,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
       }
 
       const inviteData = invites.map(({ tempId, ...rest }) => rest);
-      const workspaceId = user.id;
+      const workspaceId = undefined;
 
       // Create invites one by one
       const results = await Promise.allSettled(

@@ -44,6 +44,7 @@ import { ActivityDetailDrawer } from './activity-detail-drawer';
 import { PostingPlanGenerator } from './posting-plan-generator';
 import { CreatorCompliancePanel } from './creator-compliance-panel';
 import { ActivityFormDialog } from './activity-form-dialog';
+import { toast } from 'sonner';
 
 interface Activity {
   id: number;
@@ -303,7 +304,7 @@ export function ActivityScheduler({ onNavigate }: ActivitySchedulerProps) {
 
   const handleAddActivity = () => {
     if (!formData.title) {
-      alert('Please enter an activity title');
+      toast.error('Please enter an activity title');
       return;
     }
 

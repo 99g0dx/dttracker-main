@@ -1706,7 +1706,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
         open={showChatbotModal}
         onOpenChange={setShowChatbotModal}
         onComplete={() => {
-          toast.success("Request submitted successfully!");
           onNavigate?.("/requests");
         }}
       />
@@ -1721,7 +1720,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
           }
         }}
         onComplete={() => {
-          toast.success("Request submitted. Our team will reach out shortly.");
           setRequestCreatorId(null);
         }}
         initialCreatorIds={requestCreatorId ? [requestCreatorId] : undefined}
