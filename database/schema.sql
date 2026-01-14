@@ -278,7 +278,20 @@ CREATE TABLE IF NOT EXISTS public.team_invites (
   invite_token TEXT NOT NULL UNIQUE,
   expires_at TIMESTAMPTZ NOT NULL,
   accepted_at TIMESTAMPTZ,
+  scopes JSONB DEFAULT '[]'::jsonb,
   message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Account events table (who did what)
+CREATE TABLE IF NOT EXISTS public.account_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL,
+  actor_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id UUID,
+  metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -511,6 +524,9 @@ CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON public.team_members(user_
 CREATE INDEX IF NOT EXISTS idx_team_invites_workspace_id ON public.team_invites(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_team_invites_email ON public.team_invites(email);
 CREATE INDEX IF NOT EXISTS idx_team_invites_token ON public.team_invites(invite_token);
+CREATE INDEX IF NOT EXISTS idx_account_events_workspace_id ON public.account_events(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_account_events_actor_id ON public.account_events(actor_id);
+CREATE INDEX IF NOT EXISTS idx_account_events_created_at ON public.account_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_member_scopes_team_member_id ON public.member_scopes(team_member_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_share_links_campaign_id ON public.campaign_share_links(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_share_links_token ON public.campaign_share_links(share_token);
@@ -527,6 +543,7 @@ ALTER TABLE public.campaign_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_creators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.account_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_scopes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_share_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.creator_requests ENABLE ROW LEVEL SECURITY;
@@ -1154,7 +1171,33 @@ BEGIN
   ) THEN
     CREATE POLICY "Workspace owner can add team members"
       ON public.team_members FOR INSERT
-      WITH CHECK (workspace_id = auth.uid());
+      WITH CHECK (workspace_id = auth.uid() AND invited_by = auth.uid());
+  END IF;
+END
+$$;
+
+-- INSERT (invited user can add themselves via valid invite)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_members'
+      AND policyname='team_members_insert_from_invite_email'
+  ) THEN
+    CREATE POLICY "team_members_insert_from_invite_email"
+      ON public.team_members FOR INSERT
+      TO authenticated
+      WITH CHECK (
+        user_id = auth.uid()
+        AND EXISTS (
+          SELECT 1
+          FROM public.team_invites ti
+          WHERE ti.workspace_id = team_members.workspace_id
+            AND ti.email = (auth.jwt() ->> 'email')
+            AND ti.accepted_at IS NULL
+            AND ti.expires_at > now()
+        )
+      );
   END IF;
 END
 $$;
@@ -1204,7 +1247,7 @@ BEGIN
   ) THEN
     CREATE POLICY "Users can view invites for their workspace"
       ON public.team_invites FOR SELECT
-      USING (workspace_id = auth.uid() OR email = (SELECT email FROM auth.users WHERE id = auth.uid()));
+      USING (workspace_id = auth.uid() OR email = (auth.jwt() ->> 'email'));
   END IF;
 END
 $$;
@@ -1230,11 +1273,28 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname='public' AND tablename='team_invites'
-      AND policyname='Workspace owner can update invites or public can accept'
+      AND policyname='Workspace owner can update invites'
   ) THEN
-    CREATE POLICY "Workspace owner can update invites or public can accept"
+    CREATE POLICY "Workspace owner can update invites"
       ON public.team_invites FOR UPDATE
-      USING (workspace_id = auth.uid() OR accepted_at IS NULL);
+      USING (workspace_id = auth.uid())
+      WITH CHECK (workspace_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- UPDATE (invited user can accept)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='team_invites'
+      AND policyname='Invited user can accept invite'
+  ) THEN
+    CREATE POLICY "Invited user can accept invite"
+      ON public.team_invites FOR UPDATE
+      USING (email = (auth.jwt() ->> 'email') AND accepted_at IS NULL)
+      WITH CHECK (email = (auth.jwt() ->> 'email') AND accepted_at IS NOT NULL);
   END IF;
 END
 $$;
@@ -1250,6 +1310,67 @@ BEGIN
     CREATE POLICY "Workspace owner can delete invites"
       ON public.team_invites FOR DELETE
       USING (workspace_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ROW LEVEL SECURITY - ACCOUNT_EVENTS POLICIES
+-- ============================================================
+
+-- SELECT (workspace owner can view events)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='account_events'
+      AND policyname='Account owner can view events'
+  ) THEN
+    CREATE POLICY "Account owner can view events"
+      ON public.account_events FOR SELECT
+      USING (workspace_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- SELECT (actors can view their own events)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='account_events'
+      AND policyname='Actors can view their own events'
+  ) THEN
+    CREATE POLICY "Actors can view their own events"
+      ON public.account_events FOR SELECT
+      USING (actor_id = auth.uid());
+  END IF;
+END
+$$;
+
+-- INSERT (members can add events for workspaces they belong to)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='account_events'
+      AND policyname='Members can insert events'
+  ) THEN
+    CREATE POLICY "Members can insert events"
+      ON public.account_events FOR INSERT
+      WITH CHECK (
+        actor_id = auth.uid()
+        AND (
+          workspace_id = auth.uid()
+          OR EXISTS (
+            SELECT 1
+            FROM public.team_members tm
+            WHERE tm.workspace_id = account_events.workspace_id
+              AND tm.user_id = auth.uid()
+              AND tm.status = 'active'
+          )
+        )
+      );
   END IF;
 END
 $$;
@@ -1294,6 +1415,41 @@ BEGIN
           SELECT 1 FROM public.team_members
           WHERE team_members.id = member_scopes.team_member_id
           AND team_members.workspace_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- INSERT (invited user can add their scopes during acceptance)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='member_scopes'
+      AND policyname='Invited user can add their scopes'
+  ) THEN
+    CREATE POLICY "Invited user can add their scopes"
+      ON public.member_scopes FOR INSERT
+      TO authenticated
+      WITH CHECK (
+        EXISTS (
+          SELECT 1
+          FROM public.team_members tm
+          WHERE tm.id = member_scopes.team_member_id
+            AND tm.user_id = auth.uid()
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM public.team_invites ti
+          WHERE ti.workspace_id = (
+            SELECT tm.workspace_id
+            FROM public.team_members tm
+            WHERE tm.id = member_scopes.team_member_id
+          )
+            AND ti.email = (auth.jwt() ->> 'email')
+            AND ti.accepted_at IS NULL
+            AND ti.expires_at > now()
         )
       );
   END IF;

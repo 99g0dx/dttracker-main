@@ -91,7 +91,7 @@ export function useCreateTeamInvite() {
       scopes,
       message,
     }: {
-      workspaceId: string;
+      workspaceId?: string;
       email: string;
       role: TeamMember['role'];
       scopes: Array<{ scope_type: MemberScope['scope_type']; scope_value: string }>;
@@ -312,7 +312,6 @@ export function useCurrentWorkspaceId() {
     staleTime: Infinity, // Workspace ID doesn't change
   });
 }
-
 
 
 

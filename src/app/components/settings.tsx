@@ -364,12 +364,7 @@ export function Settings({ onNavigate }: SettingsProps) {
     setInviteSending(true);
 
     const emailValue = inviteEmail.trim().toLowerCase();
-    const workspaceId = await resolveWorkspaceId();
-    if (!workspaceId) {
-      toast.error('Unable to resolve workspace');
-      setInviteSending(false);
-      return;
-    }
+    const workspaceId = user.id;
 
     const scopeValue = inviteRole === 'viewer' ? 'viewer' : 'editor';
     const result = await createTeamInvite(
@@ -638,7 +633,8 @@ export function Settings({ onNavigate }: SettingsProps) {
       </Card>
 
       {/* Team Management */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <div className='hidden'>
+           {<Card className="bg-[#0D0D0D] border-white/[0.08]">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
@@ -737,7 +733,9 @@ export function Settings({ onNavigate }: SettingsProps) {
             )}
           </div>
         </CardContent>
-      </Card>
+      </Card>}
+      </div>
+     
 
       {/* Notifications */}
       <Card className="bg-[#0D0D0D] border-white/[0.08]">

@@ -7,6 +7,7 @@ import {
   normalizePlatform,
   getPlatformLabel,
 } from './ui/PlatformIcon';
+import { toast } from 'sonner';
 
 interface CreatorCompliancePanelProps {
   open: boolean;
@@ -262,7 +263,7 @@ export function CreatorCompliancePanel({
               {campaignCreators.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-white/[0.06] flex gap-3">
                   <Button
-                    onClick={() => alert('Reminder feature coming soon!')}
+                    onClick={() => toast.info('Reminder feature coming soon!')}
                     variant="outline"
                     className="flex-1 h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
                   >

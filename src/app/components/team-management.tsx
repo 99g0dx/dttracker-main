@@ -115,8 +115,8 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       if (!user) return;
 
       const [membersResult, invitesResult] = await Promise.all([
-        getTeamMembers(user.id),
-        getTeamInvites(user.id),
+        getTeamMembers(),
+        getTeamInvites(),
       ]);
 
       if (membersResult.data) {
@@ -128,7 +128,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                 .from('profiles')
                 .select('full_name, id')
                 .eq('id', member.user_id)
-                .single();
+                .maybeSingle();
               
               return {
                 ...member,
@@ -481,7 +481,7 @@ function InviteModal({ onClose, onComplete }: { onClose: () => void; onComplete:
       const { role, scopes } = mapRolePresetToRoleAndScopes(rolePreset, selectedCampaigns.length > 0 ? selectedCampaigns : undefined);
       
       const result = await createTeamInvite(
-        user.id, // workspace_id is the current user's ID
+        undefined,
         email,
         role,
         scopes,
