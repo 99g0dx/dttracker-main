@@ -2,14 +2,22 @@
 @import './tailwind.css';
 @import './theme.css';
 
+html,
+body {
+  height: 100%;
+  background-color: #0a0a0a;
+}
+
 body {
   font-family: var(--font-body);
   min-height: 100dvh;
   overflow-x: hidden;
+  margin: 0;
 }
 
 #root {
   min-height: 100dvh;
+  background-color: #0a0a0a;
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),

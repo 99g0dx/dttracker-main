@@ -201,11 +201,26 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
       .eq('user_id', user.id)
       .single();
 
-    if (memberError || !memberData) {
-      return { 
-        data: null, 
-        error: new Error('User is not part of any workspace. Please contact support.') 
-      };
+    let workspaceId = memberData?.workspace_id || null;
+    if (memberError || !workspaceId) {
+      workspaceId = user.id;
+      const { error: ownerInsertError } = await supabase
+        .from('team_members')
+        .insert({
+          workspace_id: workspaceId,
+          user_id: user.id,
+          role: 'owner',
+          status: 'active',
+          invited_by: user.id,
+          joined_at: new Date().toISOString(),
+        });
+
+      if (ownerInsertError && !ownerInsertError.message?.includes('duplicate')) {
+        return {
+          data: null,
+          error: new Error('Unable to create workspace membership. Please contact support.'),
+        };
+      }
     }
 
     // Create campaign with workspace_id
@@ -216,7 +231,7 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
         user_id: user.id,
         owner_id: user.id,
         created_by: user.id,
-        workspace_id: memberData.workspace_id, // Add workspace_id
+        workspace_id: workspaceId, // Add workspace_id
       })
       .select()
       .single();

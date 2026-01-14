@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -8,33 +8,44 @@ import {
   normalizePlatform,
   getPlatformLabel,
 } from './ui/PlatformIcon';
-import { useCreatorsWithStats } from '../../hooks/useCreators';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCreatorsWithStats, creatorsKeys } from '../../hooks/useCreators';
 import { useCampaigns } from '../../hooks/useCampaigns';
-import { useAddCreatorsToCampaign, useCampaignCreators } from '../../hooks/useCreators';
+import { useCampaignCreatorIds } from '../../hooks/useCreators';
 import * as creatorsApi from '../../lib/api/creators';
 import { toast } from 'sonner';
 import type { CreatorWithStats } from '../../lib/types/database';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from './ui/pagination';
 
 interface CampaignCreatorSelectorProps {
   onNavigate?: (path: string) => void;
 }
 
 export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorProps) {
+  const queryClient = useQueryClient();
   const { data: creators = [], isLoading } = useCreatorsWithStats();
   const { data: campaigns = [] } = useCampaigns();
-  const addCreatorsMutation = useAddCreatorsToCampaign();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [selectedCreatorIds, setSelectedCreatorIds] = useState<Set<string>>(new Set());
   const [isAdding, setIsAdding] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 18;
 
-  // Get creators already in selected campaigns (for display purposes, use first campaign)
-  const { data: campaignCreators = [] } = useCampaignCreators(selectedCampaignIds[0] || '');
+  const { data: campaignCreatorIds = [] } = useCampaignCreatorIds(selectedCampaignIds);
 
-  const campaignCreatorIds = useMemo(() => {
-    return new Set(campaignCreators.map(cc => cc.creator_id));
-  }, [campaignCreators]);
+  const campaignCreatorIdSet = useMemo(() => {
+    return new Set(campaignCreatorIds);
+  }, [campaignCreatorIds]);
 
   const filteredCreators = useMemo(() => {
     return creators.filter(creator =>
@@ -43,6 +54,32 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
       (creator.niche && creator.niche.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [creators, searchQuery]);
+
+  const availableCreators = useMemo(() => {
+    if (selectedCampaignIds.length === 0) {
+      return filteredCreators;
+    }
+
+    return filteredCreators.filter((creator) => !campaignCreatorIdSet.has(creator.id));
+  }, [filteredCreators, selectedCampaignIds.length, campaignCreatorIdSet]);
+
+  const totalPages = Math.ceil(availableCreators.length / itemsPerPage) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, availableCreators.length);
+  const pagedCreators = useMemo(() => {
+    return availableCreators.slice(startIndex, startIndex + itemsPerPage);
+  }, [availableCreators, startIndex, itemsPerPage]);
+
+  useEffect(() => {
+    if (currentPage !== safeCurrentPage) {
+      setCurrentPage(safeCurrentPage);
+    }
+  }, [currentPage, safeCurrentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCampaignIds.join(','), creators.length]);
 
   const handleToggleCreator = (creatorId: string) => {
     setSelectedCreatorIds(prev => {
@@ -57,10 +94,10 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
   };
 
   const handleSelectAll = () => {
-    if (selectedCreatorIds.size === filteredCreators.length) {
+    if (selectedCreatorIds.size === availableCreators.length) {
       setSelectedCreatorIds(new Set());
     } else {
-      setSelectedCreatorIds(new Set(filteredCreators.map(c => c.id)));
+      setSelectedCreatorIds(new Set(availableCreators.map(c => c.id)));
     }
   };
 
@@ -87,6 +124,13 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
       } else {
         toast.success(`Added ${selectedCreatorIds.size} creator${selectedCreatorIds.size !== 1 ? 's' : ''} to ${selectedCampaignIds.length} campaign${selectedCampaignIds.length !== 1 ? 's' : ''}`);
         setSelectedCreatorIds(new Set());
+        await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
+        await queryClient.refetchQueries({ queryKey: creatorsKeys.all });
+        await Promise.all(
+          selectedCampaignIds.map((campaignId) =>
+            queryClient.invalidateQueries({ queryKey: creatorsKeys.byCampaign(campaignId) })
+          )
+        );
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to add creators to campaigns');
@@ -149,11 +193,16 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
                 <Button
                   onClick={handleAddToCampaigns}
                   disabled={selectedCreatorIds.size === 0 || isAdding}
-                  className="h-10 bg-primary hover:bg-primary/90 text-black"
+                  className="h-10 bg-primary hover:bg-primary/90 text-black w-full sm:w-auto"
                   style={{ backgroundClip: 'unset', WebkitBackgroundClip: 'unset' }}
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  {isAdding ? 'Adding...' : `Add ${selectedCreatorIds.size > 0 ? `${selectedCreatorIds.size} ` : ''}Creator${selectedCreatorIds.size !== 1 ? 's' : ''} to ${selectedCampaignIds.length} Campaign${selectedCampaignIds.length !== 1 ? 's' : ''}`}
+                  <span className="sm:hidden">
+                    {isAdding ? 'Adding...' : `Add ${selectedCreatorIds.size || ''} Creator${selectedCreatorIds.size !== 1 ? 's' : ''}`}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {isAdding ? 'Adding...' : `Add ${selectedCreatorIds.size > 0 ? `${selectedCreatorIds.size} ` : ''}Creator${selectedCreatorIds.size !== 1 ? 's' : ''} to ${selectedCampaignIds.length} Campaign${selectedCampaignIds.length !== 1 ? 's' : ''}`}
+                  </span>
                 </Button>
               </div>
             )}
@@ -173,50 +222,51 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
       </div>
 
       {/* Select All */}
-      {filteredCreators.length > 0 && selectedCampaignIds.length > 0 && (
+      {availableCreators.length > 0 && selectedCampaignIds.length > 0 && (
         <div className="flex items-center justify-between">
           <button
             onClick={handleSelectAll}
             className="text-sm text-primary hover:text-primary/80 flex items-center gap-2"
           >
             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-              selectedCreatorIds.size === filteredCreators.length
+              selectedCreatorIds.size === availableCreators.length
                 ? 'bg-primary border-primary'
                 : 'border-white/[0.2]'
             }`}>
-              {selectedCreatorIds.size === filteredCreators.length && (
+              {selectedCreatorIds.size === availableCreators.length && (
                 <Check className="w-3 h-3 text-black" />
               )}
             </div>
-            {selectedCreatorIds.size === filteredCreators.length ? 'Deselect All' : 'Select All'}
+            {selectedCreatorIds.size === availableCreators.length ? 'Deselect All' : 'Select All'}
           </button>
           <p className="text-sm text-slate-400">
-            {selectedCreatorIds.size} of {filteredCreators.length} selected
+            {selectedCreatorIds.size} of {availableCreators.length} selected
           </p>
         </div>
       )}
 
       {/* Creators Grid */}
-      {filteredCreators.length === 0 ? (
+      {availableCreators.length === 0 ? (
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <p className="text-sm text-slate-400">
-              {searchQuery ? 'No creators match your search' : 'No creators found'}
+              {selectedCampaignIds.length > 0
+                ? 'All available creators are already in the selected campaign(s)'
+                : (searchQuery ? 'No creators match your search' : 'No creators found')}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCreators.map((creator) => {
+          {pagedCreators.map((creator) => {
             const isSelected = selectedCreatorIds.has(creator.id);
-            const isInCampaign = selectedCampaignIds.length > 0 ? campaignCreatorIds.has(creator.id) : false;
 
             return (
               <Card
                 key={creator.id}
                 className={`bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all ${
                   isSelected ? 'ring-2 ring-primary' : ''
-                } ${isInCampaign ? 'opacity-60' : ''}`}
+                }`}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
@@ -289,16 +339,90 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
                     </div>
                   </div>
 
-                  {isInCampaign && selectedCampaignIds.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-white/[0.08]">
-                      <p className="text-xs text-slate-500">Already in selected campaign(s)</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
+      )}
+
+      {availableCreators.length > 0 && totalPages > 1 && (
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-slate-400">
+                Showing {startIndex + 1}-{endIndex} of {availableCreators.length} creators
+              </p>
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage((p) => Math.max(1, p - 1));
+                    }}
+                    className={
+                      safeCurrentPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => {
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= safeCurrentPage - 1 && page <= safeCurrentPage + 1)
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage(page);
+                            }}
+                            isActive={safeCurrentPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === safeCurrentPage - 2 ||
+                      page === safeCurrentPage + 2
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  }
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage((p) => Math.min(totalPages, p + 1));
+                    }}
+                    className={
+                      safeCurrentPage === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

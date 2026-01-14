@@ -742,24 +742,37 @@ BEGIN
   ) THEN
     CREATE POLICY "Users can insert campaign_creators for campaigns they own or edit"
       ON public.campaign_creators FOR INSERT
+      TO authenticated
       WITH CHECK (
         EXISTS (
-          SELECT 1 FROM public.campaigns
-          WHERE campaigns.id = campaign_creators.campaign_id
+          SELECT 1 FROM public.campaigns c
+          WHERE c.id = campaign_creators.campaign_id
           AND (
-            campaigns.user_id = auth.uid() OR
+            c.user_id = auth.uid() OR
             EXISTS (
-              SELECT 1 FROM public.campaign_members
-              WHERE campaign_members.campaign_id = campaigns.id
-              AND campaign_members.user_id = auth.uid()
-              AND campaign_members.role IN ('owner', 'editor')
+              SELECT 1 FROM public.campaign_members cm
+              WHERE cm.campaign_id = c.id
+              AND cm.user_id = auth.uid()
+              AND cm.role IN ('owner', 'editor')
             )
           )
         )
         AND EXISTS (
-          SELECT 1 FROM public.creators
-          WHERE creators.id = campaign_creators.creator_id
-          AND creators.user_id = auth.uid()
+          SELECT 1 FROM public.creators cr
+          WHERE cr.id = campaign_creators.creator_id
+          AND (
+            cr.user_id = auth.uid()
+            OR cr.user_id IS NULL
+            OR EXISTS (
+              SELECT 1 FROM public.workspace_creators wc
+              WHERE wc.creator_id = cr.id
+              AND wc.workspace_id = (
+                SELECT c.workspace_id
+                FROM public.campaigns c
+                WHERE c.id = campaign_creators.campaign_id
+              )
+            )
+          )
         )
       );
   END IF;
