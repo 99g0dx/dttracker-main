@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import {
@@ -128,8 +128,9 @@ function getPostDateKey(post: any): string | null {
 
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-    const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
+  const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [campaignPage, setCampaignPage] = useState(1);
@@ -632,6 +633,27 @@ useEffect(() => {
     }
   }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData]);
 
+  useEffect(() => {
+    if (!isDateDropdownOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(target)) {
+        setIsDateDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [isDateDropdownOpen]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -641,9 +663,9 @@ useEffect(() => {
           <p className="text-sm text-slate-400 mt-1">Track your campaign performance</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
           
-          <div className="relative">
+          <div className="relative" ref={dateDropdownRef}>
             <button 
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
               className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"

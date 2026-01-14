@@ -279,5 +279,23 @@ export function useCampaignCreators(campaignId: string) {
   });
 }
 
+/**
+ * Hook to fetch creator IDs for multiple campaigns
+ */
+export function useCampaignCreatorIds(campaignIds: string[]) {
+  const campaignKey = campaignIds.slice().sort().join(',');
+  return useQuery({
+    queryKey: [...creatorsKeys.all, 'campaign-creator-ids', campaignKey],
+    queryFn: async () => {
+      const result = await creatorsApi.getCampaignCreatorIds(campaignIds);
+      if (result.error) {
+        throw result.error;
+      }
+      return result.data || [];
+    },
+    enabled: campaignIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 

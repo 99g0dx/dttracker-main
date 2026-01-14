@@ -721,6 +721,50 @@ export async function getCampaignCreators(
 }
 
 /**
+ * Get creator IDs for multiple campaigns
+ */
+export async function getCampaignCreatorIds(
+  campaignIds: string[]
+): Promise<ApiResponse<string[]>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: new Error('Not authenticated') };
+    }
+
+    if (campaignIds.length === 0) {
+      return { data: [], error: null };
+    }
+
+    const { data, error } = await supabase
+      .from('campaign_creators')
+      .select('creator_id')
+      .in('campaign_id', campaignIds);
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    const { data: postsData, error: postsError } = await supabase
+      .from('posts')
+      .select('creator_id')
+      .in('campaign_id', campaignIds);
+
+    if (postsError) {
+      return { data: null, error: postsError };
+    }
+
+    const creatorIds = Array.from(new Set([
+      ...(data || []).map(row => row.creator_id),
+      ...(postsData || []).map(row => row.creator_id),
+    ]));
+    return { data: creatorIds, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
  * Add creators to multiple campaigns at once
  */
 export async function addCreatorsToMultipleCampaigns(

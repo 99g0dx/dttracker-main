@@ -42,7 +42,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <div className="flex-1 text-center min-w-0">
+        <div className="flex-1 text-left sm:text-center min-w-0">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-2 sm:mb-3">
             Choose Your Plan
           </h1>

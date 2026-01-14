@@ -1389,7 +1389,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
   }
 
   return (
-    <div className="space-y-5 pt-6 sm:pt-8 lg:pt-0">
+    <div className="space-y-5 pt-0 sm:pt-0 lg:pt-0">
       {campaign?.parent_campaign_id && (
         <button
           onClick={() =>
