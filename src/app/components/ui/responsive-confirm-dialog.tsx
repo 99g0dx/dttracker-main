@@ -2,6 +2,7 @@ import React from "react";
 import { useIsMobile } from "./use-mobile";
 import { cn } from "./utils";
 import { Button } from "./button";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ interface ResponsiveConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   confirmDisabled?: boolean;
+  confirmLoading?: boolean;
   onConfirm: () => void;
   className?: string;
 }
@@ -38,6 +40,7 @@ export function ResponsiveConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   confirmDisabled = false,
+  confirmLoading = false,
   onConfirm,
   className,
 }: ResponsiveConfirmDialogProps) {
@@ -54,7 +57,7 @@ export function ResponsiveConfirmDialog({
 
   const handleClose = () => onOpenChange(false);
   const handleConfirm = () => {
-    if (confirmDisabled) return;
+    if (confirmDisabled || confirmLoading) return;
     onConfirm();
   };
 
@@ -77,9 +80,13 @@ export function ResponsiveConfirmDialog({
         <Button
           variant="destructive"
           onClick={handleConfirm}
-          disabled={confirmDisabled}
-          className={cn("min-h-[44px] w-full", !isMobile && "w-auto")}
+          disabled={confirmDisabled || confirmLoading}
+          className={cn(
+            "min-h-[44px] w-full flex items-center justify-center gap-2",
+            !isMobile && "w-auto"
+          )}
         >
+          {confirmLoading && <Loader2 className="w-4 h-4 animate-spin" />}
           {confirmLabel}
         </Button>
         <Button

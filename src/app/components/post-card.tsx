@@ -34,10 +34,6 @@ interface PostCardProps {
 
 export const PostCard = React.memo(
   ({ post, onScrape, onDelete, isScraping }: PostCardProps) => {
-    const [confirmDelete, setConfirmDelete] = React.useState(false);
-    const confirmTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-      null
-    );
     const hasPostUrl = Boolean(post.post_url);
     const viewsValue = post.views > 0 ? post.views.toLocaleString() : "-";
     const likesValue = post.likes > 0 ? post.likes.toLocaleString() : "-";
@@ -49,14 +45,6 @@ export const PostCard = React.memo(
     const creatorName = post.creator?.name || "Unknown";
     const creatorHandle = post.creator?.handle || "unknown";
     const platformIcon = normalizePlatform(post.platform);
-
-    React.useEffect(() => {
-      return () => {
-        if (confirmTimeoutRef.current) {
-          clearTimeout(confirmTimeoutRef.current);
-        }
-      };
-    }, []);
 
     return (
       <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors">
@@ -164,13 +152,7 @@ export const PostCard = React.memo(
               />
               Refresh
             </Button>
-            <DropdownMenu
-              onOpenChange={(open) => {
-                if (!open) {
-                  setConfirmDelete(false);
-                }
-              }}
-            >
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
@@ -184,23 +166,12 @@ export const PostCard = React.memo(
                 <DropdownMenuItem
                   variant="destructive"
                   onSelect={(event) => {
-                    if (!confirmDelete) {
-                      event.preventDefault();
-                      setConfirmDelete(true);
-                      if (confirmTimeoutRef.current) {
-                        clearTimeout(confirmTimeoutRef.current);
-                      }
-                      confirmTimeoutRef.current = setTimeout(() => {
-                        setConfirmDelete(false);
-                      }, 2000);
-                      return;
-                    }
+                    event.preventDefault();
                     onDelete(post.id);
-                    setConfirmDelete(false);
                   }}
                 >
                   <Trash2 className="w-4 h-4" />
-                  {confirmDelete ? "Tap again to delete" : "Delete"}
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
