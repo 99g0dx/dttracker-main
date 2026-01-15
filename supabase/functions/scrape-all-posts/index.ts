@@ -137,7 +137,7 @@ serve(async (req) => {
       .select("id, post_url, platform, status, updated_at, last_scraped_at")
       .eq("campaign_id", campaignId)
       .not("post_url", "is", null)
-      .in("status", ["pending", "scraped", "failed", "scraping"]);
+      .in("status", ["pending", "scraped", "failed", "scraping", "manual"]);
 
     posts = postsResult.data;
     fetchError = postsResult.error;
@@ -156,7 +156,7 @@ serve(async (req) => {
         .select("id, post_url, platform, status, updated_at")
         .eq("campaign_id", campaignId)
         .not("post_url", "is", null)
-        .in("status", ["pending", "scraped", "failed", "scraping"]);
+        .in("status", ["pending", "scraped", "failed", "scraping", "manual"]);
 
       if (retryResult.error) {
         console.error("Error fetching posts (retry):", retryResult.error);

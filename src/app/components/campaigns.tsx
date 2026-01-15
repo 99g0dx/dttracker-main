@@ -18,12 +18,21 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
+  const [shouldFetch, setShouldFetch] = useState(false);
 
   // Fetch campaigns from database
-  const { data: campaigns = [], isLoading, error, refetch } = useCampaigns();
+  const { data: campaigns = [], isLoading, error, refetch } = useCampaigns({
+    enabled: shouldFetch,
+  });
   const queryClient = useQueryClient();
   const deleteCampaignMutation = useDeleteCampaign();
   const duplicateCampaignMutation = useDuplicateCampaign();
+  const isCampaignsLoading = !shouldFetch || isLoading;
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShouldFetch(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
   
   const handleRetry = () => {
     // Clear the cache and refetch
@@ -76,7 +85,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
   const deleteCandidate = campaigns.find(c => c.id === deleteDialogId);
 
   // Loading state
-  if (isLoading) {
+  if (isCampaignsLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -111,7 +120,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
   }
 
   // Error state
-  if (error) {
+  if (shouldFetch && error) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -231,7 +240,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                       
                       {/* Dropdown Menu */}
                       {openMenuId === campaign.id && (
-                        <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-50 overflow-hidden">
+                        <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-1 overflow-hidden">
                           <button
                             onClick={(e) => handleEditClick(e, campaign.id)}
                             className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"

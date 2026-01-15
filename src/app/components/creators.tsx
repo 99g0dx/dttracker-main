@@ -121,8 +121,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [networkFilter, setNetworkFilter] = useState<"my_network" | "all">(
     "my_network"
   );
+  const [shouldFetch, setShouldFetch] = useState(false);
   const { data: creators = [], isLoading } =
-    useCreatorsWithStats(networkFilter);
+    useCreatorsWithStats(networkFilter, { enabled: shouldFetch });
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
@@ -149,6 +150,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [selectedCreator, setSelectedCreator] =
     useState<CreatorWithStats | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const isCreatorsLoading = !shouldFetch || isLoading;
 
   // Sorting state
   const [sortField, setSortField] = useState<
@@ -201,6 +203,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
     location: "",
   });
 
+  useEffect(() => {
+    const timer = setTimeout(() => setShouldFetch(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
 
   // Filter and sort creators
@@ -510,8 +516,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ">
+          <TabsList className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-1 w-fit">
             <TabsTrigger
               value="library"
               className="data-[state=active]:bg-white/[0.06] data-[state=active]:text-white text-slate-400"
@@ -569,13 +575,15 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   <Upload className="w-4 h-4" />
                   Import CSV
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={handleExportCSV}
-                  disabled={creators.length === 0 || isLoading}
-                >
-                  <Download className="w-4 h-4" />
-                  Export CSV
-                </DropdownMenuItem>
+                {networkFilter === "my_network" && (
+                  <DropdownMenuItem
+                    onSelect={handleExportCSV}
+                    disabled={creators.length === 0 || isCreatorsLoading}
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -724,7 +732,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </div>
             )}
           </div>
-          {isLoading ? (
+          {isCreatorsLoading ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
@@ -894,7 +902,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           Platform
                         </TableHead>
                         <TableHead className="text-slate-400 font-medium">
-                          Location
+                          Niche
                         </TableHead>
                         <TableHead className="text-slate-400 font-medium text-right">
                           Followers
@@ -995,7 +1003,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-slate-300">
-                              {creator.location || "-"}
+                              {creator.niche || "-"}
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
@@ -1584,36 +1592,42 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 rounded-lg bg-white/[0.03]">
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="col-span-2 p-3 rounded-lg bg-white/[0.03]">
                     <div className="text-2xl font-semibold text-white">
                       {(selectedCreator.follower_count / 1000).toFixed(0)}K
                     </div>
                     <p className="text-xs text-slate-500">Followers</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-white/[0.03]">
+                  <div className="col-span-2 p-3 rounded-lg bg-white/[0.03]">
                     <div className="text-2xl font-semibold text-emerald-400">
                       {selectedCreator.avg_engagement}%
                     </div>
                     <p className="text-xs text-slate-500">Engagement</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-white/[0.03]">
+                  <div className="col-span-1 p-3 rounded-lg bg-white/[0.03]">
                     <div className="text-2xl font-semibold text-white">
                       {selectedCreator.campaigns}
                     </div>
                     <p className="text-xs text-slate-500">Campaigns</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-white/[0.03]">
+                  <div className="col-span-1 p-3 rounded-lg bg-white/[0.03]">
                     <div className="text-2xl font-semibold text-white">
                       {selectedCreator.totalPosts}
                     </div>
                     <p className="text-xs text-slate-500">Posts</p>
                   </div>
+                  <div className="col-span-2 p-3 rounded-lg bg-white/[0.03]">
+                    <div className="text-sm font-semibold text-white truncate">
+                      {selectedCreator.niche || "—"}
+                    </div>
+                    <p className="text-xs text-slate-500">Niche</p>
+                  </div>
                 </div>
 
                 <div className="space-y-3 pt-2">
                   <div>
-                    <label className="text-xs text-slate-500">Handle</label>
+                    <label className="text-xs text-slate-500">Handle </label>
                     <CreatorHandleLink
                       handle={selectedCreator.handle}
                       platform={selectedCreator.platform}

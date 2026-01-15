@@ -390,7 +390,18 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
         .from('workspace_creators')
         .select(`
           creator_id,
-          creators:creator_id (*)
+          creators:creator_id (
+            id,
+            name,
+            handle,
+            email,
+            phone,
+            platform,
+            follower_count,
+            avg_engagement,
+            niche,
+            location
+          )
         `)
         .eq('workspace_id', user.id);
 
@@ -407,7 +418,16 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
     } else if (networkFilter === 'all') {
        const { data, error } = await supabase
             .from('creators')
-            .select('*')
+            .select(`
+              id,
+              name,
+              handle,
+              platform,
+              follower_count,
+              avg_engagement,
+              niche,
+              location
+            `)
             .order('name', { ascending: true });
 
           if (error) {
@@ -422,7 +442,18 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
         .from('workspace_creators')
         .select(`
           creator_id,
-          creators:creator_id (*)
+          creators:creator_id (
+            id,
+            name,
+            handle,
+            email,
+            phone,
+            platform,
+            follower_count,
+            avg_engagement,
+            niche,
+            location
+          )
         `)
         .eq('workspace_id', user.id);
 

@@ -16,13 +16,14 @@ export function CreatorHandleLink({
   className,
   children,
 }: CreatorHandleLinkProps) {
-  const url = getCreatorProfileUrl(handle, platform);
+  const normalizedHandle = handle.startsWith('@') ? handle.slice(1) : handle;
+  const url = getCreatorProfileUrl(normalizedHandle, platform);
 
   // If URL generation fails, fall back to plain text
   if (!url) {
     return (
       <span className={cn('text-xs text-muted-foreground', className)}>
-        {children || `@${handle}`}
+        {children || `@${normalizedHandle}`}
       </span>
     );
   }
@@ -37,9 +38,9 @@ export function CreatorHandleLink({
         'text-xs text-primary hover:text-primary/80 hover:underline transition-colors',
         className
       )}
-      aria-label={`Open ${handle}'s ${platform} profile in new tab`}
+      aria-label={`Open ${normalizedHandle}'s ${platform} profile in new tab`}
     >
-      {children || `@${handle}`}
+      {children || `@${normalizedHandle}`}
     </a>
   );
 }
