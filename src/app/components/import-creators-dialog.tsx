@@ -58,9 +58,9 @@ export function ImportCreatorsDialog({ open, onClose }: ImportCreatorsDialogProp
   };
 
   const handleDownloadTemplate = () => {
-    const template = `handle,platform
-@johndoe,tiktok
-janesmith,instagram
+    const template = `handle,platform,Profile,Followers,Niche
+@johndoe,tiktok,https://www.tiktok.com/@realjadrolita?_t=ZM-8wltJogyXOa&_r=1,9000000,Lifestyle
+janesmith,instagram,
 @techguru,youtube`;
     
     csvUtils.downloadCSV(template, 'creators_template.csv');

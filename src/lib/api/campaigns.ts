@@ -26,7 +26,14 @@ export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
     const { data: campaigns, error } = await supabase
       .from('campaigns')
       .select(`
-        *,
+        id,
+        name,
+        brand_name,
+        status,
+        cover_image_url,
+        start_date,
+        end_date,
+        created_at,
         posts:posts(
           views,
           likes,

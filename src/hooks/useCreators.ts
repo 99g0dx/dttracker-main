@@ -147,7 +147,10 @@ export function useCreateCreator() {
 /**
  * Hook to fetch all creators with stats (campaigns count, total posts)
  */
-export function useCreatorsWithStats(networkFilter?: 'my_network' | 'all') {
+export function useCreatorsWithStats(
+  networkFilter?: 'my_network' | 'all',
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: [...creatorsKeys.list(), 'withStats', networkFilter || 'my_network'],
     queryFn: async () => {
@@ -158,6 +161,7 @@ export function useCreatorsWithStats(networkFilter?: 'my_network' | 'all') {
       return result.data || [];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -297,5 +301,4 @@ export function useCampaignCreatorIds(campaignIds: string[]) {
     staleTime: 5 * 60 * 1000,
   });
 }
-
 

@@ -15,7 +15,7 @@ export const campaignsKeys = {
 /**
  * Hook to fetch all campaigns with stats
  */
-export function useCampaigns() {
+export function useCampaigns(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: campaignsKeys.lists(),
     queryFn: async () => {
@@ -28,6 +28,7 @@ export function useCampaigns() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2, // Retry failed requests twice
     retryDelay: 1000, // Wait 1 second between retries
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -39,6 +39,16 @@ import {
 } from "recharts";
 import type { SubcampaignSummary } from "../../lib/types/database";
 import * as csvUtils from "../../lib/utils/csv";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "./ui/pagination";
 
 type SortBy = "views" | "platform" | "likes" | "comments" | "top-performer";
 
@@ -154,6 +164,7 @@ function buildSeriesFromPosts(
 export function SharedCampaignDashboard() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const isMobile = useMediaQuery("(max-width: 1023px)");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SharedCampaignData | null>(null);
@@ -291,6 +302,44 @@ export function SharedCampaignDashboard() {
         return sorted;
     }
   }, [filteredPosts, sortBy]);
+
+  const [postsPage, setPostsPage] = useState(1);
+  const postsPerPage = isMobile ? 6 : 9;
+  const totalPostPages = Math.max(
+    1,
+    Math.ceil(sortedPosts.length / postsPerPage)
+  );
+  const safePostsPage = Math.min(postsPage, totalPostPages);
+  const postsStartIndex = (safePostsPage - 1) * postsPerPage;
+  const postsEndIndex = Math.min(
+    postsStartIndex + postsPerPage,
+    sortedPosts.length
+  );
+
+  React.useEffect(() => {
+    if (postsPage !== safePostsPage) {
+      setPostsPage(safePostsPage);
+    }
+  }, [postsPage, safePostsPage]);
+
+  const pagedPosts = useMemo(() => {
+    return sortedPosts.slice(postsStartIndex, postsStartIndex + postsPerPage);
+  }, [sortedPosts, postsStartIndex, postsPerPage]);
+
+  const paginationPages = useMemo(() => {
+    if (totalPostPages <= 5) {
+      return Array.from({ length: totalPostPages }, (_, i) => i + 1);
+    }
+    const pages = new Set<number>();
+    pages.add(1);
+    pages.add(totalPostPages);
+    pages.add(safePostsPage);
+    pages.add(safePostsPage - 1);
+    pages.add(safePostsPage + 1);
+    return Array.from(pages)
+      .filter((page) => page >= 1 && page <= totalPostPages)
+      .sort((a, b) => a - b);
+  }, [safePostsPage, totalPostPages]);
 
   const handleExportCSV = () => {
     if (!data?.share?.allowExport) return;
@@ -690,29 +739,35 @@ export function SharedCampaignDashboard() {
           {/* Posts Section */}
           <Card className="bg-[#0D0D0D] border-white/[0.08]">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div>
                   <h3 className="text-lg font-semibold text-white">Posts</h3>
                   <p className="text-sm text-slate-400 mt-0.5">
                     {sortedPosts.length} post{sortedPosts.length !== 1 ? "s" : ""}
                   </p>
                 </div>
-                <Select
-                  value={sortBy}
-                  onValueChange={(value: SortBy) => setSortBy(value)}
-                >
-                  <SelectTrigger className="h-9 w-[180px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
-                    <ArrowUpDown className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="views">Sort by: Views</SelectItem>
-                    <SelectItem value="likes">Sort by: Likes</SelectItem>
-                    <SelectItem value="comments">Sort by: Comments</SelectItem>
-                    <SelectItem value="platform">Sort by: Platform</SelectItem>
-                    <SelectItem value="top-performer">Sort by: Top Performer</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-3">
+                  <div className="text-xs text-slate-500">
+                    Showing {sortedPosts.length === 0 ? 0 : postsStartIndex + 1}–
+                    {postsEndIndex} of {sortedPosts.length}
+                  </div>
+                  <Select
+                    value={sortBy}
+                    onValueChange={(value: SortBy) => setSortBy(value)}
+                  >
+                    <SelectTrigger className="h-9 w-[180px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
+                      <ArrowUpDown className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="views">Sort by: Views</SelectItem>
+                      <SelectItem value="likes">Sort by: Likes</SelectItem>
+                      <SelectItem value="comments">Sort by: Comments</SelectItem>
+                      <SelectItem value="platform">Sort by: Platform</SelectItem>
+                      <SelectItem value="top-performer">Sort by: Top Performer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {sortedPosts.length === 0 ? (
@@ -720,8 +775,8 @@ export function SharedCampaignDashboard() {
                   <p className="text-slate-400">No posts available</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {sortedPosts.map((post) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {pagedPosts.map((post) => (
                     <div
                       key={post.id}
                       className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:bg-white/[0.04] transition-colors"
@@ -765,7 +820,7 @@ export function SharedCampaignDashboard() {
                           >
                             View Post <ExternalLink className="w-3.5 h-3.5" />
                           </a>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                          <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                               <div className="text-slate-400 mb-1">Views</div>
                               <div className="text-white font-medium">
@@ -795,6 +850,54 @@ export function SharedCampaignDashboard() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {totalPostPages > 1 && (
+                <div className="flex items-center justify-center pt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() =>
+                            setPostsPage((page) => Math.max(1, page - 1))
+                          }
+                          className={safePostsPage === 1 ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                      {paginationPages.map((page, index) => {
+                        const prevPage = paginationPages[index - 1];
+                        const showEllipsis = prevPage && page - prevPage > 1;
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsis && (
+                              <PaginationItem>
+                                <PaginationEllipsis />
+                              </PaginationItem>
+                            )}
+                            <PaginationItem>
+                              <PaginationLink
+                                onClick={() => setPostsPage(page)}
+                                isActive={safePostsPage === page}
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </React.Fragment>
+                        );
+                      })}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() =>
+                            setPostsPage((page) =>
+                              Math.min(totalPostPages, page + 1)
+                            )
+                          }
+                          className={safePostsPage === totalPostPages ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 </div>
               )}
             </CardContent>

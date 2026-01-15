@@ -225,7 +225,9 @@ export function CampaignShareLinkModal({
                   disabled={isGenerating}
                   className="w-full h-10 bg-primary hover:bg-primary/90 text-black font-medium"
                 >
-                  <Link2 className="w-4 h-4 mr-2" />
+                  <Link2
+                    className={`w-4 h-4 mr-2 ${isGenerating ? "animate-spin" : ""}`}
+                  />
                   {isGenerating
                     ? "Creating..."
                     : shareLinks.length > 0

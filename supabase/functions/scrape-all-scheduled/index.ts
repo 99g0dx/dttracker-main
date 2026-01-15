@@ -40,7 +40,7 @@ serve(async (req) => {
       `)
       .eq("campaigns.status", "active")
       .not("post_url", "is", null)
-      .in("status", ["pending", "scraped", "failed"]); // Skip posts currently being scraped
+      .in("status", ["pending", "scraped", "failed", "manual"]); // Skip posts currently being scraped
 
     if (fetchError) {
       console.error("Error fetching posts:", fetchError);
@@ -181,7 +181,6 @@ serve(async (req) => {
     );
   }
 });
-
 
 
 
