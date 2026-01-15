@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   Upload,
   Check,
+  Loader2,
 } from "lucide-react";
 import {
   PlatformIcon,
@@ -118,6 +119,19 @@ function PlatformSelect({
 }
 
 export function Creators({ onNavigate }: CreatorsProps) {
+  const formatFollowers = (count: number) => {
+    if (count === 0) return "0";
+    if (count >= 1_000_000) {
+      const value = count / 1_000_000;
+      const precision = count % 1_000_000 === 0 ? 0 : 1;
+      return `${value.toFixed(precision)}M`;
+    }
+    if (count >= 1_000) {
+      return `${Math.round(count / 1_000)}K`;
+    }
+    return count.toLocaleString();
+  };
+
   const [networkFilter, setNetworkFilter] = useState<"my_network" | "all">(
     "my_network"
   );
@@ -143,6 +157,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [followerRange, setFollowerRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
   const [postsRange, setPostsRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
   const [isPaidUser] = useState(false);
+  const [isSavingCreator, setIsSavingCreator] = useState(false);
+  const [deletingCreatorId, setDeletingCreatorId] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -364,6 +380,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
     }
 
     try {
+      setIsSavingCreator(true);
       await createCreatorMutation.mutateAsync({
         name: formData.name,
         handle: formData.handle,
@@ -390,6 +407,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
       });
     } catch (error: any) {
       // Error toast is handled by the mutation
+    } finally {
+      setIsSavingCreator(false);
     }
   };
 
@@ -440,10 +459,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
   const handleDelete = async (id: string) => {
     try {
+      setDeletingCreatorId(id);
       await deleteCreatorMutation.mutateAsync(id);
       setDeleteConfirm(null);
     } catch (error: any) {
       // Error toast is handled by the mutation
+    } finally {
+      setDeletingCreatorId(null);
     }
   };
 
@@ -785,7 +807,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               Followers
                             </p>
                             <p className="text-sm text-white mt-0.5">
-                              {(creator.follower_count / 1000).toFixed(0)}K
+                              {formatFollowers(creator.follower_count)}
                             </p>
                           </div>
                           <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
@@ -1008,7 +1030,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-white font-medium text-sm">
-                              {(creator.follower_count / 1000).toFixed(0)}K
+                              {formatFollowers(creator.follower_count)}
                             </span>
                           </TableCell>
                           <TableCell className="text-right text-slate-300">
@@ -1514,13 +1536,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 <div className="flex gap-3 pt-2">
                   <Button
                     onClick={addDialogOpen ? handleAdd : handleEdit}
-                    className="flex-1 h-9 bg-primary hover:bg-primary/90 text-[rgba(10,10,10,1)]"
+                    disabled={addDialogOpen && isSavingCreator}
+                    className="flex-1 h-9 bg-primary hover:bg-primary/90 text-[rgba(10,10,10,1)] flex items-center justify-center gap-2 disabled:opacity-70"
                     style={{
                       backgroundClip: "unset",
                       WebkitBackgroundClip: "unset",
                     }}
                   >
-                    {addDialogOpen ? "Add Creator" : "Save Changes"}
+                    {addDialogOpen && isSavingCreator && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
+                    {addDialogOpen
+                      ? (isSavingCreator ? "Adding..." : "Add Creator")
+                      : "Save Changes"}
                   </Button>
                   <Button
                     onClick={() => {
@@ -1595,7 +1623,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 <div className="grid grid-cols-4 gap-3">
                   <div className="col-span-2 p-3 rounded-lg bg-white/[0.03]">
                     <div className="text-2xl font-semibold text-white">
-                      {(selectedCreator.follower_count / 1000).toFixed(0)}K
+                      {formatFollowers(selectedCreator.follower_count)}
                     </div>
                     <p className="text-xs text-slate-500">Followers</p>
                   </div>
@@ -1693,6 +1721,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
         title="Delete creator?"
         description="This creator will be deleted. This action cannot be undone."
         confirmLabel="Delete creator"
+        confirmLoading={Boolean(deletingCreatorId)}
         onConfirm={() => {
           console.log('[Delete Confirmed]', deleteConfirm);
           deleteConfirm && handleDelete(deleteConfirm);

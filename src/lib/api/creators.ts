@@ -416,26 +416,46 @@ export async function listWithStats(networkFilter?: 'my_network' | 'all'): Promi
 
       console.log(`📥 Fetched ${creators.length} creators from My Network`);
     } else if (networkFilter === 'all') {
-       const { data, error } = await supabase
-            .from('creators')
-            .select(`
-              id,
-              name,
-              handle,
-              platform,
-              follower_count,
-              avg_engagement,
-              niche,
-              location
-            `)
-            .order('name', { ascending: true });
+      const { data: myCreators, error: myCreatorsError } = await supabase
+        .from('workspace_creators')
+        .select('creator_id')
+        .eq('workspace_id', user.id);
 
-          if (error) {
-            console.error('❌ Error fetching all creators:', error);
-            return { data: null, error };
-          }
+      if (myCreatorsError) {
+        console.error('❌ Error fetching workspace creators:', myCreatorsError);
+        return { data: null, error: myCreatorsError };
+      }
 
-          creators = (data || []) as Creator[];
+      const myCreatorIds = myCreators?.map((c) => c.creator_id) ?? [];
+
+      let query = supabase
+        .from('creators')
+        .select(`
+          id,
+          name,
+          handle,
+          platform,
+          follower_count,
+          avg_engagement,
+          niche,
+          location
+        `)
+        .order('name', { ascending: true });
+
+      // Exclude creators already in the user's network.
+      if (myCreatorIds.length > 0) {
+        const formattedIds = myCreatorIds.map((id) => `"${id}"`).join(',');
+        query = query.not('id', 'in', `(${formattedIds})`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('❌ Error fetching all creators:', error);
+        return { data: null, error };
+      }
+
+      creators = (data || []) as Creator[];
     } else {
       // Default to my_network
       const { data: workspaceCreators, error: workspaceError } = await supabase
