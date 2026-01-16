@@ -1134,8 +1134,6 @@ useEffect(() => {
                 <tr className="border-b border-white/[0.08]">
                   <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3">Campaign</th>
                   <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden sm:table-cell">Status</th>
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden lg:table-cell">Budget</th>
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden md:table-cell">Creators</th>
                   <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden md:table-cell">Posts</th>
                   <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3">Reach</th>
                   <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden lg:table-cell">Engagement</th>
@@ -1183,13 +1181,6 @@ useEffect(() => {
                     <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
                       <StatusBadge status={campaign.status} />
                     </td>
-                    <td className="px-4 sm:px-6 py-4 hidden lg:table-cell">
-                          <div className="text-sm text-slate-300">-</div>
-                          <div className="text-xs text-slate-500">No budget data</div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 hidden md:table-cell">
-                          <div className="text-sm text-slate-300">-</div>
-                    </td>
                     <td className="px-4 sm:px-6 py-4 hidden md:table-cell">
                           <div className="text-sm text-slate-300">{campaign.posts_count || 0}</div>
                     </td>
@@ -1211,17 +1202,6 @@ useEffect(() => {
                         </div>
                             <span className="text-xs text-slate-400 font-medium min-w-[32px]">{performance.toFixed(0)}%</span>
                       </div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-right">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                            aria-label="Open campaign actions"
-                          >
-                        <MoreVertical className="w-4 h-4 text-slate-400" />
-                      </button>
                     </td>
                   </tr>
                     );

@@ -95,6 +95,11 @@ const Verification = React.lazy(() =>
     default: module.Verification,
   }))
 );
+const ResetPassword = React.lazy(() =>
+  import("./components/reset-password").then((module) => ({
+    default: module.ResetPassword,
+  }))
+);
 const Onboarding = React.lazy(() =>
   import("./components/onboarding").then((module) => ({
     default: module.Onboarding,
@@ -138,9 +143,14 @@ function AppRoutes() {
   }, []);
 
   const isPublicRoute =
-    ["/home", "/login", "/signup", "/verification", "/onboarding"].includes(
-      location.pathname
-    ) ||
+    [
+      "/home",
+      "/login",
+      "/signup",
+      "/verification",
+      "/onboarding",
+      "/reset-password",
+    ].includes(location.pathname) ||
     location.pathname.startsWith("/share/") ||
     location.pathname.startsWith("/team/invite/");
 
@@ -207,6 +217,7 @@ function AppRoutes() {
                   path="/onboarding"
                   element={<Onboarding onNavigate={(path) => navigate(path)} />}
                 />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route
                   path="/share/campaign/:token"
                   element={<SharedCampaignDashboard />}
