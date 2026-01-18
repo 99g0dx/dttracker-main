@@ -4,6 +4,29 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ],
   "redirects": [
     {
       "source": "/:path*",
@@ -15,7 +38,8 @@
         }
       ],
       "destination": "https://dttracker.app/:path*",
-      "permanent": true
+      "permanent": true,
+      "statusCode": 301
     }
   ],
   "rewrites": [
