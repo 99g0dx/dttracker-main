@@ -50,6 +50,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { campaignsKeys, useCampaign } from "../../hooks/useCampaigns";
+import { useWorkspace } from "../../contexts/WorkspaceContext";
 import {
   usePosts,
   useCampaignMetricsTimeSeries,
@@ -238,6 +239,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   // Fetch campaign data - hooks must be called unconditionally
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const {
     data: campaign,
     isLoading: campaignLoading,
@@ -289,7 +291,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         if (!old) return old;
         return { ...old, status: derivedCampaignStatus, updated_at: new Date().toISOString() };
       });
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
     };
 
     updateStatus();

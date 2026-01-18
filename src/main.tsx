@@ -3,6 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import App from "./app/App.tsx";
 import { AuthProvider } from "./contexts/AuthContext";
+import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import { queryClient } from "./lib/query-client";
 import "./styles/index.css";
 import { CartProvider } from "./contexts/CartContext.tsx";
@@ -17,9 +18,11 @@ createRoot(document.getElementById("root")!).render(
         v7_relativeSplatPath: true
       }}>
       <AuthProvider>
-        <CartProvider>
-          <App />
-        </CartProvider>
+        <WorkspaceProvider>
+          <CartProvider>
+            <App />
+          </CartProvider>
+        </WorkspaceProvider>
       </AuthProvider>
       
     </BrowserRouter>

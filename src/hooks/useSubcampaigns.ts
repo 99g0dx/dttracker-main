@@ -4,6 +4,7 @@ import * as subcampaignsApi from "../lib/api/subcampaigns";
 import type { CampaignInsert } from "../lib/types/database";
 import { campaignsKeys } from "./useCampaigns";
 import { postsKeys } from "./usePosts";
+import { useWorkspace } from "../contexts/WorkspaceContext";
 
 export const subcampaignsKeys = {
   all: ["subcampaigns"] as const,
@@ -61,6 +62,7 @@ export function useCampaignHierarchyMetrics(campaignId: string) {
 
 export function useCreateSubcampaign(parentCampaignId: string) {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (payload: Omit<CampaignInsert, "user_id">) => {
@@ -80,7 +82,7 @@ export function useCreateSubcampaign(parentCampaignId: string) {
       queryClient.invalidateQueries({
         queryKey: subcampaignsKeys.metrics(parentCampaignId),
       });
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       queryClient.invalidateQueries({ queryKey: campaignsKeys.detail(parentCampaignId) });
       queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
