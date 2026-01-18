@@ -150,23 +150,21 @@ export interface TeamMember {
   user_id: string;
   role: TeamRole;
   status: MemberStatus;
-  invited_by: string;
-  invited_at: string;
-  joined_at: string | null;
+  invited_by: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface TeamInvite {
   id: string;
   workspace_id: string;
   email: string;
-  invited_by: string;
+  invited_by: string | null;
   role: TeamRole;
-  invite_token: string;
+  token: string;
+  status: string;
   expires_at: string;
   accepted_at: string | null;
-  scopes: Array<{ scope_type: ScopeType; scope_value: string }> | null;
-  message: string | null;
   created_at: string;
 }
 
@@ -298,19 +296,17 @@ export interface TeamMemberInsert {
   user_id: string;
   role?: TeamRole;
   status?: MemberStatus;
-  invited_by: string;
-  joined_at?: string | null;
+  invited_by?: string | null;
 }
 
 export interface TeamInviteInsert {
   workspace_id: string;
   email: string;
-  invited_by: string;
+  invited_by?: string | null;
   role: TeamRole;
-  invite_token: string;
+  token: string;
+  status: string;
   expires_at: string;
-  scopes?: Array<{ scope_type: ScopeType; scope_value: string }> | null;
-  message?: string | null;
 }
 
 export interface MemberScopeInsert {
@@ -408,11 +404,11 @@ export interface CampaignMemberUpdate {
 export interface TeamMemberUpdate {
   role?: TeamRole;
   status?: MemberStatus;
-  joined_at?: string | null;
 }
 
 export interface TeamInviteUpdate {
   accepted_at?: string | null;
+  status?: string;
 }
 
 export interface CampaignShareLinkUpdate {

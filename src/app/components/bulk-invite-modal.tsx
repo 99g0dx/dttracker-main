@@ -14,6 +14,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { createTeamInvite } from '../../lib/api/team';
 import type { TeamRole, ScopeType } from '../../lib/types/database';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 // Keep InviteData type for the modal
 type InviteData = {
@@ -66,6 +67,7 @@ interface InviteRow extends InviteData {
 }
 
 export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
+  const { activeWorkspaceId } = useWorkspace();
   const [invites, setInvites] = useState<InviteRow[]>([
     {
       tempId: 1,
@@ -155,7 +157,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
       }
 
       const inviteData = invites.map(({ tempId, ...rest }) => rest);
-      const workspaceId = undefined;
+      const workspaceId = activeWorkspaceId || undefined;
 
       // Create invites one by one
       const results = await Promise.allSettled(

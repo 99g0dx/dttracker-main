@@ -3,12 +3,13 @@ import * as creatorsApi from '../lib/api/creators';
 import type { CreatorInsert, CreatorUpdate } from '../lib/types/database';
 import { toast } from 'sonner';
 import * as csvUtils from '../lib/utils/csv';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Query keys
 export const creatorsKeys = {
   all: ['creators'] as const,
-  lists: () => [...creatorsKeys.all, 'list'] as const,
-  list: () => [...creatorsKeys.lists()] as const,
+  lists: (workspaceId?: string | null) => [...creatorsKeys.all, 'list', workspaceId || 'default'] as const,
+  list: (workspaceId?: string | null) => [...creatorsKeys.lists(workspaceId)] as const,
   byCampaign: (campaignId: string) => [...creatorsKeys.all, 'campaign', campaignId] as const,
 };
 
@@ -16,10 +17,11 @@ export const creatorsKeys = {
  * Hook to fetch all creators for the current user
  */
 export function useCreators() {
+  const { activeWorkspaceId } = useWorkspace();
   return useQuery({
-    queryKey: creatorsKeys.list(),
+    queryKey: creatorsKeys.list(activeWorkspaceId),
     queryFn: async () => {
-      const result = await creatorsApi.list();
+      const result = await creatorsApi.list("my_network", activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -33,10 +35,11 @@ export function useCreators() {
  * Hook to fetch creators for a specific campaign
  */
 export function useCreatorsByCampaign(campaignId: string) {
+  const { activeWorkspaceId } = useWorkspace();
   return useQuery({
     queryKey: creatorsKeys.byCampaign(campaignId),
     queryFn: async () => {
-      const result = await creatorsApi.getByCampaign(campaignId);
+      const result = await creatorsApi.getByCampaign(campaignId, activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -52,6 +55,7 @@ export function useCreatorsByCampaign(campaignId: string) {
  */
 export function useImportCreators() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (file: File) => {
@@ -63,7 +67,10 @@ export function useImportCreators() {
       }
 
       // Create creators in bulk
-      const createResult = await creatorsApi.createMany(parseResult.creators);
+      const createResult = await creatorsApi.createMany(
+        parseResult.creators,
+        activeWorkspaceId
+      );
       
       if (createResult.error) {
         throw createResult.error;
@@ -84,7 +91,7 @@ export function useImportCreators() {
 
       // Explicitly refetch the creators list to ensure immediate UI update
       await queryClient.refetchQueries({
-        queryKey: [...creatorsKeys.list(), 'withStats']
+        queryKey: [...creatorsKeys.list(activeWorkspaceId), 'withStats']
       });
 
       const successCount = data.createResult.success_count;
@@ -111,6 +118,7 @@ export function useImportCreators() {
  */
 export function useCreateCreator() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (creator: Omit<CreatorInsert, 'user_id'>) => {
@@ -124,7 +132,8 @@ export function useCreateCreator() {
         creator.phone,
         creator.niche,
         creator.location,
-        creator.source_type || 'manual'
+        creator.source_type || 'manual',
+        activeWorkspaceId
       );
       
       if (result.error) {
@@ -151,10 +160,15 @@ export function useCreatorsWithStats(
   networkFilter?: 'my_network' | 'all',
   options?: { enabled?: boolean }
 ) {
+  const { activeWorkspaceId } = useWorkspace();
   return useQuery({
-    queryKey: [...creatorsKeys.list(), 'withStats', networkFilter || 'my_network'],
+    queryKey: [
+      ...creatorsKeys.list(activeWorkspaceId),
+      'withStats',
+      networkFilter || 'my_network'
+    ],
     queryFn: async () => {
-      const result = await creatorsApi.listWithStats(networkFilter);
+      const result = await creatorsApi.listWithStats(networkFilter, activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -170,10 +184,11 @@ export function useCreatorsWithStats(
  */
 export function useUpdateCreator() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: CreatorUpdate }) => {
-      const result = await creatorsApi.update(id, updates);
+      const result = await creatorsApi.update(id, updates, activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -195,10 +210,11 @@ export function useUpdateCreator() {
  */
 export function useDeleteCreator() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const result = await creatorsApi.deleteCreator(id);
+      const result = await creatorsApi.deleteCreator(id, activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -219,10 +235,15 @@ export function useDeleteCreator() {
  */
 export function useAddCreatorsToCampaign() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async ({ campaignId, creatorIds }: { campaignId: string; creatorIds: string[] }) => {
-      const result = await creatorsApi.addCreatorsToCampaign(campaignId, creatorIds);
+      const result = await creatorsApi.addCreatorsToCampaign(
+        campaignId,
+        creatorIds,
+        activeWorkspaceId
+      );
       if (result.error) {
         throw result.error;
       }
@@ -245,10 +266,15 @@ export function useAddCreatorsToCampaign() {
  */
 export function useRemoveCreatorFromCampaign() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async ({ campaignId, creatorId }: { campaignId: string; creatorId: string }) => {
-      const result = await creatorsApi.removeCreatorFromCampaign(campaignId, creatorId);
+      const result = await creatorsApi.removeCreatorFromCampaign(
+        campaignId,
+        creatorId,
+        activeWorkspaceId
+      );
       if (result.error) {
         throw result.error;
       }
@@ -269,10 +295,11 @@ export function useRemoveCreatorFromCampaign() {
  * Hook to fetch creators for a specific campaign
  */
 export function useCampaignCreators(campaignId: string) {
+  const { activeWorkspaceId } = useWorkspace();
   return useQuery({
     queryKey: [...creatorsKeys.byCampaign(campaignId), 'campaign-creators'],
     queryFn: async () => {
-      const result = await creatorsApi.getCampaignCreators(campaignId);
+      const result = await creatorsApi.getCampaignCreators(campaignId, activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -301,4 +328,3 @@ export function useCampaignCreatorIds(campaignIds: string[]) {
     staleTime: 5 * 60 * 1000,
   });
 }
-

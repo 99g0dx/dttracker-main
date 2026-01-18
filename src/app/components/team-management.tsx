@@ -27,6 +27,7 @@ import {
   getTeamInvites,
   createTeamInvite,
   deleteTeamMember,
+  updateTeamMemberRole,
   revokeTeamInvite,
   type TeamMemberWithScopes,
   type TeamInviteWithInviter,
@@ -34,6 +35,7 @@ import {
 import type { TeamRole, ScopeType } from '../../lib/types/database';
 import { BulkInviteModal } from './bulk-invite-modal';
 import { useCampaigns } from '../../hooks/useCampaigns';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 // Keep InviteData type for the modal
 export type InviteData = {
@@ -83,6 +85,7 @@ function mapRolePresetToRoleAndScopes(
 }
 
 export function TeamManagement({ onNavigate }: TeamManagementProps) {
+  const { activeWorkspaceId } = useWorkspace();
   const [members, setMembers] = useState<TeamMemberWithScopes[]>([]);
   const [pendingInvites, setPendingInvites] = useState<TeamInviteWithInviter[]>([]);
   const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
@@ -91,11 +94,17 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showBulkInviteModal, setShowBulkInviteModal] = useState(false);
+  const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
+  const [pendingRoleChange, setPendingRoleChange] = useState<{
+    memberId: string;
+    memberName: string;
+    nextRole: TeamRole;
+  } | null>(null);
 
   useEffect(() => {
     loadCurrentUser();
     loadMembers();
-  }, []);
+  }, [activeWorkspaceId]);
 
   const loadCurrentUser = async () => {
     try {
@@ -115,8 +124,8 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       if (!user) return;
 
       const [membersResult, invitesResult] = await Promise.all([
-        getTeamMembers(),
-        getTeamInvites(),
+        getTeamMembers(activeWorkspaceId || undefined),
+        getTeamInvites(activeWorkspaceId || undefined),
       ]);
 
       if (membersResult.data) {
@@ -126,18 +135,20 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
             try {
               const { data: profile } = await supabase
                 .from('profiles')
-                .select('full_name, id')
+                .select('full_name, id, email')
                 .eq('id', member.user_id)
                 .maybeSingle();
               
               return {
                 ...member,
                 profile_name: profile?.full_name || null,
+                profile_email: (profile as any)?.email || null,
               };
             } catch {
               return {
                 ...member,
                 profile_name: null,
+                profile_email: null,
               };
             }
           })
@@ -154,7 +165,8 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     }
   };
 
-  const canManage = !!currentUser; // For now, allow if user is authenticated
+  const currentUserMember = members.find((member) => member.user_id === currentUser?.id);
+  const canManage = currentUserMember?.role === 'owner';
 
   const handleInviteComplete = async () => {
     await loadMembers();
@@ -162,11 +174,27 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const handleDeleteMember = async (memberId: string) => {
+    const member = members.find((item) => item.id === memberId);
+    const memberEmail = (member as any)?.profile_email || null;
     const result = await deleteTeamMember(memberId);
+    if (!result.error) {
+      setMembers((prev) => prev.filter((member) => member.id !== memberId));
+      if (memberEmail) {
+        setPendingInvites((prev) =>
+          prev.filter((invite) => invite.email !== memberEmail)
+        );
+      }
+    }
+    setShowDeleteConfirm(null);
+  };
+
+  const handleUpdateMemberRole = async (memberId: string, role: TeamRole) => {
+    setRoleUpdatingId(memberId);
+    const result = await updateTeamMemberRole(memberId, role);
     if (!result.error) {
       await loadMembers();
     }
-    setShowDeleteConfirm(null);
+    setRoleUpdatingId(null);
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
@@ -295,11 +323,20 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
               const scopesSummary = getScopesSummary(member);
               // Get name from profile or use user_id
               const memberName = (member as any).profile_name || 'User';
+              const memberEmail =
+                (member as any).profile_email ||
+                (member.user_id === currentUser?.id ? currentUser?.email : null) ||
+                'Email unavailable';
               const memberInitial = memberName.charAt(0).toUpperCase();
               const isCurrentUser = member.user_id === currentUser?.id;
+              const secondaryLine =
+                member.role === 'owner' ? member.user_id : memberEmail;
               
               return (
-                <div key={member.id} className="p-4 hover:bg-white/[0.02] transition-colors">
+                <div
+                  key={member.id || member.user_id}
+                  className="p-4 hover:bg-white/[0.02] transition-colors"
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
@@ -314,7 +351,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-slate-400 mb-2">{member.user_id}</p>
+                        <p className="text-sm text-slate-400 mb-2">{secondaryLine}</p>
                         <div className="flex items-center gap-3 text-xs text-slate-500">
                           <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${badge.color}`}>
                             {badge.icon}
@@ -331,9 +368,37 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                           <MoreVertical className="w-4 h-4 text-slate-400" />
                         </button>
                         <div className="absolute right-0 top-full mt-1 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 min-w-[160px]">
+                          <div className="px-3 py-2">
+                            <label className="block text-[11px] uppercase tracking-wide text-slate-500 mb-2">
+                              Role
+                            </label>
+                            <select
+                              value={member.role}
+                              onChange={(e) =>
+                                setPendingRoleChange({
+                                  memberId: member.id,
+                                  memberName,
+                                  nextRole: e.target.value as TeamRole,
+                                })
+                              }
+                              disabled={roleUpdatingId === member.id}
+                              className="w-full h-8 px-2 rounded-md bg-white/[0.04] border border-white/[0.1] text-xs text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors"
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="member">Member</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                          </div>
                           <button
-                            onClick={() => setShowDeleteConfirm(member.id)}
-                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors rounded-b-lg"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (member.id) {
+                                setShowDeleteConfirm(member.id);
+                              }
+                            }}
+                            disabled={!member.id}
+                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors rounded-b-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!member.id ? "Unable to remove this member" : "Remove member"}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             Remove
@@ -414,6 +479,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         <InviteModal
           onClose={() => setShowInviteModal(false)}
           onComplete={handleInviteComplete}
+          workspaceId={activeWorkspaceId || undefined}
         />
       )}
 
@@ -424,9 +490,31 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
           if (!open) setShowDeleteConfirm(null);
         }}
         title="Remove team member?"
-        description="This member will lose access immediately."
+        description="This member will lose access immediately. This action cannot be undone."
         confirmLabel="Remove member"
         onConfirm={() => showDeleteConfirm && handleDeleteMember(showDeleteConfirm)}
+      />
+
+      <ResponsiveConfirmDialog
+        open={Boolean(pendingRoleChange)}
+        onOpenChange={(open) => {
+          if (!open) setPendingRoleChange(null);
+        }}
+        title="Update member role?"
+        description={
+          pendingRoleChange
+            ? `${pendingRoleChange.memberName} will be set to ${pendingRoleChange.nextRole}.`
+            : "Confirm role change."
+        }
+        confirmLabel="Update role"
+        onConfirm={() => {
+          if (!pendingRoleChange) return;
+          handleUpdateMemberRole(
+            pendingRoleChange.memberId,
+            pendingRoleChange.nextRole
+          );
+          setPendingRoleChange(null);
+        }}
       />
 
       {/* Bulk Invite Modal */}
@@ -444,7 +532,15 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
 }
 
 // Invite Modal Component
-function InviteModal({ onClose, onComplete }: { onClose: () => void; onComplete: () => void }) {
+function InviteModal({
+  onClose,
+  onComplete,
+  workspaceId,
+}: {
+  onClose: () => void;
+  onComplete: () => void;
+  workspaceId?: string;
+}) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [rolePreset, setRolePreset] = useState<InviteData['rolePreset']>('workspace_viewer');
@@ -481,7 +577,7 @@ function InviteModal({ onClose, onComplete }: { onClose: () => void; onComplete:
       const { role, scopes } = mapRolePresetToRoleAndScopes(rolePreset, selectedCampaigns.length > 0 ? selectedCampaigns : undefined);
       
       const result = await createTeamInvite(
-        undefined,
+        workspaceId,
         email,
         role,
         scopes,

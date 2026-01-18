@@ -13,12 +13,16 @@ import { getSubcampaigns } from './subcampaigns';
 /**
  * Fetch all campaigns for the current user's workspace with aggregated stats
  */
-export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
+export async function list(
+  workspaceId?: string | null
+): Promise<ApiListResponse<CampaignWithStats>> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { data: null, error: new Error('Not authenticated') };
     }
+
+    const targetWorkspaceId = workspaceId || user.id;
 
     // RLS automatically filters campaigns by workspace
     // Fetch campaigns with posts count and aggregated metrics
@@ -43,7 +47,7 @@ export async function list(): Promise<ApiListResponse<CampaignWithStats>> {
         ),
         subcampaigns:campaigns!parent_campaign_id(count)
       `)
-      .eq('user_id', user.id)
+      .eq('workspace_id', targetWorkspaceId)
       .is('parent_campaign_id', null)
       .order('created_at', { ascending: false });
 
@@ -194,39 +198,62 @@ export async function getWithSubcampaigns(
 /**
  * Create a new campaign in the user's workspace
  */
-export async function create(campaign: CampaignInsert): Promise<ApiResponse<Campaign>> {
+export async function create(
+  campaign: CampaignInsert,
+  workspaceId?: string | null
+): Promise<ApiResponse<Campaign>> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Get user's workspace_id from team_members
-    const { data: memberData, error: memberError } = await supabase
-      .from('team_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .single();
+    let targetWorkspaceId = workspaceId || null;
+    if (targetWorkspaceId) {
+      const { data: membership, error: membershipError } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('workspace_id', targetWorkspaceId)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    let workspaceId = memberData?.workspace_id || null;
-    if (memberError || !workspaceId) {
-      workspaceId = user.id;
-      const { error: ownerInsertError } = await supabase
-        .from('team_members')
-        .insert({
-          workspace_id: workspaceId,
-          user_id: user.id,
-          role: 'owner',
-          status: 'active',
-          invited_by: user.id,
-          joined_at: new Date().toISOString(),
-        });
+      if (membershipError) {
+        return { data: null, error: membershipError };
+      }
 
-      if (ownerInsertError && !ownerInsertError.message?.includes('duplicate')) {
+      if (!membership) {
         return {
           data: null,
-          error: new Error('Unable to create workspace membership. Please contact support.'),
+          error: new Error('You do not have access to this workspace.'),
         };
+      }
+    } else {
+      // Get user's workspace_id from workspace_members
+      const { data: memberData, error: memberError } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .single();
+
+      targetWorkspaceId = memberData?.workspace_id || null;
+      if (memberError || !targetWorkspaceId) {
+        targetWorkspaceId = user.id;
+        const { error: ownerInsertError } = await supabase
+          .from('workspace_members')
+          .insert({
+            workspace_id: targetWorkspaceId,
+            user_id: user.id,
+            role: 'owner',
+            status: 'active',
+            invited_by: user.id,
+          });
+
+        if (ownerInsertError && !ownerInsertError.message?.includes('duplicate')) {
+          return {
+            data: null,
+            error: new Error('Unable to create workspace membership. Please contact support.'),
+          };
+        }
       }
     }
 
@@ -238,7 +265,7 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
         user_id: user.id,
         owner_id: user.id,
         created_by: user.id,
-        workspace_id: workspaceId, // Add workspace_id
+        workspace_id: targetWorkspaceId, // Add workspace_id
       })
       .select()
       .single();

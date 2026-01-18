@@ -9,6 +9,7 @@ import { CampaignCardSkeleton } from './ui/skeleton';
 import { ResponsiveConfirmDialog } from './ui/responsive-confirm-dialog';
 import { useCampaigns, useDeleteCampaign, useDuplicateCampaign, campaignsKeys } from '../../hooks/useCampaigns';
 import { useQueryClient } from '@tanstack/react-query';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 interface CampaignsProps {
   onNavigate: (path: string) => void;
@@ -25,6 +26,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
     enabled: shouldFetch,
   });
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const deleteCampaignMutation = useDeleteCampaign();
   const duplicateCampaignMutation = useDuplicateCampaign();
   const isCampaignsLoading = !shouldFetch || isLoading;
@@ -36,7 +38,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
   
   const handleRetry = () => {
     // Clear the cache and refetch
-    queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
     refetch();
   };
 
