@@ -1,6 +1,6 @@
 # Auto-Scraping Database Setup Files
 
-This directory contains SQL scripts to set up automatic daily scraping.
+This directory contains SQL scripts to set up automatic scraping every 12 hours.
 
 ## Setup Order
 
@@ -27,11 +27,12 @@ Run these scripts in order:
 
 1. **Get your credentials:**
    - Supabase URL: Dashboard → Settings → API → Project URL
-   - Service Role Key: Dashboard → Settings → API → Service Role key
+   - Trigger token: generate a random string (used by the cron trigger)
+   - Set the same value in Edge Functions → Secrets as `SCRAPE_TRIGGER_TOKEN`
 
 2. **Edit `configure_auto_scraping.sql`:**
    - Replace `https://ucbueapoexnxhttynfzy.supabase.co` with your URL
-   - Replace the service role key with your actual key
+   - Replace `CHANGE_ME` with your trigger token
 
 3. **Run in Supabase SQL Editor:**
    ```sql
@@ -60,9 +61,6 @@ If verification fails:
 - Review error messages in verification output
 
 For detailed troubleshooting, see `../AUTO_SCRAPING_SETUP.md`
-
-
-
 
 
 

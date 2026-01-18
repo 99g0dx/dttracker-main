@@ -5,52 +5,20 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
   Eye,
-  Heart,
-  MessageCircle,
   Share2,
-  ExternalLink,
-  ArrowUpDown,
-  LineChart as LineChartIcon,
   Lock,
 } from "lucide-react";
-import {
-  PlatformIcon,
-  normalizePlatform,
-  getPlatformLabel,
-} from "./ui/PlatformIcon";
 import * as sharingApi from "../../lib/api/campaign-sharing-v2";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
-import type { SubcampaignSummary } from "../../lib/types/database";
+import type { SubcampaignSummary, PostWithRankings, Platform } from "../../lib/types/database";
+import type { ChartDataPoint, ChartRange } from "../../lib/types/campaign-view";
 import * as csvUtils from "../../lib/utils/csv";
-import { useMediaQuery } from "../../hooks/useMediaQuery";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationPrevious,
-  PaginationNext,
-  PaginationEllipsis,
-} from "./ui/pagination";
 
-type SortBy = "views" | "platform" | "likes" | "comments" | "top-performer";
+// Import shared components
+import { CampaignHeader } from "./campaign-header";
+import { CampaignKPICards } from "./campaign-kpi-cards";
+import { CampaignPerformanceChart } from "./campaign-performance-chart";
+import { CampaignPostsSection } from "./campaign-posts-section";
 
 interface SharedCampaignData {
   campaign: {
@@ -161,18 +129,69 @@ function buildSeriesFromPosts(
   return series;
 }
 
+// Transform API posts to PostWithRankings format
+function transformPostsToRankings(
+  posts: SharedCampaignData["posts"],
+  campaignId: string
+): PostWithRankings[] {
+  return posts.map((post, index) => ({
+    id: post.id,
+    campaign_id: campaignId,
+    creator_id: post.creator?.id || "",
+    platform: post.platform as Platform,
+    post_url: post.postUrl,
+    status: post.status as any,
+    views: post.views,
+    likes: post.likes,
+    comments: post.comments,
+    shares: post.shares,
+    engagement_rate: post.engagementRate,
+    posted_date: post.postedDate,
+    last_scraped_at: null,
+    created_at: post.createdAt,
+    updated_at: post.createdAt,
+    creator: post.creator
+      ? {
+          id: post.creator.id,
+          user_id: "",
+          name: post.creator.name,
+          handle: post.creator.handle,
+          platform: post.platform as Platform,
+          follower_count: 0,
+          avg_engagement: 0,
+          email: null,
+          phone: null,
+          niche: null,
+          location: null,
+          source_type: null,
+          imported_by_user_id: null,
+          created_by_workspace_id: null,
+          profile_url: null,
+          display_name: null,
+          country: null,
+          state: null,
+          city: null,
+          contact_email: null,
+          whatsapp: null,
+          created_at: "",
+          updated_at: "",
+        }
+      : ({} as any),
+    rank: index + 1,
+  }));
+}
+
 export function SharedCampaignDashboard() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const isMobile = useMediaQuery("(max-width: 1023px)");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SharedCampaignData | null>(null);
-  const [sortBy, setSortBy] = useState<SortBy>("views");
   const [activeTab, setActiveTab] = useState<string>("all");
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [requiresPassword, setRequiresPassword] = useState(false);
+  const [chartRange, setChartRange] = useState<ChartRange>("30d");
 
   // Load shared campaign data function
   const loadCampaign = React.useCallback(async (providedPassword?: string) => {
@@ -275,71 +294,11 @@ export function SharedCampaignDashboard() {
     await loadCampaign(password);
   };
 
-  // Sort posts
-  const sortedPosts = useMemo(() => {
-    if (!filteredPosts) return [];
-
-    const sorted = [...filteredPosts];
-
-    switch (sortBy) {
-      case "views":
-        return sorted.sort((a, b) => b.views - a.views);
-      case "likes":
-        return sorted.sort((a, b) => b.likes - a.likes);
-      case "comments":
-        return sorted.sort((a, b) => b.comments - a.comments);
-      case "platform":
-        return sorted.sort((a, b) => a.platform.localeCompare(b.platform));
-      case "top-performer":
-        return sorted.sort((a, b) => {
-          const aEngagement =
-            a.views + a.likes + a.comments + a.shares;
-          const bEngagement =
-            b.views + b.likes + b.comments + b.shares;
-          return bEngagement - aEngagement;
-        });
-      default:
-        return sorted;
-    }
-  }, [filteredPosts, sortBy]);
-
-  const [postsPage, setPostsPage] = useState(1);
-  const postsPerPage = isMobile ? 6 : 9;
-  const totalPostPages = Math.max(
-    1,
-    Math.ceil(sortedPosts.length / postsPerPage)
-  );
-  const safePostsPage = Math.min(postsPage, totalPostPages);
-  const postsStartIndex = (safePostsPage - 1) * postsPerPage;
-  const postsEndIndex = Math.min(
-    postsStartIndex + postsPerPage,
-    sortedPosts.length
-  );
-
-  React.useEffect(() => {
-    if (postsPage !== safePostsPage) {
-      setPostsPage(safePostsPage);
-    }
-  }, [postsPage, safePostsPage]);
-
-  const pagedPosts = useMemo(() => {
-    return sortedPosts.slice(postsStartIndex, postsStartIndex + postsPerPage);
-  }, [sortedPosts, postsStartIndex, postsPerPage]);
-
-  const paginationPages = useMemo(() => {
-    if (totalPostPages <= 5) {
-      return Array.from({ length: totalPostPages }, (_, i) => i + 1);
-    }
-    const pages = new Set<number>();
-    pages.add(1);
-    pages.add(totalPostPages);
-    pages.add(safePostsPage);
-    pages.add(safePostsPage - 1);
-    pages.add(safePostsPage + 1);
-    return Array.from(pages)
-      .filter((page) => page >= 1 && page <= totalPostPages)
-      .sort((a, b) => a - b);
-  }, [safePostsPage, totalPostPages]);
+  // Transform posts to PostWithRankings format
+  const postsWithRankings = useMemo(() => {
+    if (!data) return [];
+    return transformPostsToRankings(filteredPosts, data.campaign.id);
+  }, [filteredPosts, data]);
 
   const handleExportCSV = () => {
     if (!data?.share?.allowExport) return;
@@ -374,7 +333,7 @@ export function SharedCampaignDashboard() {
     return buildSeriesFromPosts(filteredPosts);
   }, [data, activeTab, filteredPosts]);
 
-  const formattedChartData = useMemo(() => {
+  const formattedChartData = useMemo<ChartDataPoint[]>(() => {
     if (!seriesData?.views) return [];
 
     const maxLength = Math.max(
@@ -385,7 +344,7 @@ export function SharedCampaignDashboard() {
     );
 
     return Array.from({ length: maxLength }, (_, i) => {
-      const date =
+      const rawDate =
         seriesData.views[i]?.date ||
         seriesData.likes[i]?.date ||
         seriesData.comments[i]?.date ||
@@ -393,10 +352,11 @@ export function SharedCampaignDashboard() {
         "";
 
       return {
-        date: new Date(date).toLocaleDateString("en-US", {
+        date: new Date(rawDate).toLocaleDateString("en-US", {
           month: "numeric",
           day: "numeric",
         }),
+        dateValue: new Date(rawDate),
         views: seriesData.views[i]?.value || 0,
         likes: seriesData.likes[i]?.value || 0,
         comments: seriesData.comments[i]?.value || 0,
@@ -404,6 +364,23 @@ export function SharedCampaignDashboard() {
       };
     });
   }, [seriesData]);
+
+  // Filter chart data by range
+  const filteredChartData = useMemo(() => {
+    if (chartRange === "all") return formattedChartData;
+    const daysMap: Record<string, number> = {
+      "7d": 7,
+      "14d": 14,
+      "30d": 30,
+    };
+    const days = daysMap[chartRange] || 30;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days + 1);
+    return formattedChartData.filter((point) => {
+      if (!point?.dateValue) return false;
+      return point.dateValue >= cutoff;
+    });
+  }, [formattedChartData, chartRange]);
 
   // Show loading state (but not if password is required, as that has its own UI)
   if (isLoading && !requiresPassword && !error) {
@@ -498,7 +475,7 @@ export function SharedCampaignDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
-      {/* Minimal Header */}
+      {/* View Only Header Banner */}
       <div className="border-b border-white/[0.08] bg-[#0D0D0D]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -513,28 +490,9 @@ export function SharedCampaignDashboard() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - Same layout as internal */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {/* Campaign Header */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-2">{data.campaign.name}</h2>
-              {data.campaign.brand_name && (
-                <p className="text-lg text-slate-300">{data.campaign.brand_name}</p>
-              )}
-            </div>
-            {data.share?.allowExport && (
-              <Button
-                onClick={handleExportCSV}
-                variant="outline"
-                className="h-10 px-3 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-              >
-                Export CSV
-              </Button>
-            )}
-          </div>
-
+        <div className="space-y-5">
           {/* Subcampaign Tabs */}
           {hasSubcampaigns && (
             <div className="flex flex-wrap gap-2">
@@ -570,338 +528,38 @@ export function SharedCampaignDashboard() {
             </p>
           )}
 
-          {/* Cover Image */}
-          {data.campaign.coverImageUrl && (
-            <div className="relative w-full h-52 md:h-64 rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
-              <img
-                src={data.campaign.coverImageUrl}
-                alt={data.campaign.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
-            </div>
-          )}
+          {/* Campaign Header - Using shared component */}
+          <CampaignHeader
+            name={data.campaign.name}
+            brandName={data.campaign.brand_name}
+            coverImageUrl={data.campaign.coverImageUrl}
+            status={data.campaign.status}
+            mode="public"
+          />
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Eye className="w-5 h-5 text-primary" />
-                  </div>
-                </div>
-                <div className="text-2xl font-semibold text-white mb-1">
-                  {totals.views.toLocaleString()}
-                </div>
-                <p className="text-sm text-slate-400">Total Views</p>
-              </CardContent>
-            </Card>
+          {/* KPI Cards - Using shared component */}
+          <CampaignKPICards
+            views={totals.views}
+            likes={totals.likes}
+            comments={totals.comments}
+            shares={totals.shares}
+          />
 
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                    <Heart className="w-5 h-5 text-pink-400" />
-                  </div>
-                </div>
-                <div className="text-2xl font-semibold text-white mb-1">
-                  {totals.likes.toLocaleString()}
-                </div>
-                <p className="text-sm text-slate-400">Total Likes</p>
-              </CardContent>
-            </Card>
+          {/* Performance Charts - Using shared component */}
+          <CampaignPerformanceChart
+            chartData={filteredChartData}
+            chartRange={chartRange}
+            onChartRangeChange={setChartRange}
+          />
 
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                    <MessageCircle className="w-5 h-5 text-cyan-400" />
-                  </div>
-                </div>
-                <div className="text-2xl font-semibold text-white mb-1">
-                  {totals.comments.toLocaleString()}
-                </div>
-                <p className="text-sm text-slate-400">Total Comments</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                    <Share2 className="w-5 h-5 text-purple-400" />
-                  </div>
-                </div>
-                <div className="text-2xl font-semibold text-white mb-1">
-                  {totals.shares.toLocaleString()}
-                </div>
-                <p className="text-sm text-slate-400">Total Shares</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Charts Section */}
-          {formattedChartData.length > 0 ? (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">
-                  Performance Over Time
-                </h3>
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={formattedChartData}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="rgba(148, 163, 184, 0.08)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      stroke="#94a3b8"
-                      style={{ fontSize: "12px" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      stroke="#94a3b8"
-                      style={{ fontSize: "12px" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "rgba(13, 13, 13, 0.95)",
-                        border: "1px solid rgba(148, 163, 184, 0.1)",
-                        borderRadius: "12px",
-                        backdropFilter: "blur(12px)",
-                        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-                      }}
-                      labelStyle={{ color: "#f1f5f9", fontWeight: 500 }}
-                    />
-                    <Legend
-                      wrapperStyle={{ paddingTop: "20px" }}
-                      iconType="circle"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="views"
-                      stroke="#0ea5e9"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Views"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="likes"
-                      stroke="#ec4899"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Likes"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="comments"
-                      stroke="#06b6d4"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Comments"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="shares"
-                      stroke="#8b5cf6"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Shares"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-6">
-                <div className="text-center py-12">
-                  <div className="w-12 h-12 rounded-full bg-slate-500/10 flex items-center justify-center mx-auto mb-4">
-                    <LineChartIcon className="w-6 h-6 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    No Historical Data
-                  </h3>
-                  <p className="text-sm text-slate-400 max-w-md mx-auto">
-                    Chart data will appear here once metrics have been tracked over time.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Posts Section */}
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Posts</h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
-                    {sortedPosts.length} post{sortedPosts.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-xs text-slate-500">
-                    Showing {sortedPosts.length === 0 ? 0 : postsStartIndex + 1}–
-                    {postsEndIndex} of {sortedPosts.length}
-                  </div>
-                  <Select
-                    value={sortBy}
-                    onValueChange={(value: SortBy) => setSortBy(value)}
-                  >
-                    <SelectTrigger className="h-9 w-[180px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
-                      <ArrowUpDown className="w-4 h-4 mr-2" />
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="views">Sort by: Views</SelectItem>
-                      <SelectItem value="likes">Sort by: Likes</SelectItem>
-                      <SelectItem value="comments">Sort by: Comments</SelectItem>
-                      <SelectItem value="platform">Sort by: Platform</SelectItem>
-                      <SelectItem value="top-performer">Sort by: Top Performer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {sortedPosts.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-slate-400">No posts available</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {pagedPosts.map((post) => (
-                    <div
-                      key={post.id}
-                      className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:bg-white/[0.04] transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            {(() => {
-                              const platformIcon = normalizePlatform(
-                                post.platform as string
-                              );
-                              if (!platformIcon) return null;
-                              return (
-                                <>
-                                  <PlatformIcon
-                                    platform={platformIcon}
-                                    size="sm"
-                                    className="sm:hidden"
-                                    aria-label={`${getPlatformLabel(platformIcon)} post`}
-                                  />
-                                  <PlatformIcon
-                                    platform={platformIcon}
-                                    size="md"
-                                    className="hidden sm:flex"
-                                    aria-label={`${getPlatformLabel(platformIcon)} post`}
-                                  />
-                                </>
-                              );
-                            })()}
-                            {post.creator && (
-                              <span className="text-sm text-slate-300">
-                                {post.creator.name} ({post.creator.handle})
-                              </span>
-                            )}
-                          </div>
-                          <a
-                            href={post.postUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 mb-3"
-                          >
-                            View Post <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <div className="text-slate-400 mb-1">Views</div>
-                              <div className="text-white font-medium">
-                                {post.views.toLocaleString()}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-slate-400 mb-1">Likes</div>
-                              <div className="text-white font-medium">
-                                {post.likes.toLocaleString()}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-slate-400 mb-1">Comments</div>
-                              <div className="text-white font-medium">
-                                {post.comments.toLocaleString()}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-slate-400 mb-1">Shares</div>
-                              <div className="text-white font-medium">
-                                {post.shares.toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {totalPostPages > 1 && (
-                <div className="flex items-center justify-center pt-6">
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() =>
-                            setPostsPage((page) => Math.max(1, page - 1))
-                          }
-                          className={safePostsPage === 1 ? "pointer-events-none opacity-50" : ""}
-                        />
-                      </PaginationItem>
-                      {paginationPages.map((page, index) => {
-                        const prevPage = paginationPages[index - 1];
-                        const showEllipsis = prevPage && page - prevPage > 1;
-                        return (
-                          <React.Fragment key={page}>
-                            {showEllipsis && (
-                              <PaginationItem>
-                                <PaginationEllipsis />
-                              </PaginationItem>
-                            )}
-                            <PaginationItem>
-                              <PaginationLink
-                                onClick={() => setPostsPage(page)}
-                                isActive={safePostsPage === page}
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          </React.Fragment>
-                        );
-                      })}
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() =>
-                            setPostsPage((page) =>
-                              Math.min(totalPostPages, page + 1)
-                            )
-                          }
-                          className={safePostsPage === totalPostPages ? "pointer-events-none opacity-50" : ""}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Posts Section - Using shared component */}
+          <CampaignPostsSection
+            posts={postsWithRankings}
+            mode="public"
+            campaignId={data.campaign.id}
+            isLoading={false}
+            onExportCSV={data.share?.allowExport ? handleExportCSV : undefined}
+          />
         </div>
       </div>
     </div>

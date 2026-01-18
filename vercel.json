@@ -38,8 +38,7 @@
         }
       ],
       "destination": "https://dttracker.app/:path*",
-      "permanent": true,
-      "statusCode": 301
+      "permanent": true
     }
   ],
   "rewrites": [

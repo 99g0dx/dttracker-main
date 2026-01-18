@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -307,6 +307,34 @@ export function CampaignShareView() {
     });
   }, [seriesData]);
 
+  const formatChartTick = useCallback((value: number) => {
+    const numericValue = Number(value) || 0;
+    if (numericValue >= 1_000_000) {
+      const formatted = (numericValue / 1_000_000).toFixed(
+        numericValue % 1_000_000 === 0 ? 0 : 1
+      );
+      return `${formatted}M`;
+    }
+    if (numericValue >= 1_000) {
+      const formatted = (numericValue / 1_000).toFixed(
+        numericValue % 1_000 === 0 ? 0 : 1
+      );
+      return `${formatted}K`;
+    }
+    return numericValue.toString();
+  }, []);
+
+  const chartTooltipFormatter = useCallback(
+    (value: number | string) => {
+      const numericValue = Number(value);
+      if (Number.isNaN(numericValue)) {
+        return value;
+      }
+      return numericValue.toLocaleString();
+    },
+    []
+  );
+
   // Sort posts
   const sortedPosts = useMemo(() => {
     const sorted = [...filteredPosts];
@@ -555,6 +583,7 @@ export function CampaignShareView() {
                       style={{ fontSize: '12px' }}
                       axisLine={false}
                       tickLine={false}
+                      tickFormatter={formatChartTick}
                     />
                     <Tooltip
                       contentStyle={{
@@ -565,6 +594,7 @@ export function CampaignShareView() {
                         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                       }}
                       labelStyle={{ color: '#f1f5f9', fontWeight: 500 }}
+                      formatter={chartTooltipFormatter}
                     />
                     <Legend
                       wrapperStyle={{ paddingTop: '20px' }}

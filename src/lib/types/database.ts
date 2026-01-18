@@ -453,6 +453,16 @@ export interface PostWithCreator extends Post {
   creator: Creator;
 }
 
+export interface PostWithRankings extends PostWithCreator {
+  rank?: number;
+  score?: number;
+  positionEmoji?: string;
+  badges?: {
+    trending?: boolean;
+    topPerformer?: boolean;
+  };
+}
+
 export interface PostWithMetrics extends Post {
   creator: Creator;
   metrics_history: PostMetric[];

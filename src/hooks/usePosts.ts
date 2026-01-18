@@ -339,7 +339,23 @@ export function useAddPostWithScrape() {
       if (data.scraped) {
         toast.success('Post added and metrics scraped successfully');
       } else {
-        toast.warning(`Post added but scraping failed: ${data.scrapeError || 'Unknown error'}`);
+        const errorMessage = data.scrapeError || 'Unknown error';
+        // Provide more helpful error messages
+        if (errorMessage.includes('503') || errorMessage.includes('Service Unavailable')) {
+          toast.warning(
+            'Post added successfully, but scraping failed temporarily. The TikTok API is currently unavailable. You can retry scraping this post later.'
+          );
+        } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+          toast.warning(
+            'Post added successfully, but scraping failed due to rate limits. Please wait a moment and retry scraping this post.'
+          );
+        } else if (errorMessage.includes('502') || errorMessage.includes('504')) {
+          toast.warning(
+            'Post added successfully, but scraping failed temporarily due to network issues. You can retry scraping this post later.'
+          );
+        } else {
+          toast.warning(`Post added but scraping failed: ${errorMessage}`);
+        }
       }
     },
     onError: (error: Error) => {
