@@ -18,6 +18,9 @@ import {
 import { parsePostURL, normalizeHandle } from '../../lib/utils/urlParser';
 import { useAddPostWithScrape } from '../../hooks/usePosts';
 import { useIsParentCampaign } from '../../hooks/useSubcampaigns';
+import { useQueryClient } from '@tanstack/react-query';
+import * as creatorsApi from '../../lib/api/creators';
+import { creatorsKeys } from '../../hooks/useCreators';
 import type { Creator, Platform } from '../../lib/types/database';
 
 interface AddPostDialogProps {
@@ -42,7 +45,9 @@ export function AddPostDialog({
   const [matchedCreator, setMatchedCreator] = useState<Creator | null>(null);
   const [selectedCreatorId, setSelectedCreatorId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingCreator, setIsCreatingCreator] = useState(false);
 
+  const queryClient = useQueryClient();
   const addPostMutation = useAddPostWithScrape();
   const { data: isParent } = useIsParentCampaign(campaignId);
 
@@ -117,25 +122,67 @@ export function AddPostDialog({
       return;
     }
 
-    if (!matchedCreator) {
-      setError('Please select a creator for this post.');
-      return;
-    }
-
     if (isParent) {
       setError('Parent campaigns cannot have posts. Please select a subcampaign.');
       return;
     }
 
-    if (availableCreators.length === 0) {
-      setError(`No creators found for ${parsedUrl.platform}. Please import creators first.`);
+    let creatorToUse = matchedCreator;
+
+    // Auto-create creator if handle was extracted but no match found
+    if (!creatorToUse && parsedUrl.handle) {
+      setIsCreatingCreator(true);
+      try {
+        // 1. Create or get existing creator
+        const creatorResult = await creatorsApi.getOrCreate(
+          parsedUrl.handle, // Use handle as name
+          parsedUrl.handle,
+          parsedUrl.platform,
+          undefined, // followerCount
+          undefined, // email
+          undefined, // phone
+          undefined, // niche
+          undefined, // location
+          'manual'   // sourceType
+        );
+
+        if (creatorResult.error || !creatorResult.data) {
+          setError(`Failed to create creator: ${creatorResult.error?.message || 'Unknown error'}`);
+          setIsCreatingCreator(false);
+          return;
+        }
+
+        // 2. Add creator to campaign
+        const addResult = await creatorsApi.addCreatorsToCampaign(campaignId, [creatorResult.data.id]);
+
+        if (addResult.error) {
+          setError(`Failed to add creator to campaign: ${addResult.error.message}`);
+          setIsCreatingCreator(false);
+          return;
+        }
+
+        // 3. Invalidate queries to refresh campaign creators list
+        await queryClient.invalidateQueries({ queryKey: creatorsKeys.byCampaign(campaignId) });
+
+        creatorToUse = creatorResult.data;
+      } catch (err) {
+        setError(`Failed to create creator: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        setIsCreatingCreator(false);
+        return;
+      }
+      setIsCreatingCreator(false);
+    }
+
+    // If still no creator (no handle extracted and none selected)
+    if (!creatorToUse) {
+      setError('Please select a creator for this post.');
       return;
     }
 
     try {
       await addPostMutation.mutateAsync({
         campaign_id: campaignId,
-        creator_id: matchedCreator.id,
+        creator_id: creatorToUse.id,
         platform: parsedUrl.platform,
         post_url: postUrl.trim(),
         status: 'pending',
@@ -247,25 +294,29 @@ export function AddPostDialog({
                     <SelectValue placeholder="Choose a creator..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableCreators.length > 0 ? (
-                      availableCreators.map((creator) => (
-                        <SelectItem key={creator.id} value={creator.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{creator.name}</span>
-                            <span className="text-xs text-slate-400">(@{creator.handle})</span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="" disabled>
-                        No creators available for {parsedUrl.platform}
+                    {availableCreators.map((creator) => (
+                      <SelectItem key={creator.id} value={creator.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{creator.name}</span>
+                          <span className="text-xs text-slate-400">(@{creator.handle})</span>
+                        </div>
                       </SelectItem>
-                    )}
+                    ))}
                   </SelectContent>
                 </Select>
-                {parsedUrl.handle && !matchedCreator && (
+                {availableCreators.length === 0 && parsedUrl.handle && (
+                  <p className="text-xs text-emerald-400 mt-1.5">
+                    Creator "@{parsedUrl.handle}" will be automatically created and added to this campaign.
+                  </p>
+                )}
+                {availableCreators.length === 0 && !parsedUrl.handle && (
+                  <p className="text-xs text-amber-400 mt-1.5">
+                    No creators available for {parsedUrl.platform}. Could not extract handle from URL.
+                  </p>
+                )}
+                {availableCreators.length > 0 && parsedUrl.handle && !matchedCreator && (
                   <p className="text-xs text-slate-400 mt-1.5">
-                    Handle "@{parsedUrl.handle}" not found. Please select a creator manually.
+                    Handle "@{parsedUrl.handle}" not found in campaign. Select a creator or submit to auto-create.
                   </p>
                 )}
                 {!parsedUrl.handle && (
@@ -309,7 +360,7 @@ export function AddPostDialog({
               <button
                 type="button"
                 onClick={onClose}
-                disabled={addPostMutation.isPending}
+                disabled={addPostMutation.isPending || isCreatingCreator}
                 className="flex-1 h-10 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
@@ -319,16 +370,16 @@ export function AddPostDialog({
                 disabled={
                   !parsedUrl?.isValid ||
                   !parsedUrl?.platform ||
-                  !matchedCreator ||
+                  (!matchedCreator && !parsedUrl?.handle) || // Allow if handle extracted (will auto-create)
                   addPostMutation.isPending ||
-                  availableCreators.length === 0
+                  isCreatingCreator
                 }
                 className="flex-1 h-10 bg-primary hover:bg-primary/90 text-black text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {addPostMutation.isPending ? (
+                {(addPostMutation.isPending || isCreatingCreator) ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Adding & Scraping...
+                    {isCreatingCreator ? 'Creating creator...' : 'Adding & Scraping...'}
                   </>
                 ) : (
                   'Add & Scrape'
