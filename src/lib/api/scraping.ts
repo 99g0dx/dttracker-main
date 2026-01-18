@@ -35,69 +35,42 @@ export async function scrapePost(
     console.log("=== Starting scrape request ===");
     console.log("Request:", request);
 
-    // Get current session and refresh if needed
+    // Always refresh the session to ensure we have a valid token
+    // This is critical because getSession() returns cached data that may be stale
+    console.log("Refreshing session to ensure fresh token...");
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
+      data: { session: refreshedSession },
+      error: refreshError,
+    } = await supabase.auth.refreshSession();
 
-    if (sessionError) {
-      console.error("Session error:", sessionError);
-      return {
-        data: null,
-        error: new Error("Session error: " + sessionError.message),
-      };
+    // Use the refreshed session directly instead of calling getSession() again
+    // getSession() may return cached/stale data even after refresh
+    let currentSession = refreshedSession;
+
+    if (refreshError || !refreshedSession) {
+      console.warn("Session refresh failed, falling back to current session:", refreshError);
+      // Fall back to getting current session if refresh fails
+      const {
+        data: { session: fallbackSession },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !fallbackSession) {
+        console.error("Session error:", sessionError);
+        return {
+          data: null,
+          error: new Error("Session expired. Please log in again."),
+        };
+      }
+      currentSession = fallbackSession;
     }
 
-    if (!session) {
+    if (!currentSession) {
       console.error("No session found");
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Refresh the session if it's close to expiring
-    const expiresAt = session.expires_at;
-    if (expiresAt) {
-      const expiresIn = expiresAt - Math.floor(Date.now() / 1000);
-      if (expiresIn < 60) {
-        // Token expires in less than 1 minute, refresh it
-        console.log("Token expiring soon, refreshing...");
-        const {
-          data: { session: refreshedSession },
-          error: refreshError,
-        } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          console.error("Failed to refresh session:", refreshError);
-          return {
-            data: null,
-            error: new Error("Session expired. Please log in again."),
-          };
-        }
-        if (refreshedSession) {
-          console.log("Session refreshed successfully");
-        }
-      }
-    }
-
-    // Get the latest session after potential refresh
-    const {
-      data: { session: currentSession },
-      error: finalSessionError,
-    } = await supabase.auth.getSession();
-
-    if (finalSessionError) {
-      console.error("Final session error:", finalSessionError);
-      return {
-        data: null,
-        error: new Error("Session error: " + finalSessionError.message),
-      };
-    }
-
-    if (!currentSession) {
-      console.error("No session after refresh");
-      return { data: null, error: new Error("Not authenticated") };
-    }
-
-    // Check if token is expired
+    // Check if token is expired (shouldn't happen after refresh, but safety check)
     if (currentSession.expires_at) {
       const expiresIn =
         currentSession.expires_at - Math.floor(Date.now() / 1000);
@@ -246,68 +219,42 @@ export async function scrapeAllPosts(
     console.log("=== Starting scrape all posts request ===");
     console.log("Campaign ID:", campaignId);
 
-    // Get current session and refresh if needed
+    // Always refresh the session to ensure we have a valid token
+    // This is critical because getSession() returns cached data that may be stale
+    console.log("Refreshing session to ensure fresh token...");
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
+      data: { session: refreshedSession },
+      error: refreshError,
+    } = await supabase.auth.refreshSession();
 
-    if (sessionError) {
-      console.error("Session error:", sessionError);
-      return {
-        data: null,
-        error: new Error("Session error: " + sessionError.message),
-      };
+    // Use the refreshed session directly instead of calling getSession() again
+    // getSession() may return cached/stale data even after refresh
+    let currentSession = refreshedSession;
+
+    if (refreshError || !refreshedSession) {
+      console.warn("Session refresh failed, falling back to current session:", refreshError);
+      // Fall back to getting current session if refresh fails
+      const {
+        data: { session: fallbackSession },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !fallbackSession) {
+        console.error("Session error:", sessionError);
+        return {
+          data: null,
+          error: new Error("Session expired. Please log in again."),
+        };
+      }
+      currentSession = fallbackSession;
     }
 
-    if (!session) {
+    if (!currentSession) {
       console.error("No session found");
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Refresh the session if it's close to expiring
-    const expiresAt = session.expires_at;
-    if (expiresAt) {
-      const expiresIn = expiresAt - Math.floor(Date.now() / 1000);
-      if (expiresIn < 60) {
-        console.log("Token expiring soon, refreshing...");
-        const {
-          data: { session: refreshedSession },
-          error: refreshError,
-        } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          console.error("Failed to refresh session:", refreshError);
-          return {
-            data: null,
-            error: new Error("Session expired. Please log in again."),
-          };
-        }
-        if (refreshedSession) {
-          console.log("Session refreshed successfully");
-        }
-      }
-    }
-
-    // Get the latest session after potential refresh
-    const {
-      data: { session: currentSession },
-      error: finalSessionError,
-    } = await supabase.auth.getSession();
-
-    if (finalSessionError) {
-      console.error("Final session error:", finalSessionError);
-      return {
-        data: null,
-        error: new Error("Session error: " + finalSessionError.message),
-      };
-    }
-
-    if (!currentSession) {
-      console.error("No session after refresh");
-      return { data: null, error: new Error("Not authenticated") };
-    }
-
-    // Check if token is expired
+    // Check if token is expired (shouldn't happen after refresh, but safety check)
     if (currentSession.expires_at) {
       const expiresIn =
         currentSession.expires_at - Math.floor(Date.now() / 1000);

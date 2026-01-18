@@ -5,35 +5,52 @@
 -- 
 -- INSTRUCTIONS:
 -- 1. Get your Supabase Project URL from: Dashboard → Settings → API → Project URL
--- 2. Get your Service Role Key from: Dashboard → Settings → API → Service Role key
+-- 2. Generate a random token for scrape trigger (optional but recommended)
 -- 3. Replace the values below with your actual values
 -- 4. Run this script in Supabase SQL Editor
 -- ============================================================
 
--- STEP 1: Set your Supabase Project URL
--- Replace 'https://ucbueapoexnxhttynfzy.supabase.co' with your actual URL
-ALTER DATABASE postgres SET app.supabase_url = 'https://ucbueapoexnxhttynfzy.supabase.co';
+-- Ensure settings table exists
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  key text PRIMARY KEY,
+  value text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
--- STEP 2: Set your Service Role Key
--- Replace the key below with your actual service role key
--- WARNING: Keep this secret! It has admin access to your database.
-ALTER DATABASE postgres SET app.service_role_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjYnVlYXBvZXhueGh0dHluZnp5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Njg0MzY5MiwiZXhwIjoyMDgyNDE5NjkyfQ.mhCinNZXETF2Ql0tPnoqdi4l9H-jlQRn23_b3yiF7ag';
+REVOKE ALL ON public.app_settings FROM PUBLIC;
+REVOKE ALL ON public.app_settings FROM anon, authenticated;
+
+-- STEP 1: Set your Supabase Project URL
+-- Replace the value below with your actual URL
+INSERT INTO public.app_settings(key, value)
+VALUES ('supabase_url', 'https://ucbueapoexnxhttynfzy.supabase.co')
+ON CONFLICT (key) DO UPDATE
+  SET value = EXCLUDED.value,
+      updated_at = now();
+
+-- STEP 2 (Optional): Set a trigger token
+-- Replace the value below with a random secret, then set the same value
+-- as SCRAPE_TRIGGER_TOKEN in the Edge Function env vars.
+INSERT INTO public.app_settings(key, value)
+VALUES ('scrape_trigger_token', 'CHANGE_ME')
+ON CONFLICT (key) DO UPDATE
+  SET value = EXCLUDED.value,
+      updated_at = now();
 
 -- STEP 3: Verify the settings were applied
 SELECT 
-  name as setting_name,
+  key as setting_name,
   CASE 
-    WHEN name = 'app.service_role_key' THEN '***HIDDEN***'
-    ELSE setting
+    WHEN key = 'scrape_trigger_token' THEN '***HIDDEN***'
+    ELSE value
   END as value,
   CASE 
-    WHEN setting IS NOT NULL AND setting != '' THEN '✅ Configured'
+    WHEN value IS NOT NULL AND value != '' THEN '✅ Configured'
     ELSE '❌ Not Configured'
   END as status
-FROM pg_settings
-WHERE name IN ('app.supabase_url', 'app.service_role_key')
-ORDER BY name;
-
+FROM public.app_settings
+WHERE key IN ('supabase_url', 'scrape_trigger_token')
+ORDER BY key;
 
 
 

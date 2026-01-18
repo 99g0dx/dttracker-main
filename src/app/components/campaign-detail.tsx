@@ -49,7 +49,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { campaignsKeys, useCampaign } from "../../hooks/useCampaigns";
+import {
+  campaignsKeys,
+  useCampaign,
+  useDeleteCampaign,
+} from "../../hooks/useCampaigns";
 import {
   usePosts,
   useCampaignMetricsTimeSeries,
@@ -119,6 +123,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [showDeletePostDialog, setShowDeletePostDialog] = useState<
     string | null
   >(null);
+  const [showDeleteCampaignDialog, setShowDeleteCampaignDialog] =
+    useState(false);
   const [showShareLinkModal, setShowShareLinkModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isImporting, setIsImporting] = useState(false);
@@ -341,6 +347,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   const deletePostMutation = useDeletePost();
   const deleteAllPostsMutation = useDeleteAllPosts();
+  const deleteCampaignMutation = useDeleteCampaign();
   const createManyPostsMutation = useCreateManyPosts();
   const scrapeAllPostsMutation = useScrapeAllPosts();
   const scrapePostMutation = useScrapePost();
@@ -668,6 +675,34 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       interval: isMobile ? "preserveStartEnd" : "preserveEnd",
     }),
     [isMobile]
+  );
+
+  const formatChartTick = React.useCallback((value: number) => {
+    const numericValue = Number(value) || 0;
+    if (numericValue >= 1_000_000) {
+      const formatted = (numericValue / 1_000_000).toFixed(
+        numericValue % 1_000_000 === 0 ? 0 : 1
+      );
+      return `${formatted}M`;
+    }
+    if (numericValue >= 1_000) {
+      const formatted = (numericValue / 1_000).toFixed(
+        numericValue % 1_000 === 0 ? 0 : 1
+      );
+      return `${formatted}K`;
+    }
+    return numericValue.toString();
+  }, []);
+
+  const chartTooltipFormatter = React.useCallback(
+    (value: number | string) => {
+      const numericValue = Number(value);
+      if (Number.isNaN(numericValue)) {
+        return value;
+      }
+      return numericValue.toLocaleString();
+    },
+    []
   );
 
   const chartTooltipStyle = React.useMemo(
@@ -1274,6 +1309,13 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     setShowDeletePostDialog(null);
   };
 
+  const handleDeleteCampaign = () => {
+    if (!campaign?.id) return;
+    deleteCampaignMutation.mutate(campaign.id);
+    setShowDeleteCampaignDialog(false);
+    onNavigate("/campaigns");
+  };
+
   const handleScrapePost = (postId: string) => {
     if (!id) return;
 
@@ -1442,15 +1484,38 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 <span className="hidden sm:inline">Share Link</span>
                 <span className="sm:hidden">Share</span>
               </button>
-              <button
-                onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
-                className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
-                aria-label="Edit campaign"
-              >
-                <Edit2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Edit Campaign</span>
-                <span className="sm:hidden">Edit</span>
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                    aria-label="Campaign actions"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                    <span>Action</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-52 bg-black text-white border-white/[0.08]"
+                >
+                  <DropdownMenuItem
+                    onSelect={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
+                    className="text-white [&_svg]:text-white"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit Campaign
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setShowDeleteCampaignDialog(true)}
+                    disabled={deleteCampaignMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Campaign
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
@@ -1677,11 +1742,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={formatChartTick}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={chartTooltipFormatter}
+                  />
                   <Line
                     type="monotone"
                     dataKey="views"
@@ -1721,11 +1787,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={formatChartTick}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={chartTooltipFormatter}
+                  />
                   <Line
                     type="monotone"
                     dataKey="likes"
@@ -1765,11 +1832,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={formatChartTick}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={chartTooltipFormatter}
+                  />
                   <Line
                     type="monotone"
                     dataKey="comments"
@@ -1809,11 +1877,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={formatChartTick}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={chartTooltipFormatter}
+                  />
                   <Line
                     type="monotone"
                     dataKey="shares"
@@ -1852,11 +1921,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={formatChartTick}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={chartTooltipFormatter}
+                />
                 <Line
                   type="monotone"
                   dataKey="views"
@@ -1891,11 +1961,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={formatChartTick}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={chartTooltipFormatter}
+                />
                 <Line
                   type="monotone"
                   dataKey="likes"
@@ -1930,11 +2001,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={formatChartTick}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={chartTooltipFormatter}
+                />
                 <Line
                   type="monotone"
                   dataKey="comments"
@@ -1969,11 +2041,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={formatChartTick}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={chartTooltipFormatter}
+                />
                 <Line
                   type="monotone"
                   dataKey="shares"
@@ -3242,7 +3315,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   onClick={() => {
                     setPostCreatorFilter(activeCreator.id);
@@ -3250,14 +3323,28 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     const postsSection = document.getElementById("campaign-posts");
                     postsSection?.scrollIntoView({ behavior: "smooth" });
                   }}
+                  className="w-full sm:w-auto"
                 >
                   Filter Posts
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setCreatorDrawerOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   Close
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() =>
+                    setCreatorToRemove({
+                      id: activeCreator.id,
+                      name: activeCreator.name,
+                    })
+                  }
+                  className="w-full sm:w-auto"
+                >
+                  Delete Creator
                 </Button>
               </div>
             </div>
@@ -3405,7 +3492,24 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </div>
       )}
 
-      {/* Delete All Confirmation Dialog */}
+      {/* Delete Campaign Confirmation Dialog */}
+      <ResponsiveConfirmDialog
+        open={showDeleteCampaignDialog}
+        onOpenChange={setShowDeleteCampaignDialog}
+        title="Delete campaign?"
+        description={
+          campaign?.name
+            ? `"${campaign.name}" will be deleted along with all posts and data. This action cannot be undone.`
+            : "This campaign will be deleted. This action cannot be undone."
+        }
+        confirmLabel={
+          deleteCampaignMutation.isPending ? "Deleting..." : "Delete campaign"
+        }
+        confirmDisabled={deleteCampaignMutation.isPending}
+        onConfirm={handleDeleteCampaign}
+      />
+
+      {/* Delete All Posts Confirmation Dialog */}
       <ResponsiveConfirmDialog
         open={showDeleteAllDialog}
         onOpenChange={setShowDeleteAllDialog}

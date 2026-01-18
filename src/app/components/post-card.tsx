@@ -145,7 +145,13 @@ export const PostCard = React.memo(
               size="sm"
               onClick={() => onScrape(post.id)}
               disabled={!hasPostUrl || isScraping}
-              className="min-h-[44px] flex-1 bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
+              className={`min-h-[44px] flex-1 ${
+                post.status === "failed"
+                  ? "bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/20"
+                  : post.status === "pending"
+                  ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
+                  : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
+              }`}
             >
               <RefreshCw
                 className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}

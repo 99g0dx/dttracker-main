@@ -4,21 +4,21 @@
 -- Run this script to verify that auto-scraping is properly configured
 -- ============================================================
 
--- Check 1: Database Settings
+-- Check 1: App Settings
 SELECT 
-  'Database Settings' as category,
-  name as setting_name,
+  'App Settings' as category,
+  key as setting_name,
   CASE 
-    WHEN name = 'app.service_role_key' THEN '***HIDDEN***'
-    ELSE setting
+    WHEN key = 'scrape_trigger_token' THEN '***HIDDEN***'
+    ELSE value
   END as value,
   CASE 
-    WHEN setting IS NOT NULL AND setting != '' THEN '✅ Configured'
+    WHEN value IS NOT NULL AND value != '' THEN '✅ Configured'
     ELSE '❌ Not Configured'
   END as status
-FROM pg_settings
-WHERE name IN ('app.supabase_url', 'app.service_role_key')
-ORDER BY name;
+FROM public.app_settings
+WHERE key IN ('supabase_url', 'scrape_trigger_token')
+ORDER BY key;
 
 -- Check 2: Extensions
 SELECT 
@@ -75,8 +75,7 @@ ORDER BY indexname;
 SELECT 
   CASE 
     WHEN (
-      (SELECT COUNT(*) FROM pg_settings WHERE name = 'app.supabase_url' AND setting != '') = 1 AND
-      (SELECT COUNT(*) FROM pg_settings WHERE name = 'app.service_role_key' AND setting != '') = 1 AND
+      (SELECT COUNT(*) FROM public.app_settings WHERE key = 'supabase_url' AND value != '') = 1 AND
       (SELECT COUNT(*) FROM pg_proc WHERE proname = 'trigger_scheduled_scraping') = 1 AND
       (SELECT COUNT(*) FROM cron.job WHERE jobname = 'daily-auto-scrape' AND active = true) = 1
     ) THEN '✅ All checks passed! Auto-scraping is configured correctly.'
@@ -103,7 +102,6 @@ FROM cron.job_run_details
 WHERE jobname = 'daily-auto-scrape'
 ORDER BY start_time DESC
 LIMIT 5;
-
 
 
 

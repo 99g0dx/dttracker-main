@@ -1,7 +1,7 @@
 -- ============================================================
 -- AUTO-SCRAPING SETUP WITH pg_cron
 -- ============================================================
--- This migration sets up automatic daily scraping at 12:00 AM UTC
+-- This migration sets up automatic scraping every 12 hours
 -- for all active posts in active campaigns.
 --
 -- SETUP INSTRUCTIONS:
@@ -12,18 +12,14 @@
 -- Prerequisites:
 -- 1. pg_cron extension must be enabled in your Supabase project
 --    - Go to Database → Extensions → Search "pg_cron" → Enable
--- 2. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured
+-- 2. SUPABASE_URL must be configured in app_settings
 --    - Run configure_auto_scraping.sql after this script
---    - OR hardcode values in the function below (lines 60-63)
+--    - Optionally set a scrape trigger token
 --
 -- Configuration Options:
--- Option A (Recommended): Use database settings
+-- Option A (Recommended): Use app_settings table
 --   - Run configure_auto_scraping.sql after this script
---   - Values stored securely in database settings
---
--- Option B (Alternative): Hardcode in function
---   - Uncomment lines 62-63 and update with your values
---   - Comment out the database settings section (lines 51-58)
+--   - Values stored in public.app_settings
 -- ============================================================
 
 -- Enable pg_cron extension (if not already enabled)
@@ -39,8 +35,18 @@ GRANT USAGE ON SCHEMA cron TO postgres;
 -- FUNCTION: trigger_scheduled_scraping()
 -- ============================================================
 -- This function makes an HTTP request to the scrape-all-scheduled
--- Edge Function to trigger daily auto-scraping.
+-- Edge Function to trigger scheduled auto-scraping.
 -- ============================================================
+
+-- Settings table (non-sensitive values only)
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  key text PRIMARY KEY,
+  value text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+REVOKE ALL ON public.app_settings FROM PUBLIC;
+REVOKE ALL ON public.app_settings FROM anon, authenticated;
 
 CREATE OR REPLACE FUNCTION trigger_scheduled_scraping()
 RETURNS void
@@ -49,37 +55,23 @@ SECURITY DEFINER
 AS $$
 DECLARE
   supabase_url TEXT;
-  service_role_key TEXT;
+  trigger_token TEXT;
   response_status INT;
   response_content TEXT;
   request_id INT;
 BEGIN
-  -- Get Supabase URL and service role key from database settings
-  -- These should be set using: ALTER DATABASE postgres SET app.supabase_url = 'https://...';
-  -- OR hardcode them below (less secure but simpler)
-  
-  -- Option 1: Get from database settings (recommended)
-  BEGIN
-    supabase_url := current_setting('app.supabase_url', true);
-    service_role_key := current_setting('app.service_role_key', true);
-  EXCEPTION WHEN OTHERS THEN
-    -- Settings not found, will use defaults below
-    supabase_url := NULL;
-    service_role_key := NULL;
-  END;
-  
-  -- Option 2: Hardcode values (replace with your actual values)
-  -- Uncomment and update these lines if you prefer hardcoding:
-  -- supabase_url := 'https://your-project.supabase.co';
-  -- service_role_key := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+  -- Get Supabase URL and optional trigger token from app_settings
+  SELECT value INTO supabase_url
+  FROM public.app_settings
+  WHERE key = 'supabase_url';
+
+  SELECT value INTO trigger_token
+  FROM public.app_settings
+  WHERE key = 'scrape_trigger_token';
   
   -- Validate configuration
   IF supabase_url IS NULL OR supabase_url = '' THEN
-    RAISE EXCEPTION 'Supabase URL not configured. Please set app.supabase_url database setting or hardcode in function.';
-  END IF;
-  
-  IF service_role_key IS NULL OR service_role_key = '' THEN
-    RAISE EXCEPTION 'Service role key not configured. Please set app.service_role_key database setting or hardcode in function.';
+    RAISE EXCEPTION 'Supabase URL not configured. Please set app_settings.supabase_url.';
   END IF;
 
   -- Call the Edge Function via HTTP
@@ -88,10 +80,16 @@ BEGIN
     SELECT
       method := 'POST',
       url := supabase_url || '/functions/v1/scrape-all-scheduled',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || service_role_key,
-        'apikey', service_role_key
+      headers := (
+        CASE
+          WHEN trigger_token IS NOT NULL AND trigger_token <> '' THEN
+            jsonb_build_object(
+              'Content-Type', 'application/json',
+              'x-scrape-trigger-token', trigger_token
+            )
+          ELSE
+            jsonb_build_object('Content-Type', 'application/json')
+        END
       ),
       body := '{}'::jsonb
     )::http_request
@@ -112,10 +110,10 @@ $$;
 -- ============================================================
 -- SCHEDULE CRON JOB
 -- ============================================================
--- Schedule the function to run daily at 12:00 AM UTC
--- Cron expression: '0 0 * * *' means:
+-- Schedule the function to run every 12 hours
+-- Cron expression: '0 */12 * * *' means:
 -- - 0 minutes
--- - 0 hours (midnight)
+-- - Every 12 hours
 -- - Every day of month (*)
 -- - Every month (*)
 -- - Every day of week (*)
@@ -129,7 +127,7 @@ SELECT cron.unschedule('daily-auto-scrape') WHERE EXISTS (
 -- Schedule the job
 SELECT cron.schedule(
   'daily-auto-scrape',                    -- Job name
-  '0 0 * * *',                            -- Cron expression (12:00 AM UTC daily)
+  '0 */12 * * *',                         -- Cron expression (every 12 hours)
   $$SELECT trigger_scheduled_scraping();$$ -- SQL to execute
 );
 
@@ -182,4 +180,3 @@ SELECT
   active
 FROM cron.job 
 WHERE jobname = 'daily-auto-scrape';
-
