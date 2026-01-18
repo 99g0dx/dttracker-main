@@ -120,7 +120,7 @@ const TeamInviteAccept = React.lazy(() =>
 function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user, loading } = useAuth();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -144,6 +144,7 @@ function AppRoutes() {
 
   const isPublicRoute =
     [
+      "/",
       "/home",
       "/login",
       "/signup",
@@ -158,6 +159,13 @@ function AppRoutes() {
     <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-slate-400">
       Loading...
     </div>
+  );
+  const landingElement = loading ? (
+    loadingFallback
+  ) : user ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    <Home onNavigate={(path) => navigate(path)} />
   );
 
   return (
@@ -178,10 +186,10 @@ function AppRoutes() {
 
         <main
           className={cn(
-            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden",
+            "flex-1 min-h-0 overflow-x-hidden",
             isPublicRoute
-              ? "px-0 py-0"
-              : "lg:ml-64 px-4 sm:px-5 lg:px-8 pt-[max(5rem,env(safe-area-inset-top,5rem))] lg:pt-8 pb-8"
+              ? "px-0 py-0 overflow-y-visible"
+              : "lg:ml-64 px-4 sm:px-5 lg:px-8 pt-[max(5rem,env(safe-area-inset-top,5rem))] lg:pt-8 pb-8 overflow-y-auto"
           )}
         >
           <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
@@ -198,9 +206,10 @@ function AppRoutes() {
 
                 {/* Public routes */}
                 <Route
-                  path="/home"
-                  element={<Home onNavigate={(path) => navigate(path)} />}
+                  path="/"
+                  element={landingElement}
                 />
+                <Route path="/home" element={<Navigate to="/" replace />} />
                 <Route
                   path="/login"
                   element={<Login onNavigate={(path) => navigate(path)} />}
@@ -227,15 +236,7 @@ function AppRoutes() {
                   element={<TeamInviteAccept />}
                 />
 
-                {/* Root redirect - check auth and redirect appropriately */}
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Dashboard onNavigate={(path) => navigate(path)} />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* Landing page */}
                 <Route
                   path="/dashboard"
                   element={
