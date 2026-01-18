@@ -29,14 +29,36 @@ export function Login({ onNavigate }: LoginProps) {
     setIsLoading(true);
 
     try {
+      // Check if Supabase is configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey || 
+          supabaseUrl.includes('your-project') || 
+          supabaseUrl.includes('placeholder') ||
+          supabaseAnonKey === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9') {
+        const errorMsg = 'Supabase is not configured. Please update your .env file with valid credentials from https://app.supabase.com';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) {
-        setError(signInError.message);
-        toast.error(signInError.message);
+        // Provide more helpful error messages
+        let errorMessage = signInError.message;
+        if (signInError.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+        } else if (signInError.message.includes('fetch')) {
+          errorMessage = 'Unable to connect to Supabase. Please check your internet connection and Supabase configuration.';
+        }
+        setError(errorMessage);
+        toast.error(errorMessage);
         setIsLoading(false);
         return;
       }
