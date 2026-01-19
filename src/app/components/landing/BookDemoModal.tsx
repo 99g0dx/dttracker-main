@@ -357,8 +357,8 @@ export function BookDemoModal({ isOpen, onClose }: BookDemoModalProps) {
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     Prefer email?{' '}
-                    <a href="mailto:demo@dttracker.com" className="text-[#E50914] hover:underline">
-                      demo@dttracker.com
+                    <a href="mailto:Support@dobbletap.com" className="text-[#E50914] hover:underline">
+                      Support@dobbletap.com
                     </a>
                   </p>
                 </>
