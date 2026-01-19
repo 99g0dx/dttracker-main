@@ -97,6 +97,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import type { Creator } from "../../lib/types/database";
+import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
 interface CampaignDetailProps {
   onNavigate: (path: string) => void;
@@ -132,6 +133,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   >("views");
   const isMobile = useMediaQuery("(max-width: 640px)");
   const isCompactMobile = useMediaQuery("(max-width: 479px)");
+  const { canEditWorkspace } = useWorkspaceAccess();
   const [chartRange, setChartRange] = useState<"7d" | "14d" | "30d" | "all">(
     "14d"
   );
@@ -660,6 +662,14 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     return totals;
   }, [filteredChartData, kpiMetrics, chartRange]);
 
+  React.useEffect(() => {
+    if (!campaign || !activeWorkspaceId) return;
+    if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
+      toast.info("Workspace changed. Returning to campaigns.");
+      onNavigate("/campaigns");
+    }
+  }, [campaign, activeWorkspaceId, onNavigate]);
+
   const chartXAxisProps = React.useMemo(
     () => ({
       stroke: "#64748b",
@@ -682,6 +692,18 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     }),
     []
   );
+
+  const formatAxisValue = (value: number) => {
+    if (value >= 1_000_000) {
+      const formatted = (value / 1_000_000).toFixed(1);
+      return `${formatted.replace(/\\.0$/, "")}M`;
+    }
+    if (value >= 1_000) {
+      const formatted = (value / 1_000).toFixed(1);
+      return `${formatted.replace(/\\.0$/, "")}K`;
+    }
+    return String(value);
+  };
 
   // Filter, score, and sort posts
   const filteredPosts = React.useMemo(() => {
@@ -1211,15 +1233,24 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     }
   }, [totalPages]); // Only depend on totalPages to avoid infinite loops
 
+  const ensureCanEdit = (message?: string) => {
+    if (canEditWorkspace) return true;
+    toast.error(message || "Read-only access: editing is disabled.");
+    return false;
+  };
+
   const handleImportCreators = () => {
+    if (!ensureCanEdit()) return;
     setShowImportCreatorsDialog(true);
   };
 
   const handleImportPosts = () => {
+    if (!ensureCanEdit()) return;
     setShowImportPostsDialog(true);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!ensureCanEdit()) return;
     const file = e.target.files?.[0];
     if (!file || !id) return;
 
@@ -1260,24 +1291,28 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   const handleScrapeAll = () => {
     if (!id) return;
+    if (!ensureCanEdit()) return;
     scrapeAllPostsMutation.mutate(id);
     setShowScrapeAllDialog(false);
   };
 
   const handleDeleteAll = () => {
     if (!id) return;
+    if (!ensureCanEdit()) return;
     deleteAllPostsMutation.mutate(id);
     setShowDeleteAllDialog(false);
   };
 
   const handleDeletePost = (postId: string) => {
     if (!id) return;
+    if (!ensureCanEdit()) return;
     deletePostMutation.mutate({ id: postId, campaignId: id });
     setShowDeletePostDialog(null);
   };
 
   const handleScrapePost = (postId: string) => {
     if (!id) return;
+    if (!ensureCanEdit()) return;
 
     // Find the post in the posts array
     const post = posts?.find((p) => p.id === postId);
@@ -1436,8 +1471,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           {campaign && (
             <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 w-full sm:flex sm:gap-2 sm:w-auto">
               <button
-                onClick={() => setShowShareLinkModal(true)}
-                className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                onClick={() => {
+                  if (!ensureCanEdit("You do not have permission to share campaigns.")) return;
+                  setShowShareLinkModal(true);
+                }}
+                disabled={!canEditWorkspace}
+                className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Share campaign link"
               >
                 <Share2 className="w-4 h-4" />
@@ -1445,8 +1484,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 <span className="sm:hidden">Share</span>
               </button>
               <button
-                onClick={() => onNavigate(`/campaigns/${campaign.id}/edit`)}
-                className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                onClick={() => {
+                  if (!ensureCanEdit("You do not have permission to edit campaigns.")) return;
+                  onNavigate(`/campaigns/${campaign.id}/edit`);
+                }}
+                disabled={!canEditWorkspace}
+                className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Edit campaign"
               >
                 <Edit2 className="w-4 h-4" />
@@ -1679,11 +1722,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={(value) => formatAxisValue(Number(value))}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={(value) => formatAxisValue(Number(value))}
+                  />
                   <Line
                     type="monotone"
                     dataKey="views"
@@ -1723,11 +1767,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={(value) => formatAxisValue(Number(value))}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={(value) => formatAxisValue(Number(value))}
+                  />
                   <Line
                     type="monotone"
                     dataKey="likes"
@@ -1767,11 +1812,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={(value) => formatAxisValue(Number(value))}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={(value) => formatAxisValue(Number(value))}
+                  />
                   <Line
                     type="monotone"
                     dataKey="comments"
@@ -1811,11 +1857,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${value / 1000}K` : value
-                    }
+                    tickFormatter={(value) => formatAxisValue(Number(value))}
                   />
-                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={(value) => formatAxisValue(Number(value))}
+                  />
                   <Line
                     type="monotone"
                     dataKey="shares"
@@ -1854,11 +1901,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={(value) => formatAxisValue(Number(value))}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={(value) => formatAxisValue(Number(value))}
+                />
                 <Line
                   type="monotone"
                   dataKey="views"
@@ -1893,11 +1941,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={(value) => formatAxisValue(Number(value))}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={(value) => formatAxisValue(Number(value))}
+                />
                 <Line
                   type="monotone"
                   dataKey="likes"
@@ -1932,11 +1981,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={(value) => formatAxisValue(Number(value))}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={(value) => formatAxisValue(Number(value))}
+                />
                 <Line
                   type="monotone"
                   dataKey="comments"
@@ -1971,11 +2021,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${value / 1000}K` : value
-                  }
+                  tickFormatter={(value) => formatAxisValue(Number(value))}
                 />
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={(value) => formatAxisValue(Number(value))}
+                />
                 <Line
                   type="monotone"
                   dataKey="shares"
@@ -2156,17 +2207,19 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               )}
                             >
                               {/* Remove Button */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCreatorToRemove({ id: creator.id, name: creator.name });
-                                }}
-                                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10"
-                                aria-label={`Remove ${creator.name} from campaign`}
-                                title="Remove from campaign"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                              {canEditWorkspace && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCreatorToRemove({ id: creator.id, name: creator.name });
+                                  }}
+                                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10"
+                                  aria-label={`Remove ${creator.name} from campaign`}
+                                  title="Remove from campaign"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
 
                               <button
                                 onClick={() => {
@@ -2272,8 +2325,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               </div>
               <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-end sm:gap-3 md:w-auto">
                 <button
-                  onClick={() => setShowAddPostDialog(true)}
-                  className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)]"
+                  onClick={() => {
+                    if (!ensureCanEdit()) return;
+                    setShowAddPostDialog(true);
+                  }}
+                  disabled={!canEditWorkspace}
+                  className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                   Add Post
@@ -2291,8 +2348,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem
-                      onSelect={() => setShowScrapeAllDialog(true)}
-                      disabled={posts.length === 0}
+                      onSelect={() => {
+                        if (!ensureCanEdit()) return;
+                        setShowScrapeAllDialog(true);
+                      }}
+                      disabled={posts.length === 0 || !canEditWorkspace}
                     >
                       <RefreshCw className="w-4 h-4" />
                       Scrape all posts
@@ -2305,19 +2365,22 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       Export CSV
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={handleImportCreators}>
+                    <DropdownMenuItem onSelect={handleImportCreators} disabled={!canEditWorkspace}>
                       <Upload className="w-4 h-4" />
                       Import creators
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleImportPosts}>
+                    <DropdownMenuItem onSelect={handleImportPosts} disabled={!canEditWorkspace}>
                       <Upload className="w-4 h-4" />
                       Import posts CSV
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
-                      onSelect={() => setShowDeleteAllDialog(true)}
-                      disabled={posts.length === 0}
+                      onSelect={() => {
+                        if (!ensureCanEdit()) return;
+                        setShowDeleteAllDialog(true);
+                      }}
+                      disabled={posts.length === 0 || !canEditWorkspace}
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete all posts
@@ -2435,8 +2498,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <PostCard
                           key={post.id}
                           post={post}
-                          onScrape={handleScrapePost}
-                          onDelete={setShowDeletePostDialog}
+                          onScrape={canEditWorkspace ? handleScrapePost : undefined}
+                          onDelete={canEditWorkspace ? setShowDeletePostDialog : undefined}
                           isScraping={
                             isScrapeAllPending ||
                             post.status === "scraping" ||
@@ -2463,8 +2526,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <PostCard
                           key={post.id}
                           post={post}
-                          onScrape={handleScrapePost}
-                          onDelete={setShowDeletePostDialog}
+                          onScrape={canEditWorkspace ? handleScrapePost : undefined}
+                          onDelete={canEditWorkspace ? setShowDeletePostDialog : undefined}
                           isScraping={
                             isScrapeAllPending ||
                             post.status === "scraping" ||
@@ -2484,8 +2547,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <PostCard
                         key={post.id}
                         post={post}
-                        onScrape={handleScrapePost}
-                        onDelete={setShowDeletePostDialog}
+                        onScrape={canEditWorkspace ? handleScrapePost : undefined}
+                        onDelete={canEditWorkspace ? setShowDeletePostDialog : undefined}
                         isScraping={
                           isScrapeAllPending ||
                           post.status === "scraping" ||
@@ -2709,17 +2772,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   {post.post_url && (
                                     <button
                                       onClick={() => {
-                                        if (id) {
-                                          scrapePostMutation.mutate({
-                                            postId: post.id,
-                                            postUrl: post.post_url,
-                                            platform: post.platform,
-                                            campaignId: id,
-                                          });
-                                        }
+                                        if (!ensureCanEdit()) return;
+                                        if (!id) return;
+                                        scrapePostMutation.mutate({
+                                          postId: post.id,
+                                          postUrl: post.post_url,
+                                          platform: post.platform,
+                                          campaignId: id,
+                                        });
                                       }}
                                       disabled={
-                                        isScrapingPost
+                                        isScrapingPost || !canEditWorkspace
                                       }
                                       className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       title={
@@ -2735,15 +2798,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       )}
                                     </button>
                                   )}
-                                  <button
-                                    onClick={() =>
-                                      setShowDeletePostDialog(post.id)
-                                    }
-                                    className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                                    title="Delete this post"
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-400" />
-                                  </button>
+                                  {canEditWorkspace && (
+                                    <button
+                                      onClick={() =>
+                                        setShowDeletePostDialog(post.id)
+                                      }
+                                      className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                                      title="Delete this post"
+                                    >
+                                      <Trash2 className="w-4 h-4 text-red-400" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -2866,17 +2931,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               {post.post_url && (
                                 <button
                                   onClick={() => {
-                                    if (id) {
-                                      scrapePostMutation.mutate({
-                                        postId: post.id,
-                                        postUrl: post.post_url,
-                                        platform: post.platform,
-                                        campaignId: id,
-                                      });
-                                    }
+                                    if (!ensureCanEdit()) return;
+                                    if (!id) return;
+                                    scrapePostMutation.mutate({
+                                      postId: post.id,
+                                      postUrl: post.post_url,
+                                      platform: post.platform,
+                                      campaignId: id,
+                                    });
                                   }}
                                   disabled={
-                                    isScrapingPost
+                                    isScrapingPost || !canEditWorkspace
                                   }
                                   className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Refresh metrics"
@@ -2893,14 +2958,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   )}
                                 </button>
                               )}
-                              <button
-                                onClick={() => setShowDeletePostDialog(post.id)}
-                                className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                                aria-label="Delete post"
-                                title="Delete this post"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-400" />
-                              </button>
+                              {canEditWorkspace && (
+                                <button
+                                  onClick={() => setShowDeletePostDialog(post.id)}
+                                  className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                                  aria-label="Delete post"
+                                  title="Delete this post"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-400" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -3417,7 +3484,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           deleteAllPostsMutation.isPending ? "Deleting..." : "Delete all"
         }
         confirmDisabled={deleteAllPostsMutation.isPending}
-        onConfirm={handleDeleteAll}
+        onConfirm={() => {
+          if (!ensureCanEdit()) return;
+          handleDeleteAll();
+        }}
       />
 
       <ResponsiveConfirmDialog
@@ -3431,9 +3501,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           deletePostMutation.isPending ? "Deleting..." : "Delete post"
         }
         confirmDisabled={deletePostMutation.isPending}
-        onConfirm={() =>
-          showDeletePostDialog && handleDeletePost(showDeletePostDialog)
-        }
+        onConfirm={() => {
+          if (!ensureCanEdit()) return;
+          if (showDeletePostDialog) {
+            handleDeletePost(showDeletePostDialog);
+          }
+        }}
       />
 
       {/* Remove Creator Confirmation Dialog */}
@@ -3453,6 +3526,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         }
         confirmDisabled={removeCreatorMutation.isPending}
         onConfirm={async () => {
+          if (!ensureCanEdit()) return;
           if (creatorToRemove && id) {
             try {
               await removeCreatorMutation.mutateAsync({

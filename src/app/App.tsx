@@ -12,6 +12,7 @@ import { ToastProvider } from "./components/toast-provider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useAuth } from "../contexts/AuthContext";
+import { useWorkspace } from "../contexts/WorkspaceContext";
 import { cn } from "./components/ui/utils";
 import { Requests } from "./components/requests";
 
@@ -121,6 +122,7 @@ function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { isSwitching } = useWorkspace();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -184,7 +186,13 @@ function AppRoutes() {
               : "lg:ml-64 px-4 sm:px-5 lg:px-8 pt-[max(5rem,env(safe-area-inset-top,5rem))] lg:pt-8 pb-8"
           )}
         >
-          <div className={isPublicRoute ? "" : "max-w-7xl mx-auto"}>
+          <div
+            className={cn(
+              isPublicRoute ? "" : "max-w-7xl mx-auto",
+              "transition-opacity duration-200",
+              !isPublicRoute && isSwitching && "opacity-60"
+            )}
+          >
             <Suspense fallback={loadingFallback}>
               <Routes>
                 <Route

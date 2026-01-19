@@ -71,7 +71,7 @@ serve(async (req) => {
     const roleLabels: Record<string, string> = {
       owner: "Owner",
       admin: "Admin",
-      member: "Member",
+      editor: "Editor",
       viewer: "Viewer",
     };
     const roleLabel = roleLabels[role] || role;
@@ -218,4 +218,3 @@ This invitation will expire in 7 days.
     );
   }
 });
-

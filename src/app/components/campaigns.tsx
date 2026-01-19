@@ -10,6 +10,7 @@ import { ResponsiveConfirmDialog } from './ui/responsive-confirm-dialog';
 import { useCampaigns, useDeleteCampaign, useDuplicateCampaign, campaignsKeys } from '../../hooks/useCampaigns';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 
 interface CampaignsProps {
   onNavigate: (path: string) => void;
@@ -27,9 +28,18 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
   });
   const queryClient = useQueryClient();
   const { activeWorkspaceId } = useWorkspace();
+  const {
+    loading: accessLoading,
+    canViewWorkspace,
+    hasCampaignAccess,
+    canViewCampaign,
+    canEditCampaign,
+    canEditWorkspace,
+  } = useWorkspaceAccess();
   const deleteCampaignMutation = useDeleteCampaign();
   const duplicateCampaignMutation = useDuplicateCampaign();
   const isCampaignsLoading = !shouldFetch || isLoading;
+  const canCreateCampaign = !activeWorkspaceId || accessLoading || canEditWorkspace;
 
   React.useEffect(() => {
     const timer = setTimeout(() => setShouldFetch(true), 500);
@@ -42,7 +52,23 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
     refetch();
   };
 
-  const filteredCampaigns = campaigns.filter(campaign =>
+  const visibleCampaigns = React.useMemo(() => {
+    if (!activeWorkspaceId || accessLoading) return campaigns;
+    if (canViewWorkspace) return campaigns;
+    if (hasCampaignAccess) {
+      return campaigns.filter((campaign) => canViewCampaign(campaign.id));
+    }
+    return [];
+  }, [
+    activeWorkspaceId,
+    accessLoading,
+    canViewWorkspace,
+    hasCampaignAccess,
+    canViewCampaign,
+    campaigns,
+  ]);
+
+  const filteredCampaigns = visibleCampaigns.filter(campaign =>
     campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -106,7 +132,9 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
           </div>
           <Button
             onClick={() => onNavigate('/campaigns/new')}
-            className="bg-primary hover:bg-primary/90 text-black"
+            className="bg-primary hover:bg-primary/90 text-black disabled:opacity-60"
+            disabled={!canCreateCampaign}
+            title={!canCreateCampaign ? 'You do not have permission to create campaigns' : undefined}
           >
             <Plus className="w-4 h-4 mr-2" />
             New Campaign
@@ -141,7 +169,9 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
           </div>
           <Button
             onClick={() => onNavigate('/campaigns/new')}
-            className="bg-primary hover:bg-primary/90 text-black"
+            className="bg-primary hover:bg-primary/90 text-black disabled:opacity-60"
+            disabled={!canCreateCampaign}
+            title={!canCreateCampaign ? 'You do not have permission to create campaigns' : undefined}
           >
             <Plus className="w-4 h-4 mr-2" />
             New Campaign
@@ -185,7 +215,9 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
         </div>
         <Button
           onClick={() => onNavigate('/campaigns/new')}
-          className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-black"
+          className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-black disabled:opacity-60"
+          disabled={!canCreateCampaign}
+          title={!canCreateCampaign ? 'You do not have permission to create campaigns' : undefined}
         >
           <Plus className="w-4 h-4 mr-2" />
           New Campaign
@@ -207,12 +239,14 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
       {/* Campaigns Grid */}
       {filteredCampaigns.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filteredCampaigns.map((campaign) => (
-            <Card
-              key={campaign.id}
-              className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer group relative overflow-hidden"
-              onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
-            >
+          {filteredCampaigns.map((campaign) => {
+            const canEditThisCampaign = canEditCampaign(campaign.id);
+            return (
+              <Card
+                key={campaign.id}
+                className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer group relative overflow-hidden"
+                onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
+              >
               <CardContent className="p-0">
                 {/* Cover Image Header */}
                 <div className="relative w-full h-24 sm:h-28 bg-gradient-to-br from-primary to-cyan-400">
@@ -243,29 +277,37 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                       {/* Dropdown Menu */}
                       {openMenuId === campaign.id && (
                         <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-1 overflow-hidden">
-                          <button
-                            onClick={(e) => handleEditClick(e, campaign.id)}
-                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
-                          >
-                            <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                            Edit Campaign
-                          </button>
-                          <div className="h-px bg-white/[0.06]" />
-                          <button
-                            onClick={(e) => handleDeleteClick(e, campaign.id)}
-                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
-                          >
-                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                            Delete Campaign
-                          </button>
-                          <div className="h-px bg-white/[0.06]" />
-                          <button
-                            onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
-                            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
-                          >
-                            <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
-                            Duplicate Campaign
-                          </button>
+                          {canEditThisCampaign ? (
+                            <>
+                              <button
+                                onClick={(e) => handleEditClick(e, campaign.id)}
+                                className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                              >
+                                <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Edit Campaign
+                              </button>
+                              <div className="h-px bg-white/[0.06]" />
+                              <button
+                                onClick={(e) => handleDeleteClick(e, campaign.id)}
+                                className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                              >
+                                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Delete Campaign
+                              </button>
+                              <div className="h-px bg-white/[0.06]" />
+                              <button
+                                onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
+                                className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                              >
+                                <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Duplicate Campaign
+                              </button>
+                            </>
+                          ) : (
+                            <div className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-500">
+                              View only access
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -330,7 +372,8 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <Card className="bg-[#0D0D0D] border-white/[0.08]">

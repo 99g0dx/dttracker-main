@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -18,40 +18,28 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 // Keep InviteData type for the modal
 type InviteData = {
-  rolePreset: 'workspace_editor' | 'workspace_viewer' | 'calendar_editor' | 'calendar_viewer' | 'campaign_editor' | 'campaign_viewer';
+  rolePreset: 'admin' | 'editor' | 'viewer';
   email: string;
   name: string;
-  campaignIds?: number[];
   message?: string;
 };
 
 // Helper function to map rolePreset to TeamRole and scopes (same as in team-management.tsx)
 function mapRolePresetToRoleAndScopes(
-  rolePreset: InviteData['rolePreset'],
-  campaignIds?: number[]
+  rolePreset: InviteData['rolePreset']
 ): { role: TeamRole; scopes: Array<{ scope_type: ScopeType; scope_value: string }> } {
   const scopes: Array<{ scope_type: ScopeType; scope_value: string }> = [];
   let role: TeamRole = 'viewer';
 
-  if (rolePreset === 'workspace_editor') {
-    role = 'member';
+  if (rolePreset === 'admin') {
+    role = 'admin';
     scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
-  } else if (rolePreset === 'workspace_viewer') {
-    role = 'member';
+  } else if (rolePreset === 'editor') {
+    role = 'editor';
+    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
+  } else if (rolePreset === 'viewer') {
+    role = 'viewer';
     scopes.push({ scope_type: 'workspace', scope_value: 'viewer' });
-  } else if (rolePreset === 'calendar_editor') {
-    role = 'viewer';
-    scopes.push({ scope_type: 'calendar', scope_value: 'editor' });
-  } else if (rolePreset === 'calendar_viewer') {
-    role = 'viewer';
-    scopes.push({ scope_type: 'calendar', scope_value: 'viewer' });
-  } else if (rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer') {
-    role = 'viewer';
-    if (campaignIds && campaignIds.length > 0) {
-      campaignIds.forEach(campaignId => {
-        scopes.push({ scope_type: 'campaign', scope_value: campaignId.toString() });
-      });
-    }
   }
 
   return { role, scopes };
@@ -73,23 +61,12 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
       tempId: 1,
       email: '',
       name: '',
-      rolePreset: 'workspace_viewer',
-      campaignIds: [],
+      rolePreset: 'viewer',
     },
   ]);
-  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('dttracker-campaigns');
-      if (stored) {
-        setCampaigns(JSON.parse(stored));
-      }
-    }
-  }, []);
 
   const addInviteRow = () => {
     const newId = Math.max(...invites.map(i => i.tempId)) + 1;
@@ -97,8 +74,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
       tempId: newId,
       email: '',
       name: '',
-      rolePreset: 'workspace_viewer',
-      campaignIds: [],
+      rolePreset: 'viewer',
     }]);
   };
 
@@ -130,9 +106,6 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
       } else if (!invite.email.includes('@')) {
         newErrors[invite.tempId] = 'Invalid email address';
         isValid = false;
-      } else if ((invite.rolePreset === 'campaign_editor' || invite.rolePreset === 'campaign_viewer') && (!invite.campaignIds || invite.campaignIds.length === 0)) {
-        newErrors[invite.tempId] = 'Select at least one campaign';
-        isValid = false;
       }
     });
 
@@ -163,8 +136,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
       const results = await Promise.allSettled(
         inviteData.map(async (invite) => {
           const { role, scopes } = mapRolePresetToRoleAndScopes(
-            invite.rolePreset,
-            invite.campaignIds && invite.campaignIds.length > 0 ? invite.campaignIds : undefined
+            invite.rolePreset
           );
 
           return createTeamInvite(
@@ -201,7 +173,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
   };
 
   const downloadTemplate = () => {
-    const csv = 'Email,Name,Access Level\nexample1@company.com,John Doe,workspace_viewer\nexample2@company.com,Jane Smith,workspace_editor';
+    const csv = 'Email,Name,Access Level\nexample1@company.com,John Doe,viewer\nexample2@company.com,Jane Smith,editor\nexample3@company.com,Admin User,admin';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -294,12 +266,9 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
                             onChange={(e) => updateInvite(invite.tempId, 'rolePreset', e.target.value)}
                             className="w-full h-10 pl-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white"
                           >
-                            <option value="workspace_editor">Workspace Editor</option>
-                            <option value="workspace_viewer">Workspace Viewer</option>
-                            <option value="calendar_editor">Calendar Editor</option>
-                            <option value="calendar_viewer">Calendar Viewer</option>
-                            <option value="campaign_editor">Campaign Editor</option>
-                            <option value="campaign_viewer">Campaign Viewer</option>
+                            <option value="admin">Admin</option>
+                            <option value="editor">Editor</option>
+                            <option value="viewer">Viewer</option>
                           </select>
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-slate-400">
@@ -309,36 +278,6 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
                         </div>
                       </div>
 
-                      {(invite.rolePreset === 'campaign_editor' || invite.rolePreset === 'campaign_viewer') && (
-                        <div className="col-span-3">
-                          <label className="block text-xs font-medium text-slate-400 mb-2">
-                            Select Campaigns <span className="text-red-400">*</span>
-                          </label>
-                          <div className="flex flex-wrap gap-2 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg max-h-32 overflow-y-auto">
-                            {campaigns.length > 0 ? (
-                              campaigns.map(campaign => (
-                                <label key={campaign.id} className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/[0.04] hover:bg-white/[0.06] border border-white/[0.08] rounded-md cursor-pointer transition-all">
-                                  <input
-                                    type="checkbox"
-                                    checked={(invite.campaignIds || []).includes(campaign.id)}
-                                    onChange={(e) => {
-                                      const currentIds = invite.campaignIds || [];
-                                      const newIds = e.target.checked
-                                        ? [...currentIds, campaign.id]
-                                        : currentIds.filter(id => id !== campaign.id);
-                                      updateInvite(invite.tempId, 'campaignIds', newIds);
-                                    }}
-                                    className="rounded border-white/[0.2] text-primary focus:ring-primary/30 focus:ring-offset-0 w-3.5 h-3.5"
-                                  />
-                                  <span className="text-xs text-white">{campaign.name}</span>
-                                </label>
-                              ))
-                            ) : (
-                              <p className="text-xs text-slate-500">No campaigns available</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {invites.length > 1 && (

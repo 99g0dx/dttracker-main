@@ -91,7 +91,7 @@ export function Settings({ onNavigate }: SettingsProps) {
     useState<NotificationSettings>(defaultNotifications);
 
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'viewer'>('member');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
   const [inviteSending, setInviteSending] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMemberRow[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
@@ -481,7 +481,7 @@ export function Settings({ onNavigate }: SettingsProps) {
   const roleStyles: Record<string, string> = {
     owner: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
     admin: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
-    member: 'text-primary bg-primary/10 border-primary/20',
+    editor: 'text-primary bg-primary/10 border-primary/20',
     viewer: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
   };
 
