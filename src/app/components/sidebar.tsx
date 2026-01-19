@@ -1,20 +1,19 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut, ChevronDown, Plus, Trash2, Loader2 } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
-import { getCurrentUser, canAccessCalendar, canManageTeam, hasWorkspaceScope } from '../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ReactNode;
-  requiredPermission?: (userId: number) => boolean;
 }
 
 const navItems: NavItem[] = [
@@ -26,7 +25,6 @@ const navItems: NavItem[] = [
     name: 'Calendar', 
     href: '/calendar', 
     icon: <Calendar className="w-5 h-5" />,
-    // requiredPermission: (userId) => canAccessCalendar(userId)
   },
 
   //add teams once rls works
@@ -34,7 +32,6 @@ const navItems: NavItem[] = [
     name: 'Team', 
     href: '/team', 
     icon: <Shield className="w-5 h-5" />,
-    requiredPermission: (userId) => canManageTeam(userId)
   },
   { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
   
@@ -71,9 +68,9 @@ const getInitial = (name: string | null | undefined, email: string | null | unde
 }; 
 
 export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
-  const currentUser = getCurrentUser();
   const { user } = useAuth();
   const { activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
+  const access = useWorkspaceAccess();
   const [workspaces, setWorkspaces] = React.useState<WorkspaceRow[]>([]);
   const [workspaceLoading, setWorkspaceLoading] = React.useState(false);
   const [workspaceError, setWorkspaceError] = React.useState<string | null>(null);
@@ -84,10 +81,25 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   const [deletingWorkspace, setDeletingWorkspace] = React.useState(false);
   const [ownedWorkspaceIds, setOwnedWorkspaceIds] = React.useState<string[]>([]);
   const [memberWorkspaceIds, setMemberWorkspaceIds] = React.useState<string[]>([]);
-  // Filter navigation items based on permissions
+  const [switchingWorkspaceId, setSwitchingWorkspaceId] = React.useState<string | null>(null);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false);
+  const canSeeCampaigns =
+    access.canViewWorkspace || access.hasCampaignAccess || !activeWorkspaceId;
+  const isViewerOnly =
+    activeWorkspaceId &&
+    access.canViewWorkspace &&
+    !access.canEditWorkspace &&
+    !access.canManageTeam;
   const filteredNavItems = navItems.filter(item => {
-    if (!item.requiredPermission) return true;
-    return item.requiredPermission(currentUser.id);
+    if (!activeWorkspaceId || access.loading) return true;
+    if (isViewerOnly) return item.name === 'Dashboard' || item.name === 'Campaigns';
+    if (item.name === 'Calendar') return access.canViewCalendar;
+    if (item.name === 'Team') return access.canManageTeam;
+    if (item.name === 'Creator Library' || item.name === 'Requests') {
+      return access.canViewWorkspace;
+    }
+    if (item.name === 'Campaigns') return canSeeCampaigns;
+    return true;
   });
   
   const handleNavigate = (path: string) => {
@@ -201,7 +213,12 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   };
 
   const handleSelectWorkspace = (workspaceId: string) => {
+    setSwitchingWorkspaceId(workspaceId);
     setActiveWorkspaceId(workspaceId);
+    setWorkspaceMenuOpen(false);
+    window.setTimeout(() => {
+      setSwitchingWorkspaceId(null);
+    }, 600);
   };
 
   const handleCreateWorkspace = async () => {
@@ -373,7 +390,11 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             <div className="text-[11px] uppercase tracking-wide text-slate-500 px-2 mb-2">
               Workspace
             </div>
-            <details className="group">
+            <details
+              className="group"
+              open={workspaceMenuOpen}
+              onToggle={(event) => setWorkspaceMenuOpen(event.currentTarget.open)}
+            >
               <summary className="list-none cursor-pointer">
                 <div className="w-full flex items-center justify-between gap-2 px-3 h-9 rounded-md bg-white/[0.03] border border-white/[0.08] text-slate-200 hover:bg-white/[0.05] transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
@@ -383,6 +404,12 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                     <span className="text-[13px] font-medium truncate">
                       {workspaceLoading ? "Loading..." : formatWorkspaceName(activeWorkspace)}
                     </span>
+                    {switchingWorkspaceId && (
+                      <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-slate-400">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Switching
+                      </span>
+                    )}
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" />
                 </div>
@@ -448,6 +475,9 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                       {workspace.name.charAt(0).toUpperCase()}
                     </div>
                     <span className="truncate">{formatWorkspaceName(workspace)}</span>
+                    {switchingWorkspaceId === workspace.id && (
+                      <Loader2 className="w-3.5 h-3.5 text-slate-500 animate-spin ml-auto" />
+                    )}
                   </div>
                 ))}
                 {joinedWorkspaces.length > 0 && (
@@ -474,32 +504,20 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                         : "text-slate-300 hover:bg-white/[0.06]"
                     )}
                   >
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setWorkspaceToDelete(workspace);
-                      }}
-                      disabled={workspace.type === 'personal'}
-                      className={cn(
-                        "w-5 h-5 rounded flex items-center justify-center transition-colors",
-                        workspace.type === 'personal'
-                          ? "bg-white/[0.04] text-slate-600 cursor-not-allowed"
-                          : "bg-white/[0.06] text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                      )}
+                    <div
+                      className="w-5 h-5 rounded flex items-center justify-center bg-white/[0.04] text-slate-600"
                       aria-label="Delete workspace"
-                      title={
-                        workspace.type === 'personal'
-                          ? 'Personal workspaces cannot be deleted'
-                          : 'Delete workspace'
-                      }
+                      title="Only workspace owners can delete"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </div>
                     <div className="w-5 h-5 rounded bg-white/[0.08] flex items-center justify-center text-[10px] text-white">
                       {workspace.name.charAt(0).toUpperCase()}
                     </div>
                     <span className="truncate">{formatWorkspaceName(workspace)}</span>
+                    {switchingWorkspaceId === workspace.id && (
+                      <Loader2 className="w-3.5 h-3.5 text-slate-500 animate-spin ml-auto" />
+                    )}
                   </div>
                 ))}
                 <div className="h-px bg-white/[0.06] my-1" />

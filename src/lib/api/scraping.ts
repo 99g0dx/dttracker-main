@@ -117,80 +117,54 @@ export async function scrapePost(
       currentSession.access_token?.length || 0
     );
 
-    // Get Supabase URL from environment variable
-    const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "";
-    const supabaseAnonKey =
-      (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "";
-    if (!supabaseUrl) {
-      console.error("Supabase URL not configured");
-      return { data: null, error: new Error("Supabase URL not configured") };
-    }
-    const functionUrl = `${supabaseUrl}/functions/v1/scrape-post`;
-    console.log("Function URL:", functionUrl);
-
-    // Call Edge Function
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${currentSession.access_token}`,
+    const invokeScrape = async (accessToken?: string) => {
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+      return supabase.functions.invoke<ScrapePostResponse>("scrape-post", {
+        body: request,
+        headers,
+      });
     };
-    if (supabaseAnonKey) {
-      headers.apikey = supabaseAnonKey;
+
+    console.log("Invoking edge function scrape-post...");
+    let { data, error } = await invokeScrape(currentSession.access_token);
+
+    if (error) {
+      const errorMessage = error.message || "";
+      const errorStatus = (error as any)?.status || (error as any)?.context?.status;
+      const isAuthError =
+        errorStatus === 401 || errorMessage.includes("JWT") || errorMessage.includes("Unauthorized");
+
+      if (isAuthError) {
+        console.warn("Scrape-post auth error, refreshing session and retrying...");
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError) {
+          const {
+            data: { session: refreshedSession },
+          } = await supabase.auth.getSession();
+          if (refreshedSession?.access_token) {
+            ({ data, error } = await invokeScrape(refreshedSession.access_token));
+          }
+        }
+      }
     }
-    console.log("Request headers:", {
-      ...headers,
-      Authorization: "Bearer [REDACTED]",
-    });
 
-    console.log("Sending fetch request...");
-    const response = await fetch(functionUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(request),
-    });
-    console.log("Response received:", {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-    });
-
-    let data: ScrapePostResponse;
-    try {
-      const responseText = await response.text();
-      console.log(
-        "Response text (first 500 chars):",
-        responseText.substring(0, 500)
-      );
-      data = JSON.parse(responseText);
-      console.log("Parsed response data:", data);
-    } catch (parseError) {
-      console.error("Failed to parse scraping response:", parseError);
-      const errorText = await response
-        .text()
-        .catch(() => "Failed to get response text");
-      console.error("Raw response text:", errorText);
+    if (error || !data) {
+      console.error("Scraping failed:", error);
       return {
         data: null,
-        error: new Error(
-          `Invalid response from scraping service: ${errorText.substring(
-            0,
-            200
-          )}`
-        ),
+        error: new Error(error?.message || "Failed to scrape post"),
       };
     }
 
-    if (!response.ok || !data.success) {
-      // Extract error message safely - handle both string and object errors
-      let errorMessage = `HTTP ${response.status}: Failed to scrape post`;
-      if (data.error) {
-        if (typeof data.error === "string") {
-          errorMessage = data.error;
-        } else if (typeof data.error === "object" && data.error !== null) {
-          // If error is an object, try to extract message or stringify it
-          errorMessage =
-            (data.error as any).message || JSON.stringify(data.error);
-        }
-      }
+    if (!data.success) {
+      const errorMessage =
+        (typeof data.error === "string" && data.error) ||
+        (typeof data.error === "object" && data.error !== null
+          ? (data.error as any).message || JSON.stringify(data.error)
+          : "Failed to scrape post");
 
       console.error("Scraping failed:", errorMessage);
       console.error("Full error response:", data);
@@ -323,65 +297,53 @@ export async function scrapeAllPosts(
 
     console.log("Session found, user:", currentSession.user?.id);
 
-    // Get Supabase URL from environment variable
-    const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "";
-    const supabaseAnonKey =
-      (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "";
-    if (!supabaseUrl) {
-      console.error("Supabase URL not configured");
-      return { data: null, error: new Error("Supabase URL not configured") };
-    }
-    const functionUrl = `${supabaseUrl}/functions/v1/scrape-all-posts`;
-    console.log("Function URL:", functionUrl);
-
-    // Call Edge Function
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${currentSession.access_token}`,
-    };
-    if (supabaseAnonKey) {
-      headers.apikey = supabaseAnonKey;
-    }
-
-    console.log("Sending fetch request to edge function...");
-    const response = await fetch(functionUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ campaignId }),
-    });
-
-    console.log("Response received:", {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-    });
-
-    let data: { success: boolean; data?: ScrapeAllResult; error?: string };
-    try {
-      const responseText = await response.text();
-      console.log(
-        "Response text (first 500 chars):",
-        responseText.substring(0, 500)
+    const invokeScrapeAll = async (accessToken?: string) => {
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+      return supabase.functions.invoke<{ success: boolean; data?: ScrapeAllResult; error?: string }>(
+        "scrape-all-posts",
+        {
+          body: { campaignId },
+          headers,
+        }
       );
-      data = JSON.parse(responseText);
-      console.log("Parsed response data:", data);
-    } catch (parseError) {
-      console.error("Failed to parse scraping response:", parseError);
-      const errorText = await response.text().catch(() => "Failed to get response text");
-      console.error("Raw response text:", errorText);
+    };
+
+    console.log("Invoking edge function scrape-all-posts...");
+    let { data, error } = await invokeScrapeAll(currentSession.access_token);
+
+    if (error) {
+      const errorMessage = error.message || "";
+      const errorStatus = (error as any)?.status || (error as any)?.context?.status;
+      const isAuthError =
+        errorStatus === 401 || errorMessage.includes("JWT") || errorMessage.includes("Unauthorized");
+
+      if (isAuthError) {
+        console.warn("Scrape-all-posts auth error, refreshing session and retrying...");
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError) {
+          const {
+            data: { session: refreshedSession },
+          } = await supabase.auth.getSession();
+          if (refreshedSession?.access_token) {
+            ({ data, error } = await invokeScrapeAll(refreshedSession.access_token));
+          }
+        }
+      }
+    }
+
+    if (error || !data) {
+      console.error("Scraping failed:", error);
       return {
         data: null,
-        error: new Error(
-          `Invalid response from scraping service: ${errorText.substring(
-            0,
-            200
-          )}`
-        ),
+        error: new Error(error?.message || "Failed to scrape all posts"),
       };
     }
 
-    if (!response.ok || !data.success) {
-      const errorMessage = data.error || `HTTP ${response.status}: Failed to scrape all posts`;
+    if (!data.success) {
+      const errorMessage = data.error || "Failed to scrape all posts";
       console.error("Scraping failed:", errorMessage);
       return {
         data: null,

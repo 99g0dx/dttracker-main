@@ -186,10 +186,10 @@ export function TeamInviteAccept() {
           label: "Admin",
           color: "text-purple-400",
         };
-      case "member":
+      case "editor":
         return {
           icon: <Users className="w-4 h-4" />,
-          label: "Member",
+          label: "Editor",
           color: "text-primary",
         };
       case "viewer":

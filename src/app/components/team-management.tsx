@@ -12,14 +12,13 @@ import {
   X,
   MoreVertical,
   Trash2,
-  RefreshCw,
   UserPlus,
-  CheckCircle2,
   Clock,
-  Megaphone,
   UsersRound,
   ArrowLeft,
+  Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { ResponsiveConfirmDialog } from './ui/responsive-confirm-dialog';
 import {
@@ -27,22 +26,20 @@ import {
   getTeamInvites,
   createTeamInvite,
   deleteTeamMember,
-  updateTeamMemberRole,
+  updateTeamMemberAccess,
   revokeTeamInvite,
   type TeamMemberWithScopes,
   type TeamInviteWithInviter,
 } from '../../lib/api/team';
 import type { TeamRole, ScopeType } from '../../lib/types/database';
 import { BulkInviteModal } from './bulk-invite-modal';
-import { useCampaigns } from '../../hooks/useCampaigns';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 // Keep InviteData type for the modal
 export type InviteData = {
-  rolePreset: 'workspace_editor' | 'workspace_viewer' | 'calendar_editor' | 'calendar_viewer' | 'campaign_editor' | 'campaign_viewer';
+  rolePreset: 'admin' | 'editor' | 'viewer';
   email: string;
   name: string;
-  campaignIds?: string[];
   message?: string;
 };
 
@@ -50,39 +47,39 @@ interface TeamManagementProps {
   onNavigate: (path: string) => void;
 }
 
+type RolePreset = InviteData['rolePreset'];
+
 // Helper function to map rolePreset to TeamRole and scopes
 function mapRolePresetToRoleAndScopes(
-  rolePreset: InviteData['rolePreset'],
-  campaignIds?: number[]
+  rolePreset: RolePreset,
 ): { role: TeamRole; scopes: Array<{ scope_type: ScopeType; scope_value: string }> } {
   const scopes: Array<{ scope_type: ScopeType; scope_value: string }> = [];
   let role: TeamRole = 'viewer';
 
-  if (rolePreset === 'workspace_editor') {
-    role = 'member';
+  if (rolePreset === 'admin') {
+    role = 'admin';
     scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
-  } else if (rolePreset === 'workspace_viewer') {
-    role = 'member';
+  } else if (rolePreset === 'editor') {
+    role = 'editor';
+    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
+  } else if (rolePreset === 'viewer') {
+    role = 'viewer';
     scopes.push({ scope_type: 'workspace', scope_value: 'viewer' });
-  } else if (rolePreset === 'calendar_editor') {
-    role = 'viewer';
-    scopes.push({ scope_type: 'calendar', scope_value: 'editor' });
-  } else if (rolePreset === 'calendar_viewer') {
-    role = 'viewer';
-    scopes.push({ scope_type: 'calendar', scope_value: 'viewer' });
-  } else if (rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer') {
-    role = 'viewer';
-    const access = rolePreset === 'campaign_editor' ? 'editor' : 'viewer';
-    if (campaignIds && campaignIds.length > 0) {
-      // For campaign scopes, we store the campaign ID (UUID string) as the scope_value
-      campaignIds.forEach(campaignId => {
-        scopes.push({ scope_type: 'campaign', scope_value: campaignId });
-      });
-    }
   }
 
   return { role, scopes };
 }
+
+const getRolePresetFromMember = (member: TeamMemberWithScopes): RolePreset => {
+  if (member.role === 'admin') return 'admin';
+  if (member.role === 'editor') return 'editor';
+  if (member.role === 'viewer') return 'viewer';
+  const scopes = member.scopes || [];
+  const workspaceScope = scopes.find((scope) => scope.scope_type === 'workspace');
+  if (workspaceScope?.scope_value === 'editor') return 'editor';
+  return 'viewer';
+};
+
 
 export function TeamManagement({ onNavigate }: TeamManagementProps) {
   const { activeWorkspaceId } = useWorkspace();
@@ -95,10 +92,12 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showBulkInviteModal, setShowBulkInviteModal] = useState(false);
   const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
+  const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
+  const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     memberId: string;
     memberName: string;
-    nextRole: TeamRole;
+    rolePreset: RolePreset;
   } | null>(null);
 
   useEffect(() => {
@@ -166,7 +165,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const currentUserMember = members.find((member) => member.user_id === currentUser?.id);
-  const canManage = currentUserMember?.role === 'owner';
+  const canManage = currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin';
 
   const handleInviteComplete = async () => {
     await loadMembers();
@@ -174,6 +173,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const handleDeleteMember = async (memberId: string) => {
+    setDeletingMemberId(memberId);
     const member = members.find((item) => item.id === memberId);
     const memberEmail = (member as any)?.profile_email || null;
     const result = await deleteTeamMember(memberId);
@@ -185,12 +185,17 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         );
       }
     }
+    setDeletingMemberId(null);
     setShowDeleteConfirm(null);
   };
 
-  const handleUpdateMemberRole = async (memberId: string, role: TeamRole) => {
+  const handleUpdateMemberRole = async (
+    memberId: string,
+    rolePreset: RolePreset
+  ) => {
     setRoleUpdatingId(memberId);
-    const result = await updateTeamMemberRole(memberId, role);
+    const { role, scopes } = mapRolePresetToRoleAndScopes(rolePreset);
+    const result = await updateTeamMemberAccess(memberId, role, scopes);
     if (!result.error) {
       await loadMembers();
     }
@@ -198,31 +203,36 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
+    setRevokingInviteId(inviteId);
     const result = await revokeTeamInvite(inviteId);
     if (!result.error) {
       await loadMembers();
     }
+    setRevokingInviteId(null);
   };
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: string, scopes?: TeamMemberWithScopes['scopes']) => {
+    if (role === 'editor') {
+      return { icon: <Users className="w-3 h-3" />, label: 'Editor', color: 'text-primary bg-primary/10 border-primary/20' };
+    }
+    if (role === 'viewer') {
+      return { icon: <Eye className="w-3 h-3" />, label: 'Viewer', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' };
+    }
     const badges = {
       owner: { icon: <Crown className="w-3 h-3" />, label: 'Owner', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
       admin: { icon: <Shield className="w-3 h-3" />, label: 'Admin', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-      member: { icon: <Users className="w-3 h-3" />, label: 'Member', color: 'text-primary bg-primary/10 border-primary/20' },
       viewer: { icon: <Eye className="w-3 h-3" />, label: 'Viewer', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' },
+      editor: { icon: <Users className="w-3 h-3" />, label: 'Editor', color: 'text-primary bg-primary/10 border-primary/20' },
     };
     return badges[role as keyof typeof badges] || badges.viewer;
   };
 
   const getScopesSummary = (member: TeamMemberWithScopes) => {
+    if (member.role === 'admin' || member.role === 'owner') return 'Full workspace access';
+    if (member.role === 'editor') return 'Workspace edit access';
+    if (member.role === 'viewer') return 'Workspace view access';
     const scopes = member.scopes || [];
-    
     if (scopes.length === 0) return 'No access';
-    
-    const workspaceScope = scopes.find(s => s.scope_type === 'workspace');
-    if (workspaceScope) {
-      return workspaceScope.scope_value === 'editor' ? 'Full workspace access' : 'Workspace view access';
-    }
     
     const calendarScope = scopes.find(s => s.scope_type === 'calendar');
     const campaignScopes = scopes.filter(s => s.scope_type === 'campaign');
@@ -232,13 +242,24 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       parts.push(`Calendar ${calendarScope.scope_value}`);
     }
     if (campaignScopes.length > 0) {
-      parts.push(`${campaignScopes.length} campaign${campaignScopes.length !== 1 ? 's' : ''}`);
+      const parsed = campaignScopes.map(scope => {
+        const [campaignId, access] = scope.scope_value.split(':');
+        return { campaignId, access: access || 'viewer' };
+      });
+      const editorCount = parsed.filter(item => item.access === 'editor').length;
+      const viewerCount = parsed.filter(item => item.access === 'viewer').length;
+      if (editorCount > 0) {
+        parts.push(`${editorCount} campaign edit${editorCount !== 1 ? 's' : ''}`);
+      }
+      if (viewerCount > 0) {
+        parts.push(`${viewerCount} campaign view${viewerCount !== 1 ? 's' : ''}`);
+      }
     }
     
     return parts.join(', ') || 'Custom access';
   };
 
-  const activeMembers = members.filter(m => m.status === 'active');
+  const activeMembers = members.filter((m) => m.status === 'active');
 
   if (loading) {
     return (
@@ -271,17 +292,27 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
             <Button
               onClick={() => setShowBulkInviteModal(true)}
               variant="outline"
-              className="h-9 px-4 flex-1 sm:flex-none bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300 hover:text-white"
+              disabled={showBulkInviteModal || showInviteModal}
+              className="h-9 px-4 flex-1 sm:flex-none bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300 hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <UsersRound className="w-4 h-4 mr-2" />
-              Bulk Invite
+              {showBulkInviteModal ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <UsersRound className="w-4 h-4 mr-2" />
+              )}
+              {showBulkInviteModal ? "Opening..." : "Bulk Invite"}
             </Button>
             <Button
               onClick={() => setShowInviteModal(true)}
-              className="h-9 px-4 flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-[rgb(0,0,0)]"
+              disabled={showInviteModal || showBulkInviteModal}
+              className="h-9 px-4 flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Invite Member
+              {showInviteModal ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <UserPlus className="w-4 h-4 mr-2" />
+              )}
+              {showInviteModal ? "Opening..." : "Invite Member"}
             </Button>
           </div>
         )}
@@ -319,7 +350,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
           
           <div className="divide-y divide-white/[0.04]">
             {activeMembers.map(member => {
-              const badge = getRoleBadge(member.role);
+              const badge = getRoleBadge(member.role, member.scopes);
               const scopesSummary = getScopesSummary(member);
               // Get name from profile or use user_id
               const memberName = (member as any).profile_name || 'User';
@@ -331,6 +362,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
               const isCurrentUser = member.user_id === currentUser?.id;
               const secondaryLine =
                 member.role === 'owner' ? member.user_id : memberEmail;
+              const rolePreset = getRolePresetFromMember(member);
               
               return (
                 <div
@@ -364,8 +396,16 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                     
                     {canManage && !isCurrentUser && member.role !== 'owner' && (
                       <div className="relative group">
-                        <button className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors">
-                          <MoreVertical className="w-4 h-4 text-slate-400" />
+                        <button
+                          className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors disabled:opacity-60"
+                          disabled={roleUpdatingId === member.id}
+                          title={roleUpdatingId === member.id ? "Updating role" : "Manage access"}
+                        >
+                          {roleUpdatingId === member.id ? (
+                            <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                          ) : (
+                            <MoreVertical className="w-4 h-4 text-slate-400" />
+                          )}
                         </button>
                         <div className="absolute right-0 top-full mt-1 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 min-w-[160px]">
                           <div className="px-3 py-2">
@@ -373,20 +413,23 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                               Role
                             </label>
                             <select
-                              value={member.role}
-                              onChange={(e) =>
+                              value={rolePreset}
+                              onChange={(e) => {
+                                const nextPreset = e.target.value as RolePreset;
                                 setPendingRoleChange({
                                   memberId: member.id,
                                   memberName,
-                                  nextRole: e.target.value as TeamRole,
-                                })
-                              }
+                                  rolePreset: nextPreset,
+                                });
+                              }}
                               disabled={roleUpdatingId === member.id}
                               className="w-full h-8 px-2 rounded-md bg-white/[0.04] border border-white/[0.1] text-xs text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors"
                             >
-                              <option value="admin">Admin</option>
-                              <option value="member">Member</option>
-                              <option value="viewer">Viewer</option>
+                              <optgroup label="Team Role">
+                                <option value="admin">Admin - Full access</option>
+                                <option value="editor">Editor - Can edit workspace data</option>
+                                <option value="viewer">Viewer - Read-only access</option>
+                              </optgroup>
                             </select>
                           </div>
                           <button
@@ -396,12 +439,16 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                                 setShowDeleteConfirm(member.id);
                               }
                             }}
-                            disabled={!member.id}
+                            disabled={!member.id || deletingMemberId === member.id}
                             className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors rounded-b-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             title={!member.id ? "Unable to remove this member" : "Remove member"}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Remove
+                            {deletingMemberId === member.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                            {deletingMemberId === member.id ? "Removing..." : "Remove"}
                           </button>
                         </div>
                       </div>
@@ -458,10 +505,15 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleRevokeInvite(invite.id)}
-                            className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors"
+                            className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                             title="Revoke invitation"
+                            disabled={revokingInviteId === invite.id}
                           >
-                            <X className="w-4 h-4 text-red-400" />
+                            {revokingInviteId === invite.id ? (
+                              <Loader2 className="w-4 h-4 text-red-400 animate-spin" />
+                            ) : (
+                              <X className="w-4 h-4 text-red-400" />
+                            )}
                           </button>
                         </div>
                       )}
@@ -491,7 +543,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         }}
         title="Remove team member?"
         description="This member will lose access immediately. This action cannot be undone."
-        confirmLabel="Remove member"
+        confirmLabel={deletingMemberId ? "Removing..." : "Remove member"}
+        confirmLoading={Boolean(deletingMemberId)}
+        confirmDisabled={Boolean(deletingMemberId)}
         onConfirm={() => showDeleteConfirm && handleDeleteMember(showDeleteConfirm)}
       />
 
@@ -502,16 +556,53 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         }}
         title="Update member role?"
         description={
-          pendingRoleChange
-            ? `${pendingRoleChange.memberName} will be set to ${pendingRoleChange.nextRole}.`
-            : "Confirm role change."
+          pendingRoleChange ? (
+            <div className="space-y-4">
+              <div className="text-sm text-slate-400">
+                Update access for <span className="text-white">{pendingRoleChange.memberName}</span>.
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  Access Level
+                </label>
+                <select
+                  value={pendingRoleChange.rolePreset}
+                  onChange={(e) => {
+                    const nextPreset = e.target.value as RolePreset;
+                    setPendingRoleChange((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            rolePreset: nextPreset,
+                          }
+                        : prev
+                    );
+                  }}
+                  className="w-full h-10 px-3 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors [&>option]:bg-[#0D0D0D] [&>option]:text-white [&>optgroup]:bg-[#0D0D0D] [&>optgroup]:text-slate-400 [&>optgroup]:font-semibold"
+                >
+                  <optgroup label="Team Role">
+                    <option value="admin">Admin - Full access</option>
+                    <option value="editor">Editor - Can edit workspace data</option>
+                    <option value="viewer">Viewer - Read-only access</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+          ) : (
+            "Confirm role change."
+          )
         }
         confirmLabel="Update role"
+        confirmLoading={
+          Boolean(pendingRoleChange) &&
+          roleUpdatingId === pendingRoleChange?.memberId
+        }
+        confirmDisabled={Boolean(roleUpdatingId)}
         onConfirm={() => {
           if (!pendingRoleChange) return;
           handleUpdateMemberRole(
             pendingRoleChange.memberId,
-            pendingRoleChange.nextRole
+            pendingRoleChange.rolePreset
           );
           setPendingRoleChange(null);
         }}
@@ -543,23 +634,14 @@ function InviteModal({
 }) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [rolePreset, setRolePreset] = useState<InviteData['rolePreset']>('workspace_viewer');
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
+  const [rolePreset, setRolePreset] = useState<InviteData['rolePreset']>('viewer');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch campaigns from database
-  const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
-
   const handleSubmit = async () => {
     if (!email || !name) {
       setError('Please enter email and name');
-      return;
-    }
-
-    if ((rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer') && selectedCampaigns.length === 0) {
-      setError('Please select at least one campaign');
       return;
     }
 
@@ -574,7 +656,7 @@ function InviteModal({
         return;
       }
 
-      const { role, scopes } = mapRolePresetToRoleAndScopes(rolePreset, selectedCampaigns.length > 0 ? selectedCampaigns : undefined);
+      const { role, scopes } = mapRolePresetToRoleAndScopes(rolePreset);
       
       const result = await createTeamInvite(
         workspaceId,
@@ -609,8 +691,6 @@ function InviteModal({
       setLoading(false);
     }
   };
-
-  const isCampaignOnly = rolePreset === 'campaign_editor' || rolePreset === 'campaign_viewer';
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -674,17 +754,10 @@ function InviteModal({
                   onChange={(e) => setRolePreset(e.target.value as InviteData['rolePreset'])}
                   className="w-full h-12 pl-4 pr-12 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm font-medium focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white [&>optgroup]:bg-[#0D0D0D] [&>optgroup]:text-slate-400 [&>optgroup]:font-semibold"
                 >
-                  <optgroup label="Workspace Access">
-                    <option value="workspace_editor">Overall Tracker Editor - Full access to everything</option>
-                    <option value="workspace_viewer">Overall Tracker Viewer - Read-only access to everything</option>
-                  </optgroup>
-                  <optgroup label="Calendar Access">
-                    <option value="calendar_editor">Calendar Editor - Can create and edit activities</option>
-                    <option value="calendar_viewer">Calendar Viewer - View-only access to calendar</option>
-                  </optgroup>
-                  <optgroup label="Campaign Access">
-                    <option value="campaign_editor">Campaign Editor - Edit specific campaigns only</option>
-                    <option value="campaign_viewer">Campaign Viewer - View specific campaigns only</option>
+                  <optgroup label="Team Role">
+                    <option value="admin">Admin - Full access</option>
+                    <option value="editor">Editor - Can edit workspace data</option>
+                    <option value="viewer">Viewer - Read-only access</option>
                   </optgroup>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -694,49 +767,6 @@ function InviteModal({
                 </div>
               </div>
             </div>
-
-            {isCampaignOnly && (
-              <div className="animate-in fade-in duration-300">
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                  Select Campaigns <span className="text-red-400">*</span>
-                </label>
-                <div className="border border-white/[0.1] rounded-lg p-4 max-h-52 overflow-y-auto space-y-2.5 bg-white/[0.02] scrollbar-thin scrollbar-thumb-white/[0.1] scrollbar-track-transparent">
-                  {campaignsLoading ? (
-                    <div className="flex flex-col items-center justify-center py-8">
-                      <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mb-3">
-                        <RefreshCw className="w-5 h-5 text-slate-500 animate-spin" />
-                      </div>
-                      <p className="text-sm text-slate-500">Loading campaigns...</p>
-                    </div>
-                  ) : campaigns.length > 0 ? (
-                    campaigns.map(campaign => (
-                      <label key={campaign.id} className="flex items-center gap-3.5 p-3 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all duration-200 group">
-                        <input
-                          type="checkbox"
-                          checked={selectedCampaigns.includes(campaign.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedCampaigns([...selectedCampaigns, campaign.id]);
-                            } else {
-                              setSelectedCampaigns(selectedCampaigns.filter(id => id !== campaign.id));
-                            }
-                          }}
-                          className="rounded border-white/[0.2] text-primary focus:ring-primary/30 focus:ring-offset-0 focus:ring-2 transition-all w-4 h-4 cursor-pointer"
-                        />
-                        <span className="text-sm text-white font-medium group-hover:text-primary transition-colors">{campaign.name}</span>
-                      </label>
-                    ))
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-8">
-                      <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mb-3">
-                        <Megaphone className="w-5 h-5 text-slate-500" />
-                      </div>
-                      <p className="text-sm text-slate-500">No campaigns available</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">

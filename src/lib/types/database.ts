@@ -11,7 +11,7 @@ export type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "faceboo
 export type CampaignStatus = "active" | "paused" | "completed" | "archived";
 export type PostStatus = "pending" | "scraped" | "failed" | "manual" | "scraping";
 export type MemberRole = "owner" | "editor" | "viewer";
-export type TeamRole = "owner" | "admin" | "member" | "viewer";
+export type TeamRole = "owner" | "admin" | "editor" | "viewer";
 export type MemberStatus = "active" | "pending";
 export type ScopeType = "workspace" | "campaign" | "calendar";
 export type CreatorRequestStatus = "submitted" | "reviewing" | "quoted" | "approved" | "in_fulfillment" | "delivered";
@@ -166,6 +166,7 @@ export interface TeamInvite {
   expires_at: string;
   accepted_at: string | null;
   created_at: string;
+  scopes?: Array<{ scope_type: ScopeType; scope_value: string }> | null;
 }
 
 export interface MemberScope {
@@ -307,6 +308,7 @@ export interface TeamInviteInsert {
   token: string;
   status: string;
   expires_at: string;
+  scopes?: Array<{ scope_type: ScopeType; scope_value: string }> | null;
 }
 
 export interface MemberScopeInsert {
@@ -409,6 +411,7 @@ export interface TeamMemberUpdate {
 export interface TeamInviteUpdate {
   accepted_at?: string | null;
   status?: string;
+  scopes?: Array<{ scope_type: ScopeType; scope_value: string }> | null;
 }
 
 export interface CampaignShareLinkUpdate {

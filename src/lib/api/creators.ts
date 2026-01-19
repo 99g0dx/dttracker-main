@@ -1,6 +1,68 @@
 import { supabase } from '../supabase';
 import type { Creator, CreatorInsert, CreatorUpdate, CreatorWithStats, CampaignCreator, Platform, ApiResponse, ApiListResponse } from '../types/database';
 
+type WorkspaceCreatorKeys = {
+  workspaceId: string;
+  ownerUserId: string | null;
+};
+
+async function getWorkspaceCreatorKeys(workspaceId: string): Promise<WorkspaceCreatorKeys> {
+  const { data, error } = await supabase
+    .from('workspaces')
+    .select('id, owner_user_id')
+    .eq('id', workspaceId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { workspaceId, ownerUserId: null };
+  }
+
+  return { workspaceId: data.id, ownerUserId: data.owner_user_id };
+}
+
+function buildWorkspaceCreatorsFilter(keys: WorkspaceCreatorKeys): string {
+  const filters = [
+    `workspace_id.eq.${keys.workspaceId}`,
+    `workspace_uuid.eq.${keys.workspaceId}`,
+  ];
+
+  if (keys.ownerUserId) {
+    filters.push(`workspace_id.eq.${keys.ownerUserId}`);
+  }
+
+  return filters.join(',');
+}
+
+async function resolveWorkspaceId(
+  workspaceId?: string | null
+): Promise<{ workspaceId: string | null; error: Error | null }> {
+  if (workspaceId) {
+    return { workspaceId, error: null };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { workspaceId: null, error: new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.workspace_id) {
+    return { workspaceId: null, error: new Error('Workspace not found') };
+  }
+
+  return { workspaceId: data.workspace_id, error: null };
+}
+
 /**
  * Helper function to ensure a creator is in workspace_creators
  */
@@ -16,19 +78,61 @@ async function ensureWorkspaceCreator(
   };
 
   const mappedSource = sourceMap[sourceType ?? 'manual'] ?? 'manual';
+  const workspaceKeys = await getWorkspaceCreatorKeys(workspaceId);
 
-  const { error } = await supabase
+  if (import.meta.env.DEV) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    console.log('[Workspace Creator Upsert]', {
+      workspace_id: workspaceId,
+      workspace_uuid: workspaceKeys.workspaceId,
+      workspace_owner_id: workspaceKeys.ownerUserId,
+      creator_id: creatorId,
+      source: mappedSource,
+      user_id: sessionData?.session?.user?.id,
+      user_email: sessionData?.session?.user?.email,
+    });
+  }
+
+  let { error } = await supabase
     .from('workspace_creators')
     .upsert(
       {
-        workspace_id: workspaceId,
+        workspace_id: workspaceKeys.workspaceId,
+        workspace_uuid: workspaceKeys.workspaceId,
         creator_id: creatorId,
         source: mappedSource,
       },
       { onConflict: 'workspace_id,creator_id' }
     );
 
-  if (error) throw error;
+  if (
+    error &&
+    (error as any).code === '23503' &&
+    error.message.includes('workspace_creators_workspace_id_fkey') &&
+    workspaceKeys.ownerUserId
+  ) {
+    ({ error } = await supabase
+      .from('workspace_creators')
+      .upsert(
+        {
+          workspace_id: workspaceKeys.ownerUserId,
+          workspace_uuid: workspaceKeys.workspaceId,
+          creator_id: creatorId,
+          source: mappedSource,
+        },
+        { onConflict: 'workspace_id,creator_id' }
+      ));
+  }
+
+  if (error) {
+    console.error('[Workspace Creator Upsert Failed]', {
+      message: error.message,
+      code: (error as any).code,
+      workspace_id: workspaceId,
+      creator_id: creatorId,
+    });
+    throw error;
+  }
 }
 
 
@@ -103,7 +207,11 @@ export async function getOrCreate(
       creator = created;
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
     // Ensure creator is in workspace_creators (for My Network)
     await ensureWorkspaceCreator(targetWorkspaceId, creator.id, sourceType || 'manual');
 
@@ -126,7 +234,12 @@ export async function list(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
+    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
 
     // Join workspace_creators with creators
     if (scope === "my_network") {
@@ -136,7 +249,7 @@ export async function list(
             creator_id,
             creators:creator_id (*)
           `)
-          .eq("workspace_id", targetWorkspaceId)
+          .or(buildWorkspaceCreatorsFilter(workspaceKeys))
           .order("created_at", { ascending: false });
 
         if (error) return { data: null, error };
@@ -152,7 +265,7 @@ export async function list(
       const { data: myCreators } = await supabase
           .from("workspace_creators")
           .select("creator_id")
-          .eq("workspace_id", targetWorkspaceId);
+          .or(buildWorkspaceCreatorsFilter(workspaceKeys));
 
         const myCreatorIds = myCreators?.map(c => c.creator_id) ?? [];
 
@@ -191,7 +304,11 @@ export async function getByCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
 
     // Primary source: Query campaign_creators table
     const { data: rosterRows, error: rosterError } = await supabase
@@ -238,13 +355,14 @@ export async function getByCampaign(
 
     // Fetch creators for all unique IDs (only My Network creators for campaigns)
     // Join workspace_creators to ensure we only get workspace-owned creators
+    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
     const { data: workspaceCreators, error: creatorsError } = await supabase
       .from('workspace_creators')
       .select(`
         creator_id,
         creators:creator_id (*)
       `)
-      .eq('workspace_id', targetWorkspaceId)
+      .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .in('creator_id', Array.from(creatorIds));
 
     if (creatorsError) {
@@ -364,7 +482,17 @@ export async function createMany(
         creator = created;
       }
 
-      const targetWorkspaceId = workspaceId || user.id;
+      const { workspaceId: targetWorkspaceId, error: workspaceError } =
+        await resolveWorkspaceId(workspaceId);
+      if (workspaceError || !targetWorkspaceId) {
+        result.error_count++;
+        result.errors.push({
+          handle: creatorData.handle,
+          platform: creatorData.platform,
+          message: workspaceError?.message || 'Workspace not found',
+        });
+        continue;
+      }
       // Ensure creator is in workspace_creators
       await ensureWorkspaceCreator(
         targetWorkspaceId,
@@ -405,7 +533,12 @@ export async function listWithStats(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
+    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
 
     let creators: Creator[] = [];
 
@@ -428,7 +561,7 @@ export async function listWithStats(
             location
           )
         `)
-        .eq('workspace_id', targetWorkspaceId);
+        .or(buildWorkspaceCreatorsFilter(workspaceKeys));
 
       if (workspaceError) {
         console.error('❌ Error fetching workspace creators:', workspaceError);
@@ -444,7 +577,7 @@ export async function listWithStats(
       const { data: myCreators, error: myCreatorsError } = await supabase
         .from('workspace_creators')
         .select('creator_id')
-        .eq('workspace_id', targetWorkspaceId);
+        .or(buildWorkspaceCreatorsFilter(workspaceKeys));
 
       if (myCreatorsError) {
         console.error('❌ Error fetching workspace creators:', myCreatorsError);
@@ -500,7 +633,7 @@ export async function listWithStats(
             location
           )
         `)
-        .eq('workspace_id', targetWorkspaceId);
+        .or(buildWorkspaceCreatorsFilter(workspaceKeys));
 
       if (workspaceError) {
         return { data: null, error: workspaceError };
@@ -580,12 +713,17 @@ export async function update(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
+    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
     // Verify the creator belongs to the workspace (check workspace_creators)
     const { data: workspaceCreator, error: fetchError } = await supabase
       .from('workspace_creators')
       .select('creator_id')
-      .eq('workspace_id', targetWorkspaceId)
+      .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .eq('creator_id', id)
       .maybeSingle();
 
@@ -623,12 +761,17 @@ export async function deleteCreator(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
+    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
     // Verify the creator belongs to the workspace (check workspace_creators)
     const { data: workspaceCreator, error: fetchError } = await supabase
       .from('workspace_creators')
       .select('creator_id')
-      .eq('workspace_id', targetWorkspaceId)
+      .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .eq('creator_id', id)
       .maybeSingle();
 
@@ -641,7 +784,7 @@ export async function deleteCreator(
     const { error: deleteError } = await supabase
       .from('workspace_creators')
       .delete()
-      .eq('workspace_id', targetWorkspaceId)
+      .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .eq('creator_id', id);
 
     if (deleteError) {
@@ -668,7 +811,11 @@ export async function addCreatorsToCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
     // Verify campaign belongs to workspace
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
@@ -683,10 +830,11 @@ export async function addCreatorsToCampaign(
 
     // Verify all creators belong to workspace (My Network creators only)
     // Check via workspace_creators table
+    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
     const { data: workspaceCreators, error: creatorsError } = await supabase
       .from('workspace_creators')
       .select('creator_id')
-      .eq('workspace_id', targetWorkspaceId)
+      .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .in('creator_id', creatorIds);
 
     if (creatorsError) {
@@ -744,7 +892,11 @@ export async function removeCreatorFromCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
     // Verify campaign belongs to workspace
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
@@ -786,7 +938,11 @@ export async function getCampaignCreators(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
     // Verify campaign belongs to workspace
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
@@ -876,7 +1032,11 @@ export async function addCreatorsToMultipleCampaigns(
       return { data: [], error: null };
     }
 
-    const targetWorkspaceId = workspaceId || user.id;
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
     // Verify all campaigns belong to workspace
     const { data: userCampaigns, error: campaignsError } = await supabase
       .from('campaigns')
@@ -894,10 +1054,11 @@ export async function addCreatorsToMultipleCampaigns(
 
     // Verify all creators belong to workspace (My Network creators only)
     // Check via workspace_creators table
+    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
     const { data: workspaceCreators, error: creatorsError } = await supabase
       .from('workspace_creators')
       .select('creator_id')
-      .eq('workspace_id', targetWorkspaceId)
+      .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .in('creator_id', creatorIds);
 
     if (creatorsError) {
