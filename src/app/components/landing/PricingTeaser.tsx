@@ -6,6 +6,8 @@ export function PricingTeaser() {
   const tiers = [
     {
       name: 'Starter',
+      price: '$0',
+      period: '/month',
       badge: 'Great for solo campaigns',
       positioning: 'Perfect for independent artists and emerging managers',
       featured: false,
@@ -13,6 +15,8 @@ export function PricingTeaser() {
     },
     {
       name: 'Pro',
+      price: '$49',
+      period: '/month',
       badge: 'Most Popular',
       positioning: 'Built for artist managers and small labels',
       featured: true,
@@ -20,6 +24,8 @@ export function PricingTeaser() {
     },
     {
       name: 'Agency',
+      price: 'Custom',
+      period: '',
       badge: 'Unlimited scale',
       positioning: 'For agencies and labels managing multiple clients',
       featured: false,
@@ -81,28 +87,45 @@ export function PricingTeaser() {
                     {tier.badge}
                   </div>
 
-                  <h3 
-                    className="text-xl font-bold text-white mb-3"
+                  <h3
+                    className="text-xl font-bold text-white mb-2"
                     style={{ fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em' }}
                   >
                     {tier.name}
                   </h3>
 
-                  <p 
+                  <div className="mb-4">
+                    <span
+                      className={`text-3xl font-bold ${tier.featured ? 'text-[#E50914]' : 'text-white'}`}
+                      style={{ fontFamily: 'var(--font-heading)' }}
+                    >
+                      {tier.price}
+                    </span>
+                    {tier.period && (
+                      <span className="text-sm text-[#A1A1A1]" style={{ fontFamily: 'var(--font-body)' }}>
+                        {tier.period}
+                      </span>
+                    )}
+                  </div>
+
+                  <p
                     className="text-sm text-[#A1A1A1] mb-6 leading-relaxed"
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     {tier.positioning}
                   </p>
 
-                  <div className="h-14 flex items-center justify-center border-t border-b border-[#1F1F1F]">
-                    <span 
-                      className="text-sm text-[#A1A1A1]"
+                  <Link
+                    to="/pricing"
+                    className="h-14 flex items-center justify-center border-t border-b border-[#1F1F1F] hover:bg-white/5 transition-colors"
+                  >
+                    <span
+                      className="text-sm text-[#A1A1A1] hover:text-white"
                       style={{ fontFamily: 'var(--font-body)' }}
                     >
                       View pricing details
                     </span>
-                  </div>
+                  </Link>
                 </div>
               );
             })}
@@ -114,14 +137,14 @@ export function PricingTeaser() {
           {tiers.map((tier, index) => {
             const IconComponent = tier.icon;
             return (
-              <div 
+              <div
                 key={index}
                 className={`relative p-10 rounded-xl transition-all duration-150 ${
                   tier.featured
                     ? 'bg-[#E50914]/10 border-2 border-[#E50914] scale-105 hover:-translate-y-1'
                     : 'bg-[#0C0C0C] border border-[#1F1F1F] hover:bg-[#121212] hover:-translate-y-1'
                 }`}
-                style={{ 
+                style={{
                   borderRadius: '16px',
                   padding: '24px'
                 }}
@@ -137,7 +160,7 @@ export function PricingTeaser() {
                     ? 'bg-[#E50914] text-white'
                     : 'bg-[#1F1F1F] text-[#A1A1A1]'
                 }`}
-                style={{ 
+                style={{
                   borderRadius: '12px',
                   fontFamily: 'var(--font-body)'
                 }}
@@ -145,28 +168,45 @@ export function PricingTeaser() {
                   {tier.badge}
                 </div>
 
-                <h3 
-                  className="text-2xl font-bold text-white mb-3"
+                <h3
+                  className="text-2xl font-bold text-white mb-2"
                   style={{ fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em' }}
                 >
                   {tier.name}
                 </h3>
 
-                <p 
+                <div className="mb-4">
+                  <span
+                    className={`text-4xl font-bold ${tier.featured ? 'text-[#E50914]' : 'text-white'}`}
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    {tier.price}
+                  </span>
+                  {tier.period && (
+                    <span className="text-sm text-[#A1A1A1]" style={{ fontFamily: 'var(--font-body)' }}>
+                      {tier.period}
+                    </span>
+                  )}
+                </div>
+
+                <p
                   className="text-[#A1A1A1] mb-6 leading-relaxed"
                   style={{ fontFamily: 'var(--font-body)' }}
                 >
                   {tier.positioning}
                 </p>
 
-                <div className="h-16 flex items-center justify-center border-t border-b border-[#1F1F1F] mb-6">
-                  <span 
-                    className="text-[#A1A1A1]"
+                <Link
+                  to="/pricing"
+                  className="h-16 flex items-center justify-center border-t border-b border-[#1F1F1F] mb-6 hover:bg-white/5 transition-colors"
+                >
+                  <span
+                    className="text-[#A1A1A1] hover:text-white"
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     View pricing details
                   </span>
-                </div>
+                </Link>
               </div>
             );
           })}
@@ -179,7 +219,7 @@ export function PricingTeaser() {
             className="w-full lg:w-auto bg-[#E50914] hover:opacity-90 text-white h-12 px-8 rounded-xl transition-scale"
             style={{ fontFamily: 'var(--font-body)' }}
           >
-            <Link to="/signup">View Full Pricing & Features</Link>
+            <Link to="/pricing">View Full Pricing & Features</Link>
           </Button>
         </div>
       </div>

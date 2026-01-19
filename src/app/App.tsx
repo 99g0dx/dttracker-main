@@ -115,6 +115,21 @@ const TeamInviteAccept = React.lazy(() =>
     default: module.TeamInviteAccept,
   }))
 );
+const Pricing = React.lazy(() =>
+  import("./components/landing/Pricing").then((module) => ({
+    default: module.Pricing,
+  }))
+);
+const BillingSuccess = React.lazy(() =>
+  import("./components/billing-success").then((module) => ({
+    default: module.BillingSuccess,
+  }))
+);
+const BillingCancel = React.lazy(() =>
+  import("./components/billing-cancel").then((module) => ({
+    default: module.BillingCancel,
+  }))
+);
 
 
 function AppRoutes() {
@@ -151,6 +166,7 @@ function AppRoutes() {
       "/verification",
       "/onboarding",
       "/reset-password",
+      "/pricing",
     ].includes(location.pathname) ||
     location.pathname.startsWith("/share/") ||
     location.pathname.startsWith("/team/invite/");
@@ -227,6 +243,7 @@ function AppRoutes() {
                   element={<Onboarding onNavigate={(path) => navigate(path)} />}
                 />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/pricing" element={<Pricing />} />
                 <Route
                   path="/share/campaign/:token"
                   element={<SharedCampaignDashboard />}
@@ -332,6 +349,22 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute>
                       <Payment onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/billing/success"
+                  element={
+                    <ProtectedRoute>
+                      <BillingSuccess onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/billing/cancel"
+                  element={
+                    <ProtectedRoute>
+                      <BillingCancel onNavigate={(path) => navigate(path)} />
                     </ProtectedRoute>
                   }
                 />

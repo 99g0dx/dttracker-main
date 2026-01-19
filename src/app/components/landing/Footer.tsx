@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Linkedin, Twitter, Youtube } from 'lucide-react';
+import { Linkedin, Twitter, Instagram } from 'lucide-react';
 import logo from '../../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 
 export function Footer() {
@@ -36,26 +36,30 @@ export function Footer() {
             Intelligence layer for music marketing
           </p>
           <div className="flex gap-4">
-            <a 
-              href="#" 
+            <a
+              href="#"
               className="text-[#A1A1A1] hover:text-[#E50914] transition-colors"
               aria-label="LinkedIn"
             >
               <Linkedin size={20} strokeWidth={1.5} />
             </a>
-            <a 
-              href="#" 
+            <a
+              href="https://twitter.com/dobbletapping"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-[#A1A1A1] hover:text-[#E50914] transition-colors"
               aria-label="Twitter"
             >
               <Twitter size={20} strokeWidth={1.5} />
             </a>
-            <a 
-              href="#" 
+            <a
+              href="https://instagram.com/dobbletapping"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-[#A1A1A1] hover:text-[#E50914] transition-colors"
-              aria-label="YouTube"
+              aria-label="Instagram"
             >
-              <Youtube size={20} strokeWidth={1.5} />
+              <Instagram size={20} strokeWidth={1.5} />
             </a>
           </div>
         </div>

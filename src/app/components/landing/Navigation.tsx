@@ -20,110 +20,127 @@ export function Navigation({ onOpenDemo }: NavigationProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      return;
+    }
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isMobileMenuOpen]);
+
   const handleMenuClick = () => {
     setIsMobileMenuOpen(false);
   };
 
   return (
-    <nav 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-black/90 backdrop-blur-lg border-b border-[#1F1F1F]' 
-          : 'bg-transparent'
-      }`}
-      style={{ height: '64px' }}
-    >
-      <div className="max-w-[1140px] mx-auto px-4 lg:px-8 h-full flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/home" className="flex items-center gap-2">
-          <img src={logo} alt="DTTracker" className="h-8 w-auto" />
-          <span className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-            DTTracker
-          </span>
-        </Link>
-
-        {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-8">
-          <a 
-            href="#" 
-            className="text-[#A1A1A1] hover:text-white transition-colors text-base"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            Product
-          </a>
-          <a 
-            href="#features" 
-            className="text-[#A1A1A1] hover:text-white transition-colors text-base"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            Features
-          </a>
-          <a 
-            href="#use-cases" 
-            className="text-[#A1A1A1] hover:text-white transition-colors text-base"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            Use Cases
-          </a>
-          <a 
-            href="#pricing" 
-            className="text-[#A1A1A1] hover:text-white transition-colors text-base"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            Pricing
-          </a>
-          <a 
-            href="#" 
-            className="text-[#A1A1A1] hover:text-white transition-colors text-base"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            About
-          </a>
-        </div>
-
-        {/* Desktop Right Actions */}
-        <div className="hidden lg:flex items-center gap-4">
-          <Link
-            to="/login"
-            className="text-[#A1A1A1] hover:text-white transition-colors text-base"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            Log In
+    <>
+      <nav 
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          isScrolled || isMobileMenuOpen
+            ? 'bg-black/90 backdrop-blur-lg border-b border-[#1F1F1F]' 
+            : 'bg-transparent'
+        }`}
+        style={{ height: '64px' }}
+      >
+        <div className="max-w-[1140px] mx-auto px-4 lg:px-8 h-full flex items-center justify-between">
+          {/* Logo */}
+          <Link to="/home" className="flex items-center gap-2">
+            <img src={logo} alt="DTTracker" className="h-8 w-auto" />
+            <span className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+              DTTracker
+            </span>
           </Link>
-          <Button 
-            onClick={onOpenDemo}
-            className="bg-[#E50914] hover:opacity-90 text-white transition-scale h-12 px-4 rounded-xl"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            Book a Demo
-          </Button>
-        </div>
 
-        {/* Mobile Hamburger */}
-        <button 
-          className="lg:hidden w-11 h-11 flex items-center justify-center text-white"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-          style={{ minHeight: '44px', minWidth: '44px' }}
-        >
-          {isMobileMenuOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
-        </button>
-      </div>
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center gap-8">
+            <a 
+              href="#" 
+              className="text-[#A1A1A1] hover:text-white transition-colors text-base"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Product
+            </a>
+            <a 
+              href="#features" 
+              className="text-[#A1A1A1] hover:text-white transition-colors text-base"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Features
+            </a>
+            <a 
+              href="#use-cases" 
+              className="text-[#A1A1A1] hover:text-white transition-colors text-base"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Use Cases
+            </a>
+            <a 
+              href="#pricing" 
+              className="text-[#A1A1A1] hover:text-white transition-colors text-base"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Pricing
+            </a>
+            <a 
+              href="#" 
+              className="text-[#A1A1A1] hover:text-white transition-colors text-base"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              About
+            </a>
+          </div>
+
+          {/* Desktop Right Actions */}
+          <div className="hidden lg:flex items-center gap-4">
+            <Link
+              to="/login"
+              className="text-[#A1A1A1] hover:text-white transition-colors text-base"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Log In
+            </Link>
+            <Button 
+              onClick={onOpenDemo}
+              className="bg-[#E50914] hover:opacity-90 text-white transition-scale h-12 px-4 rounded-xl"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Book a Demo
+            </Button>
+          </div>
+
+          {/* Mobile Hamburger */}
+          <button 
+            className="lg:hidden w-11 h-11 flex items-center justify-center text-white"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            {isMobileMenuOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
+          </button>
+        </div>
+      </nav>
 
       {/* Mobile Slide-over Menu */}
       {isMobileMenuOpen && (
-        <>
+        <div className="lg:hidden fixed inset-0 z-40">
           {/* Backdrop */}
           <div 
-            className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-black"
             onClick={() => setIsMobileMenuOpen(false)}
-            style={{ top: '64px' }}
           />
           
           {/* Slide-over Panel */}
           <div 
-            className="lg:hidden fixed right-0 bottom-0 w-[80%] max-w-[320px] bg-black border-l border-[#1F1F1F] shadow-2xl animate-in slide-in-from-right duration-300"
-            style={{ top: '64px' }}
+            className="absolute right-0 bottom-0 top-16 w-[80%] max-w-[320px] z-50 border-l border-[#1F1F1F] shadow-2xl animate-in slide-in-from-right duration-300"
+            style={{ backgroundColor: '#0B0B0B' }}
           >
             <div className="flex flex-col h-full">
               {/* Menu items */}
@@ -185,8 +202,8 @@ export function Navigation({ onOpenDemo }: NavigationProps) {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
-    </nav>
+    </>
   );
 }
