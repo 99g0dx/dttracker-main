@@ -24,16 +24,11 @@ serve(async (req) => {
   }
 
   try {
-    // Get authentication token from request
-    const authHeader = req.headers.get("authorization");
+    // Get authentication token from request (optional when verify_jwt is disabled)
+    const authHeader =
+      req.headers.get("authorization") ?? req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 401,
-        }
-      );
+      console.warn("No authorization header provided; proceeding without user context");
     }
 
     // Parse request body
@@ -60,8 +55,8 @@ serve(async (req) => {
     }
 
     // Extract token to get user info
-    const token = authHeader.replace("Bearer ", "");
-    if (!token) {
+    const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+    if (!token && authHeader) {
       console.error("Missing authentication token");
       throw new Error("Missing authentication token");
     }
@@ -73,22 +68,24 @@ serve(async (req) => {
 
     // Get user info from the token (for logging and RLS check)
     let user;
-    try {
-      const {
-        data: { user: userData },
-        error: userError,
-      } = await supabase.auth.getUser(token);
+    if (token) {
+      try {
+        const {
+          data: { user: userData },
+          error: userError,
+        } = await supabase.auth.getUser(token);
 
-      if (userError) {
-        console.warn("Could not get user from token:", userError.message);
+        if (userError) {
+          console.warn("Could not get user from token:", userError.message);
+          // Continue anyway - Supabase already verified the JWT
+        } else if (userData) {
+          user = userData;
+          console.log(`Authenticated user: ${user.id}`);
+        }
+      } catch (err) {
+        console.warn("User verification warning:", err);
         // Continue anyway - Supabase already verified the JWT
-      } else if (userData) {
-        user = userData;
-        console.log(`Authenticated user: ${user.id}`);
       }
-    } catch (err) {
-      console.warn("User verification warning:", err);
-      // Continue anyway - Supabase already verified the JWT
     }
 
     console.log("=== Scrape All Posts Started ===");
@@ -98,31 +95,32 @@ serve(async (req) => {
     }
     console.log("Timestamp:", new Date().toISOString());
 
-    // Verify the campaign belongs to the user (using RLS with user token check)
-    // First, create a user-scoped client to check ownership
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
+    if (authHeader) {
+      // Verify the campaign belongs to the user (using RLS with user token check)
+      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      });
 
-    const { data: campaign, error: campaignError } = await userClient
-      .from("campaigns")
-      .select("id")
-      .eq("id", campaignId)
-      .single();
+      const { data: campaign, error: campaignError } = await userClient
+        .from("campaigns")
+        .select("id")
+        .eq("id", campaignId)
+        .single();
 
-    if (campaignError || !campaign) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Campaign not found or access denied",
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 403,
-        }
-      );
+      if (campaignError || !campaign) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Campaign not found or access denied",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 403,
+          }
+        );
+      }
     }
 
     // Fetch all posts for the campaign using service role client
