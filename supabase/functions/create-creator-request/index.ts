@@ -224,6 +224,7 @@ serve(async (req) => {
 
     // Send email via Resend
     const res = await fetch('https://api.resend.com/emails', {
+      
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -231,6 +232,7 @@ serve(async (req) => {
       },
       body: JSON.stringify(emailPayload),
     });
+    console.log("Resend status:", res.status);
 
     const resData = await res.json();
     console.log('Resend Response:', resData);

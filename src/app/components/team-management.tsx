@@ -39,7 +39,6 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 export type InviteData = {
   rolePreset: 'admin' | 'editor' | 'viewer';
   email: string;
-  name: string;
   message?: string;
 };
 
@@ -164,11 +163,26 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     }
   };
 
+  const refreshInvites = async () => {
+    try {
+      const invitesResult = await getTeamInvites(activeWorkspaceId || undefined);
+      if (invitesResult.data) {
+        setPendingInvites(invitesResult.data);
+      }
+    } catch (error) {
+      console.error('Error refreshing invites:', error);
+    }
+  };
+
   const currentUserMember = members.find((member) => member.user_id === currentUser?.id);
   const canManage = currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin';
 
-  const handleInviteComplete = async () => {
-    await loadMembers();
+  const handleInviteComplete = async (invite?: TeamInviteWithInviter) => {
+    if (invite) {
+      setPendingInvites((prev) => [invite, ...prev]);
+    } else {
+      await refreshInvites();
+    }
     setShowInviteModal(false);
   };
 
@@ -197,7 +211,17 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     const { role, scopes } = mapRolePresetToRoleAndScopes(rolePreset);
     const result = await updateTeamMemberAccess(memberId, role, scopes);
     if (!result.error) {
-      await loadMembers();
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.id === memberId
+            ? {
+                ...member,
+                role,
+                scopes,
+              }
+            : member
+        )
+      );
     }
     setRoleUpdatingId(null);
   };
@@ -206,7 +230,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     setRevokingInviteId(inviteId);
     const result = await revokeTeamInvite(inviteId);
     if (!result.error) {
-      await loadMembers();
+      setPendingInvites((prev) => prev.filter((invite) => invite.id !== inviteId));
     }
     setRevokingInviteId(null);
   };
@@ -476,7 +500,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                 
                 return (
                   <div key={invite.id} className="p-4 hover:bg-white/[0.02] transition-colors">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1">
                         <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0">
                           <Mail className="w-5 h-5 text-slate-500" />
@@ -492,31 +516,28 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                           {invite.inviter_name && (
                             <p className="text-sm text-slate-500 mb-2">Invited by {invite.inviter_name}</p>
                           )}
-                          <div className="flex items-center gap-3 text-xs text-slate-500">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                             <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${badge.color}`}>
                               {badge.icon}
                               {badge.label}
                             </span>
+                            {canManage && (
+                              <button
+                                onClick={() => handleRevokeInvite(invite.id)}
+                                className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                title="Revoke invitation"
+                                disabled={revokingInviteId === invite.id}
+                              >
+                                {revokingInviteId === invite.id ? (
+                                  <Loader2 className="w-4 h-4 text-red-400 animate-spin" />
+                                ) : (
+                                  <X className="w-4 h-4 text-red-400" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
-                      
-                      {canManage && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleRevokeInvite(invite.id)}
-                            className="w-8 h-8 rounded-md hover:bg-red-500/10 flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                            title="Revoke invitation"
-                            disabled={revokingInviteId === invite.id}
-                          >
-                            {revokingInviteId === invite.id ? (
-                              <Loader2 className="w-4 h-4 text-red-400 animate-spin" />
-                            ) : (
-                              <X className="w-4 h-4 text-red-400" />
-                            )}
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -613,7 +634,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         <BulkInviteModal
           onClose={() => setShowBulkInviteModal(false)}
           onComplete={() => {
-            loadMembers();
+            refreshInvites();
             setShowBulkInviteModal(false);
           }}
         />
@@ -629,19 +650,18 @@ function InviteModal({
   workspaceId,
 }: {
   onClose: () => void;
-  onComplete: () => void;
+  onComplete: (invite?: TeamInviteWithInviter) => void;
   workspaceId?: string;
 }) {
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [rolePreset, setRolePreset] = useState<InviteData['rolePreset']>('viewer');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!email || !name) {
-      setError('Please enter email and name');
+    if (!email) {
+      setError('Please enter an email');
       return;
     }
 
@@ -685,7 +705,11 @@ function InviteModal({
       }
 
       // Success - close modal and reload
-      onComplete();
+      if (result.data) {
+        onComplete(result.data as TeamInviteWithInviter);
+      } else {
+        onComplete();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setLoading(false);
@@ -717,31 +741,17 @@ function InviteModal({
                 <p className="text-sm text-red-400">{error}</p>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                  Email <span className="text-red-400">*</span>
-                </label>
-                <Input
-                  type="email"
-                  placeholder="colleague@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                  Name <span className="text-red-400">*</span>
-                </label>
-                <Input
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="h-12 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 rounded-lg"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+                Email <span className="text-red-400">*</span>
+              </label>
+              <Input
+                type="email"
+                placeholder="colleague@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 rounded-lg"
+              />
             </div>
 
             <div>

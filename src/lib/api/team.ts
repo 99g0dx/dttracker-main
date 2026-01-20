@@ -240,28 +240,28 @@ export async function createTeamInvite(
       const inviteUrl = `${origin}/team/invite/${inviteToken}`;
 
       if (supabaseUrl && supabaseAnonKey && origin) {
-        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/send-team-invite`;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (!accessToken) {
+          emailError = new Error("Not authenticated");
+        } else {
+          const emailResponse = await supabase.functions.invoke("send-team-invite", {
+            body: {
+              email: invite.email,
+              inviteToken: inviteToken,
+              inviterName: inviterName,
+              role: invite.role,
+              message: message || null,
+              inviteUrl: inviteUrl,
+            },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
-        const emailResponse = await fetch(edgeFunctionUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": supabaseAnonKey,
-            "Authorization": `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
-            email: invite.email,
-            inviteToken: inviteToken,
-            inviterName: inviterName,
-            role: invite.role,
-            message: message || null,
-            inviteUrl: inviteUrl,
-          }),
-        });
-
-        if (!emailResponse.ok) {
-          const errorText = await emailResponse.text();
-          console.warn("Failed to send invitation email:", errorText);
+          if (emailResponse.error) {
+            const errorText = emailResponse.error.message;
+            console.warn("Failed to send invitation email:", errorText);
           let errorMessage = "Failed to send invitation email";
           try {
             const errorData = JSON.parse(errorText);
@@ -277,12 +277,13 @@ export async function createTeamInvite(
             if (errorText) errorMessage = errorText;
           }
           emailError = new Error(errorMessage);
-        } else {
-          const emailResult = await emailResponse.json();
+          } else if (emailResponse.data) {
+            const emailResult = emailResponse.data as any;
           console.log("Invitation email sent:", emailResult);
           if (emailResult.success === false) {
             // Edge function returned success:false in body
             emailError = new Error(emailResult.message || emailResult.error || "Email sending failed");
+          }
           }
         }
       } else {

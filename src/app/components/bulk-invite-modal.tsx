@@ -20,7 +20,6 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 type InviteData = {
   rolePreset: 'admin' | 'editor' | 'viewer';
   email: string;
-  name: string;
   message?: string;
 };
 
@@ -60,7 +59,6 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
     {
       tempId: 1,
       email: '',
-      name: '',
       rolePreset: 'viewer',
     },
   ]);
@@ -73,7 +71,6 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
     setInvites([...invites, {
       tempId: newId,
       email: '',
-      name: '',
       rolePreset: 'viewer',
     }]);
   };
@@ -100,8 +97,8 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
     let isValid = true;
 
     invites.forEach(invite => {
-      if (!invite.email || !invite.name) {
-        newErrors[invite.tempId] = 'Email and name are required';
+      if (!invite.email) {
+        newErrors[invite.tempId] = 'Email is required';
         isValid = false;
       } else if (!invite.email.includes('@')) {
         newErrors[invite.tempId] = 'Invalid email address';
@@ -173,7 +170,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
   };
 
   const downloadTemplate = () => {
-    const csv = 'Email,Name,Access Level\nexample1@company.com,John Doe,viewer\nexample2@company.com,Jane Smith,editor\nexample3@company.com,Admin User,admin';
+    const csv = 'Email,Access Level\nexample1@company.com,viewer\nexample2@company.com,editor\nexample3@company.com,admin';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -230,7 +227,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
                       <span className="text-xs font-semibold text-primary">{index + 1}</span>
                     </div>
                     
-                    <div className="flex-1 grid grid-cols-3 gap-4">
+                    <div className="flex-1 grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-slate-400 mb-2">
                           Email <span className="text-red-400">*</span>
@@ -240,18 +237,6 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
                           placeholder="colleague@company.com"
                           value={invite.email}
                           onChange={(e) => updateInvite(invite.tempId, 'email', e.target.value)}
-                          className="h-10 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 text-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-2">
-                          Name <span className="text-red-400">*</span>
-                        </label>
-                        <Input
-                          placeholder="John Doe"
-                          value={invite.name}
-                          onChange={(e) => updateInvite(invite.tempId, 'name', e.target.value)}
                           className="h-10 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 text-sm"
                         />
                       </div>

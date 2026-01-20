@@ -304,12 +304,6 @@ export async function getByCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId: targetWorkspaceId, error: workspaceError } =
-      await resolveWorkspaceId(workspaceId);
-    if (workspaceError || !targetWorkspaceId) {
-      return { data: null, error: workspaceError || new Error('Workspace not found') };
-    }
-
     // Primary source: Query campaign_creators table
     const { data: rosterRows, error: rosterError } = await supabase
       .from('campaign_creators')
@@ -352,6 +346,18 @@ export async function getByCampaign(
     if (creatorIds.size === 0) {
       return { data: [], error: null };
     }
+
+    const { data: campaign, error: campaignError } = await supabase
+      .from('campaigns')
+      .select('workspace_id')
+      .eq('id', campaignId)
+      .single();
+
+    if (campaignError || !campaign?.workspace_id) {
+      return { data: null, error: campaignError || new Error('Campaign not found') };
+    }
+
+    const targetWorkspaceId = campaign.workspace_id;
 
     // Fetch creators for all unique IDs (only My Network creators for campaigns)
     // Join workspace_creators to ensure we only get workspace-owned creators
@@ -811,21 +817,20 @@ export async function addCreatorsToCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId: targetWorkspaceId, error: workspaceError } =
-      await resolveWorkspaceId(workspaceId);
-    if (workspaceError || !targetWorkspaceId) {
-      return { data: null, error: workspaceError || new Error('Workspace not found') };
-    }
     // Verify campaign belongs to workspace
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .select('workspace_id')
       .eq('id', campaignId)
-      .eq('workspace_id', targetWorkspaceId)
       .single();
 
     if (campaignError || !campaign) {
       return { data: null, error: new Error('Campaign not found') };
+    }
+
+    const targetWorkspaceId = campaign.workspace_id;
+    if (!targetWorkspaceId) {
+      return { data: null, error: new Error('Campaign workspace not found') };
     }
 
     // Verify all creators belong to workspace (My Network creators only)
@@ -842,10 +847,28 @@ export async function addCreatorsToCampaign(
     }
 
     const workspaceCreatorIds = new Set((workspaceCreators || []).map((wc: any) => wc.creator_id));
-    const allCreatorsInWorkspace = creatorIds.every(id => workspaceCreatorIds.has(id));
+    const missingCreatorIds = creatorIds.filter((id) => !workspaceCreatorIds.has(id));
 
-    if (!allCreatorsInWorkspace) {
-      return { data: null, error: new Error('Some creators not found or unauthorized') };
+    if (missingCreatorIds.length > 0) {
+      for (const creatorId of missingCreatorIds) {
+        await ensureWorkspaceCreator(targetWorkspaceId, creatorId, 'scraper_extraction');
+      }
+
+      const { data: refreshedCreators, error: refreshError } = await supabase
+        .from('workspace_creators')
+        .select('creator_id')
+        .or(buildWorkspaceCreatorsFilter(workspaceKeys))
+        .in('creator_id', creatorIds);
+
+      if (refreshError) {
+        return { data: null, error: refreshError };
+      }
+
+      const refreshedIds = new Set((refreshedCreators || []).map((wc: any) => wc.creator_id));
+      const stillMissing = creatorIds.some((id) => !refreshedIds.has(id));
+      if (stillMissing) {
+        return { data: null, error: new Error('Some creators not found or unauthorized') };
+      }
     }
 
     // Insert campaign-creator relationships (ignore duplicates)
@@ -892,21 +915,20 @@ export async function removeCreatorFromCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId: targetWorkspaceId, error: workspaceError } =
-      await resolveWorkspaceId(workspaceId);
-    if (workspaceError || !targetWorkspaceId) {
-      return { data: null, error: workspaceError || new Error('Workspace not found') };
-    }
     // Verify campaign belongs to workspace
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .select('workspace_id')
       .eq('id', campaignId)
-      .eq('workspace_id', targetWorkspaceId)
       .single();
 
     if (campaignError || !campaign) {
       return { data: null, error: new Error('Campaign not found') };
+    }
+
+    const targetWorkspaceId = campaign.workspace_id;
+    if (!targetWorkspaceId) {
+      return { data: null, error: new Error('Campaign workspace not found') };
     }
 
     const { error: deleteError } = await supabase
@@ -938,21 +960,20 @@ export async function getCampaignCreators(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId: targetWorkspaceId, error: workspaceError } =
-      await resolveWorkspaceId(workspaceId);
-    if (workspaceError || !targetWorkspaceId) {
-      return { data: null, error: workspaceError || new Error('Workspace not found') };
-    }
     // Verify campaign belongs to workspace
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .select('workspace_id')
       .eq('id', campaignId)
-      .eq('workspace_id', targetWorkspaceId)
       .single();
 
     if (campaignError || !campaign) {
       return { data: null, error: new Error('Campaign not found') };
+    }
+
+    const targetWorkspaceId = campaign.workspace_id;
+    if (!targetWorkspaceId) {
+      return { data: null, error: new Error('Campaign workspace not found') };
     }
 
     const { data: campaignCreators, error: fetchError } = await supabase
@@ -1066,10 +1087,28 @@ export async function addCreatorsToMultipleCampaigns(
     }
 
     const workspaceCreatorIds = new Set((workspaceCreators || []).map((wc: any) => wc.creator_id));
-    const allCreatorsInWorkspace = creatorIds.every(id => workspaceCreatorIds.has(id));
+    const missingCreatorIds = creatorIds.filter((id) => !workspaceCreatorIds.has(id));
 
-    if (!allCreatorsInWorkspace) {
-      return { data: null, error: new Error('Some creators not found or unauthorized') };
+    if (missingCreatorIds.length > 0) {
+      for (const creatorId of missingCreatorIds) {
+        await ensureWorkspaceCreator(targetWorkspaceId, creatorId, 'scraper_extraction');
+      }
+
+      const { data: refreshedCreators, error: refreshError } = await supabase
+        .from('workspace_creators')
+        .select('creator_id')
+        .or(buildWorkspaceCreatorsFilter(workspaceKeys))
+        .in('creator_id', creatorIds);
+
+      if (refreshError) {
+        return { data: null, error: refreshError };
+      }
+
+      const refreshedIds = new Set((refreshedCreators || []).map((wc: any) => wc.creator_id));
+      const stillMissing = creatorIds.some((id) => !refreshedIds.has(id));
+      if (stillMissing) {
+        return { data: null, error: new Error('Some creators not found or unauthorized') };
+      }
     }
 
     // Create all relationships (campaign x creator combinations)
