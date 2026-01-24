@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -35,6 +35,8 @@ export function CampaignShareLinkModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const autoGenerateTimer = useRef<number | null>(null);
+  const lastAutoPassword = useRef<string | null>(null);
 
   // Load existing share links
   useEffect(() => {
@@ -57,7 +59,7 @@ export function CampaignShareLinkModal({
     }
   };
 
-  const handleGenerateLink = async () => {
+  const handleGenerateLink = async (options?: { preserveForm?: boolean }) => {
     if (isPasswordProtected && !password.trim()) {
       toast.error("Please enter a password");
       return;
@@ -76,10 +78,15 @@ export function CampaignShareLinkModal({
         toast.error(`Failed to create share link: ${result.error.message}`);
       } else {
         toast.success("Share link created successfully");
-        // Reset form
-        setIsPasswordProtected(false);
-        setPassword("");
-        setExpiresAt("");
+        if (result.data) {
+          setShareLinks([result.data]);
+        }
+        if (!options?.preserveForm) {
+          // Reset form after manual generation
+          setIsPasswordProtected(false);
+          setPassword("");
+          setExpiresAt("");
+        }
         // Reload share links
         loadShareLinks();
       }
@@ -89,6 +96,37 @@ export function CampaignShareLinkModal({
       setIsGenerating(false);
     }
   };
+
+  useEffect(() => {
+    const currentLink = shareLinks[0];
+    const trimmedPassword = password.trim();
+
+    if (
+      !currentLink ||
+      currentLink.is_password_protected ||
+      !isPasswordProtected ||
+      !trimmedPassword ||
+      isGenerating ||
+      lastAutoPassword.current === trimmedPassword
+    ) {
+      return;
+    }
+
+    if (autoGenerateTimer.current) {
+      window.clearTimeout(autoGenerateTimer.current);
+    }
+
+    autoGenerateTimer.current = window.setTimeout(() => {
+      lastAutoPassword.current = trimmedPassword;
+      handleGenerateLink({ preserveForm: true });
+    }, 600);
+
+    return () => {
+      if (autoGenerateTimer.current) {
+        window.clearTimeout(autoGenerateTimer.current);
+      }
+    };
+  }, [shareLinks, isPasswordProtected, password, isGenerating, expiresAt]);
 
   const handleCopyLink = (token: string) => {
     const shareUrl = `${window.location.origin}/share/campaign/${token}`;
@@ -219,9 +257,132 @@ export function CampaignShareLinkModal({
                   </p>
                 </div>
 
+                {/* Current Share Link */}
+                <div className="border-t border-white/[0.08] pt-4">
+                  <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+                    {shareLinks.length > 0
+                      ? "Current Share Link"
+                      : "No Share Link Yet"}
+                  </h4>
+                  {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+                      <p className="text-slate-400 text-sm">
+                        Loading share links...
+                      </p>
+                    </div>
+                  ) : shareLinks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+                      <Link2 className="w-10 h-10 text-slate-500 mb-2" />
+                      <p className="text-slate-400 text-sm">
+                        No share links created yet
+                      </p>
+                      <p className="text-slate-500 text-xs mt-1">
+                        Create a share link below to get started
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {shareLinks.map((link) => {
+                        const expired = isExpired(link);
+                        const shareUrl = getShareUrl(link.share_token);
+                        const isCopied = copiedToken === link.share_token;
+
+                        return (
+                          <div
+                            key={link.id}
+                            className={`p-4 bg-white/[0.02] border rounded-lg transition-all duration-200 ${
+                              expired
+                                ? "border-amber-500/30 bg-amber-500/5"
+                                : "border-white/[0.06] hover:bg-white/[0.04]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  {link.is_password_protected && (
+                                    <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-mono text-sm text-white break-all">
+                                      {shareUrl}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-slate-500 mt-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                    <span>
+                                      Created: {formatDate(link.created_at)}
+                                    </span>
+                                  </div>
+                                  {link.expires_at && (
+                                    <div
+                                      className={`flex items-center gap-1.5 ${
+                                        expired ? "text-amber-400" : ""
+                                      }`}
+                                    >
+                                      <Clock className="w-3.5 h-3.5" />
+                                      <span>
+                                        {expired ? "Expired: " : "Expires: "}
+                                        {formatDate(link.expires_at)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {link.last_accessed_at && (
+                                    <div className="flex items-center gap-1.5">
+                                      <span>
+                                        Last accessed:{" "}
+                                        {formatDate(link.last_accessed_at)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                {expired && (
+                                  <div className="mt-2 text-xs text-amber-400">
+                                    This link has expired
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button
+                                  onClick={() => handleCopyLink(link.share_token)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-3 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300 hover:text-white"
+                                >
+                                  {isCopied ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 mr-1.5" />
+                                      Copied
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                      Copy
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  onClick={() => handleDeleteLink(link.share_token)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-3 bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-400 hover:text-red-300"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {/* Generate Button */}
                 <Button
-                  onClick={handleGenerateLink}
+                  onClick={() => handleGenerateLink()}
                   disabled={isGenerating}
                   className="w-full h-10 bg-primary hover:bg-primary/90 text-black font-medium"
                 >
@@ -235,129 +396,6 @@ export function CampaignShareLinkModal({
                     : "Create Share Link"}
                 </Button>
               </div>
-            </div>
-
-            {/* Existing Share Link */}
-            <div>
-              <h3 className="text-sm font-semibold text-white mb-4">
-                {shareLinks.length > 0
-                  ? "Current Share Link"
-                  : "No Share Link Yet"}
-              </h3>
-              {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                  <p className="text-slate-400 text-sm">
-                    Loading share links...
-                  </p>
-                </div>
-              ) : shareLinks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 bg-white/[0.02] border border-white/[0.06] rounded-lg">
-                  <Link2 className="w-12 h-12 text-slate-500 mb-3" />
-                  <p className="text-slate-400 text-sm">
-                    No share links created yet
-                  </p>
-                  <p className="text-slate-500 text-xs mt-1">
-                    Create a share link above to get started
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {shareLinks.map((link) => {
-                    const expired = isExpired(link);
-                    const shareUrl = getShareUrl(link.share_token);
-                    const isCopied = copiedToken === link.share_token;
-
-                    return (
-                      <div
-                        key={link.id}
-                        className={`p-4 bg-white/[0.02] border rounded-lg transition-all duration-200 ${
-                          expired
-                            ? "border-amber-500/30 bg-amber-500/5"
-                            : "border-white/[0.06] hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              {link.is_password_protected && (
-                                <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-mono text-sm text-white break-all">
-                                  {shareUrl}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-slate-500 mt-2">
-                              <div className="flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5" />
-                                <span>
-                                  Created: {formatDate(link.created_at)}
-                                </span>
-                              </div>
-                              {link.expires_at && (
-                                <div
-                                  className={`flex items-center gap-1.5 ${
-                                    expired ? "text-amber-400" : ""
-                                  }`}
-                                >
-                                  <Clock className="w-3.5 h-3.5" />
-                                  <span>
-                                    {expired ? "Expired: " : "Expires: "}
-                                    {formatDate(link.expires_at)}
-                                  </span>
-                                </div>
-                              )}
-                              {link.last_accessed_at && (
-                                <div className="flex items-center gap-1.5">
-                                  <span>
-                                    Last accessed:{" "}
-                                    {formatDate(link.last_accessed_at)}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            {expired && (
-                              <div className="mt-2 text-xs text-amber-400">
-                                This link has expired
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Button
-                              onClick={() => handleCopyLink(link.share_token)}
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-3 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300 hover:text-white"
-                            >
-                              {isCopied ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 mr-1.5" />
-                                  Copied
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                  Copy
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              onClick={() => handleDeleteLink(link.share_token)}
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-3 bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-400 hover:text-red-300"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           </div>
 

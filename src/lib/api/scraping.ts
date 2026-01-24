@@ -15,6 +15,23 @@ interface ScrapePostResponse {
     comments: number;
     shares: number;
     engagement_rate: number;
+    owner_username?: string | null;
+  };
+  post?: {
+    id: string;
+    platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+    externalId: string | null;
+    sourceUrl: string;
+    ownerUsername: string | null;
+    creatorId: string | null;
+    status: string;
+  } | null;
+  creatorMatch?: {
+    matched: boolean;
+    created?: boolean;
+    creatorId?: string;
+    creatorHandle?: string;
+    creatorName?: string | null;
   };
   error?: string;
 }

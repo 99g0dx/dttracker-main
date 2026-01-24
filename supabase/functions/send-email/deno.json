@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "imports": {
+    "react": "npm:react@18.3.1",
+    "react-dom": "npm:react-dom@18.3.1",
+    "@react-email/components": "npm:@react-email/components@1.0.6",
+    "@react-email/render": "npm:@react-email/render@1.0.3",
+    "resend": "npm:resend@2.0.0"
+  }
+}

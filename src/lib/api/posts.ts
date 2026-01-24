@@ -8,7 +8,19 @@ import type {
   CampaignMetrics,
   ApiResponse,
   ApiListResponse,
+  Platform,
 } from "../types/database";
+
+class DuplicatePostError extends Error {
+  status = 409;
+  existingPost: Post | null;
+
+  constructor(message: string, existingPost: Post | null) {
+    super(message);
+    this.name = "DuplicatePostError";
+    this.existingPost = existingPost;
+  }
+}
 
 /**
  * Fetch all posts for a campaign
@@ -54,6 +66,18 @@ export async function create(post: PostInsert): Promise<ApiResponse<Post>> {
       .single();
 
     if (error) {
+      if ("code" in error && error.code === "23505" && post.external_id) {
+        const existing = await findByExternalId(post.platform, post.external_id);
+        return {
+          data: existing.data,
+          error: new DuplicatePostError(
+            post.platform === "instagram"
+              ? "This Instagram post is already added."
+              : "This post is already added.",
+            existing.data
+          ),
+        };
+      }
       return { data: null, error };
     }
 
@@ -141,6 +165,67 @@ export async function deleteAllInCampaign(
     }
 
     return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Check if a post with the same external_id already exists in the campaign
+ * Used for deduplication before adding posts
+ */
+export async function checkDuplicate(
+  campaignId: string,
+  platform: Platform,
+  externalId: string
+): Promise<ApiResponse<Post | null>> {
+  try {
+    if (!externalId) {
+      return { data: null, error: null };
+    }
+
+    const { data, error } = await supabase
+      .from("posts")
+      .select("*")
+      .eq("campaign_id", campaignId)
+      .eq("platform", platform)
+      .eq("external_id", externalId)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Find a post by external_id (platform-specific identifier)
+ */
+export async function findByExternalId(
+  platform: Platform,
+  externalId: string
+): Promise<ApiResponse<Post | null>> {
+  try {
+    if (!externalId) {
+      return { data: null, error: null };
+    }
+
+    const { data, error } = await supabase
+      .from("posts")
+      .select("*")
+      .eq("platform", platform)
+      .eq("external_id", externalId)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    return { data, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }

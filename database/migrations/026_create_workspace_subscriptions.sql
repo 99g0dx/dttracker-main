@@ -4,11 +4,11 @@
 CREATE TABLE IF NOT EXISTS workspace_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL UNIQUE, -- One subscription per workspace (workspace_id = user_id for personal workspaces)
-  plan_slug TEXT NOT NULL DEFAULT 'starter' REFERENCES billing_plans(slug),
+  plan_slug TEXT NOT NULL DEFAULT 'starter_monthly' REFERENCES billing_plans(slug),
 
   -- Subscription status
-  -- Values: 'free', 'trialing', 'active', 'past_due', 'canceled', 'expired'
-  status TEXT NOT NULL DEFAULT 'free',
+  -- Values: 'trialing', 'active', 'past_due', 'canceled', 'expired'
+  status TEXT NOT NULL DEFAULT 'trialing',
 
   -- Trial tracking
   trial_start_at TIMESTAMPTZ,
@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS workspace_subscriptions (
   -- Failed payment / grace period handling
   past_due_since TIMESTAMPTZ,
   grace_ends_at TIMESTAMPTZ, -- 3 days after past_due_since
+
+  -- Seat management
+  total_seats INTEGER DEFAULT 1,
+  extra_seats INTEGER DEFAULT 0,
 
   -- Paystack references (NO card data stored!)
   paystack_customer_code TEXT,
@@ -86,8 +90,16 @@ CREATE TRIGGER workspace_subscription_updated_at
 CREATE OR REPLACE FUNCTION create_default_subscription()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO workspace_subscriptions (workspace_id, plan_slug, status)
-  VALUES (NEW.id, 'starter', 'free')
+  INSERT INTO workspace_subscriptions (
+    workspace_id, 
+    plan_slug, 
+    status, 
+    trial_start_at, 
+    trial_end_at, 
+    trial_used,
+    total_seats
+  )
+  VALUES (NEW.id, 'pro_monthly', 'trialing', now(), now() + interval '14 days', true, 2)
   ON CONFLICT (workspace_id) DO NOTHING;
   RETURN NEW;
 END;

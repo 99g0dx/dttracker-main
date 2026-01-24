@@ -1,9 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { ArrowLeft, CheckCircle2, Shield, Lock, Loader2, AlertCircle } from 'lucide-react';
-import { useCreateCheckout, usePlans, useBillingSummary } from '../../hooks/useBilling';
+import { ArrowLeft, CheckCircle2, Shield, Lock, Loader2, AlertCircle, Minus, Plus } from 'lucide-react';
+import { useCreateCheckout, useBillingCatalog, useBillingSummary } from '../../hooks/useBilling';
+import type { BillingCycle, BillingTier } from '../../lib/api/billing';
+import { formatPrice } from '../../lib/api/billing';
+import { supabase } from '../../lib/supabase';
+import { getBillingCallbackUrl } from '../../lib/env';
 
 interface PaymentProps {
   onNavigate: (path: string) => void;
@@ -11,26 +15,223 @@ interface PaymentProps {
 
 export function Payment({ onNavigate }: PaymentProps) {
   const [searchParams] = useSearchParams();
-  const planSlug = searchParams.get('plan') || 'pro';
+  const planSlug = (searchParams.get('plan') || 'pro').toLowerCase();
 
-  const { data: plans, isLoading: plansLoading } = usePlans();
-  const { data: billing } = useBillingSummary();
+  const { data: catalog, isLoading: plansLoading } = useBillingCatalog();
+  const { data: billing, isLoading: billingLoading, error: billingError } = useBillingSummary();
   const createCheckout = useCreateCheckout();
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(true);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
-  const selectedPlan = plans?.find(p => p.slug === planSlug) || plans?.find(p => p.slug === 'pro');
+  const tierOptions: BillingTier[] = ['free', 'starter', 'pro', 'agency'];
+  const cycleOptions: BillingCycle[] = ['monthly', 'yearly'];
+  const planParts = planSlug.split(/[_-]/);
+  const tierFromParam = tierOptions.find((tier) => planParts.includes(tier)) || 'pro';
+  const cycleParam = searchParams.get('cycle')?.toLowerCase() as BillingCycle | undefined;
+  const cycleFromParam = cycleOptions.find((cycle) => planParts.includes(cycle));
+  const initialBillingCycle =
+    (cycleParam && cycleOptions.includes(cycleParam) ? cycleParam : cycleFromParam) || 'monthly';
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>(initialBillingCycle);
+  const selectedTier = tierFromParam;
+  const selectedTierConfig = useMemo(
+    () => catalog?.tiers.find((tier) => tier.tier === selectedTier),
+    [catalog, selectedTier]
+  );
+  const selectedPlan = useMemo(() => {
+    if (!selectedTierConfig) return null;
+    const preferred =
+      billingCycle === 'monthly'
+        ? selectedTierConfig.monthly
+        : selectedTierConfig.yearly;
+    return preferred || selectedTierConfig.monthly || selectedTierConfig.yearly || null;
+  }, [selectedTierConfig, billingCycle]);
+  const currency = catalog?.currency || 'USD';
 
-  const handlePayWithPaystack = async () => {
-    if (!selectedPlan) return;
+  const initialExtraSeats = Math.max(0, Number(searchParams.get('seats') || 0));
+  const [extraSeats, setExtraSeats] = useState(initialExtraSeats);
+  const includedSeats = selectedPlan?.included_seats || 1;
+  const extraSeatPrice = selectedPlan?.extra_seat_price_cents || 0;
+  const basePrice = selectedPlan?.base_price_cents || 0;
+  const totalSeats = includedSeats + extraSeats;
+  const totalPrice = basePrice + extraSeats * extraSeatPrice;
+  const isPaidTier = selectedTier !== 'free';
+  const allowExtraSeats = isPaidTier && selectedPlan?.extra_seat_price_cents !== null;
+  const cycleLabel = billingCycle === 'yearly' ? 'year' : 'month';
+  const effectiveWorkspaceId = billing?.workspace_id || workspaceId;
+  const initialProviderParam = (searchParams.get('provider') || 'paystack').toLowerCase();
+  const [provider, setProvider] = useState<'paystack' | 'stripe'>(
+    initialProviderParam === 'stripe' ? 'stripe' : 'paystack'
+  );
+  const isStripeConfigured = Boolean(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+  const isProviderReady = provider === 'paystack';
+  const isCheckoutDisabled =
+    createCheckout.isPending ||
+    !selectedPlan ||
+    !isPaidTier ||
+    !effectiveWorkspaceId ||
+    workspaceLoading ||
+    !isProviderReady;
+
+  useEffect(() => {
+    if (selectedTier === 'free' || !selectedPlan) {
+      setExtraSeats(0);
+    }
+  }, [selectedTier, selectedPlan]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (billing?.workspace_id) {
+      setWorkspaceId(billing.workspace_id);
+      setWorkspaceError(null);
+      setWorkspaceLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const fetchWorkspaceId = async () => {
+      setWorkspaceLoading(true);
+      setWorkspaceError(null);
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data.user) {
+          throw new Error('Sign in to continue checkout.');
+        }
+
+        const { data: workspaceMember, error: workspaceMemberError } = await supabase
+          .from('workspace_members')
+          .select('workspace_id')
+          .eq('user_id', data.user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (!workspaceMemberError && workspaceMember?.workspace_id) {
+          if (isMounted) {
+            setWorkspaceId(workspaceMember.workspace_id);
+          }
+          return;
+        }
+
+        const { data: legacyMember } = await supabase
+          .from('team_members')
+          .select('workspace_id')
+          .eq('user_id', data.user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (isMounted) {
+          setWorkspaceId(legacyMember?.workspace_id || data.user.id);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setWorkspaceError(err instanceof Error ? err.message : 'Unable to resolve workspace.');
+        }
+      } finally {
+        if (isMounted) {
+          setWorkspaceLoading(false);
+        }
+      }
+    };
+
+    fetchWorkspaceId();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [billing?.workspace_id]);
+
+  useEffect(() => {
+    if (!selectedTierConfig) return;
+    if (billingCycle === 'yearly' && !selectedTierConfig.yearly) {
+      setBillingCycle('monthly');
+    }
+  }, [billingCycle, selectedTierConfig]);
+
+  const planHighlights = useMemo(() => {
+    if (!selectedPlan) return [];
+    const formatLimit = (value: number | null, label: string) =>
+      value === null ? `Unlimited ${label}` : `${value} ${label}`;
+    const formatInterval = (minutes: number) => {
+      if (minutes >= 1440) {
+        const days = Math.round(minutes / 1440);
+        return `Every ${days} day${days === 1 ? '' : 's'}`;
+      }
+      if (minutes >= 60) {
+        const hours = Math.round(minutes / 60);
+        return `Every ${hours} hour${hours === 1 ? '' : 's'}`;
+      }
+      return `Every ${minutes} minutes`;
+    };
+    const formatRetention = (days: number) =>
+      days >= 36500 ? 'Unlimited retention' : `${days}-day retention`;
+    const formatPlatform = (platform: string) => {
+      if (platform.toLowerCase() === 'x') return 'X';
+      return platform.charAt(0).toUpperCase() + platform.slice(1);
+    };
+    const platformLabel = selectedPlan.platforms.length
+      ? selectedPlan.platforms.map(formatPlatform).join(', ')
+      : 'No platforms';
+
+    const highlights = [
+      formatLimit(selectedPlan.max_active_campaigns, 'active campaigns'),
+      formatLimit(selectedPlan.max_creators_per_campaign, 'creators per campaign'),
+      `Platforms: ${platformLabel}`,
+      `Scrape interval: ${formatInterval(selectedPlan.scrape_interval_minutes)}`,
+      formatRetention(selectedPlan.retention_days),
+      `Seats included: ${selectedPlan.included_seats}`,
+    ];
+
+    if (selectedPlan.api_access) highlights.push('API access');
+    if (selectedPlan.white_label) highlights.push('White-label reports');
+    return highlights;
+  }, [selectedPlan]);
+
+  const handleCheckout = async () => {
+    if (!selectedPlan || !isPaidTier) return;
+    if (provider === 'stripe') {
+      return;
+    }
+
+    const checkoutWorkspaceId = billing?.workspace_id || workspaceId;
+    if (!checkoutWorkspaceId) {
+      setWorkspaceError('Unable to resolve workspace for checkout.');
+      return;
+    }
 
     try {
       await createCheckout.mutateAsync({
-        planSlug: selectedPlan.slug,
-        callbackUrl: `${window.location.origin}/billing/success`,
+        workspaceId: checkoutWorkspaceId,
+        tier: selectedTier,
+        billingCycle,
+        extraSeats,
+        callbackUrl: getBillingCallbackUrl(),
       });
       // The mutation will redirect to Paystack automatically
     } catch (error) {
       console.error('Failed to create checkout:', error);
     }
+  };
+
+  const checkoutErrorMessage = createCheckout.error?.message || '';
+  const isAuthError = /invalid jwt|session expired|not authenticated/i.test(
+    checkoutErrorMessage
+  );
+
+  const resetSession = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore sign-out errors
+    }
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('sb-')) {
+        localStorage.removeItem(key);
+      }
+    });
+    sessionStorage.clear();
+    window.location.href = '/login';
   };
 
   // If already subscribed, redirect to subscription page
@@ -41,15 +242,7 @@ export function Payment({ onNavigate }: PaymentProps) {
   }, [billing, onNavigate]);
 
   // Format price for display
-  const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-    }).format(amount / 100);
-  };
-
-  if (plansLoading) {
+  if (plansLoading || billingLoading) {
     return (
       <div className="max-w-2xl mx-auto flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
@@ -58,7 +251,7 @@ export function Payment({ onNavigate }: PaymentProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto w-full space-y-8">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
@@ -83,21 +276,36 @@ export function Payment({ onNavigate }: PaymentProps) {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-medium text-white">DTTracker {selectedPlan?.name || 'Pro'}</p>
-                    <p className="text-xs text-slate-500">Monthly subscription</p>
+                    <p className="font-medium text-white">
+                      DTTracker {selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {billingCycle === 'yearly' ? 'Yearly subscription (20% off)' : 'Monthly subscription'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Seats included: {includedSeats}
+                    </p>
                   </div>
                   <p className="font-semibold text-white">
-                    {selectedPlan ? formatPrice(selectedPlan.price_amount) : '$49'}
+                    {selectedPlan ? formatPrice(selectedPlan.base_price_cents, currency) : '--'}
                   </p>
                 </div>
 
                 <div className="pt-3 border-t border-white/[0.06]">
                   <div className="flex justify-between items-center">
-                    <p className="text-sm text-slate-400">Subtotal</p>
+                    <p className="text-sm text-slate-400">Subtotal (before tax)</p>
                     <p className="text-slate-300">
-                      {selectedPlan ? formatPrice(selectedPlan.price_amount) : '$49'}
+                      {selectedPlan ? formatPrice(totalPrice, currency) : '--'}
                     </p>
                   </div>
+                  {allowExtraSeats && extraSeats > 0 && (
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-sm text-slate-400">Extra seats x{extraSeats}</p>
+                      <p className="text-slate-300">
+                        {formatPrice(extraSeats * extraSeatPrice, currency)}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center mt-2">
                     <p className="text-sm text-slate-400">Tax</p>
                     <p className="text-slate-300">Calculated at checkout</p>
@@ -108,17 +316,19 @@ export function Payment({ onNavigate }: PaymentProps) {
                   <div className="flex justify-between items-center">
                     <p className="font-semibold text-white">Total</p>
                     <p className="text-xl font-semibold text-white">
-                      {selectedPlan ? formatPrice(selectedPlan.price_amount) : '$49'}
+                      {selectedPlan ? formatPrice(totalPrice, currency) : '--'}
                     </p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Billed monthly • Cancel anytime</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Billed {billingCycle} • Cancel anytime
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-2 pt-4 border-t border-white/[0.06]">
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <Shield className="w-4 h-4 text-emerald-400" />
-                  <span>14-day free trial included</span>
+                  <span>Secure checkout via Paystack</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -137,6 +347,124 @@ export function Payment({ onNavigate }: PaymentProps) {
         <div className="lg:col-span-2 space-y-4">
           <Card className="bg-[#0D0D0D] border-white/[0.08]">
             <CardContent className="p-6">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+                <div>
+                  <h3 className="font-semibold text-white">Billing cycle</h3>
+                  <p className="text-sm text-slate-400">
+                    Toggle yearly to save 20%.
+                  </p>
+                </div>
+                <div className="inline-flex rounded-lg border border-white/[0.08] bg-black/40 p-1">
+                  <button
+                    onClick={() => setBillingCycle('monthly')}
+                    className={`px-3 py-1.5 text-sm rounded-md ${
+                      billingCycle === 'monthly'
+                        ? 'bg-white text-black'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle('yearly')}
+                    className={`px-3 py-1.5 text-sm rounded-md ${
+                      billingCycle === 'yearly'
+                        ? 'bg-white text-black'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    Yearly
+                  </button>
+                </div>
+              </div>
+
+              {selectedPlan && (
+                <div className="bg-white/[0.03] rounded-lg p-4 mb-6 border border-white/[0.06]">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <p className="text-sm text-slate-400">Seats</p>
+                      <p className="text-xs text-slate-500">
+                        Included: {includedSeats}.{' '}
+                        {allowExtraSeats
+                          ? `Extra seats are ${formatPrice(extraSeatPrice, currency)} each.`
+                          : 'Extra seats are not available on this plan.'}
+                      </p>
+                    </div>
+                    {allowExtraSeats ? (
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="outline"
+                          className="h-9 w-9 p-0"
+                          onClick={() => setExtraSeats(Math.max(0, extraSeats - 1))}
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <div className="min-w-[90px] text-center">
+                          <p className="text-xs text-slate-400">Extra seats</p>
+                          <p className="text-lg font-semibold text-white">{extraSeats}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="h-9 w-9 p-0"
+                          onClick={() => setExtraSeats(extraSeats + 1)}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                        <div className="text-sm text-slate-400">
+                          Total seats: <span className="text-white">{totalSeats}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400">
+                        Total seats: <span className="text-white">{totalSeats}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white/[0.03] rounded-lg p-4 mb-6 border border-white/[0.06]">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-sm text-slate-400">Payment provider</p>
+                    <p className="text-xs text-slate-500">
+                      Choose how you'd like to pay for your subscription.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setProvider('paystack')}
+                      className={`px-4 py-2 rounded-md border text-sm transition-colors ${
+                        provider === 'paystack'
+                          ? 'bg-white text-black border-white'
+                          : 'border-white/[0.12] text-slate-300 hover:border-white/[0.3]'
+                      }`}
+                    >
+                      Paystack
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProvider('stripe')}
+                      className={`px-4 py-2 rounded-md border text-sm transition-colors ${
+                        provider === 'stripe'
+                          ? 'bg-white text-black border-white'
+                          : 'border-white/[0.12] text-slate-300 hover:border-white/[0.3]'
+                      }`}
+                    >
+                      Stripe
+                    </button>
+                  </div>
+                </div>
+                {provider === 'stripe' && (
+                  <p className="text-xs text-amber-400 mt-3">
+                    {isStripeConfigured
+                      ? 'Stripe checkout is not wired yet. Please use Paystack for now.'
+                      : 'Stripe is not configured yet. Add `VITE_STRIPE_PUBLISHABLE_KEY` to enable it.'}
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-lg bg-[#00C3F7]/10 flex items-center justify-center">
                   <svg className="w-8 h-8" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -147,58 +475,89 @@ export function Payment({ onNavigate }: PaymentProps) {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white">Pay with Paystack</h3>
-                  <p className="text-sm text-slate-400">Credit card, debit card, bank transfer & more</p>
+                  <h3 className="font-semibold text-white">
+                    {provider === 'stripe' ? 'Pay with Stripe' : 'Pay with Paystack'}
+                  </h3>
+                  <p className="text-sm text-slate-400">
+                    {provider === 'stripe'
+                      ? 'Credit card, Apple Pay, Google Pay & more'
+                      : 'Credit card, debit card, bank transfer & more'}
+                  </p>
                 </div>
               </div>
 
               <div className="bg-white/[0.03] rounded-lg p-4 mb-6 border border-white/[0.06]">
                 <p className="text-sm text-slate-300 mb-2">
-                  You'll be redirected to Paystack's secure checkout to complete your payment.
+                  {provider === 'stripe'
+                    ? "You'll be redirected to Stripe's secure checkout to complete your payment."
+                    : "You'll be redirected to Paystack's secure checkout to complete your payment."}
                 </p>
                 <p className="text-xs text-slate-500">
-                  Paystack accepts cards from all countries and converts to your local currency at checkout.
+                  {provider === 'stripe'
+                    ? 'Stripe supports global cards and local payment methods based on your region.'
+                    : 'Paystack accepts cards from all countries and converts to your local currency at checkout.'}
                 </p>
               </div>
 
               {/* Plan features preview */}
               {selectedPlan && (
                 <div className="mb-6">
-                  <h4 className="text-sm font-medium text-white mb-3">What's included in {selectedPlan.name}:</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedPlan.slug === 'pro' && (
-                      <>
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span>Unlimited campaigns</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span>Unlimited creators</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span>Advanced analytics</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span>API access</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span>Team collaboration</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span>Priority support</span>
-                        </div>
-                      </>
-                    )}
+                  <h4 className="text-sm font-medium text-white mb-3">
+                    What's included in {selectedTier}:
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {planHighlights.map((item) => (
+                      <div key={item} className="flex items-center gap-2 text-sm text-slate-400">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {createCheckout.error && (
+              {workspaceError && (
+                <div className="flex items-start gap-3 p-4 mb-6 bg-red-500/10 rounded-lg border border-red-500/20">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-400 mb-1">Checkout unavailable</p>
+                    <p className="text-xs text-red-400/80">{workspaceError}</p>
+                  </div>
+                </div>
+              )}
+
+              {billingError && (
+                <div className="flex items-start gap-3 p-4 mb-6 bg-red-500/10 rounded-lg border border-red-500/20">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-400 mb-1">Unable to load billing details</p>
+                    <p className="text-xs text-red-400/80">
+                      Please refresh the page or sign in again to continue.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {createCheckout.error && isAuthError && (
+                <div className="flex items-start gap-3 p-4 mb-6 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                  <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-400 mb-1">Session expired</p>
+                    <p className="text-xs text-amber-400/80">
+                      Your session is no longer valid. Please sign in again to continue checkout.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="h-9 border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
+                    onClick={resetSession}
+                  >
+                    Reset session
+                  </Button>
+                </div>
+              )}
+
+              {createCheckout.error && !isAuthError && (
                 <div className="flex items-start gap-3 p-4 mb-6 bg-red-500/10 rounded-lg border border-red-500/20">
                   <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                   <div>
@@ -211,23 +570,37 @@ export function Payment({ onNavigate }: PaymentProps) {
               )}
 
               <Button
-                onClick={handlePayWithPaystack}
-                disabled={createCheckout.isPending || !selectedPlan}
-                className="w-full h-12 bg-[#00C3F7] hover:bg-[#00C3F7]/90 text-white font-medium"
+                onClick={handleCheckout}
+                disabled={isCheckoutDisabled}
+                className={`w-full h-12 font-medium ${
+                  provider === 'stripe'
+                    ? 'bg-white text-black hover:bg-white/90'
+                    : 'bg-[#00C3F7] text-black hover:bg-[#00C3F7]/90'
+                }`}
               >
                 {createCheckout.isPending ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Redirecting to Paystack...
                   </span>
+                ) : workspaceLoading ? (
+                  'Loading workspace...'
+                ) : !isPaidTier ? (
+                  'Select a paid plan to continue'
+                ) : !effectiveWorkspaceId ? (
+                  'Sign in to continue'
+                ) : provider === 'stripe' ? (
+                  'Stripe unavailable'
                 ) : (
-                  `Continue to Payment • ${selectedPlan ? formatPrice(selectedPlan.price_amount) : '$49'}/month`
+                  `Continue to ${provider === 'stripe' ? 'Stripe' : 'Paystack'} • ${
+                    selectedPlan ? formatPrice(totalPrice, currency) : '--'
+                  }/${cycleLabel}`
                 )}
               </Button>
 
               <p className="text-xs text-center text-slate-500 mt-4">
                 By continuing, you agree to our Terms of Service and Privacy Policy.
-                Your subscription will automatically renew each month until canceled.
+                Your subscription will automatically renew each billing cycle until canceled.
               </p>
             </CardContent>
           </Card>
@@ -238,20 +611,34 @@ export function Payment({ onNavigate }: PaymentProps) {
             <div>
               <p className="text-sm font-medium text-white mb-1">Secure Payment</p>
               <p className="text-xs text-slate-400">
-                Your payment information is processed securely by Paystack. We never see or store your card details.
-                Paystack is PCI-DSS Level 1 certified, the highest level of security.
+                Your payment information is processed securely by{' '}
+                {provider === 'stripe' ? 'Stripe' : 'Paystack'}. We never see or store your card details.
+                {provider === 'stripe'
+                  ? ' Stripe is PCI-DSS Level 1 certified.'
+                  : ' Paystack is PCI-DSS Level 1 certified, the highest level of security.'}
               </p>
             </div>
           </div>
 
           {/* Accepted Payment Methods */}
-          <div className="flex items-center justify-center gap-4 pt-4">
+          <div className="flex items-center justify-center gap-4 pt-4 flex-wrap">
             <span className="text-xs text-slate-500">Accepted payment methods:</span>
-            <div className="flex items-center gap-3">
-              <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Visa</div>
-              <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Mastercard</div>
-              <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Bank Transfer</div>
-              <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">USSD</div>
+            <div className="flex items-center gap-3 flex-wrap">
+              {provider === 'stripe' ? (
+                <>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Visa</div>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Mastercard</div>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Apple Pay</div>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Google Pay</div>
+                </>
+              ) : (
+                <>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Visa</div>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Mastercard</div>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Bank Transfer</div>
+                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">USSD</div>
+                </>
+              )}
             </div>
           </div>
         </div>

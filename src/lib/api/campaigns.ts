@@ -201,33 +201,62 @@ export async function create(campaign: CampaignInsert): Promise<ApiResponse<Camp
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    // Get user's workspace_id from team_members
-    const { data: memberData, error: memberError } = await supabase
-      .from('team_members')
+    let workspaceId: string | null = null;
+    const { data: workspaceMember } = await supabase
+      .from('workspace_members')
       .select('workspace_id')
       .eq('user_id', user.id)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
-    let workspaceId = memberData?.workspace_id || null;
-    if (memberError || !workspaceId) {
-      workspaceId = user.id;
-      const { error: ownerInsertError } = await supabase
+    if (workspaceMember?.workspace_id) {
+      workspaceId = workspaceMember.workspace_id;
+    } else {
+      const { data: memberData, error: memberError } = await supabase
         .from('team_members')
-        .insert({
-          workspace_id: workspaceId,
-          user_id: user.id,
-          role: 'owner',
-          status: 'active',
-          invited_by: user.id,
-          joined_at: new Date().toISOString(),
-        });
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
 
-      if (ownerInsertError && !ownerInsertError.message?.includes('duplicate')) {
-        return {
-          data: null,
-          error: new Error('Unable to create workspace membership. Please contact support.'),
-        };
+      workspaceId = memberData?.workspace_id || user.id;
+      if (memberError || !memberData?.workspace_id) {
+        const { error: ownerInsertError } = await supabase
+          .from('team_members')
+          .insert({
+            workspace_id: workspaceId,
+            user_id: user.id,
+            role: 'owner',
+            status: 'active',
+            invited_by: user.id,
+            joined_at: new Date().toISOString(),
+          });
+
+        if (ownerInsertError && !ownerInsertError.message?.includes('duplicate')) {
+          return {
+            data: null,
+            error: new Error('Unable to create workspace membership. Please contact support.'),
+          };
+        }
       }
+    }
+
+    const { data: gate, error: gateError } = await supabase.rpc(
+      "can_create_campaign",
+      { target_workspace_id: workspaceId }
+    );
+
+    if (gateError) {
+      return { data: null, error: new Error(gateError.message) };
+    }
+
+    const gateResult = Array.isArray(gate) ? gate[0] : gate;
+    if (!gateResult?.allowed) {
+      return {
+        data: null,
+        error: new Error("UPGRADE_REQUIRED:campaign_limit_reached"),
+      };
     }
 
     // Create campaign with workspace_id
