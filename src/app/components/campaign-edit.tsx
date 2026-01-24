@@ -13,6 +13,7 @@ import * as storageApi from "../../lib/api/storage";
 import type { CampaignUpdate } from "../../lib/types/database";
 import { FormSkeleton } from "./ui/skeleton";
 import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
+import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
 interface CampaignEditProps {
   onNavigate: (path: string) => void;
@@ -21,6 +22,7 @@ interface CampaignEditProps {
 export function CampaignEdit({ onNavigate }: CampaignEditProps) {
   const { id } = useParams<{ id: string }>();
   const { data: campaign, isLoading, error } = useCampaign(id || "");
+  const { canEditWorkspace } = useWorkspaceAccess();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -42,6 +44,32 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
 
   const updateCampaignMutation = useUpdateCampaign();
   const deleteCampaignMutation = useDeleteCampaign();
+
+  if (!canEditWorkspace) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => onNavigate("/campaigns")}
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to campaigns"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
+            Read-only access
+          </h1>
+        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-6">
+            <p className="text-slate-400">
+              You do not have permission to edit this campaign.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Load campaign data when it arrives
   useEffect(() => {

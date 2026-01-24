@@ -66,7 +66,12 @@ export function ResponsiveConfirmDialog({
       <div className="space-y-2">
         <div className="text-base font-semibold text-white">{title}</div>
         {description && (
-          <div className="text-sm text-slate-400 line-clamp-3">
+          <div
+            className={cn(
+              "text-sm text-slate-400",
+              typeof description === "string" && "line-clamp-3"
+            )}
+          >
             {description}
           </div>
         )}

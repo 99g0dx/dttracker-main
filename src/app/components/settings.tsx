@@ -13,6 +13,7 @@ import {
 import { User, Lock, Users, Mail, Crown, ArrowRight, Bell, CreditCard, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { createTeamInvite } from '../../lib/api/team';
 import { toast } from 'sonner';
 
@@ -71,6 +72,9 @@ const formatLabel = (value: string) =>
 
 export function Settings({ onNavigate }: SettingsProps) {
   const { user, loading: authLoading } = useAuth();
+  const { activeWorkspaceId } = useWorkspace();
+  const [workspaceOwnerId, setWorkspaceOwnerId] = useState<string | null>(null);
+  const [workspaceMetaLoading, setWorkspaceMetaLoading] = useState(false);
   const [profileForm, setProfileForm] = useState<ProfileFormState>({
     firstName: '',
     lastName: '',
@@ -87,7 +91,7 @@ export function Settings({ onNavigate }: SettingsProps) {
     useState<NotificationSettings>(defaultNotifications);
 
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'viewer'>('member');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
   const [inviteSending, setInviteSending] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMemberRow[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
@@ -100,8 +104,9 @@ export function Settings({ onNavigate }: SettingsProps) {
 
   const resolveWorkspaceId = async () => {
     if (!user?.id) return null;
+    if (activeWorkspaceId) return activeWorkspaceId;
     const { data, error } = await supabase
-      .from('team_members')
+      .from('workspace_members')
       .select('workspace_id')
       .eq('user_id', user.id)
       .limit(1);
@@ -125,7 +130,34 @@ export function Settings({ onNavigate }: SettingsProps) {
       setProfileError('Not authenticated');
       setTeamError('Not authenticated');
     }
-  }, [user?.id, authLoading]);
+  }, [user?.id, authLoading, activeWorkspaceId]);
+
+  useEffect(() => {
+    const loadWorkspaceMeta = async () => {
+      if (!user?.id || !activeWorkspaceId) {
+        setWorkspaceOwnerId(user?.id || null);
+        return;
+      }
+
+      setWorkspaceMetaLoading(true);
+      const { data, error } = await supabase
+        .from('workspaces')
+        .select('owner_user_id')
+        .eq('id', activeWorkspaceId)
+        .maybeSingle();
+
+      if (error) {
+        setWorkspaceOwnerId(null);
+        setWorkspaceMetaLoading(false);
+        return;
+      }
+
+      setWorkspaceOwnerId(data?.owner_user_id || null);
+      setWorkspaceMetaLoading(false);
+    };
+
+    loadWorkspaceMeta();
+  }, [activeWorkspaceId, user?.id]);
 
   const loadProfile = async () => {
     if (!user?.id) return;
@@ -136,7 +168,7 @@ export function Settings({ onNavigate }: SettingsProps) {
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error) {
       setProfileError('Unable to load profile');
@@ -176,7 +208,7 @@ export function Settings({ onNavigate }: SettingsProps) {
     }
 
     const { data: members, error } = await supabase
-      .from('team_members')
+      .from('workspace_members')
       .select('*')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: true });
@@ -238,6 +270,38 @@ export function Settings({ onNavigate }: SettingsProps) {
     setTeamMembers(rows);
     setTeamLoading(false);
   };
+
+  const isWorkspaceOwner =
+    !activeWorkspaceId || (workspaceOwnerId && workspaceOwnerId === user?.id);
+
+  if (!workspaceMetaLoading && user?.id && !isWorkspaceOwner) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            onClick={() => onNavigate('/')}
+            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Settings</h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              Switch to your workspace to manage account settings.
+            </p>
+          </div>
+        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-6">
+            <p className="text-sm text-slate-400">
+              Settings are only available for your own workspace. Use the workspace selector to
+              switch back to your personal workspace.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleSaveProfile = async () => {
     if (!user?.id) return;
@@ -364,7 +428,7 @@ export function Settings({ onNavigate }: SettingsProps) {
     setInviteSending(true);
 
     const emailValue = inviteEmail.trim().toLowerCase();
-    const workspaceId = user.id;
+    const workspaceId = activeWorkspaceId || user.id;
 
     const scopeValue = inviteRole === 'viewer' ? 'viewer' : 'editor';
     const result = await createTeamInvite(
@@ -417,7 +481,7 @@ export function Settings({ onNavigate }: SettingsProps) {
   const roleStyles: Record<string, string> = {
     owner: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
     admin: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
-    member: 'text-primary bg-primary/10 border-primary/20',
+    editor: 'text-primary bg-primary/10 border-primary/20',
     viewer: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
   };
 
@@ -633,108 +697,7 @@ export function Settings({ onNavigate }: SettingsProps) {
       </Card>
 
       {/* Team Management */}
-      <div className='hidden'>
-           {<Card className="bg-[#0D0D0D] border-white/[0.08]">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-cyan-400" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-white">Team Members</h3>
-              <p className="text-sm text-slate-400">Manage your team and permissions</p>
-            </div>
-          </div>
-
-          {/* Invite Member */}
-          <div className="flex gap-3 mb-6 flex-col sm:flex-row">
-            <Input
-              type="email"
-              inputMode="email"
-              placeholder="Enter email to invite..."
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              className="flex-1 h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
-            />
-            <Select
-              value={inviteRole}
-              onValueChange={(value) =>
-                setInviteRole(value as 'admin' | 'member' | 'viewer')
-              }
-            >
-              <SelectTrigger className="h-11 min-h-[44px] bg-white/[0.03] border-white/[0.08] text-base text-white sm:w-40">
-                <SelectValue placeholder="Role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={handleSendInvite}
-              disabled={inviteSending}
-              className="min-h-[44px] h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] w-full sm:w-auto"
-            >
-              <Mail className="w-4 h-4 mr-2" />
-              {inviteSending ? 'Sending...' : 'Send Invite'}
-            </Button>
-          </div>
-
-          {/* Team Members List */}
-          <div className="space-y-3">
-            {teamLoading ? (
-              <>
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </>
-            ) : teamError ? (
-              <p className="text-sm text-red-400">{teamError}</p>
-            ) : teamMembers.length === 0 ? (
-              <p className="text-sm text-slate-400">No team members found</p>
-            ) : (
-              teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/80 to-cyan-400/80 flex items-center justify-center text-white text-sm font-medium">
-                      {getInitial(member.name, member.email)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-white">{member.name}</span>
-                        {member.isCurrentUser && (
-                          <span className="text-xs text-slate-500">(You)</span>
-                        )}
-                      </div>
-                      <div className="text-sm text-slate-400">{member.email}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-md text-xs border ${
-                        roleStyles[member.role] || roleStyles.member
-                      }`}
-                    >
-                      {formatLabel(member.role)}
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-md text-xs border ${
-                        statusStyles[member.status] || statusStyles.active
-                      }`}
-                    >
-                      {formatLabel(member.status)}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>}
-      </div>
+     
      
 
       {/* Notifications */}
