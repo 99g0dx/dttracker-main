@@ -159,8 +159,9 @@ export async function getOrCreate(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
-    if (workspaceError || !workspaceId) {
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
       return { data: null, error: workspaceError || new Error('Workspace not found') };
     }
 
@@ -212,11 +213,6 @@ export async function getOrCreate(
       creator = created;
     }
 
-    const { workspaceId: targetWorkspaceId, error: workspaceError } =
-      await resolveWorkspaceId(workspaceId);
-    if (workspaceError || !targetWorkspaceId) {
-      return { data: null, error: workspaceError || new Error('Workspace not found') };
-    }
     // Ensure creator is in workspace_creators (for My Network)
     await ensureWorkspaceCreator(targetWorkspaceId, creator.id, sourceType || 'manual');
 
@@ -309,8 +305,9 @@ export async function getByCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
-    if (workspaceError || !workspaceId) {
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
       return { data: null, error: workspaceError || new Error('Workspace not found') };
     }
 
@@ -367,11 +364,11 @@ export async function getByCampaign(
       return { data: null, error: campaignError || new Error('Campaign not found') };
     }
 
-    const targetWorkspaceId = campaign.workspace_id;
+    const campaignWorkspaceId = campaign.workspace_id;
 
     // Fetch creators for all unique IDs (only My Network creators for campaigns)
     // Join workspace_creators to ensure we only get workspace-owned creators
-    const workspaceKeys = await getWorkspaceCreatorKeys(targetWorkspaceId);
+    const workspaceKeys = await getWorkspaceCreatorKeys(campaignWorkspaceId);
     const { data: workspaceCreators, error: creatorsError } = await supabase
       .from('workspace_creators')
       .select(`
@@ -430,8 +427,9 @@ export async function createMany(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
-    if (workspaceError || !workspaceId) {
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
       return { data: null, error: workspaceError || new Error('Workspace not found') };
     }
 
@@ -1064,8 +1062,9 @@ export async function addCreatorsToMultipleCampaigns(
       return { data: null, error: new Error('Not authenticated') };
     }
 
-    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
-    if (workspaceError || !workspaceId) {
+    const { workspaceId: targetWorkspaceId, error: workspaceError } =
+      await resolveWorkspaceId(workspaceId);
+    if (workspaceError || !targetWorkspaceId) {
       return { data: null, error: workspaceError || new Error('Workspace not found') };
     }
 
@@ -1073,11 +1072,6 @@ export async function addCreatorsToMultipleCampaigns(
       return { data: [], error: null };
     }
 
-    const { workspaceId: targetWorkspaceId, error: workspaceError } =
-      await resolveWorkspaceId(workspaceId);
-    if (workspaceError || !targetWorkspaceId) {
-      return { data: null, error: workspaceError || new Error('Workspace not found') };
-    }
     // Verify all campaigns belong to workspace
     const { data: userCampaigns, error: campaignsError } = await supabase
       .from('campaigns')

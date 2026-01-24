@@ -489,6 +489,7 @@ export interface TeamMemberWithScopes extends TeamMember {
 }
 
 export interface TeamInviteWithInviter extends TeamInvite {
+  message: any;
   inviter_name: string | null;
   inviter_email: string | null;
 }
