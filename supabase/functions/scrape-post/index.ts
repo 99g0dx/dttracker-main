@@ -709,13 +709,30 @@ async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
     console.log("Instagram API URL:", instagramApiUrl);
     console.log("Extracted media_code:", mediaCode);
 
-    const response = await fetch(instagramApiUrl, {
-      method: "GET",
-      headers: {
-        "X-RapidAPI-Key": rapidApiKey,
-        "X-RapidAPI-Host": INSTAGRAM_API_HOST,
-      },
-    });
+    const fetchWithRetry = async (attempt: number): Promise<Response> => {
+      const response = await fetch(instagramApiUrl, {
+        method: "GET",
+        headers: {
+          "X-RapidAPI-Key": rapidApiKey,
+          "X-RapidAPI-Host": INSTAGRAM_API_HOST,
+        },
+      });
+
+      if (response.status === 429 && attempt < 3) {
+        const backoffMs = 1500 * Math.pow(2, attempt);
+        console.warn(
+          `Instagram API rate limited (429). Retrying in ${backoffMs}ms (attempt ${
+            attempt + 1
+          }/3)...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        return fetchWithRetry(attempt + 1);
+      }
+
+      return response;
+    };
+
+    const response = await fetchWithRetry(0);
 
     console.log(
       "Instagram API Response Status:",
@@ -1246,19 +1263,12 @@ serve(async (req) => {
     // Get authorization header - Supabase Edge Functions automatically verify JWTs
     // The user is already authenticated if we reach this point
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      console.error("Missing authorization header");
-      throw new Error("Missing authorization header");
-    }
-
-    // Extract token to get user info
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader?.replace("Bearer ", "") ?? null;
     if (!token) {
-      console.error("Missing authentication token");
-      throw new Error("Missing authentication token");
+      console.warn("No authorization token provided; proceeding without user context");
+    } else {
+      console.log("Token received, length:", token.length);
     }
-
-    console.log("Token received, length:", token.length);
 
     // Create service role client for database operations
     // Note: Supabase Edge Functions automatically verify the JWT before our code runs
@@ -1266,21 +1276,23 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get user info from the token (for logging)
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser(token);
+    if (token) {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser(token);
 
-      if (userError) {
-        console.warn("Could not get user from token:", userError.message);
+        if (userError) {
+          console.warn("Could not get user from token:", userError.message);
+          // Continue anyway - Supabase already verified the JWT
+        } else if (user) {
+          console.log(`Authenticated user: ${user.id}`);
+        }
+      } catch (err) {
+        console.warn("User verification warning:", err);
         // Continue anyway - Supabase already verified the JWT
-      } else if (user) {
-        console.log(`Authenticated user: ${user.id}`);
       }
-    } catch (err) {
-      console.warn("User verification warning:", err);
-      // Continue anyway - Supabase already verified the JWT
     }
 
     // Parse request body

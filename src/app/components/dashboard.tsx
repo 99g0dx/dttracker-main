@@ -23,6 +23,8 @@ import { StatusBadge } from './status-badge';
 import { useCampaigns } from '../../hooks/useCampaigns';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { supabase } from '../../lib/supabase';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 import {
   Pagination,
   PaginationContent,
@@ -107,8 +109,64 @@ function formatReach(value: number): string {
   return value.toString();
 }
 
+function buildTimeSeriesFromMetricsHistory(
+  history: any[],
+  range: DateRange
+): { date: string; reach: number; engagement: number }[] {
+  if (!history.length) return [];
+
+  const metricsByDate = new Map<string, any[]>();
+
+  history.forEach((metric) => {
+    const dateStr = metric.scraped_at ? metric.scraped_at.split('T')[0] : null;
+    if (!dateStr) return;
+    if (!metricsByDate.has(dateStr)) {
+      metricsByDate.set(dateStr, []);
+    }
+    metricsByDate.get(dateStr)!.push(metric);
+  });
+
+  const sortedDates = Array.from(metricsByDate.keys()).sort();
+  const currentPostMetrics = new Map<string, any>();
+  const series = sortedDates.map((date) => {
+    const dailyMetrics = metricsByDate.get(date) || [];
+    dailyMetrics.forEach((m) => currentPostMetrics.set(m.post_id, m));
+
+    let views = 0;
+    let likes = 0;
+    let comments = 0;
+    let shares = 0;
+
+    currentPostMetrics.forEach((m) => {
+      views += Number(m.views || 0);
+      likes += Number(m.likes || 0);
+      comments += Number(m.comments || 0);
+      shares += Number(m.shares || 0);
+    });
+
+    return {
+      dateValue: date,
+      reach: views,
+      engagement: likes + comments + shares,
+    };
+  });
+
+  return series
+    .filter((point) => {
+      const time = new Date(point.dateValue).getTime();
+      return (
+        time >= range.start.getTime() && time <= range.end.getTime()
+      );
+    })
+    .map((point) => ({
+      date: format(new Date(point.dateValue), 'MMM d'),
+      reach: point.reach,
+      engagement: point.engagement,
+    }));
+}
+
 function getPostTimestamp(post: any): number | null {
-  const date = post.last_scraped_at || post.created_at || post.updated_at;
+  const date = post.posted_date || post.last_scraped_at || post.created_at || post.updated_at;
   if (!date) return null;
   const time = new Date(date).getTime();
   return Number.isNaN(time) ? null : time;
@@ -145,11 +203,20 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     engagement: number;
   }[]>([]);
   const [allPosts, setAllPosts] = useState<any[]>([]);
+  const [metricsHistory, setMetricsHistory] = useState<any[]>([]);
   const isMobileCampaigns = useMediaQuery('(max-width: 1023px)');
+  const { activeWorkspaceId } = useWorkspace();
+  const {
+    loading: accessLoading,
+    canViewWorkspace,
+    hasCampaignAccess,
+    canViewCampaign,
+  } = useWorkspaceAccess();
 
 
   // Fetch real campaign data
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
+  const isCampaignsLoading = campaignsLoading || (!!activeWorkspaceId && accessLoading);
 
   const dateRangeOptions = [
     'Last 24 hours',
@@ -198,9 +265,26 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
 
 
+  const accessibleCampaigns = useMemo(() => {
+    if (!activeWorkspaceId) return campaigns;
+    if (accessLoading) return [];
+    if (canViewWorkspace) return campaigns;
+    if (hasCampaignAccess) {
+      return campaigns.filter((campaign) => canViewCampaign(campaign.id));
+    }
+    return [];
+  }, [
+    activeWorkspaceId,
+    accessLoading,
+    canViewWorkspace,
+    hasCampaignAccess,
+    canViewCampaign,
+    campaigns,
+  ]);
+
   // Apply filters and search to campaigns
   const filteredCampaigns = useMemo(() => {
-    return campaigns.filter(campaign => {
+    return accessibleCampaigns.filter(campaign => {
       // Search filter
       if (searchQuery && !campaign.name.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
@@ -227,7 +311,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     return true;
   });
-  }, [campaigns, searchQuery, filters]);
+  }, [accessibleCampaigns, searchQuery, filters]);
 
   useEffect(() => {
     setCampaignPage(1);
@@ -311,14 +395,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
  // Remove the useMemo for kpiMetrics entirely
 // Instead, just use state that gets set by your useEffect
 const campaignIds = useMemo(
-  () => campaigns.map(c => c.id).sort().join(','),
-  [campaigns]
+  () => accessibleCampaigns.map(c => c.id).sort().join(','),
+  [accessibleCampaigns]
 );
 
 useEffect(() => {
   const fetchAllPosts = async (dateRange: DateRange) => {
     if (campaigns.length === 0) {
       setAllPosts([]);
+      setMetricsHistory([]);
       setKpiMetrics({
         totalReach: '0',
         totalReachValue: 0,
@@ -336,11 +421,12 @@ useEffect(() => {
       const campaignIds = campaigns.map(c => c.id);
       const { data, error } = await supabase
         .from('posts')
-        .select('platform, views, likes, comments, shares, creator_id, last_scraped_at, created_at, updated_at')
+        .select('campaign_id, platform, views, likes, comments, shares, creator_id, posted_date, last_scraped_at, created_at, updated_at')
         .in('campaign_id', campaignIds);
 
       if (error) {
         setAllPosts([]);
+        setMetricsHistory([]);
         setKpiMetrics({
           totalReach: '0',
           totalReachValue: 0,
@@ -351,6 +437,18 @@ useEffect(() => {
         });
       } else {
         setAllPosts(data || []);
+
+        const { data: history, error: historyError } = await supabase
+          .from('post_metrics')
+          .select('post_id, views, likes, comments, shares, scraped_at, posts!inner(campaign_id)')
+          .in('posts.campaign_id', campaignIds)
+          .order('scraped_at', { ascending: true });
+
+        if (historyError) {
+          setMetricsHistory([]);
+        } else {
+          setMetricsHistory(history || []);
+        }
 
         const postsInRange = (data || []).filter(post => isPostInRange(post, dateRange));
         
@@ -378,6 +476,7 @@ useEffect(() => {
       }
     } catch (err) {
       setAllPosts([]);
+      setMetricsHistory([]);
       setKpiMetrics({
         totalReach: '0',
         totalReachValue: 0,
@@ -398,7 +497,7 @@ useEffect(() => {
 
   // Generate platform breakdown from real post data
   const platformData = useMemo(() => {
-    const postsForBreakdown = postsInRange;
+    const postsForBreakdown = postsInRangeWithDates;
     const platformCounts: Record<string, number> = {
       tiktok: 0,
       instagram: 0,
@@ -480,6 +579,13 @@ useEffect(() => {
       return;
     }
 
+    if (metricsHistory.length > 0) {
+      const series = buildTimeSeriesFromMetricsHistory(metricsHistory, dateRange);
+      setTimeSeriesData(series);
+      setTimeSeriesLoading(false);
+      return;
+    }
+
     if (postsInRangeWithDates.length === 0) {
       setTimeSeriesData([]);
       setTimeSeriesLoading(false);
@@ -526,7 +632,13 @@ useEffect(() => {
 
     setTimeSeriesData(formatted);
     setTimeSeriesLoading(false);
-  }, [postsInRangeWithDates, postsLoading, dateRange.start, dateRange.end]);
+  }, [
+    metricsHistory,
+    postsInRangeWithDates,
+    postsLoading,
+    dateRange.start,
+    dateRange.end,
+  ]);
   
   const handleExportCSV = () => {
       const rows: string[][] = [];
@@ -604,7 +716,7 @@ useEffect(() => {
   // Verify chart data matches KPI (for debugging)
   const chartTotalReach = useMemo(() => {
     if (timeSeriesData.length === 0) return 0;
-    return timeSeriesData.reduce((sum, point) => sum + point.reach, 0);
+    return timeSeriesData[timeSeriesData.length - 1]?.reach || 0;
   }, [timeSeriesData]);
 
   // Log verification in development
@@ -631,7 +743,22 @@ useEffect(() => {
         kpiReach: kpiMetrics.totalReachValue
       });
     }
-  }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData]);
+    if (process.env.NODE_ENV === 'development' && postsInRangeWithDates.length > 0) {
+      const campaignBreakdown = postsInRangeWithDates.reduce(
+        (acc: Record<string, { posts: number; reach: number }>, post: any) => {
+          const campaignId = post.campaign_id || 'unknown';
+          if (!acc[campaignId]) {
+            acc[campaignId] = { posts: 0, reach: 0 };
+          }
+          acc[campaignId].posts += 1;
+          acc[campaignId].reach += Number(post.views || 0);
+          return acc;
+        },
+        {}
+      );
+      console.log('[Dashboard Campaign Reach Breakdown]', campaignBreakdown);
+    }
+  }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData, postsInRangeWithDates]);
 
   useEffect(() => {
     if (!isDateDropdownOpen) {
@@ -981,7 +1108,7 @@ useEffect(() => {
           </div>
 
           <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {campaignsLoading ? (
+            {isCampaignsLoading ? (
               <div className="text-sm text-slate-400 col-span-full">Loading campaigns...</div>
             ) : filteredCampaigns.length === 0 ? (
               <div className="text-sm text-slate-400 col-span-full">No campaigns found</div>
@@ -1056,7 +1183,7 @@ useEffect(() => {
             )}
           </div>
 
-          {filteredCampaigns.length > 0 && !campaignsLoading && (
+          {filteredCampaigns.length > 0 && !isCampaignsLoading && (
             <div className="lg:hidden px-4 sm:px-6 pb-6 space-y-3">
               <p className="text-xs text-slate-400">
                 Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}
@@ -1142,7 +1269,7 @@ useEffect(() => {
                 </tr>
               </thead>
               <tbody>
-                {campaignsLoading ? (
+                {isCampaignsLoading ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-8 text-center text-slate-400">
                       Loading campaigns...
@@ -1210,7 +1337,7 @@ useEffect(() => {
               </tbody>
             </table>
           </div>
-          {filteredCampaigns.length > 0 && !campaignsLoading && (
+          {filteredCampaigns.length > 0 && !isCampaignsLoading && (
             <div className="hidden lg:flex items-center justify-between px-6 py-4 border-t border-white/[0.08]">
               <p className="text-sm text-slate-400">
                 Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}

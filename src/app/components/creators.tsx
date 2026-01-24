@@ -77,6 +77,7 @@ import type { CreatorWithStats, Platform } from "../../lib/types/database";
 import { useCart } from "../../contexts/CartContext";
 import { ReviewRequestModal } from "./review-request-modal";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
+import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
@@ -141,6 +142,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
+  const {
+    loading: accessLoading,
+    canViewWorkspace,
+    canEditWorkspace,
+  } = useWorkspaceAccess();
+  const canViewCreators = accessLoading || canViewWorkspace;
+  const canEditCreators = accessLoading || canEditWorkspace;
   
   // Cart/Request state for "All Creators" tab
   const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } = useCart();
@@ -167,6 +175,37 @@ export function Creators({ onNavigate }: CreatorsProps) {
     useState<CreatorWithStats | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const isCreatorsLoading = !shouldFetch || isLoading;
+
+  if (!canViewCreators && !accessLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => onNavigate?.('/')}
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Creator Library</h1>
+            <p className="text-sm text-slate-400 mt-1">Access restricted for your current role.</p>
+          </div>
+        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-12 h-12 rounded-lg bg-white/[0.06] flex items-center justify-center mb-4">
+              <Eye className="w-6 h-6 text-slate-400" />
+            </div>
+            <h3 className="text-base font-semibold text-white mb-1">No access</h3>
+            <p className="text-sm text-slate-400 mb-4 text-center max-w-md">
+              You need workspace access to view the creator library.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Sorting state
   const [sortField, setSortField] = useState<
@@ -374,6 +413,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
 
   const handleAdd = async () => {
+    if (!canEditCreators) {
+      toast.error("You don't have permission to add creators.");
+      return;
+    }
     if (!formData.name || !formData.handle || !formData.platform) {
       toast.error("Please fill in name, handle, and platform");
       return;
@@ -413,6 +456,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
   };
 
   const handleEdit = async () => {
+    if (!canEditCreators) {
+      toast.error("You don't have permission to edit creators.");
+      return;
+    }
     if (
       !selectedCreator ||
       !formData.name ||
@@ -458,6 +505,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canEditCreators) {
+      toast.error("You don't have permission to delete creators.");
+      return;
+    }
     try {
       setDeletingCreatorId(id);
       await deleteCreatorMutation.mutateAsync(id);
@@ -470,6 +521,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
   };
 
   const handleDeleteRequest = (creator: CreatorWithStats) => {
+    if (!canEditCreators) {
+      toast.error("You don't have permission to delete creators.");
+      return;
+    }
     console.log('[Delete Request]', { creatorId: creator.id, creatorName: creator.name });
     if (!creator?.id) {
       toast.error("Creator not found");
@@ -481,6 +536,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
   };
 
   const openEditDialog = (creator: CreatorWithStats) => {
+    if (!canEditCreators) {
+      toast.error("You don't have permission to edit creators.");
+      return;
+    }
     setSelectedCreator(creator);
     setFormData({
       name: creator.name,
@@ -499,6 +558,22 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const openViewDialog = (creator: CreatorWithStats) => {
     setSelectedCreator(creator);
     setViewDialogOpen(true);
+  };
+
+  const handleOpenAddDialog = () => {
+    if (!canEditCreators) {
+      toast.error("You don't have permission to add creators.");
+      return;
+    }
+    setAddDialogOpen(true);
+  };
+
+  const handleOpenImportDialog = () => {
+    if (!canEditCreators) {
+      toast.error("You don't have permission to import creators.");
+      return;
+    }
+    setShowImportDialog(true);
   };
 
   const handleExportCSV = () => {
@@ -555,8 +630,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
           </TabsList>
           <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-end sm:gap-3">
             <button
-              onClick={() => setAddDialogOpen(true)}
-              className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-semibold flex items-center justify-center gap-2 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)]"
+              onClick={handleOpenAddDialog}
+              className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-semibold flex items-center justify-center gap-2 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={!canEditCreators}
+              title={!canEditCreators ? "You don't have permission to add creators" : undefined}
             >
               <Plus className="w-4 h-4" />
               Add Creator
@@ -593,7 +670,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   <Sparkles className="w-4 h-4" />
                   Creator scraper
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setShowImportDialog(true)}>
+                <DropdownMenuItem onSelect={handleOpenImportDialog} disabled={!canEditCreators}>
                   <Upload className="w-4 h-4" />
                   Import CSV
                 </DropdownMenuItem>
@@ -1222,8 +1299,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     AI Scraper
                   </button>
                   <button
-                    onClick={() => setAddDialogOpen(true)}
-                    className="h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors"
+                    onClick={handleOpenAddDialog}
+                    className="h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={!canEditCreators}
+                    title={!canEditCreators ? "You don't have permission to add creators" : undefined}
                     style={{
                       backgroundClip: "unset",
                       WebkitBackgroundClip: "unset",

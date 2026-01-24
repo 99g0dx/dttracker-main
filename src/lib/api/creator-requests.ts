@@ -10,6 +10,27 @@ import type {
   Creator,
 } from '../types/database';
 
+async function getAuthenticatedUser() {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userData?.user) {
+    return { user: userData.user, error: null };
+  }
+
+  if (userError && import.meta.env.DEV) {
+    console.warn('[creator-requests] getUser failed, falling back to session', userError);
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionData?.session?.user) {
+    return { user: sessionData.session.user, error: null };
+  }
+
+  return {
+    user: null,
+    error: sessionError || userError || new Error('Not authenticated'),
+  };
+}
+
 /**
  * Create a new creator request with associated creators
  */
@@ -17,9 +38,9 @@ export async function createRequest(
   request: CreatorRequestInsert
 ): Promise<ApiResponse<CreatorRequestWithCreators>> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user, error: authError } = await getAuthenticatedUser();
     if (!user) {
-      return { data: null, error: new Error('Not authenticated') };
+      return { data: null, error: authError || new Error('Not authenticated') };
     }
 
     // Extract creator_ids before inserting the request
@@ -81,16 +102,27 @@ export async function createRequest(
     // Send email notification to agency (don't fail request creation if email fails)
     // Send email notification to agency (don't fail request creation if email fails)
   try {
-    const { data, error } = await supabase.functions.invoke('create-creator-request', {
-      body: {
-        request_id: createdRequest.id,
-      },
-    });
-    
-    if (error) {
-      console.error('Email notification error:', error);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      if (import.meta.env.DEV) {
+        console.warn('[creator-requests] Skipping email notification; no access token');
+      }
     } else {
-      console.log('Email notification sent successfully:', data);
+      const { data, error } = await supabase.functions.invoke('create-creator-request', {
+        body: {
+          request_id: createdRequest.id,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    
+      if (error) {
+        console.error('Email notification error:', error);
+      } else {
+        console.log('Email notification sent successfully:', data);
+      }
     }
   } catch (emailError) {
     console.error('Failed to send email notification to agency:', emailError);
@@ -110,9 +142,9 @@ export async function createRequest(
  */
 export async function getRequests(): Promise<ApiListResponse<CreatorRequest>> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user, error: authError } = await getAuthenticatedUser();
     if (!user) {
-      return { data: null, error: new Error('Not authenticated') };
+      return { data: null, error: authError || new Error('Not authenticated') };
     }
 
     const { data: requests, error } = await supabase

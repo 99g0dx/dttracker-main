@@ -17,6 +17,7 @@ import {
 } from './ui/select';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 
 interface CampaignCreateProps {
   onNavigate: (path: string) => void;
@@ -24,11 +25,38 @@ interface CampaignCreateProps {
 
 export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
   const location = useLocation();
+  const { canEditWorkspace } = useWorkspaceAccess();
   const locationState = location.state as { parentCampaignId?: string } | null;
   const parentFromState = locationState?.parentCampaignId || null;
   const searchParams = new URLSearchParams(location.search);
   const parentFromQuery = searchParams.get('parent');
   const initialParentId = parentFromState || parentFromQuery || null;
+
+  if (!canEditWorkspace) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => onNavigate('/campaigns')}
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to campaigns"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
+            Read-only access
+          </h1>
+        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-6">
+            <p className="text-slate-400">
+              You do not have permission to create campaigns.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const [formData, setFormData] = useState({
     name: '',

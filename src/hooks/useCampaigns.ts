@@ -2,12 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as campaignsApi from '../lib/api/campaigns';
 import type { CampaignInsert, CampaignUpdate, CampaignWithStats } from '../lib/types/database';
 import { toast } from 'sonner';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Query keys
 export const campaignsKeys = {
   all: ['campaigns'] as const,
-  lists: () => [...campaignsKeys.all, 'list'] as const,
-  list: (filters: string) => [...campaignsKeys.lists(), filters] as const,
+  lists: (workspaceId?: string | null) => [...campaignsKeys.all, 'list', workspaceId || 'default'] as const,
+  list: (filters: string, workspaceId?: string | null) =>
+    [...campaignsKeys.lists(workspaceId), filters] as const,
   details: () => [...campaignsKeys.all, 'detail'] as const,
   detail: (id: string) => [...campaignsKeys.details(), id] as const,
 };
@@ -16,10 +18,11 @@ export const campaignsKeys = {
  * Hook to fetch all campaigns with stats
  */
 export function useCampaigns(options?: { enabled?: boolean }) {
+  const { activeWorkspaceId } = useWorkspace();
   return useQuery({
-    queryKey: campaignsKeys.lists(),
+    queryKey: campaignsKeys.lists(activeWorkspaceId),
     queryFn: async () => {
-      const result = await campaignsApi.list();
+      const result = await campaignsApi.list(activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -55,10 +58,11 @@ export function useCampaign(id: string) {
  */
 export function useCreateCampaign() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (campaign: CampaignInsert) => {
-      const result = await campaignsApi.create(campaign);
+      const result = await campaignsApi.create(campaign, activeWorkspaceId);
       if (result.error) {
         throw result.error;
       }
@@ -70,7 +74,7 @@ export function useCreateCampaign() {
         queryClient.setQueryData(campaignsKeys.detail(data.id), data);
       }
       // Invalidate campaigns list to refetch
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       toast.success('Campaign created successfully');
     },
     onError: (error: Error) => {
@@ -84,6 +88,7 @@ export function useCreateCampaign() {
  */
 export function useUpdateCampaign() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: CampaignUpdate }) => {
@@ -96,11 +101,11 @@ export function useUpdateCampaign() {
     onMutate: async ({ id, updates }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: campaignsKeys.detail(id) });
-      await queryClient.cancelQueries({ queryKey: campaignsKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
 
       // Snapshot previous values
       const previousCampaign = queryClient.getQueryData(campaignsKeys.detail(id));
-      const previousCampaigns = queryClient.getQueryData(campaignsKeys.lists());
+      const previousCampaigns = queryClient.getQueryData(campaignsKeys.lists(activeWorkspaceId));
 
       // Optimistically update detail query
       queryClient.setQueryData(campaignsKeys.detail(id), (old: any) => {
@@ -109,20 +114,23 @@ export function useUpdateCampaign() {
       });
 
       // Optimistically update list query
-      queryClient.setQueryData(campaignsKeys.lists(), (old: CampaignWithStats[] | undefined) => {
+      queryClient.setQueryData(
+        campaignsKeys.lists(activeWorkspaceId),
+        (old: CampaignWithStats[] | undefined) => {
         if (!old) return old;
         return old.map(campaign =>
           campaign.id === id
             ? { ...campaign, ...updates, updated_at: new Date().toISOString() }
             : campaign
         );
-      });
+      }
+      );
 
       return { previousCampaign, previousCampaigns };
     },
     onSuccess: (data) => {
       // Invalidate both list and detail queries
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       if (data) {
         queryClient.invalidateQueries({ queryKey: campaignsKeys.detail(data.id) });
       }
@@ -134,7 +142,10 @@ export function useUpdateCampaign() {
         queryClient.setQueryData(campaignsKeys.detail(variables.id), context.previousCampaign);
       }
       if (context?.previousCampaigns) {
-        queryClient.setQueryData(campaignsKeys.lists(), context.previousCampaigns);
+        queryClient.setQueryData(
+          campaignsKeys.lists(activeWorkspaceId),
+          context.previousCampaigns
+        );
       }
       toast.error(`Failed to update campaign: ${error.message}`);
     },
@@ -146,6 +157,7 @@ export function useUpdateCampaign() {
  */
 export function useDeleteCampaign() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -157,29 +169,35 @@ export function useDeleteCampaign() {
     },
     onMutate: async (id) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: campaignsKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       await queryClient.cancelQueries({ queryKey: campaignsKeys.detail(id) });
 
       // Snapshot previous values
-      const previousCampaigns = queryClient.getQueryData(campaignsKeys.lists());
+      const previousCampaigns = queryClient.getQueryData(campaignsKeys.lists(activeWorkspaceId));
 
       // Optimistically remove from list
-      queryClient.setQueryData(campaignsKeys.lists(), (old: CampaignWithStats[] | undefined) => {
+      queryClient.setQueryData(
+        campaignsKeys.lists(activeWorkspaceId),
+        (old: CampaignWithStats[] | undefined) => {
         if (!old) return old;
         return old.filter(campaign => campaign.id !== id);
-      });
+      }
+      );
 
       return { previousCampaigns };
     },
     onSuccess: () => {
       // Invalidate campaigns list
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       toast.success('Campaign deleted successfully');
     },
     onError: (error: Error, _id, context) => {
       // Rollback optimistic update
       if (context?.previousCampaigns) {
-        queryClient.setQueryData(campaignsKeys.lists(), context.previousCampaigns);
+        queryClient.setQueryData(
+          campaignsKeys.lists(activeWorkspaceId),
+          context.previousCampaigns
+        );
       }
       toast.error(`Failed to delete campaign: ${error.message}`);
     },
@@ -191,6 +209,7 @@ export function useDeleteCampaign() {
  */
 export function useDuplicateCampaign() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -202,7 +221,7 @@ export function useDuplicateCampaign() {
     },
     onSuccess: () => {
       // Invalidate campaigns list to show the new copy
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       toast.success('Campaign duplicated successfully');
     },
     onError: (error: Error) => {

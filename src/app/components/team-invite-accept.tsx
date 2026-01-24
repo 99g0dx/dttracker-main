@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { useTeamInviteByToken, useAcceptTeamInvite } from "../../hooks/useTeam";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCheckOnboarding } from "../../hooks/useOnboarding";
+import { useWorkspace } from "../../contexts/WorkspaceContext";
 import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
 import {
@@ -32,6 +33,7 @@ export function TeamInviteAccept() {
   } = useTeamInviteByToken(token || "", !!token);
   const acceptInviteMutation = useAcceptTeamInvite();
   const { needsOnboarding } = useCheckOnboarding();
+  const { setActiveWorkspaceId } = useWorkspace();
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Signup form state
@@ -59,7 +61,12 @@ export function TeamInviteAccept() {
 
     setIsProcessing(true);
     try {
-      await acceptInviteMutation.mutateAsync(token);
+      const result = await acceptInviteMutation.mutateAsync(token);
+      if (result?.workspace_id) {
+        setActiveWorkspaceId(result.workspace_id);
+      } else if (invite?.workspace_id) {
+        setActiveWorkspaceId(invite.workspace_id);
+      }
       // Navigate to onboarding if needed, otherwise to team page
       setTimeout(() => {
         navigate(needsOnboarding ? "/onboarding" : "/team");
@@ -139,7 +146,12 @@ export function TeamInviteAccept() {
 
         // Try to accept the invite
         try {
-          await acceptInviteMutation.mutateAsync(token);
+          const accepted = await acceptInviteMutation.mutateAsync(token);
+          if (accepted?.workspace_id) {
+            setActiveWorkspaceId(accepted.workspace_id);
+          } else if (invite?.workspace_id) {
+            setActiveWorkspaceId(invite.workspace_id);
+          }
           toast.success("Invitation accepted!");
           // Wait a moment for profile to sync, then check onboarding
           setTimeout(() => {
@@ -174,10 +186,10 @@ export function TeamInviteAccept() {
           label: "Admin",
           color: "text-purple-400",
         };
-      case "member":
+      case "editor":
         return {
           icon: <Users className="w-4 h-4" />,
-          label: "Member",
+          label: "Editor",
           color: "text-primary",
         };
       case "viewer":

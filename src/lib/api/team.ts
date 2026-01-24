@@ -45,7 +45,7 @@ async function resolveWorkspaceId(
   }
 
   const { data, error } = await supabase
-    .from("team_members")
+    .from("workspace_members")
     .select("workspace_id")
     .eq("user_id", user.id)
     .eq("status", "active")
@@ -74,7 +74,7 @@ export async function getTeamMembers(
     }
 
     const { data: members, error: membersError } = await supabase
-      .from("team_members")
+      .from("workspace_members")
       .select("*")
       .eq("workspace_id", targetWorkspaceId)
       .order("created_at", { ascending: false });
@@ -86,6 +86,13 @@ export async function getTeamMembers(
     // Fetch scopes for each member
     const membersWithScopes: TeamMemberWithScopes[] = await Promise.all(
       (members || []).map(async (member) => {
+        if (!member.id) {
+          return {
+            ...member,
+            scopes: [],
+          };
+        }
+
         const { data: scopes } = await supabase
           .from("member_scopes")
           .select("*")
@@ -125,7 +132,7 @@ export async function getTeamInvites(
     }
 
     const { data: invites, error: invitesError } = await supabase
-      .from("team_invites")
+      .from("workspace_invites")
       .select("*")
       .eq("workspace_id", targetWorkspaceId)
       .is("accepted_at", null)
@@ -197,14 +204,14 @@ export async function createTeamInvite(
       email: email.toLowerCase().trim(),
       invited_by: user.id,
       role,
-      invite_token: inviteToken,
+      token: inviteToken,
+      status: "pending",
       expires_at: expiresAt.toISOString(),
-      scopes: scopes.length > 0 ? scopes : [],
-      message: message || null,
+      scopes: scopes.length > 0 ? scopes : null,
     };
 
     const { data: invite, error } = await supabase
-      .from("team_invites")
+      .from("workspace_invites")
       .insert(inviteData)
       .select()
       .single();
@@ -233,28 +240,28 @@ export async function createTeamInvite(
       const inviteUrl = `${origin}/team/invite/${inviteToken}`;
 
       if (supabaseUrl && supabaseAnonKey && origin) {
-        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/send-team-invite`;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (!accessToken) {
+          emailError = new Error("Not authenticated");
+        } else {
+          const emailResponse = await supabase.functions.invoke("send-team-invite", {
+            body: {
+              email: invite.email,
+              inviteToken: inviteToken,
+              inviterName: inviterName,
+              role: invite.role,
+              message: message || null,
+              inviteUrl: inviteUrl,
+            },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
-        const emailResponse = await fetch(edgeFunctionUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": supabaseAnonKey,
-            "Authorization": `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
-            email: invite.email,
-            inviteToken: inviteToken,
-            inviterName: inviterName,
-            role: invite.role,
-            message: invite.message,
-            inviteUrl: inviteUrl,
-          }),
-        });
-
-        if (!emailResponse.ok) {
-          const errorText = await emailResponse.text();
-          console.warn("Failed to send invitation email:", errorText);
+          if (emailResponse.error) {
+            const errorText = emailResponse.error.message;
+            console.warn("Failed to send invitation email:", errorText);
           let errorMessage = "Failed to send invitation email";
           try {
             const errorData = JSON.parse(errorText);
@@ -270,12 +277,13 @@ export async function createTeamInvite(
             if (errorText) errorMessage = errorText;
           }
           emailError = new Error(errorMessage);
-        } else {
-          const emailResult = await emailResponse.json();
+          } else if (emailResponse.data) {
+            const emailResult = emailResponse.data as any;
           console.log("Invitation email sent:", emailResult);
           if (emailResult.success === false) {
             // Edge function returned success:false in body
             emailError = new Error(emailResult.message || emailResult.error || "Email sending failed");
+          }
           }
         }
       } else {
@@ -320,11 +328,57 @@ export async function acceptTeamInvite(
       return { data: null, error: new Error("Not authenticated") };
     }
 
+    const applyInviteScopes = async (
+      memberId: string,
+      scopes?: Array<{ scope_type: MemberScope["scope_type"]; scope_value: string }> | null
+    ) => {
+      if (!scopes || scopes.length === 0) return;
+      const { data: existingScopes } = await supabase
+        .from("member_scopes")
+        .select("scope_type, scope_value")
+        .eq("team_member_id", memberId);
+
+      const existingKeys = new Set(
+        (existingScopes || []).map(
+          (scope) => `${scope.scope_type}:${scope.scope_value}`
+        )
+      );
+
+      const scopesToInsert = scopes
+        .filter(
+          (scope) => !existingKeys.has(`${scope.scope_type}:${scope.scope_value}`)
+        )
+        .map((scope) => ({
+          team_member_id: memberId,
+          scope_type: scope.scope_type,
+          scope_value: scope.scope_value,
+        }));
+
+      if (scopesToInsert.length > 0) {
+        await supabase.from("member_scopes").insert(scopesToInsert);
+      }
+    };
+
+    // Prefer a security-definer RPC to avoid RLS edge cases on inserts.
+    const { data: rpcMember, error: rpcError } = await supabase.rpc(
+      "accept_workspace_invite",
+      { p_token: token }
+    );
+
+    if (!rpcError && rpcMember) {
+      return { data: rpcMember as TeamMember, error: null };
+    }
+
+    // If the RPC isn't available, fall back to the client-side flow.
+    if (rpcError && (rpcError as any).code !== "PGRST202") {
+      return { data: null, error: rpcError };
+    }
+
     // Find the invite
     const { data: invite, error: inviteError } = await supabase
-      .from("team_invites")
+      .from("workspace_invites")
       .select("*")
-      .eq("invite_token", token)
+      .eq("token", token)
       .is("accepted_at", null)
       .gt("expires_at", new Date().toISOString())
       .single();
@@ -344,6 +398,33 @@ export async function acceptTeamInvite(
       };
     }
 
+    // If membership already exists, reuse it
+    const { data: existingMember, error: existingMemberError } = await supabase
+      .from("workspace_members")
+      .select("*")
+      .eq("workspace_id", invite.workspace_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (existingMemberError) {
+      return { data: null, error: existingMemberError };
+    }
+
+    if (existingMember) {
+      const { error: updateError } = await supabase
+        .from("workspace_invites")
+        .update({ accepted_at: new Date().toISOString(), status: "accepted" })
+        .eq("id", invite.id);
+
+      if (updateError) {
+        console.error("Failed to mark invite as accepted:", updateError);
+      }
+
+      await applyInviteScopes(existingMember.id, invite.scopes);
+
+      return { data: existingMember, error: null };
+    }
+
     // Create team member
     const memberData: TeamMemberInsert = {
       workspace_id: invite.workspace_id,
@@ -351,46 +432,55 @@ export async function acceptTeamInvite(
       role: invite.role,
       status: "active",
       invited_by: invite.invited_by,
-      joined_at: new Date().toISOString(),
     };
 
     const { data: member, error: memberError } = await supabase
-      .from("team_members")
+      .from("workspace_members")
       .insert(memberData)
       .select()
       .single();
 
     if (memberError) {
-      return { data: null, error: memberError };
-    }
+      if ((memberError as any).code === "23505") {
+        const { data: fallbackMember, error: fallbackError } = await supabase
+          .from("workspace_members")
+          .select("*")
+          .eq("workspace_id", invite.workspace_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-    const inviteScopes = Array.isArray(invite.scopes) ? invite.scopes : [];
-    if (inviteScopes.length > 0) {
-      const scopeRows = inviteScopes.map((scope) => ({
-        team_member_id: member.id,
-        scope_type: scope.scope_type,
-        scope_value: scope.scope_value,
-      }));
+        if (fallbackError || !fallbackMember) {
+          return { data: null, error: memberError };
+        }
 
-      const { error: scopesError } = await supabase
-        .from("member_scopes")
-        .insert(scopeRows);
+        const { error: updateError } = await supabase
+          .from("workspace_invites")
+          .update({ accepted_at: new Date().toISOString(), status: "accepted" })
+          .eq("id", invite.id);
 
-      if (scopesError) {
-        console.warn("Failed to add invite scopes:", scopesError);
+        if (updateError) {
+          console.error("Failed to mark invite as accepted:", updateError);
+        }
+
+        await applyInviteScopes(fallbackMember.id, invite.scopes);
+
+        return { data: fallbackMember, error: null };
       }
+      return { data: null, error: memberError };
     }
 
     // Mark invite as accepted
     const { error: updateError } = await supabase
-      .from("team_invites")
-      .update({ accepted_at: new Date().toISOString() })
+      .from("workspace_invites")
+      .update({ accepted_at: new Date().toISOString(), status: "accepted" })
       .eq("id", invite.id);
 
     if (updateError) {
       console.error("Failed to mark invite as accepted:", updateError);
       // Don't fail the whole operation if this fails
     }
+
+    await applyInviteScopes(member.id, invite.scopes);
 
     return { data: member, error: null };
   } catch (err) {
@@ -406,12 +496,12 @@ export async function getTeamInviteByToken(
 ): Promise<ApiResponse<TeamInviteWithInviter>> {
   try {
     const { data: invite, error } = await supabase
-      .from("team_invites")
+      .from("workspace_invites")
       .select("*")
-      .eq("invite_token", token)
+      .eq("token", token)
       .is("accepted_at", null)
       .gt("expires_at", new Date().toISOString())
-      .single();
+      .maybeSingle();
 
     if (error || !invite) {
       return { data: null, error: new Error("Invalid or expired invite") };
@@ -454,7 +544,7 @@ export async function deleteTeamMember(
 
     // Verify user has permission (workspace owner)
     const { data: member, error: memberError } = await supabase
-      .from("team_members")
+      .from("workspace_members")
       .select("workspace_id")
       .eq("id", memberId)
       .single();
@@ -463,20 +553,47 @@ export async function deleteTeamMember(
       return { data: null, error: new Error("Team member not found") };
     }
 
-    if (member.workspace_id !== user.id) {
-      return {
-        data: null,
-        error: new Error("Not authorized to remove this team member"),
-      };
+    const { data: currentMembership, error: currentMembershipError } = await supabase
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", member.workspace_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (currentMembershipError || !currentMembership) {
+      return { data: null, error: new Error("Not authorized to remove this team member") };
+    }
+
+    if (!["owner", "admin"].includes(currentMembership.role)) {
+      return { data: null, error: new Error("Not authorized to remove this team member") };
+    }
+
+    if (member.user_id === user.id || member.role === "owner") {
+      return { data: null, error: new Error("Cannot remove this team member") };
     }
 
     const { error } = await supabase
-      .from("team_members")
+      .from("workspace_members")
       .delete()
       .eq("id", memberId);
 
     if (error) {
       return { data: null, error };
+    }
+
+    // Remove any lingering invites for the same workspace/email.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("id", member.user_id)
+      .maybeSingle();
+
+    if (profile?.email) {
+      await supabase
+        .from("workspace_invites")
+        .delete()
+        .eq("workspace_id", member.workspace_id)
+        .eq("email", profile.email);
     }
 
     return { data: null, error: null };
@@ -502,7 +619,7 @@ export async function updateTeamMemberRole(
 
     // Verify user has permission (workspace owner)
     const { data: member, error: memberError } = await supabase
-      .from("team_members")
+      .from("workspace_members")
       .select("workspace_id")
       .eq("id", memberId)
       .single();
@@ -511,17 +628,29 @@ export async function updateTeamMemberRole(
       return { data: null, error: new Error("Team member not found") };
     }
 
-    if (member.workspace_id !== user.id) {
-      return {
-        data: null,
-        error: new Error("Not authorized to update this team member"),
-      };
+    const { data: currentMembership, error: currentMembershipError } = await supabase
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", member.workspace_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (currentMembershipError || !currentMembership) {
+      return { data: null, error: new Error("Not authorized to update this team member") };
+    }
+
+    if (!["owner", "admin"].includes(currentMembership.role)) {
+      return { data: null, error: new Error("Not authorized to update this team member") };
+    }
+
+    if (member.role === "owner") {
+      return { data: null, error: new Error("Cannot update the workspace owner role") };
     }
 
     const updateData: TeamMemberUpdate = { role };
 
     const { data: updated, error } = await supabase
-      .from("team_members")
+      .from("workspace_members")
       .update(updateData)
       .eq("id", memberId)
       .select()
@@ -529,6 +658,85 @@ export async function updateTeamMemberRole(
 
     if (error) {
       return { data: null, error };
+    }
+
+    return { data: updated, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Update a team member role and replace their scopes
+ */
+export async function updateTeamMemberAccess(
+  memberId: string,
+  role: TeamMember["role"],
+  scopes: Array<{ scope_type: MemberScope["scope_type"]; scope_value: string }>
+): Promise<ApiResponse<TeamMember>> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: new Error("Not authenticated") };
+    }
+
+    // Verify user has permission (workspace owner)
+    const { data: member, error: memberError } = await supabase
+      .from("workspace_members")
+      .select("workspace_id")
+      .eq("id", memberId)
+      .single();
+
+    if (memberError || !member) {
+      return { data: null, error: new Error("Team member not found") };
+    }
+
+    const { data: currentMembership, error: currentMembershipError } = await supabase
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", member.workspace_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (currentMembershipError || !currentMembership) {
+      return { data: null, error: new Error("Not authorized to update this team member") };
+    }
+
+    if (!["owner", "admin"].includes(currentMembership.role)) {
+      return { data: null, error: new Error("Not authorized to update this team member") };
+    }
+
+    if (member.role === "owner") {
+      return { data: null, error: new Error("Cannot update the workspace owner role") };
+    }
+
+    const updateData: TeamMemberUpdate = { role };
+
+    const { data: updated, error } = await supabase
+      .from("workspace_members")
+      .update(updateData)
+      .eq("id", memberId)
+      .select()
+      .single();
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    await supabase
+      .from("member_scopes")
+      .delete()
+      .eq("team_member_id", memberId);
+
+    if (scopes.length > 0) {
+      const scopesToInsert = scopes.map((scope) => ({
+        team_member_id: memberId,
+        scope_type: scope.scope_type,
+        scope_value: scope.scope_value,
+      }));
+      await supabase.from("member_scopes").insert(scopesToInsert);
     }
 
     return { data: updated, error: null };
@@ -553,7 +761,7 @@ export async function revokeTeamInvite(
 
     // Verify user has permission (workspace owner)
     const { data: invite, error: inviteError } = await supabase
-      .from("team_invites")
+      .from("workspace_invites")
       .select("workspace_id")
       .eq("id", inviteId)
       .single();
@@ -562,7 +770,17 @@ export async function revokeTeamInvite(
       return { data: null, error: new Error("Invite not found") };
     }
 
-    if (invite.workspace_id !== user.id) {
+    const { data: workspace, error: workspaceError } = await supabase
+      .from("workspaces")
+      .select("owner_user_id")
+      .eq("id", invite.workspace_id)
+      .maybeSingle();
+
+    if (workspaceError || !workspace) {
+      return { data: null, error: new Error("Workspace not found") };
+    }
+
+    if (workspace.owner_user_id !== user.id) {
       return {
         data: null,
         error: new Error("Not authorized to revoke this invite"),
@@ -570,7 +788,7 @@ export async function revokeTeamInvite(
     }
 
     const { error } = await supabase
-      .from("team_invites")
+      .from("workspace_invites")
       .delete()
       .eq("id", inviteId);
 
@@ -627,7 +845,7 @@ export async function addMemberScope(
 
     // Verify user has permission (workspace owner)
     const { data: member, error: memberError } = await supabase
-      .from("team_members")
+      .from("workspace_members")
       .select("workspace_id")
       .eq("id", scope.team_member_id)
       .single();
@@ -636,7 +854,17 @@ export async function addMemberScope(
       return { data: null, error: new Error("Team member not found") };
     }
 
-    if (member.workspace_id !== user.id) {
+    const { data: workspace, error: workspaceError } = await supabase
+      .from("workspaces")
+      .select("owner_user_id")
+      .eq("id", member.workspace_id)
+      .maybeSingle();
+
+    if (workspaceError || !workspace) {
+      return { data: null, error: new Error("Workspace not found") };
+    }
+
+    if (workspace.owner_user_id !== user.id) {
       return { data: null, error: new Error("Not authorized to add scopes") };
     }
 
@@ -676,7 +904,7 @@ export async function removeMemberScope(
       .select(
         `
         *,
-        team_member:team_members(workspace_id)
+        team_member:workspace_members(workspace_id)
       `
       )
       .eq("id", scopeId)
@@ -687,7 +915,17 @@ export async function removeMemberScope(
     }
 
     const teamMember = (scope as any).team_member;
-    if (teamMember.workspace_id !== user.id) {
+    const { data: workspace, error: workspaceError } = await supabase
+      .from("workspaces")
+      .select("owner_user_id")
+      .eq("id", teamMember.workspace_id)
+      .maybeSingle();
+
+    if (workspaceError || !workspace) {
+      return { data: null, error: new Error("Workspace not found") };
+    }
+
+    if (workspace.owner_user_id !== user.id) {
       return {
         data: null,
         error: new Error("Not authorized to remove this scope"),

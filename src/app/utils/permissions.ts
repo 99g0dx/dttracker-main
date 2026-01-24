@@ -1,6 +1,6 @@
 // Permission and access control utilities for DTTracker
 
-export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type WorkspaceRole = 'owner' | 'admin' | 'editor' | 'viewer';
 export type MemberStatus = 'active' | 'pending';
 export type ScopeType = 'workspace' | 'campaign' | 'calendar';
 export type AccessLevel = 'editor' | 'viewer';
@@ -343,8 +343,7 @@ export function canManageBilling(userId: number): boolean {
 export interface InviteData {
   email: string;
   name: string;
-  rolePreset: 'workspace_editor' | 'workspace_viewer' | 'calendar_editor' | 'calendar_viewer' | 'campaign_editor' | 'campaign_viewer';
-  campaignIds?: number[];
+  rolePreset: 'admin' | 'editor' | 'viewer';
   message?: string;
 }
 
@@ -353,12 +352,7 @@ export function createInvite(data: InviteData, invitedBy: number): TeamMember {
   const newMemberId = Date.now() + 1;
   
   // Determine role based on preset
-  let role: WorkspaceRole = 'member';
-  if (data.rolePreset.includes('workspace')) {
-    role = 'member'; // workspace access = member role
-  } else {
-    role = 'viewer'; // restricted access = viewer role by default
-  }
+  const role: WorkspaceRole = data.rolePreset;
   
   const member: TeamMember = {
     id: newMemberId,
@@ -377,7 +371,7 @@ export function createInvite(data: InviteData, invitedBy: number): TeamMember {
   const timestamp = new Date().toISOString();
   let scopeId = Date.now() + 100;
   
-  if (data.rolePreset === 'workspace_editor') {
+  if (data.rolePreset === 'admin' || data.rolePreset === 'editor') {
     saveMemberScope({
       id: scopeId++,
       workspaceId: 1,
@@ -386,7 +380,7 @@ export function createInvite(data: InviteData, invitedBy: number): TeamMember {
       scopeValue: 'editor',
       createdAt: timestamp,
     });
-  } else if (data.rolePreset === 'workspace_viewer') {
+  } else if (data.rolePreset === 'viewer') {
     saveMemberScope({
       id: scopeId++,
       workspaceId: 1,
@@ -395,47 +389,6 @@ export function createInvite(data: InviteData, invitedBy: number): TeamMember {
       scopeValue: 'viewer',
       createdAt: timestamp,
     });
-  } else if (data.rolePreset === 'calendar_editor') {
-    saveMemberScope({
-      id: scopeId++,
-      workspaceId: 1,
-      userId: newUserId,
-      scopeType: 'calendar',
-      scopeValue: 'editor',
-      createdAt: timestamp,
-    });
-  } else if (data.rolePreset === 'calendar_viewer') {
-    saveMemberScope({
-      id: scopeId++,
-      workspaceId: 1,
-      userId: newUserId,
-      scopeType: 'calendar',
-      scopeValue: 'viewer',
-      createdAt: timestamp,
-    });
-  } else if (data.rolePreset === 'campaign_editor' || data.rolePreset === 'campaign_viewer') {
-    const access = data.rolePreset === 'campaign_editor' ? 'editor' : 'viewer';
-    if (data.campaignIds && data.campaignIds.length > 0) {
-      data.campaignIds.forEach(campaignId => {
-        saveMemberScope({
-          id: scopeId++,
-          workspaceId: 1,
-          userId: newUserId,
-          scopeType: 'campaign',
-          scopeValue: `${campaignId}:${access}`,
-          createdAt: timestamp,
-        });
-        
-        // Also add to campaign_members for easier querying
-        saveCampaignMember({
-          id: scopeId++,
-          campaignId,
-          userId: newUserId,
-          access,
-          addedAt: timestamp,
-        });
-      });
-    }
   }
   
   return member;
@@ -557,7 +510,7 @@ export function createBulkInvites(data: BulkInviteData, invitedBy: number): Team
       action: 'invite_sent',
       targetUserId: member.userId,
       targetUserName: member.name,
-      details: `Invited as ${inviteData.rolePreset.replace('_', ' ')}`,
+      details: `Invited as ${inviteData.rolePreset}`,
     });
     
     // Add activity feed

@@ -4,6 +4,7 @@ import * as scrapingApi from '../lib/api/scraping';
 import type { PostInsert, PostUpdate, PostWithCreator } from '../lib/types/database';
 import { toast } from 'sonner';
 import { campaignsKeys } from './useCampaigns';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Query keys
 export const postsKeys = {
@@ -75,6 +76,7 @@ export function useCampaignMetricsTimeSeries(campaignId: string) {
  */
 export function useCreatePost() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (post: PostInsert) => {
@@ -91,7 +93,7 @@ export function useCreatePost() {
         // Invalidate metrics
         queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list (to update stats)
-        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
         toast.success('Post added successfully');
       }
     },
@@ -106,6 +108,7 @@ export function useCreatePost() {
  */
 export function useCreateManyPosts() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (posts: PostInsert[]) => {
@@ -123,7 +126,7 @@ export function useCreateManyPosts() {
         // Invalidate metrics
         queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list
-        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
         toast.success(`${data.length} posts imported successfully`);
       }
     },
@@ -138,6 +141,7 @@ export function useCreateManyPosts() {
  */
 export function useUpdatePost() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async ({ id, updates, campaignId }: { id: string; updates: PostUpdate; campaignId: string }) => {
@@ -173,7 +177,7 @@ export function useUpdatePost() {
         // Invalidate metrics
         queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list
-        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
         toast.success('Post updated successfully');
       }
     },
@@ -192,6 +196,7 @@ export function useUpdatePost() {
  */
 export function useDeletePost() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async ({ id, campaignId }: { id: string; campaignId: string }) => {
@@ -222,7 +227,7 @@ export function useDeletePost() {
       // Invalidate metrics
       queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       toast.success('Post deleted successfully');
     },
     onError: (error: Error, _variables, context) => {
@@ -240,6 +245,7 @@ export function useDeletePost() {
  */
 export function useDeleteAllPosts() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (campaignId: string) => {
@@ -255,7 +261,7 @@ export function useDeleteAllPosts() {
       // Invalidate metrics
       queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       toast.success('All posts deleted successfully');
     },
     onError: (error: Error) => {
@@ -270,6 +276,7 @@ export function useDeleteAllPosts() {
  */
 export function useAddPostWithScrape() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (post: PostInsert) => {
@@ -334,7 +341,7 @@ export function useAddPostWithScrape() {
       // Invalidate metrics
       queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       
       if (data.scraped) {
         toast.success('Post added and metrics scraped successfully');

@@ -25,13 +25,17 @@ export function useUserProfile() {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching profile:', error);
         throw error;
       }
       
+      if (!data) {
+        return null;
+      }
+
       return data as Profile;
     },
     enabled: !!user?.id,
@@ -99,4 +103,3 @@ export function useCompleteOnboarding() {
     },
   });
 }
-

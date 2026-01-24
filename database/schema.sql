@@ -259,7 +259,7 @@ CREATE TABLE IF NOT EXISTS public.team_members (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   workspace_id UUID NOT NULL, -- For now, this will be the owner's user_id
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('owner', 'admin', 'editor', 'viewer')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending')),
   invited_by UUID NOT NULL REFERENCES auth.users(id),
   invited_at TIMESTAMPTZ DEFAULT NOW(),
@@ -274,7 +274,7 @@ CREATE TABLE IF NOT EXISTS public.team_invites (
   workspace_id UUID NOT NULL,
   email TEXT NOT NULL,
   invited_by UUID NOT NULL REFERENCES auth.users(id),
-  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('owner', 'admin', 'editor', 'viewer')),
   invite_token TEXT NOT NULL UNIQUE,
   expires_at TIMESTAMPTZ NOT NULL,
   accepted_at TIMESTAMPTZ,

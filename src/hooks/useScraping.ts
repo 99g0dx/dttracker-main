@@ -5,12 +5,14 @@ import { postsKeys } from "./usePosts";
 import { campaignsKeys } from "./useCampaigns";
 import { addNotification } from "../lib/utils/notifications";
 import { subcampaignsKeys } from "./useSubcampaigns";
+import { useWorkspace } from "../contexts/WorkspaceContext";
 
 /**
  * Hook to scrape a single post
  */
 export function useScrapePost() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (params: {
@@ -41,7 +43,7 @@ export function useScrapePost() {
           queryKey: postsKeys.metrics(),
         }),
         queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
-        queryClient.refetchQueries({ queryKey: campaignsKeys.lists() }),
+        queryClient.refetchQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) }),
       ]);
 
       toast.success("Post scraped successfully");
@@ -86,6 +88,7 @@ export function useScrapePost() {
  */
 export function useScrapeAllPosts() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
     mutationFn: async (campaignId: string) => {
@@ -107,12 +110,12 @@ export function useScrapeAllPosts() {
           queryKey: postsKeys.metrics(),
         }),
         queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
-        queryClient.refetchQueries({ queryKey: campaignsKeys.lists() }),
+        queryClient.refetchQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) }),
       ]);
 
       // Get campaign name for notification
       const campaigns = queryClient.getQueryData(
-        campaignsKeys.lists()
+        campaignsKeys.lists(activeWorkspaceId)
       ) as any[];
       const campaign = campaigns?.find((c: any) => c.id === campaignId);
       const campaignName = campaign?.name || "Campaign";
