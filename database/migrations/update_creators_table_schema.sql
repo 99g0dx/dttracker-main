@@ -34,33 +34,29 @@ ON public.creators(platform, handle);
 
 -- Migrate existing data: populate workspace_creators from created_by_workspace_id
 -- This will only run if workspace_creators table exists
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables 
-    WHERE table_schema = 'public' AND table_name = 'workspace_creators'
-  ) THEN
-    INSERT INTO public.workspace_creators (workspace_id, creator_id, source, created_at)
-    SELECT 
-      COALESCE(created_by_workspace_id, user_id) as workspace_id,
-      c.id as creator_id,
-      CASE 
-        WHEN c.source_type = 'csv_import' THEN 'csv'
-        WHEN c.source_type = 'scraper_extraction' THEN 'scraper'
-        ELSE 'manual'
-      END as source,
-      c.created_at
-    FROM public.creators c
-    WHERE COALESCE(c.created_by_workspace_id, c.user_id) IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.workspace_creators wc
-        WHERE wc.creator_id = c.id
-          AND wc.workspace_id = COALESCE(c.created_by_workspace_id, c.user_id)
-      )
-    ON CONFLICT (workspace_id, creator_id) DO NOTHING;
-  END IF;
-END $$;
+INSERT INTO public.workspace_creators (workspace_id, creator_id, source, created_at)
+SELECT 
+  COALESCE(c.created_by_workspace_id, c.user_id) as workspace_id,
+  c.id as creator_id,
+  CASE 
+    WHEN c.source_type = 'csv_import' THEN 'csv'
+    WHEN c.source_type = 'scraper_extraction' THEN 'scraper'
+    ELSE 'manual'
+  END as source,
+  c.created_at
+FROM public.creators c
+WHERE COALESCE(c.created_by_workspace_id, c.user_id) IS NOT NULL
+  -- Ensure the referenced user/workspace actually exists to avoid FK violation
+  AND EXISTS (
+    SELECT 1 FROM public.workspaces w WHERE w.id = COALESCE(c.created_by_workspace_id, c.user_id)
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.workspace_creators wc
+    WHERE wc.creator_id = c.id
+      AND wc.workspace_id = COALESCE(c.created_by_workspace_id, c.user_id)
+  )
+ON CONFLICT (workspace_id, creator_id) DO NOTHING;
 
 -- Set created_by_workspace_id from user_id for existing data
 UPDATE public.creators

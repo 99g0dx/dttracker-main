@@ -713,9 +713,11 @@ export function CampaignShareView() {
                               );
                             })()}
                             {/* Status badge removed - not relevant for public viewers */}
-                            {post.creator && (
+                            {(post.creator || post.owner_username) && (
                               <span className="text-sm text-slate-300">
-                                {post.creator.name} ({post.creator.handle})
+                                {post.creator
+                                  ? `${post.creator.name} (${post.creator.handle})`
+                                  : `@${post.owner_username}`}
                               </span>
                             )}
                           </div>

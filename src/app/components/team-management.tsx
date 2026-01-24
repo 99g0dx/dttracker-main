@@ -34,6 +34,8 @@ import {
 import type { TeamRole, ScopeType } from '../../lib/types/database';
 import { BulkInviteModal } from './bulk-invite-modal';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useBillingSummary } from '../../hooks/useBilling';
+import { UpgradeModal } from './upgrade-modal';
 
 // Keep InviteData type for the modal
 export type InviteData = {
@@ -658,6 +660,9 @@ function InviteModal({
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  const { data: billing } = useBillingSummary();
 
   const handleSubmit = async () => {
     if (!email) {
@@ -667,6 +672,12 @@ function InviteModal({
 
     setError(null);
     setLoading(true);
+
+    if (billing && billing.seats_used >= billing.seats_total) {
+      setUpgradeOpen(true);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -718,6 +729,13 @@ function InviteModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <UpgradeModal
+        open={upgradeOpen}
+        title="Add More Seats"
+        message="You've reached your team seat limit. Upgrade to invite more teammates."
+        onClose={() => setUpgradeOpen(false)}
+        onUpgrade={() => (window.location.href = '/subscription')}
+      />
       <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <CardContent className="p-0">
           <div className="sticky top-0 bg-[#0D0D0D]/95 backdrop-blur-xl border-b border-white/[0.08] px-8 py-6 z-10">

@@ -18,6 +18,7 @@ import {
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
+import { UpgradeModal } from './upgrade-modal';
 
 interface CampaignCreateProps {
   onNavigate: (path: string) => void;
@@ -72,6 +73,8 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isUploading, setIsUploading] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
 
   const showParentSelect = Boolean(initialParentId);
   const { data: campaigns = [] } = useCampaigns();
@@ -174,6 +177,11 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
       console.error('Failed to create campaign:', error);
       // The mutation's onError handler will show the toast, but we can also set form-level error
       const errorMessage = error instanceof Error ? error.message : 'Failed to create campaign';
+      if (errorMessage.includes('UPGRADE_REQUIRED:campaign_limit_reached')) {
+        setUpgradeMessage('Upgrade to create more active campaigns.');
+        setUpgradeOpen(true);
+        return;
+      }
       setErrors({ ...errors, submit: errorMessage });
     } finally {
       setIsUploading(false);
@@ -195,6 +203,13 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
 
   return (
     <div className="space-y-6">
+      <UpgradeModal
+        open={upgradeOpen}
+        title="Upgrade Required"
+        message={upgradeMessage || 'Upgrade your plan to create more campaigns.'}
+        onClose={() => setUpgradeOpen(false)}
+        onUpgrade={() => onNavigate('/subscription')}
+      />
       {/* Header */}
       <div className="flex items-center gap-3 sm:gap-4">
         <button

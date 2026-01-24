@@ -738,7 +738,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         const searchLower = searchQuery.trim().toLowerCase();
         if (!searchLower) return true;
         const name = post.creator?.name?.toLowerCase() || "";
-        const handle = post.creator?.handle?.toLowerCase() || "";
+        const handle =
+          (post.creator?.handle || post.owner_username || "").toLowerCase();
         const postUrl = post.post_url?.toLowerCase() || "";
         const platform = post.platform?.toLowerCase() || "";
         const status = post.status?.toLowerCase() || "";
@@ -2746,7 +2747,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     {post.creator?.name || "Unknown"}
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    @{post.creator?.handle || "unknown"}
+                                    @{post.creator?.handle || post.owner_username || "unknown"}
                                   </div>
                                 </div>
                               </td>
@@ -2907,7 +2908,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 {post.creator?.name || "Unknown"}
                               </div>
                               <div className="text-xs text-slate-500">
-                                @{post.creator?.handle || "unknown"}
+                                @{post.creator?.handle || post.owner_username || "unknown"}
                               </div>
                             </div>
                           </td>

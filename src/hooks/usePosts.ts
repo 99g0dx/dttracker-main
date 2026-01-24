@@ -303,12 +303,17 @@ export function useAddPostWithScrape() {
             post: createdPost,
             scraped: false,
             scrapeError: scrapeResult.error.message,
+            creatorMatch: null,
           };
         }
 
         // Scraping succeeded - update post with metrics
         if (scrapeResult.data?.metrics) {
           const metrics = scrapeResult.data.metrics;
+          const ownerUsername =
+            scrapeResult.data.post?.ownerUsername ??
+            scrapeResult.data.metrics?.owner_username ??
+            null;
           await postsApi.update(createdPost.id, {
             views: metrics.views,
             likes: metrics.likes,
@@ -316,12 +321,18 @@ export function useAddPostWithScrape() {
             shares: metrics.shares,
             engagement_rate: metrics.engagement_rate,
             status: 'scraped',
+            ...(ownerUsername && { owner_username: ownerUsername }),
           });
         }
 
         return {
           post: createdPost,
           scraped: true,
+          ownerUsername:
+            scrapeResult.data?.post?.ownerUsername ||
+            scrapeResult.data?.metrics?.owner_username ||
+            null,
+          creatorMatch: scrapeResult.data?.creatorMatch || null,
         };
       } catch (scrapeError) {
         // Post was created but scraping failed - return post anyway
@@ -330,6 +341,8 @@ export function useAddPostWithScrape() {
           post: createdPost,
           scraped: false,
           scrapeError: scrapeError instanceof Error ? scrapeError.message : 'Unknown error',
+          ownerUsername: null,
+          creatorMatch: null,
         };
       }
     },
@@ -344,7 +357,21 @@ export function useAddPostWithScrape() {
       queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
       
       if (data.scraped) {
-        toast.success('Post added and metrics scraped successfully');
+        let message = 'Post added';
+        if (data.ownerUsername) {
+          message += `: @${data.ownerUsername}`;
+        }
+        if (data.creatorMatch?.matched) {
+          const creatorLabel = data.creatorMatch.creatorName || data.creatorMatch.creatorHandle;
+          if (data.creatorMatch.created) {
+            message += ` (creator @${creatorLabel} added to campaign)`;
+          } else {
+            message += ` (matched to ${creatorLabel})`;
+          }
+        } else if (!data.ownerUsername) {
+          message += ' and metrics scraped successfully';
+        }
+        toast.success(message);
       } else {
         const errorMessage = data.scrapeError || 'Unknown error';
         // Provide more helpful error messages

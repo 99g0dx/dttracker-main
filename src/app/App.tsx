@@ -62,7 +62,7 @@ const TeamManagement = React.lazy(() =>
   }))
 );
 const Subscription = React.lazy(() =>
-  import("./components/subscription").then((module) => ({
+  import("./components/subscription-v2").then((module) => ({
     default: module.Subscription,
   }))
 );

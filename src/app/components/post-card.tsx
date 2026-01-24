@@ -43,7 +43,8 @@ export const PostCard = React.memo(
     const rateValue =
       post.engagement_rate > 0 ? `${post.engagement_rate.toFixed(2)}%` : "-";
     const creatorName = post.creator?.name || "Unknown";
-    const creatorHandle = post.creator?.handle || "unknown";
+    const creatorHandle =
+      post.creator?.handle || post.owner_username || "unknown";
     const platformIcon = normalizePlatform(post.platform);
 
     return (

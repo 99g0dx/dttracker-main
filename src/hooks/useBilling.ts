@@ -1,22 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBillingSummary,
-  startTrial,
+  getBillingCatalog,
   createCheckout,
   cancelSubscription,
-  getPlans,
+  updateSeats,
   BillingSummary,
-  BillingPlan,
-  TrialResponse,
+  BillingCatalogResponse,
   CheckoutResponse,
   CancelResponse,
+  UpdateSeatsResponse,
 } from '../lib/api/billing';
+import { canAccessFeature, getEffectiveLimits, isWithinLimit, Feature, PlanLimits } from '../lib/entitlements';
 
 // Query keys
 export const billingKeys = {
   all: ['billing'] as const,
   summary: () => [...billingKeys.all, 'summary'] as const,
-  plans: () => [...billingKeys.all, 'plans'] as const,
+  catalog: () => [...billingKeys.all, 'catalog'] as const,
 };
 
 /**
@@ -34,26 +35,11 @@ export function useBillingSummary() {
 /**
  * Hook to fetch available plans
  */
-export function usePlans() {
-  return useQuery<BillingPlan[], Error>({
-    queryKey: billingKeys.plans(),
-    queryFn: getPlans,
-    staleTime: 1000 * 60 * 60, // 1 hour (plans don't change often)
-  });
-}
-
-/**
- * Hook to start a trial
- */
-export function useStartTrial() {
-  const queryClient = useQueryClient();
-
-  return useMutation<TrialResponse, Error, void>({
-    mutationFn: startTrial,
-    onSuccess: () => {
-      // Invalidate billing summary to refetch
-      queryClient.invalidateQueries({ queryKey: billingKeys.summary() });
-    },
+export function useBillingCatalog() {
+  return useQuery<BillingCatalogResponse, Error>({
+    queryKey: billingKeys.catalog(),
+    queryFn: getBillingCatalog,
+    staleTime: 1000 * 60 * 60,
   });
 }
 
@@ -63,10 +49,19 @@ export function useStartTrial() {
 export function useCreateCheckout() {
   const queryClient = useQueryClient();
 
-  return useMutation<CheckoutResponse, Error, { planSlug: string; callbackUrl?: string }>({
-    mutationFn: ({ planSlug, callbackUrl }) => createCheckout(planSlug, callbackUrl),
+  return useMutation<
+    CheckoutResponse,
+    Error,
+    {
+      workspaceId: string;
+      tier: "free" | "starter" | "pro" | "agency";
+      billingCycle: "monthly" | "yearly";
+      extraSeats: number;
+      callbackUrl?: string;
+    }
+  >({
+    mutationFn: (payload) => createCheckout(payload),
     onSuccess: (data) => {
-      // Redirect to Paystack checkout
       if (data.authorization_url) {
         window.location.href = data.authorization_url;
       }
@@ -80,10 +75,21 @@ export function useCreateCheckout() {
 export function useCancelSubscription() {
   const queryClient = useQueryClient();
 
-  return useMutation<CancelResponse, Error, void>({
-    mutationFn: cancelSubscription,
+  return useMutation<CancelResponse, Error, { workspaceId: string }>({
+    mutationFn: ({ workspaceId }) => cancelSubscription(workspaceId),
     onSuccess: () => {
-      // Invalidate billing summary to refetch
+      queryClient.invalidateQueries({ queryKey: billingKeys.summary() });
+    },
+  });
+}
+
+export function useUpdateSeats() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UpdateSeatsResponse, Error, { workspaceId: string; extraSeats: number }>({
+    mutationFn: ({ workspaceId, extraSeats }) =>
+      updateSeats({ workspaceId, extraSeats }),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: billingKeys.summary() });
     },
   });
@@ -92,24 +98,16 @@ export function useCancelSubscription() {
 /**
  * Hook to check if user has access to a specific feature
  */
-export function useHasFeature(feature: string): boolean {
+export function useHasFeature(feature: Feature): boolean {
   const { data: billing } = useBillingSummary();
-  if (!billing) return false;
-
-  // During trial or active subscription, check plan features
-  if (billing.is_paid) {
-    return billing.plan.features?.[feature] ?? false;
-  }
-
-  // Free plan features only
-  return billing.plan.features?.[feature] ?? false;
+  return canAccessFeature(billing, feature);
 }
 
 /**
  * Hook to check if user is within a resource limit
  */
 export function useIsWithinLimit(
-  resource: 'campaigns' | 'creators_per_campaign' | 'team_members',
+  resource: keyof PlanLimits,
   currentCount: number
 ): { isWithinLimit: boolean; limit: number; isLoading: boolean } {
   const { data: billing, isLoading } = useBillingSummary();
@@ -118,15 +116,11 @@ export function useIsWithinLimit(
     return { isWithinLimit: false, limit: 0, isLoading };
   }
 
-  const limit = billing.plan.limits?.[resource] ?? 0;
-
-  // -1 means unlimited
-  if (limit === -1) {
-    return { isWithinLimit: true, limit: -1, isLoading };
-  }
+  const limits = getEffectiveLimits(billing);
+  const limit = limits[resource];
 
   return {
-    isWithinLimit: currentCount < limit,
+    isWithinLimit: isWithinLimit(billing, resource, currentCount),
     limit,
     isLoading,
   };
@@ -144,8 +138,6 @@ export function useSubscriptionStatus() {
     status: billing?.subscription.status ?? 'free',
     isPaid: billing?.is_paid ?? false,
     isTrialing: billing?.is_trialing ?? false,
-    canStartTrial: billing?.can_start_trial ?? false,
-    daysUntilTrialEnd: billing?.days_until_trial_end ?? null,
     daysUntilPeriodEnd: billing?.days_until_period_end ?? null,
     plan: billing?.plan ?? null,
     subscription: billing?.subscription ?? null,

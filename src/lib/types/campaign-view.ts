@@ -146,7 +146,7 @@ export function normalizeSharedCampaignResponse(
     posts: response.posts.map((post, index) => ({
       id: post.id,
       campaign_id: response.campaign.id,
-      creator_id: post.creator?.id || "",
+      creator_id: post.creator?.id ?? null,
       platform: post.platform,
       post_url: post.postUrl,
       status: post.status as any,

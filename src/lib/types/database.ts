@@ -103,7 +103,7 @@ export interface Campaign {
 export interface Post {
   id: string;
   campaign_id: string;
-  creator_id: string;
+  creator_id: string | null;
   platform: Platform;
   post_url: string;
   posted_date: string | null;
@@ -116,6 +116,10 @@ export interface Post {
   last_scraped_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Platform-specific identifier (TikTok video ID, Instagram shortcode, etc.) */
+  external_id?: string | null;
+  /** Username of the post owner as returned by the scraper */
+  owner_username?: string | null;
 }
 
 export interface PostMetric {
@@ -265,7 +269,7 @@ export interface CampaignInsert {
 
 export interface PostInsert {
   campaign_id: string;
-  creator_id: string;
+  creator_id?: string | null;
   platform: Platform;
   post_url: string;
   posted_date?: string | null;
@@ -275,6 +279,8 @@ export interface PostInsert {
   comments?: number;
   shares?: number;
   engagement_rate?: number;
+  external_id?: string | null;
+  owner_username?: string | null;
 }
 
 export interface PostMetricInsert {
@@ -397,6 +403,9 @@ export interface PostUpdate {
   comments?: number;
   shares?: number;
   engagement_rate?: number;
+  external_id?: string | null;
+  owner_username?: string | null;
+  creator_id?: string | null;
 }
 
 export interface CampaignMemberUpdate {
@@ -449,7 +458,7 @@ export interface CampaignWithStats extends Campaign {
 }
 
 export interface PostWithCreator extends Post {
-  creator: Creator;
+  creator: Creator | null;
 }
 
 export interface PostWithRankings extends PostWithCreator {
@@ -463,7 +472,7 @@ export interface PostWithRankings extends PostWithCreator {
 }
 
 export interface PostWithMetrics extends Post {
-  creator: Creator;
+  creator: Creator | null;
   metrics_history: PostMetric[];
 }
 
