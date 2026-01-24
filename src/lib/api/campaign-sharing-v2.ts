@@ -433,6 +433,21 @@ export async function fetchSharedCampaignData(
         };
       }
       if (response.status === 401) {
+        // Distinguish between "Password required" and "Incorrect password"
+        const isPasswordRequired = errorMessage?.toLowerCase().includes("password required");
+        const isIncorrectPassword = errorMessage?.toLowerCase().includes("incorrect password");
+
+        if (isIncorrectPassword) {
+          return {
+            data: null,
+            error: Object.assign(
+              new Error("Incorrect password"),
+              { code: "INCORRECT_PASSWORD" }
+            ),
+          };
+        }
+
+        // Default to password required for 401
         return {
           data: null,
           error: Object.assign(

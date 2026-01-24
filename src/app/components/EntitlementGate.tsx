@@ -101,7 +101,7 @@ function UpgradePrompt({ message, onUpgrade }: UpgradePromptProps) {
           className="bg-primary hover:bg-primary/90 text-black"
         >
           <Crown className="w-4 h-4 mr-2" />
-          Upgrade to Pro
+          Upgrade
         </Button>
       </CardContent>
     </Card>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Switch } from "./ui/switch";
@@ -36,11 +36,14 @@ export function CampaignShareModal({
   const [expiryOption, setExpiryOption] = useState<ExpiryOption>("never");
   const [allowExport, setAllowExport] = useState(false);
   const [passwordProtected, setPasswordProtected] = useState(false);
+  const [linkHasPassword, setLinkHasPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const autoGenerateTimer = useRef<number | null>(null);
+  const lastAutoPassword = useRef<string | null>(null);
   const [copiedSubcampaignId, setCopiedSubcampaignId] = useState<string | null>(
     null
   );
@@ -64,6 +67,14 @@ export function CampaignShareModal({
   }, [campaignId]);
 
   useEffect(() => {
+    return () => {
+      if (autoGenerateTimer.current) {
+        window.clearTimeout(autoGenerateTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (isParent === false && shareMode !== "unified") {
       setShareMode("unified");
     }
@@ -80,6 +91,7 @@ export function CampaignShareModal({
         setShareUrl(result.data.shareUrl);
         setAllowExport(result.data.shareAllowExport);
         setPasswordProtected(result.data.sharePasswordProtected || false);
+        setLinkHasPassword(result.data.sharePasswordProtected || false);
 
         // Determine expiry option from expiresAt
         if (!result.data.shareExpiresAt) {
@@ -148,6 +160,7 @@ export function CampaignShareModal({
       } else if (result.data) {
         setShareEnabled(true);
         setShareUrl(result.data.shareUrl);
+        setLinkHasPassword(Boolean(passwordProtected && password.trim()));
         toast.success("View-only link enabled");
       }
     } catch (error) {
@@ -169,6 +182,7 @@ export function CampaignShareModal({
       } else {
         setShareEnabled(false);
         setShareUrl(null);
+        setLinkHasPassword(false);
         toast.success("View-only link disabled");
       }
     } catch (error) {
@@ -291,7 +305,10 @@ export function CampaignShareModal({
     setTimeout(() => setCopiedSubcampaignId(null), 2000);
   };
 
-  const handleUpdateSettings = async () => {
+  const handleUpdateSettings = async (overrides?: {
+    passwordProtected?: boolean;
+    password?: string;
+  }) => {
     if (shareMode !== "unified" || !shareEnabled) return;
 
     setIsSaving(true);
@@ -299,25 +316,96 @@ export function CampaignShareModal({
       // Disable and re-enable to update settings
       await sharingApi.disableCampaignShare(campaignId);
       const expiresInHours = getExpiryHours();
+      const nextPasswordProtected =
+        overrides?.passwordProtected ?? passwordProtected;
+      const nextPassword = overrides?.password ?? password;
 
       const result = await sharingApi.enableCampaignShare({
         campaignId,
         expiresInHours,
         allowExport,
-        password: passwordProtected && password.trim() ? password : null,
+        password: nextPasswordProtected && nextPassword.trim() ? nextPassword : null,
       });
 
       if (result.error) {
         toast.error(`Failed to update settings: ${result.error.message}`);
+        lastAutoPassword.current = null;
       } else if (result.data) {
         setShareUrl(result.data.shareUrl);
+        setLinkHasPassword(Boolean(nextPasswordProtected && nextPassword.trim()));
+        lastAutoPassword.current =
+          nextPasswordProtected && nextPassword.trim() ? nextPassword.trim() : null;
         toast.success("Settings updated");
       }
     } catch (error) {
       toast.error("Failed to update settings");
+      lastAutoPassword.current = null;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  useEffect(() => {
+    if (!shareEnabled || !passwordProtected || !password.trim()) {
+      lastAutoPassword.current = null;
+    }
+  }, [shareEnabled, passwordProtected, password]);
+
+  const queuePasswordUpdate = (nextPassword: string) => {
+    const trimmedPassword = nextPassword.trim();
+
+    if (
+      !shareEnabled ||
+      !passwordProtected ||
+      !trimmedPassword ||
+      isSaving ||
+      isRegenerating
+    ) {
+      return;
+    }
+
+    if (lastAutoPassword.current === trimmedPassword) {
+      return;
+    }
+
+    if (autoGenerateTimer.current) {
+      window.clearTimeout(autoGenerateTimer.current);
+    }
+
+    autoGenerateTimer.current = window.setTimeout(async () => {
+      lastAutoPassword.current = trimmedPassword;
+
+      // If link didn't have password before, regenerate to create new secure link
+      if (!linkHasPassword) {
+        setIsRegenerating(true);
+        try {
+          // Disable old link and create new one with password
+          await sharingApi.disableCampaignShare(campaignId);
+          const expiresInHours = getExpiryHours();
+          const result = await sharingApi.enableCampaignShare({
+            campaignId,
+            expiresInHours,
+            allowExport,
+            password: trimmedPassword,
+          });
+
+          if (result.error) {
+            toast.error(`Failed to regenerate link: ${result.error.message}`);
+          } else if (result.data) {
+            setShareUrl(result.data.shareUrl);
+            setLinkHasPassword(true);
+            toast.success("New password-protected link generated");
+          }
+        } catch (error) {
+          toast.error("Failed to regenerate link");
+        } finally {
+          setIsRegenerating(false);
+        }
+      } else {
+        // Link already has password, just update settings
+        handleUpdateSettings();
+      }
+    }, 600);
   };
 
   const showUnifiedControls = !isParent || shareMode === "unified";
@@ -421,49 +509,6 @@ export function CampaignShareModal({
 
                 {showSettings && (
                   <>
-                    {showUnifiedControls && shareEnabled && shareUrl && (
-                      <div className="space-y-3">
-                        <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                          Share Link
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg font-mono text-sm text-white break-all">
-                            {shareUrl}
-                          </div>
-                          <Button
-                            onClick={handleCopyLink}
-                            size="sm"
-                            variant="outline"
-                            className="flex-shrink-0"
-                          >
-                            {copied ? (
-                              <>
-                                <Check className="w-4 h-4 mr-2" />
-                                Copied
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-4 h-4 mr-2" />
-                                Copy
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                        <Button
-                          onClick={handleRegenerate}
-                          disabled={isRegenerating}
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                        >
-                          <RefreshCw
-                            className={`w-4 h-4 mr-2 ${isRegenerating ? "animate-spin" : ""}`}
-                          />
-                          {isRegenerating ? "Regenerating..." : "Regenerate Link"}
-                        </Button>
-                      </div>
-                    )}
-
                     {/* Expiry Setting */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
@@ -513,8 +558,16 @@ export function CampaignShareModal({
                           setPasswordProtected(checked);
                           if (!checked) {
                             setPassword("");
+                            lastAutoPassword.current = null;
+                            handleUpdateSettings({
+                              passwordProtected: false,
+                              password: "",
+                            });
+                            return;
                           }
-                          handleUpdateSettings();
+                          if (password.trim()) {
+                            queuePasswordUpdate(password);
+                          }
                         }}
                         disabled={isSaving}
                       />
@@ -529,14 +582,88 @@ export function CampaignShareModal({
                         <Input
                           type="password"
                           value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          onBlur={handleUpdateSettings}
+                          onChange={(e) => {
+                            const nextValue = e.target.value;
+                            setPassword(nextValue);
+                            queuePasswordUpdate(nextValue);
+                          }}
+                          onBlur={() => handleUpdateSettings()}
                           placeholder="Enter password"
                           className="h-10 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-500"
                         />
                         <p className="text-xs text-slate-400 mt-2">
                           Anyone with the link will need this password to access the dashboard
                         </p>
+
+                        {/* Share Link - shown below password when password protection is enabled */}
+                        {showUnifiedControls && shareEnabled && shareUrl && (
+                          <div className="mt-4 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg space-y-2">
+                            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                              Share Link
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 p-2 bg-white/[0.02] border border-white/[0.06] rounded font-mono text-xs text-white break-all">
+                                {shareUrl}
+                              </div>
+                              <Button
+                                onClick={handleCopyLink}
+                                size="sm"
+                                variant="outline"
+                                className="flex-shrink-0"
+                              >
+                                {copied ? (
+                                  <Check className="w-3 h-3" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Share Link - shown here when password protection is NOT enabled */}
+                    {showUnifiedControls && shareEnabled && shareUrl && !passwordProtected && (
+                      <div className="space-y-3">
+                        <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                          Share Link
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg font-mono text-sm text-white break-all">
+                            {shareUrl}
+                          </div>
+                          <Button
+                            onClick={handleCopyLink}
+                            size="sm"
+                            variant="outline"
+                            className="flex-shrink-0"
+                          >
+                            {copied ? (
+                              <>
+                                <Check className="w-4 h-4 mr-2" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-4 h-4 mr-2" />
+                                Copy
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <Button
+                          onClick={handleRegenerate}
+                          disabled={isRegenerating}
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                        >
+                          <RefreshCw
+                            className={`w-4 h-4 mr-2 ${isRegenerating ? "animate-spin" : ""}`}
+                          />
+                          {isRegenerating ? "Regenerating..." : "Regenerate Link"}
+                        </Button>
                       </div>
                     )}
 

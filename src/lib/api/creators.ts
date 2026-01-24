@@ -159,6 +159,11 @@ export async function getOrCreate(
       return { data: null, error: new Error('Not authenticated') };
     }
 
+    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
+    if (workspaceError || !workspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
+
     // First, try to find existing creator by platform + handle
     const { data: existing, error: fetchError } = await supabase
       .from('creators')
@@ -304,6 +309,11 @@ export async function getByCampaign(
       return { data: null, error: new Error('Not authenticated') };
     }
 
+    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
+    if (workspaceError || !workspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
+    }
+
     // Primary source: Query campaign_creators table
     const { data: rosterRows, error: rosterError } = await supabase
       .from('campaign_creators')
@@ -418,6 +428,11 @@ export async function createMany(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { data: null, error: new Error('Not authenticated') };
+    }
+
+    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
+    if (workspaceError || !workspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
     }
 
     const result: BulkCreateResult = {
@@ -842,8 +857,8 @@ export async function addCreatorsToCampaign(
       .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .in('creator_id', creatorIds);
 
-    if (creatorsError) {
-      return { data: null, error: creatorsError };
+    if (gateError) {
+      return { data: null, error: new Error(gateError.message) };
     }
 
     const workspaceCreatorIds = new Set((workspaceCreators || []).map((wc: any) => wc.creator_id));
@@ -1047,6 +1062,11 @@ export async function addCreatorsToMultipleCampaigns(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { data: null, error: new Error('Not authenticated') };
+    }
+
+    const { workspaceId, error: workspaceError } = await resolveWorkspaceId();
+    if (workspaceError || !workspaceId) {
+      return { data: null, error: workspaceError || new Error('Workspace not found') };
     }
 
     if (campaignIds.length === 0 || creatorIds.length === 0) {

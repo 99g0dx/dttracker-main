@@ -205,9 +205,19 @@ export function SharedCampaignDashboard() {
       const result = await sharingApi.fetchSharedCampaignData(token, providedPassword);
 
       if (result.error) {
+        const errorCode = (result.error as any)?.code;
+
         // Check if error is due to password requirement
-        if ((result.error as any)?.code === "PASSWORD_REQUIRED") {
+        if (errorCode === "PASSWORD_REQUIRED") {
           setRequiresPassword(true);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if password was incorrect
+        if (errorCode === "INCORRECT_PASSWORD") {
+          setRequiresPassword(true);
+          setPasswordError("Incorrect password. Please try again.");
           setIsLoading(false);
           return;
         }

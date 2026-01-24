@@ -15,6 +15,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { createTeamInvite } from '../../lib/api/team';
+import { useBillingSummary } from '../../hooks/useBilling';
+import { formatPrice } from '../../lib/api/billing';
 import { toast } from 'sonner';
 
 interface SettingsProps {
@@ -75,6 +77,7 @@ export function Settings({ onNavigate }: SettingsProps) {
   const { activeWorkspaceId } = useWorkspace();
   const [workspaceOwnerId, setWorkspaceOwnerId] = useState<string | null>(null);
   const [workspaceMetaLoading, setWorkspaceMetaLoading] = useState(false);
+  const { data: billing, isLoading: billingLoading } = useBillingSummary();
   const [profileForm, setProfileForm] = useState<ProfileFormState>({
     firstName: '',
     lastName: '',
@@ -101,6 +104,40 @@ export function Settings({ onNavigate }: SettingsProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const currentTier = billing?.subscription?.tier || billing?.plan?.tier || 'free';
+  const isAgencyRole =
+    billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency';
+  const isPaid = billing?.is_paid || billing?.is_trialing || currentTier !== 'free';
+  const planLabel = isAgencyRole
+    ? 'Agency Plan'
+    : `${formatLabel(currentTier)} Plan`;
+  const planSubtitle = isPaid
+    ? 'Your current subscription details'
+    : 'Upgrade to unlock powerful features';
+  const ctaLabel = isPaid ? 'Manage Subscription' : 'Upgrade to Pro';
+  const defaultLimits: Record<string, { campaigns: number | null; creators: number | null; analytics: string }> = {
+    free: { campaigns: 1, creators: 10, analytics: 'Basic' },
+    starter: { campaigns: 3, creators: 25, analytics: 'Standard' },
+    pro: { campaigns: 10, creators: 100, analytics: 'Advanced' },
+    agency: { campaigns: null, creators: null, analytics: 'Enterprise' },
+  };
+  const tierDefaults = defaultLimits[currentTier] || defaultLimits.free;
+  const campaignLimitValue =
+    billing?.plan?.max_active_campaigns ?? tierDefaults.campaigns;
+  const creatorLimitValue =
+    billing?.plan?.max_creators_per_campaign ?? tierDefaults.creators;
+  const analyticsLabel = tierDefaults.analytics;
+  const formatLimit = (value: number | null) =>
+    value === null ? 'Unlimited' : value.toString();
+  const billingCycle = billing?.subscription?.billing_cycle || 'monthly';
+  const planPriceLabel = billingLoading
+    ? '--'
+    : formatPrice(billing?.plan?.base_price_cents ?? 0, 'USD');
+  const planCycleLabel = billingCycle === 'yearly' ? 'Yearly' : 'Monthly';
+  const invoiceHint = isPaid
+    ? 'Your invoices will appear after the next successful charge.'
+    : 'Upgrade to Pro to see your invoices here';
 
   const resolveWorkspaceId = async () => {
     if (!user?.id) return null;
@@ -514,30 +551,40 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <Crown className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-white">Free Plan</h3>
-                <p className="text-sm text-slate-400">Upgrade to unlock powerful features</p>
+                <h3 className="text-base font-semibold text-white">
+                  {billingLoading ? 'Loading Plan...' : planLabel}
+                </h3>
+                <p className="text-sm text-slate-400">
+                  {billingLoading ? 'Fetching subscription details' : planSubtitle}
+                </p>
               </div>
             </div>
             <Button 
               onClick={() => onNavigate('/subscription')}
               className="min-h-[44px] h-11 px-4 bg-primary hover:bg-primary/90 text-black w-full sm:w-auto"
             >
-              Upgrade to Pro
+              {ctaLabel}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
           <div className="mt-4 p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-semibold text-white">2</div>
+                <div className="text-2xl font-semibold text-white">
+                  {billingLoading ? '--' : formatLimit(campaignLimitValue)}
+                </div>
                 <div className="text-xs text-slate-500">Campaign Limit</div>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-white">5</div>
+                <div className="text-2xl font-semibold text-white">
+                  {billingLoading ? '--' : formatLimit(creatorLimitValue)}
+                </div>
                 <div className="text-xs text-slate-500">Creators per Campaign</div>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-slate-400">Basic</div>
+                <div className="text-2xl font-semibold text-slate-400">
+                  {billingLoading ? '--' : analyticsLabel}
+                </div>
                 <div className="text-xs text-slate-500">Analytics</div>
               </div>
             </div>
@@ -797,10 +844,18 @@ export function Settings({ onNavigate }: SettingsProps) {
           <div className="space-y-3">
             <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
               <div>
-                <div className="font-medium text-white mb-1">Free Plan</div>
-                <div className="text-sm text-slate-400">Current plan • No charges</div>
+                <div className="font-medium text-white mb-1">
+                  {billingLoading ? 'Loading Plan...' : planLabel}
+                </div>
+                <div className="text-sm text-slate-400">
+                  {billingLoading
+                    ? 'Fetching billing details'
+                    : `${isPaid ? 'Current plan' : 'Free plan'} • ${planCycleLabel} billing`}
+                </div>
               </div>
-              <div className="text-lg font-semibold text-white">$0.00</div>
+              <div className="text-lg font-semibold text-white">
+                {billingLoading ? '--' : planPriceLabel}
+              </div>
             </div>
 
             <div className="p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
@@ -810,7 +865,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                   <CreditCard className="w-6 h-6 text-slate-600" />
                 </div>
                 <p className="text-sm text-slate-500">No payment history available</p>
-                <p className="text-xs text-slate-600 mt-1">Upgrade to Pro to see your invoices here</p>
+                <p className="text-xs text-slate-600 mt-1">{invoiceHint}</p>
               </div>
             </div>
           </div>
