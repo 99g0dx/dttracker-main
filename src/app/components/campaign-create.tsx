@@ -161,6 +161,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
         end_date: formData.endDate || null,
         notes: formData.notes || null,
         parent_campaign_id: parentCampaignId || null,
+        user_id: ''
       };
 
       // Create campaign
