@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name   TEXT,
   phone       TEXT,
   avatar_url  TEXT,
+  agency_role TEXT CHECK (agency_role IN ('agency', 'super_agency')),
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -77,6 +78,20 @@ $$;
 
 -- 3) Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Helper for agency bypass checks
+CREATE OR REPLACE FUNCTION public.has_agency_role(target_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = target_user_id
+      AND p.agency_role IN ('agency', 'super_agency')
+  );
+$$;
 
 -- 4) Profiles Policies (create only if missing)
 
@@ -208,9 +223,11 @@ CREATE TABLE IF NOT EXISTS public.campaigns (
 CREATE TABLE IF NOT EXISTS public.posts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   campaign_id UUID NOT NULL REFERENCES public.campaigns(id) ON DELETE CASCADE,
-  creator_id UUID NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  creator_id UUID REFERENCES public.creators(id) ON DELETE CASCADE,
   platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'instagram', 'youtube', 'twitter', 'facebook')),
   post_url TEXT NOT NULL,
+  external_id TEXT,
+  owner_username TEXT,
   posted_date DATE,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'scraped', 'failed', 'manual', 'scraping')),
   views INTEGER DEFAULT 0,
@@ -507,6 +524,7 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_share_token ON public.campaigns(share_t
 CREATE INDEX IF NOT EXISTS idx_posts_campaign_id ON public.posts(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_posts_creator_id ON public.posts(creator_id);
 CREATE INDEX IF NOT EXISTS idx_posts_platform ON public.posts(platform);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_platform_external_id ON public.posts(platform, external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_posts_status ON public.posts(status);
 CREATE INDEX IF NOT EXISTS idx_post_metrics_post_id ON public.post_metrics(post_id);
 CREATE INDEX IF NOT EXISTS idx_post_metrics_scraped_at ON public.post_metrics(scraped_at);

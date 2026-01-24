@@ -189,7 +189,8 @@ export function CampaignPostsSection({
         const searchLower = searchQuery.trim().toLowerCase();
         if (!searchLower) return true;
         const name = post.creator?.name?.toLowerCase() || "";
-        const handle = post.creator?.handle?.toLowerCase() || "";
+        const handle =
+          (post.creator?.handle || post.owner_username || "").toLowerCase();
         const postUrl = post.post_url?.toLowerCase() || "";
         const platform = post.platform?.toLowerCase() || "";
         const status = post.status?.toLowerCase() || "";
@@ -754,7 +755,7 @@ export function CampaignPostsSection({
                                     {post.creator?.name || "Unknown"}
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    @{post.creator?.handle || "unknown"}
+                                    @{post.creator?.handle || post.owner_username || "unknown"}
                                   </div>
                                 </div>
                               </td>
@@ -894,7 +895,7 @@ export function CampaignPostsSection({
                                 {post.creator?.name || "Unknown"}
                               </div>
                               <div className="text-xs text-slate-500">
-                                @{post.creator?.handle || "unknown"}
+                                @{post.creator?.handle || post.owner_username || "unknown"}
                               </div>
                             </div>
                           </td>

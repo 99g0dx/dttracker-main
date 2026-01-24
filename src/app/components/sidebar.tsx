@@ -1,15 +1,17 @@
 import React, { useId } from 'react';
-import { LayoutDashboard, FileText, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut, Music } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
 import { getCurrentUser, canAccessCalendar, canManageTeam, hasWorkspaceScope } from '../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBillingSummary } from '../../hooks/useBilling';
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ReactNode;
+  tag?: string;
   requiredPermission?: (userId: number) => boolean;
 }
 
@@ -17,6 +19,12 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: <LayoutDashboard className="w-5 h-5" /> },
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
+  {
+    name: 'Sound Tracking',
+    href: '/sounds',
+    icon: <Music className="w-5 h-5" />,
+    tag: 'Coming soon',
+  },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
   { 
     name: 'Calendar', 
@@ -55,6 +63,7 @@ const getInitial = (name: string | null | undefined, email: string | null | unde
 export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
   const currentUser = getCurrentUser();
   const { user } = useAuth();
+  const { data: billing } = useBillingSummary();
   // Filter navigation items based on permissions
   const filteredNavItems = navItems.filter(item => {
     if (!item.requiredPermission) return true;
@@ -170,7 +179,14 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                     )}>
                       {item.icon}
                     </span>
-                    <span>{item.name}</span>
+                    <div className="flex-1 flex items-center justify-between min-w-0">
+                      <span>{item.name}</span>
+                      {item.tag && (
+                        <span className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 rounded px-1.5 py-0.5 whitespace-nowrap">
+                          {item.tag}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 </li>
               );
@@ -193,7 +209,13 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium text-white truncate">{userName}</p>
-              <p className="text-[11px] text-slate-500 truncate">Free Plan</p>
+              <p className="text-[11px] text-slate-500 truncate">
+                {billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency'
+                  ? 'Agency'
+                  : billing?.plan?.tier
+                    ? `${billing.plan.tier.charAt(0).toUpperCase() + billing.plan.tier.slice(1)} Plan`
+                    : 'Free Plan'}
+              </p>
             </div>
           </div>
           <button 

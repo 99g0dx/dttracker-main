@@ -1,4 +1,12 @@
-import { BillingSummary } from './api/billing';
+import { BillingSummary, AgencyRole } from './api/billing';
+
+/**
+ * Check if user has an agency role that bypasses all billing restrictions
+ */
+export function hasAgencyBypass(billing: BillingSummary | null | undefined): boolean {
+  if (!billing) return false;
+  return billing.agency_role === 'agency' || billing.agency_role === 'super_agency';
+}
 
 /**
  * Plan limits configuration
@@ -14,20 +22,25 @@ export interface PlanLimits {
  * Default limits for each plan
  */
 const DEFAULT_LIMITS: Record<string, PlanLimits> = {
+  free: {
+    campaigns: 1,
+    creators_per_campaign: 10,
+    team_members: 1,
+  },
   starter: {
-    campaigns: 2,
-    creators_per_campaign: 5,
+    campaigns: 3,
+    creators_per_campaign: 25,
     team_members: 1,
   },
   pro: {
-    campaigns: -1, // unlimited
-    creators_per_campaign: -1, // unlimited
-    team_members: -1, // unlimited
+    campaigns: 10,
+    creators_per_campaign: 100,
+    team_members: 5,
   },
   agency: {
     campaigns: -1,
     creators_per_campaign: -1,
-    team_members: -1,
+    team_members: 15,
   },
 };
 
@@ -46,11 +59,11 @@ export type Feature =
   | 'data_export';
 
 const DEFAULT_FEATURES: Record<string, Feature[]> = {
-  starter: ['basic_analytics', 'data_export'],
+  free: ['basic_analytics', 'data_export'],
+  starter: ['basic_analytics', 'automated_scraping', 'data_export'],
   pro: [
     'basic_analytics',
     'advanced_analytics',
-    'api_access',
     'team_collaboration',
     'automated_scraping',
     'custom_reports',
@@ -74,7 +87,7 @@ const DEFAULT_FEATURES: Record<string, Feature[]> = {
  * Get the effective plan slug based on subscription status
  */
 export function getEffectivePlanSlug(billing: BillingSummary | null | undefined): string {
-  if (!billing) return 'starter';
+  if (!billing) return 'free';
 
   // If paid or trialing, use the subscription's plan
   if (billing.is_paid || billing.is_trialing) {
@@ -82,7 +95,7 @@ export function getEffectivePlanSlug(billing: BillingSummary | null | undefined)
   }
 
   // Default to starter/free plan
-  return billing.plan?.slug || 'starter';
+  return billing.plan?.tier || 'free';
 }
 
 /**
@@ -91,16 +104,24 @@ export function getEffectivePlanSlug(billing: BillingSummary | null | undefined)
 export function getEffectiveLimits(billing: BillingSummary | null | undefined): PlanLimits {
   const planSlug = getEffectivePlanSlug(billing);
 
-  // Check if plan has custom limits from database
-  if (billing?.plan?.limits) {
+  if (billing?.plan) {
     return {
-      campaigns: billing.plan.limits.campaigns ?? DEFAULT_LIMITS[planSlug]?.campaigns ?? 2,
-      creators_per_campaign: billing.plan.limits.creators_per_campaign ?? DEFAULT_LIMITS[planSlug]?.creators_per_campaign ?? 5,
-      team_members: billing.plan.limits.team_members ?? DEFAULT_LIMITS[planSlug]?.team_members ?? 1,
+      campaigns:
+        billing.plan.max_active_campaigns ??
+        DEFAULT_LIMITS[planSlug]?.campaigns ??
+        1,
+      creators_per_campaign:
+        billing.plan.max_creators_per_campaign ??
+        DEFAULT_LIMITS[planSlug]?.creators_per_campaign ??
+        10,
+      team_members:
+        billing.subscription?.total_seats ??
+        DEFAULT_LIMITS[planSlug]?.team_members ??
+        1,
     };
   }
 
-  return DEFAULT_LIMITS[planSlug] || DEFAULT_LIMITS.starter;
+  return DEFAULT_LIMITS[planSlug] || DEFAULT_LIMITS.free;
 }
 
 /**
@@ -110,13 +131,19 @@ export function canAccessFeature(
   billing: BillingSummary | null | undefined,
   feature: Feature
 ): boolean {
-  if (!billing) return DEFAULT_FEATURES.starter.includes(feature);
+  // Agency/super_agency bypass - full access to all features
+  if (hasAgencyBypass(billing)) return true;
+
+  if (!billing) return DEFAULT_FEATURES.free.includes(feature);
 
   const planSlug = getEffectivePlanSlug(billing);
 
-  // Check database features first
-  if (billing.plan?.features && feature in billing.plan.features) {
-    return billing.plan.features[feature] === true;
+  if (feature === 'api_access') {
+    return billing.plan?.api_access ?? false;
+  }
+
+  if (feature === 'white_label') {
+    return billing.plan?.white_label ?? false;
   }
 
   // Fall back to default features
@@ -131,6 +158,9 @@ export function isWithinLimit(
   resource: keyof PlanLimits,
   currentCount: number
 ): boolean {
+  // Agency/super_agency bypass - unlimited everything
+  if (hasAgencyBypass(billing)) return true;
+
   const limits = getEffectiveLimits(billing);
   const limit = limits[resource];
 
@@ -171,6 +201,9 @@ export function getRemainingQuota(
  * Check if subscription is in a state that allows paid features
  */
 export function hasPaidAccess(billing: BillingSummary | null | undefined): boolean {
+  // Agency/super_agency bypass - always has paid access
+  if (hasAgencyBypass(billing)) return true;
+
   if (!billing) return false;
   return billing.is_paid || billing.is_trialing;
 }
@@ -193,10 +226,6 @@ export function shouldShowUpgradePrompt(billing: BillingSummary | null | undefin
   if (!billing.is_paid && !billing.is_trialing) return true;
 
   // Show upgrade if trial is about to end (less than 3 days)
-  if (billing.is_trialing && billing.days_until_trial_end !== null && billing.days_until_trial_end <= 3) {
-    return true;
-  }
-
   return false;
 }
 
@@ -205,9 +234,9 @@ export function shouldShowUpgradePrompt(billing: BillingSummary | null | undefin
  */
 export function getLimitReachedMessage(resource: keyof PlanLimits): string {
   const messages: Record<keyof PlanLimits, string> = {
-    campaigns: "You've reached your campaign limit. Upgrade to Pro for unlimited campaigns.",
-    creators_per_campaign: "You've reached the creator limit for this campaign. Upgrade to Pro for unlimited creators.",
-    team_members: "You've reached your team member limit. Upgrade to Pro for unlimited team members.",
+    campaigns: "You've reached your campaign limit. Upgrade to increase active campaigns.",
+    creators_per_campaign: "You've reached the creator limit for this campaign. Upgrade to add more creators.",
+    team_members: "You've reached your team seat limit. Upgrade to add more teammates.",
   };
   return messages[resource];
 }
@@ -219,11 +248,11 @@ export function getFeatureLockedMessage(feature: Feature): string {
   const messages: Record<Feature, string> = {
     basic_analytics: 'Basic analytics are included in all plans.',
     advanced_analytics: 'Advanced analytics are available on Pro and Agency plans.',
-    api_access: 'API access is available on Pro and Agency plans.',
-    team_collaboration: 'Team collaboration is available on Pro and Agency plans.',
+    api_access: 'API access is available on Agency plans.',
+    team_collaboration: 'Team collaboration is available on paid plans.',
     white_label: 'White-label reports are available on Agency plans.',
     priority_support: 'Priority support is available on Pro and Agency plans.',
-    automated_scraping: 'Automated post scraping is available on Pro and Agency plans.',
+    automated_scraping: 'Automated post scraping is available on paid plans.',
     custom_reports: 'Custom reports are available on Pro and Agency plans.',
     data_export: 'Data export is included in all plans.',
   };

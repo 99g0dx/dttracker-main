@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import {
+  extractApifyItems,
+  pickFirstInstagramItem,
+  normalizeInstagramScrapeItem,
+  getInstagramViewDebug,
+} from "../_shared/apify-instagram.ts";
+import { handlesMatch, normalizeHandle } from "../_shared/handle-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,29 +15,14 @@ const corsHeaders = {
 };
 
 // ============================================================
-// API CONFIGURATION - UPDATE THESE WITH YOUR RAPIDAPI ENDPOINTS
+// API CONFIGURATION
 // ============================================================
-// To find your API endpoints:
-// 1. Go to https://rapidapi.com/developer/dashboard
-// 2. Click on each API you're subscribed to
-// 3. Look for "Base URL" and "API Host" in the documentation
-// 4. Update the values below
-
-// TikTok API Configuration
-// API Name: "Tiktok Data Api"
-const TIKTOK_API_BASE_URL = "https://tiktok-data-api2.p.rapidapi.com";
-const TIKTOK_API_HOST = "tiktok-data-api2.p.rapidapi.com";
-const TIKTOK_API_ENDPOINT = "/video/detail"; // Uses aweme_id parameter
-
-// Instagram API Configuration
-// API Name: "Instagram Scraper Stable API"
-const INSTAGRAM_API_BASE_URL =
-  "https://instagram-scraper-stable-api.p.rapidapi.com";
-const INSTAGRAM_API_HOST = "instagram-scraper-stable-api.p.rapidapi.com";
-const INSTAGRAM_API_ENDPOINT = "/get_media_data_v2.php"; // Uses media_code parameter
-
-// Twitter/X API Configuration
-// API Name: "Twttr API"
+// Primary: Apify actors for TikTok and Instagram
+// - APIFY_TOKEN: Your Apify API token
+// - Actors: clockworks~tiktok-scraper, apify~instagram-scraper
+//
+// RapidAPI (Twitter/X only):
+// - RAPIDAPI_KEY: Your RapidAPI key
 const TWITTER_API_BASE_URL = "https://twitter241.p.rapidapi.com";
 const TWITTER_API_HOST = "twitter241.p.rapidapi.com";
 const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
@@ -49,609 +41,146 @@ interface ScrapedMetrics {
   comments: number;
   shares: number;
   engagement_rate: number;
+  /** Username of the post owner (extracted from scraper response) */
+  owner_username?: string | null;
 }
 
 /**
  * Scrape TikTok post metrics using RapidAPI
  * API: TikTok Video No Watermark by Toolbench RapidAPI
  */
-/**
- * Expands a shortened TikTok URL (vm.tiktok.com or vt.tiktok.com) to its full URL
- */
-async function expandShortenedUrl(url: string): Promise<string> {
-  try {
-    console.log("🔗 Expanding shortened URL:", url);
-    const response = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-    });
-    const expandedUrl = response.url;
-    console.log("✅ Expanded to:", expandedUrl);
-    return expandedUrl;
-  } catch (error) {
-    console.error("❌ Failed to expand URL:", error);
-    throw new Error(
-      "Failed to expand shortened URL. The link may be expired or invalid. " +
-        "Please provide the full TikTok URL format: https://www.tiktok.com/@username/video/VIDEO_ID"
-    );
-  }
-}
 
 async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
   try {
-    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
+    const apifyToken = Deno.env.get("APIFY_TOKEN");
+    const apifyActorId =
+      Deno.env.get("APIFY_TIKTOK_ACTOR_ID") ?? "clockworks~tiktok-scraper";
 
-    console.log("=== TikTok Scraping ===");
+    console.log("=== TikTok Scraping (Apify) ===");
     console.log("Post URL:", postUrl);
-    console.log("RapidAPI Key present:", !!rapidApiKey);
-    console.log("RapidAPI Key length:", rapidApiKey?.length || 0);
+    console.log("Apify token present:", !!apifyToken);
+    console.log("Apify actor:", apifyActorId);
 
-    if (!rapidApiKey) {
-      console.warn("RAPIDAPI_KEY not configured, returning mock data");
-      // Return mock data for development
-      return {
-        views: Math.floor(Math.random() * 100000) + 10000,
-        likes: Math.floor(Math.random() * 10000) + 1000,
-        comments: Math.floor(Math.random() * 500) + 50,
-        shares: Math.floor(Math.random() * 1000) + 100,
-        engagement_rate: 0,
-      };
+    if (!apifyToken) {
+      throw new Error(
+        "APIFY_TOKEN not configured. Please set the APIFY_TOKEN secret in Supabase Edge Functions."
+      );
     }
 
-    // TikTok Data API (RapidAPI) - "Tiktok Data Api"
-    console.log("Calling TikTok API...");
-
-    // Extract aweme_id from TikTok URL
-    // TikTok URLs can come in various formats:
-    // - https://www.tiktok.com/@user/video/1234567890
-    // - https://tiktok.com/@user/video/1234567890
-    // - https://m.tiktok.com/@user/video/1234567890
-    // - tiktok.com/@user/video/1234567890 (no protocol)
-    // - https://vm.tiktok.com/ABC123/ (shortened - will need to handle differently)
-    let awemeId: string | null = null;
-
-    // Normalize URL - ensure it has a protocol for parsing
     let normalizedUrl = postUrl.trim();
     if (
       !normalizedUrl.startsWith("http://") &&
       !normalizedUrl.startsWith("https://")
     ) {
-      normalizedUrl = `https://${normalizedUrl}`;
+      normalizedUrl = "https://" + normalizedUrl;
     }
 
-    // Auto-expand shortened URLs before extraction
-    if (
-      normalizedUrl.includes("vm.tiktok.com") ||
-      normalizedUrl.includes("vt.tiktok.com")
-    ) {
-      console.log("📍 Detected shortened TikTok URL, expanding...");
-      try {
-        normalizedUrl = await expandShortenedUrl(normalizedUrl);
-        console.log("🎯 Expanded URL format:", normalizedUrl);
-        console.log("🎯 URL pathname:", new URL(normalizedUrl).pathname);
-      } catch (expandError) {
-        console.warn(
-          "⚠️ Failed to expand shortened URL, continuing with original:",
-          expandError
-        );
-        // Continue with original URL - might still be parseable
-      }
-    }
+    const apifyUrl =
+      "https://api.apify.com/v2/acts/" +
+      encodeURIComponent(apifyActorId) +
+      "/run-sync-get-dataset-items?token=" +
+      encodeURIComponent(apifyToken);
 
-    // Check if expanded URL is still in /t/ short format and needs second expansion
-    if (normalizedUrl.includes("/t/") && normalizedUrl.includes("tiktok.com")) {
-      try {
-        const urlCheck = new URL(normalizedUrl);
-        // Only expand if /t/ is in the pathname (not just anywhere in the URL)
-        if (urlCheck.pathname.includes("/t/")) {
-          console.log("🔄 Detected /t/ short format, expanding again...");
-          normalizedUrl = await expandShortenedUrl(normalizedUrl);
-          console.log("✅ Final expanded URL:", normalizedUrl);
-        }
-      } catch (secondExpandError) {
-        console.warn(
-          "⚠️ Failed to expand /t/ format URL, continuing:",
-          secondExpandError
-        );
-      }
-    }
+    // clockworks/tiktok-scraper input format
+    const input = {
+      postURLs: [normalizedUrl],
+      maxProfilesPerQuery: 1,
+      resultsPerPage: 1,
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: false,
+      shouldDownloadSubtitles: false,
+      shouldDownloadSlideshowImages: false,
+    };
 
-    // Log the URL we're trying to parse (for debugging)
-    console.log("🔍 Parsing TikTok URL:", normalizedUrl);
-    console.log("🔍 URL length:", normalizedUrl.length);
-    console.log("🔍 Contains 'video':", normalizedUrl.includes("video"));
-    console.log(
-      "🔍 Contains 'tiktok':",
-      normalizedUrl.toLowerCase().includes("tiktok")
-    );
-
-    let urlObj: URL | null = null;
-    let pathname: string = "";
-
-    // Try to parse URL, but continue even if it fails
-    try {
-      urlObj = new URL(normalizedUrl);
-      pathname = urlObj.pathname;
-      console.log("🔍 Parsed pathname:", pathname);
-      console.log("🔍 Parsed search params:", urlObj.search);
-      console.log("🔍 Parsed hash:", urlObj.hash);
-    } catch (urlParseError) {
-      console.warn(
-        "⚠️ URL parsing failed, will try raw string extraction:",
-        urlParseError
-      );
-      // Continue - we'll try patterns that work on raw strings
-    }
-
-    // Pattern 1: Standard /video/(\d+) from pathname (if URL parsed successfully)
-    if (!awemeId && pathname) {
-      const videoPattern1 = pathname.match(/\/video\/(\d+)(?:\/|$|\?|#)/i);
-      if (videoPattern1 && videoPattern1[1]) {
-        awemeId = videoPattern1[1];
-        console.log("✅ Matched Pattern 1: /video/(\\d+) from pathname");
-      }
-    }
-
-    // Pattern 2: /@username/video/(\d+) from pathname
-    if (!awemeId && pathname) {
-      const videoPattern2 = pathname.match(
-        /\/@[^\/]+\/video\/(\d+)(?:\/|$|\?|#)/i
-      );
-      if (videoPattern2 && videoPattern2[1]) {
-        awemeId = videoPattern2[1];
-        console.log(
-          "✅ Matched Pattern 2: /@username/video/(\\d+) from pathname"
-        );
-      }
-    }
-
-    // Pattern 3: /username/video/(\d+) - without @ symbol
-    if (!awemeId && pathname) {
-      const videoPattern3 = pathname.match(
-        /\/([^\/]+)\/video\/(\d+)(?:\/|$|\?|#)/i
-      );
-      if (
-        videoPattern3 &&
-        videoPattern3[2] &&
-        !videoPattern3[1].startsWith("@")
-      ) {
-        const reservedPaths = [
-          "embed",
-          "share",
-          "watch",
-          "user",
-          "video",
-          "p",
-          "reel",
-          "t",
-        ];
-        if (!reservedPaths.includes(videoPattern3[1].toLowerCase())) {
-          awemeId = videoPattern3[2];
-          console.log("✅ Matched Pattern 3: /username/video/(\\d+) without @");
-        }
-      }
-    }
-
-    // Pattern 4: Try query parameters for video ID
-    if (!awemeId && urlObj) {
-      const queryParams = urlObj.searchParams;
-      const videoIdParam =
-        queryParams.get("video_id") ||
-        queryParams.get("id") ||
-        queryParams.get("aweme_id") ||
-        queryParams.get("v");
-      if (videoIdParam && /^\d+$/.test(videoIdParam)) {
-        awemeId = videoIdParam;
-        console.log("✅ Matched Pattern 4: Query parameter");
-      }
-    }
-
-    // Pattern 5: Try hash fragment (some URLs might have ID in fragment)
-    if (!awemeId && urlObj && urlObj.hash) {
-      const hashPattern = urlObj.hash.match(/(\d{10,})/);
-      if (hashPattern && hashPattern[1]) {
-        awemeId = hashPattern[1];
-        console.log("✅ Matched Pattern 5: Hash fragment");
-      }
-    }
-
-    // Pattern 6: Raw string - /video/(\d+) pattern (works even if URL parsing failed)
-    if (!awemeId) {
-      const rawVideoPattern = normalizedUrl.match(/\/video\/(\d{10,})/i);
-      if (rawVideoPattern && rawVideoPattern[1]) {
-        awemeId = rawVideoPattern[1];
-        console.log("✅ Matched Pattern 6: /video/(\\d+) from raw string");
-      }
-    }
-
-    // Pattern 7: More aggressive - find 19-digit number (typical TikTok ID length)
-    if (!awemeId) {
-      const longNumericPattern = normalizedUrl.match(/(\d{19})/);
-      if (longNumericPattern && longNumericPattern[1]) {
-        awemeId = longNumericPattern[1];
-        console.log("✅ Matched Pattern 7: 19-digit number");
-      }
-    }
-
-    // Pattern 8: Find any 15-18 digit number (TikTok IDs are typically long)
-    if (!awemeId) {
-      const mediumNumericPattern = normalizedUrl.match(/(\d{15,18})/);
-      if (mediumNumericPattern && mediumNumericPattern[1]) {
-        awemeId = mediumNumericPattern[1];
-        console.log("✅ Matched Pattern 8: 15-18 digit number");
-      }
-    }
-
-    // Pattern 9: Fallback - any 10+ digit number near "video"
-    if (!awemeId) {
-      const videoContextPattern = normalizedUrl.match(
-        /video[\/\?\:\=\-]?[^0-9]*(\d{10,})/i
-      );
-      if (videoContextPattern && videoContextPattern[1]) {
-        awemeId = videoContextPattern[1];
-        console.log("✅ Matched Pattern 9: Video context pattern");
-      }
-    }
-
-    // Pattern 10: Last resort - extract any sequence of 10+ digits from the entire URL
-    // This is very aggressive and should be last
-    if (!awemeId) {
-      // Remove domain to avoid matching port numbers or other numeric parts
-      const cleanUrl = normalizedUrl.replace(/^https?:\/\/[^\/]+/, ""); // Remove domain
-      const anyNumberPattern = cleanUrl.match(/(\d{10,})/);
-      if (anyNumberPattern && anyNumberPattern[1]) {
-        const candidateId = anyNumberPattern[1];
-        // TikTok IDs are usually 19 digits, but can be 10-20 digits
-        if (candidateId.length >= 10 && candidateId.length <= 20) {
-          awemeId = candidateId;
-          console.log(
-            "✅ Matched Pattern 10: Aggressive numeric extraction from path"
-          );
-        }
-      }
-    }
-
-    // Final fallback: Try the entire URL for any 10-20 digit number
-    if (!awemeId) {
-      const finalFallbackPattern = normalizedUrl.match(/(\d{10,20})/);
-      if (finalFallbackPattern && finalFallbackPattern[1]) {
-        const candidateId = finalFallbackPattern[1];
-        // Only use if it's not obviously part of a timestamp or port number
-        // Check if it's followed by something that suggests it's not an ID
-        const matchIndex = finalFallbackPattern.index || 0;
-        const afterMatch = normalizedUrl.substring(
-          matchIndex + candidateId.length,
-          matchIndex + candidateId.length + 5
-        );
-        // Avoid matching if it looks like part of a timestamp or port, but allow if followed by /video or similar
-        if (!afterMatch.match(/^[:\/]/) || afterMatch.match(/^\/video/)) {
-          awemeId = candidateId;
-          console.log(
-            "✅ Matched Final Fallback Pattern: Any 10-20 digit number"
-          );
-        }
-      }
-    }
-
-    if (!awemeId) {
-      // Enhanced logging for debugging
-      const urlForLog =
-        postUrl.length > 200 ? postUrl.substring(0, 200) + "..." : postUrl;
-      console.error("=== TIKTOK URL EXTRACTION FAILED ===");
-      console.error("Original URL:", urlForLog);
-      console.error("Normalized URL:", normalizedUrl);
-      console.error("URL length:", postUrl.length);
-
-      // Add detailed URL parsing info for debugging
-      try {
-        const debugUrl = new URL(normalizedUrl);
-        console.error("URL hostname:", debugUrl.hostname);
-        console.error("URL pathname:", debugUrl.pathname);
-        console.error("URL search params:", debugUrl.search);
-        console.error("URL hash:", debugUrl.hash);
-      } catch (debugError) {
-        console.error("Could not parse URL for debugging:", debugError);
-      }
-
-      console.error("Attempted all extraction patterns but none matched");
-      console.error("Common TikTok URL formats:");
-      console.error("  - https://www.tiktok.com/@username/video/VIDEO_ID");
-      console.error("  - https://tiktok.com/@username/video/VIDEO_ID");
-      console.error("  - https://m.tiktok.com/@username/video/VIDEO_ID");
-      console.error("  - https://vm.tiktok.com/XXXXX/ (will auto-expand)");
-      console.error("  - https://www.tiktok.com/t/XXXXX/ (will auto-expand)");
-      throw new Error(
-        "Could not extract video ID (aweme_id) from TikTok URL. " +
-          "Please ensure the URL is in the format: https://www.tiktok.com/@username/video/VIDEO_ID " +
-          `Received URL: ${urlForLog}`
-      );
-    }
-
-    console.log(
-      `Successfully extracted aweme_id: ${awemeId} from URL: ${normalizedUrl.substring(
-        0,
-        100
-      )}...`
-    );
-    const tiktokApiUrl = `${TIKTOK_API_BASE_URL}${TIKTOK_API_ENDPOINT}?aweme_id=${awemeId}`;
-    console.log("TikTok API URL:", tiktokApiUrl);
-    console.log("Extracted aweme_id:", awemeId);
-
-    const response = await fetch(tiktokApiUrl, {
-      method: "GET",
-      headers: {
-        "X-RapidAPI-Key": rapidApiKey,
-        "X-RapidAPI-Host": TIKTOK_API_HOST,
-      },
+    const response = await fetch(apifyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
     });
-
-    console.log(
-      "TikTok API Response Status:",
-      response.status,
-      response.statusText
-    );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      console.error("TikTok API error:", response.status, errorText);
-      console.error("Full error response:", errorText);
-
-      // Handle specific error cases
-      if (response.status === 403) {
-        // API subscription expired or invalid
-        console.warn(
-          "TikTok API subscription issue, falling back to mock data"
-        );
-        return {
-          views: Math.floor(Math.random() * 100000) + 10000,
-          likes: Math.floor(Math.random() * 10000) + 1000,
-          comments: Math.floor(Math.random() * 500) + 50,
-          shares: Math.floor(Math.random() * 1000) + 100,
-          engagement_rate: 0,
-        };
-      }
-
-      // Handle 503 Service Unavailable - API is temporarily down
-      if (response.status === 503) {
-        console.warn(
-          "TikTok API temporarily unavailable (503), falling back to mock data"
-        );
-        // Return mock data so the post can still be added
-        return {
-          views: Math.floor(Math.random() * 100000) + 10000,
-          likes: Math.floor(Math.random() * 10000) + 1000,
-          comments: Math.floor(Math.random() * 500) + 50,
-          shares: Math.floor(Math.random() * 1000) + 100,
-          engagement_rate: 0,
-        };
-      }
-
-      // Handle 429 Rate Limit - too many requests
-      if (response.status === 429) {
-        console.warn(
-          "TikTok API rate limit exceeded (429), falling back to mock data"
-        );
-        return {
-          views: Math.floor(Math.random() * 100000) + 10000,
-          likes: Math.floor(Math.random() * 10000) + 1000,
-          comments: Math.floor(Math.random() * 500) + 50,
-          shares: Math.floor(Math.random() * 1000) + 100,
-          engagement_rate: 0,
-        };
-      }
-
-      // Handle 502/504 Gateway errors - temporary failures
-      if (response.status === 502 || response.status === 504) {
-        console.warn(
-          `TikTok API gateway error (${response.status}), falling back to mock data`
-        );
-        return {
-          views: Math.floor(Math.random() * 100000) + 10000,
-          likes: Math.floor(Math.random() * 10000) + 1000,
-          comments: Math.floor(Math.random() * 500) + 50,
-          shares: Math.floor(Math.random() * 1000) + 100,
-          engagement_rate: 0,
-        };
-      }
-
       throw new Error(
-        `TikTok API error (${response.status}): ${errorText.substring(0, 200)}`
+        "Apify TikTok API error (" +
+          response.status +
+          "): " +
+          errorText.substring(0, 200)
       );
     }
 
-    const data = await response.json().catch((err) => {
-      console.error("Failed to parse TikTok API response:", err);
-      throw new Error("Invalid response from TikTok API");
+    const payload = await response.json().catch((err) => {
+      console.error("Failed to parse Apify response:", err);
+      throw new Error("Invalid response from Apify TikTok scraper");
     });
 
-    // Log the full response for debugging
-    console.log("=== TIKTOK API RESPONSE ===");
-    console.log(
-      "Full Response (first 2000 chars):",
-      JSON.stringify(data, null, 2).substring(0, 2000)
-    );
-    console.log("Response Type:", typeof data);
-    console.log("Is Array:", Array.isArray(data));
-    console.log("Top Level Keys:", Object.keys(data || {}));
-    console.log(
-      "Has data.itemInfo.itemStruct:",
-      !!data?.data?.itemInfo?.itemStruct
-    );
+    const items = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+      ? payload.items
+      : [];
 
-    const apiStatusMsg =
-      data?.data?.statusMsg || data?.data?.status_msg || data?.statusMsg;
-    const apiStatusCode =
-      data?.data?.statusCode || data?.data?.status_code || data?.statusCode;
-    if (apiStatusMsg === "cross_border_violation" || apiStatusCode === 10231) {
-      throw new Error(
-        "TikTok provider blocked this request (cross_border_violation). " +
-          "Try another link or switch provider."
-      );
+    if (!items.length) {
+      throw new Error("Apify TikTok scraper returned no results.");
     }
 
-    if (data?.data?.itemInfo?.itemStruct) {
-      console.log(
-        "itemStruct keys:",
-        Object.keys(data.data.itemInfo.itemStruct)
-      );
-      console.log(
-        "Has statistics:",
-        !!data.data.itemInfo.itemStruct.statistics
-      );
-      if (data.data.itemInfo.itemStruct.statistics) {
-        console.log(
-          "Statistics keys:",
-          Object.keys(data.data.itemInfo.itemStruct.statistics)
-        );
-        console.log(
-          "Statistics object:",
-          JSON.stringify(data.data.itemInfo.itemStruct.statistics, null, 2)
-        );
-      }
-    }
-
-    // Extract metrics from TikTok API response
-    // TikTok Data API can return various structures, try multiple paths
-    const videoData =
-      data?.data?.itemInfo?.itemStruct ||
-      data?.data?.item ||
-      data?.data?.video ||
-      data?.data ||
-      data?.itemInfo?.itemStruct ||
-      data?.item ||
-      data?.video ||
-      data?.aweme_detail ||
-      data?.result ||
-      data;
-
-    if (!videoData) {
-      console.error("TikTok API response missing data:", JSON.stringify(data));
-      throw new Error("TikTok API response missing video data");
-    }
-
-    // Log the full response structure for debugging
-    console.log("=== TIKTOK RESPONSE STRUCTURE ===");
-    console.log("Top Level Keys:", Object.keys(data || {}));
-    console.log("VideoData Keys:", Object.keys(videoData || {}));
-    console.log(
-      "VideoData Sample:",
-      JSON.stringify(videoData, null, 2).substring(0, 1500)
-    );
-
-    // Try multiple possible field names for statistics/metrics
-    // Try nested paths first, then direct properties
+    const item = items[0] ?? {};
     const stats =
-      data?.data?.itemInfo?.itemStruct?.statistics ||
-      data?.data?.item?.statistics ||
-      data?.data?.video?.statistics ||
-      data?.itemInfo?.itemStruct?.statistics ||
-      videoData?.statistics ||
-      videoData?.stats ||
-      videoData?.stat ||
-      videoData?.statistics_detail ||
-      {};
+      item.stats ||
+      item.statistics ||
+      item.videoMeta?.itemStruct?.stats ||
+      item.itemStruct?.stats ||
+      item.videoStats ||
+      item;
 
-    console.log("=== STATISTICS OBJECT ===");
-    console.log("Stats object keys:", Object.keys(stats || {}));
-    console.log("Full stats object:", JSON.stringify(stats, null, 2));
+    const views =
+      Number(
+        stats.playCount ??
+          stats.viewCount ??
+          stats.views ??
+          item.playCount ??
+          item.viewCount ??
+          item.views ??
+          0
+      ) || 0;
+    const likes =
+      Number(
+        stats.diggCount ??
+          stats.likeCount ??
+          stats.likes ??
+          item.diggCount ??
+          item.likeCount ??
+          item.likes ??
+          0
+      ) || 0;
+    const comments =
+      Number(
+        stats.commentCount ??
+          stats.comments ??
+          item.commentCount ??
+          item.comments ??
+          0
+      ) || 0;
+    const shares =
+      Number(
+        stats.shareCount ?? stats.shares ?? item.shareCount ?? item.shares ?? 0
+      ) || 0;
 
-    // Helper function to extract number from multiple possible field names
-    const extractNumber = (
-      sources: Array<number | string | undefined | null>
-    ): number => {
-      for (const source of sources) {
-        if (source !== undefined && source !== null && source !== "") {
-          const num = Number(source);
-          if (!isNaN(num) && num >= 0) {
-            return num;
-          }
-        }
-      }
-      return 0;
+    // Extract owner username for TikTok
+    const ownerUsername = item.authorMeta?.name || item.author?.uniqueId || item.author_unique_id || null;
+
+    const metrics: ScrapedMetrics = {
+      views,
+      likes,
+      comments,
+      shares,
+      engagement_rate: 0,
+      owner_username: ownerUsername,
     };
 
-    // Extract metrics trying multiple field name variations
-    const metrics = {
-      views: extractNumber([
-        stats?.playCount,
-        stats?.play_count,
-        stats?.viewCount,
-        stats?.view_count,
-        stats?.play_count,
-        stats?.views,
-        videoData?.playCount,
-        videoData?.play_count,
-        videoData?.viewCount,
-        videoData?.view_count,
-        videoData?.views,
-        data?.data?.itemInfo?.itemStruct?.statistics?.playCount,
-        data?.data?.itemInfo?.itemStruct?.statistics?.play_count,
-        data?.data?.itemInfo?.itemStruct?.statistics?.viewCount,
-        data?.data?.itemInfo?.itemStruct?.statistics?.view_count,
-      ]),
-      likes: extractNumber([
-        stats?.diggCount,
-        stats?.digg_count,
-        stats?.likeCount,
-        stats?.like_count,
-        stats?.likes,
-        videoData?.diggCount,
-        videoData?.digg_count,
-        videoData?.likeCount,
-        videoData?.like_count,
-        videoData?.likes,
-        data?.data?.itemInfo?.itemStruct?.statistics?.diggCount,
-        data?.data?.itemInfo?.itemStruct?.statistics?.digg_count,
-        data?.data?.itemInfo?.itemStruct?.statistics?.likeCount,
-        data?.data?.itemInfo?.itemStruct?.statistics?.like_count,
-      ]),
-      comments: extractNumber([
-        stats?.commentCount,
-        stats?.comment_count,
-        stats?.comments,
-        videoData?.commentCount,
-        videoData?.comment_count,
-        videoData?.comments,
-        data?.data?.itemInfo?.itemStruct?.statistics?.commentCount,
-        data?.data?.itemInfo?.itemStruct?.statistics?.comment_count,
-      ]),
-      shares: extractNumber([
-        stats?.shareCount,
-        stats?.share_count,
-        stats?.shares,
-        videoData?.shareCount,
-        videoData?.share_count,
-        videoData?.shares,
-        data?.data?.itemInfo?.itemStruct?.statistics?.shareCount,
-        data?.data?.itemInfo?.itemStruct?.statistics?.share_count,
-      ]),
-      engagement_rate: 0, // Will be calculated later
-    };
-
-    console.log("=== TIKTOK METRICS EXTRACTED ===");
-    console.log("Views:", metrics.views);
-    console.log("Likes:", metrics.likes);
-    console.log("Comments:", metrics.comments);
-    console.log("Shares:", metrics.shares);
-    console.log("Full Metrics Object:", JSON.stringify(metrics, null, 2));
-
-    // Validate that we actually extracted some metrics
-    // If all metrics are zero, it's likely the parsing failed
-    const totalMetrics =
-      metrics.views + metrics.likes + metrics.comments + metrics.shares;
+    const totalMetrics = views + likes + comments + shares;
     if (totalMetrics === 0) {
-      console.error("=== TIKTOK PARSING FAILED ===");
-      console.error(
-        "All metrics are zero - response structure may not match expected format"
-      );
-      console.error(
-        "Full response structure:",
-        JSON.stringify(data, null, 2).substring(0, 3000)
-      );
       throw new Error(
-        "Failed to extract metrics from TikTok API response. " +
-          "The API response structure may have changed. " +
-          "Please check the edge function logs for the actual response structure."
+        "Apify TikTok scraper returned zero metrics. The result structure may differ."
       );
     }
 
@@ -659,193 +188,125 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
   } catch (error) {
     console.error("TikTok scraping error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to scrape TikTok: ${errorMessage}`);
+    throw new Error("Failed to scrape TikTok: " + errorMessage);
   }
 }
 
 /**
- * Scrape Instagram post metrics using RapidAPI
- * API: Instagram Scraper by ScraperAPI
+ * Scrape Instagram post metrics using Apify
+ * Actor: apify/instagram-scraper
  */
 async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
   try {
-    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
+    const apifyToken = Deno.env.get("APIFY_TOKEN");
+    const apifyActorId =
+      Deno.env.get("APIFY_INSTAGRAM_ACTOR_ID") ?? "apify~instagram-scraper";
 
-    console.log("=== Instagram Scraping ===");
+    console.log("=== Instagram Scraping (Apify) ===");
     console.log("Post URL:", postUrl);
-    console.log("RapidAPI Key present:", !!rapidApiKey);
-    console.log("RapidAPI Key length:", rapidApiKey?.length || 0);
+    console.log("Apify token present:", !!apifyToken);
+    console.log("Apify actor:", apifyActorId);
 
-    if (!rapidApiKey) {
-      console.warn("RAPIDAPI_KEY not configured, returning mock data");
-      // Return mock data for development
-      return {
-        views: Math.floor(Math.random() * 50000) + 5000,
-        likes: Math.floor(Math.random() * 5000) + 500,
-        comments: Math.floor(Math.random() * 300) + 30,
-        shares: 0, // Instagram doesn't show share count publicly
-        engagement_rate: 0,
-      };
-    }
-
-    // Instagram Scraper Stable API (RapidAPI) - "Instagram Scraper Stable API"
-    console.log("Calling Instagram API...");
-
-    // Extract media_code from Instagram URL
-    // Instagram URLs: https://www.instagram.com/p/ABC123/ or https://www.instagram.com/reel/ABC123/
-    const mediaCodeMatch =
-      postUrl.match(/\/p\/([^\/\?]+)/) ||
-      postUrl.match(/\/reel\/([^\/\?]+)/) ||
-      postUrl.match(/instagram\.com\/.*\/([A-Za-z0-9_-]+)/);
-
-    if (!mediaCodeMatch || !mediaCodeMatch[1]) {
+    if (!apifyToken) {
       throw new Error(
-        "Could not extract media code from Instagram URL. Please use a full Instagram post URL."
+        "APIFY_TOKEN not configured. Please set the APIFY_TOKEN secret in Supabase Edge Functions."
       );
     }
 
-    const mediaCode = mediaCodeMatch[1];
-    const instagramApiUrl = `${INSTAGRAM_API_BASE_URL}${INSTAGRAM_API_ENDPOINT}?media_code=${mediaCode}`;
-    console.log("Instagram API URL:", instagramApiUrl);
-    console.log("Extracted media_code:", mediaCode);
+    let normalizedUrl = postUrl.trim();
+    if (
+      !normalizedUrl.startsWith("http://") &&
+      !normalizedUrl.startsWith("https://")
+    ) {
+      normalizedUrl = "https://" + normalizedUrl;
+    }
 
-    const response = await fetch(instagramApiUrl, {
-      method: "GET",
-      headers: {
-        "X-RapidAPI-Key": rapidApiKey,
-        "X-RapidAPI-Host": INSTAGRAM_API_HOST,
-      },
+    const apifyUrl =
+      "https://api.apify.com/v2/acts/" +
+      encodeURIComponent(apifyActorId) +
+      "/run-sync-get-dataset-items?token=" +
+      encodeURIComponent(apifyToken);
+
+    const input = {
+      directUrls: [normalizedUrl],
+      resultsType: "posts",
+      resultsLimit: 1,
+      addParentData: false,
+    };
+
+    console.log("Calling Apify Instagram API...");
+
+    const response = await fetch(apifyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
     });
-
-    console.log(
-      "Instagram API Response Status:",
-      response.status,
-      response.statusText
-    );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      console.error("Instagram API error:", response.status, errorText);
-      console.error("Full error response:", errorText);
-
-      // Handle specific error cases
-      if (response.status === 403) {
-        // API subscription expired or invalid
-        console.warn(
-          "Instagram API subscription issue, falling back to mock data"
-        );
-        return {
-          views: Math.floor(Math.random() * 50000) + 5000,
-          likes: Math.floor(Math.random() * 5000) + 500,
-          comments: Math.floor(Math.random() * 300) + 30,
-          shares: 0,
-          engagement_rate: 0,
-        };
-      }
-
-      // Handle 503 Service Unavailable - API is temporarily down
-      if (response.status === 503) {
-        console.warn(
-          "Instagram API temporarily unavailable (503), falling back to mock data"
-        );
-        return {
-          views: Math.floor(Math.random() * 50000) + 5000,
-          likes: Math.floor(Math.random() * 5000) + 500,
-          comments: Math.floor(Math.random() * 300) + 30,
-          shares: 0,
-          engagement_rate: 0,
-        };
-      }
-
-      // Handle 429 Rate Limit - too many requests
-      if (response.status === 429) {
-        console.warn(
-          "Instagram API rate limit exceeded (429), falling back to mock data"
-        );
-        return {
-          views: Math.floor(Math.random() * 50000) + 5000,
-          likes: Math.floor(Math.random() * 5000) + 500,
-          comments: Math.floor(Math.random() * 300) + 30,
-          shares: 0,
-          engagement_rate: 0,
-        };
-      }
-
-      // Handle 502/504 Gateway errors - temporary failures
-      if (response.status === 502 || response.status === 504) {
-        console.warn(
-          `Instagram API gateway error (${response.status}), falling back to mock data`
-        );
-        return {
-          views: Math.floor(Math.random() * 50000) + 5000,
-          likes: Math.floor(Math.random() * 5000) + 500,
-          comments: Math.floor(Math.random() * 300) + 30,
-          shares: 0,
-          engagement_rate: 0,
-        };
-      }
-
       throw new Error(
-        `Instagram API error (${response.status}): ${errorText.substring(
-          0,
-          200
-        )}`
+        "Apify Instagram API error (" +
+          response.status +
+          "): " +
+          errorText.substring(0, 200)
       );
     }
 
-    const data = await response.json().catch((err) => {
-      console.error("Failed to parse Instagram API response:", err);
-      throw new Error("Invalid response from Instagram API");
+    const payload = await response.json().catch((err) => {
+      console.error("Failed to parse Apify response:", err);
+      throw new Error("Invalid response from Apify Instagram scraper");
     });
+
+    const items = extractApifyItems(payload);
+    if (!items.length) {
+      throw new Error("Apify Instagram scraper returned no results.");
+    }
+
+    const item = pickFirstInstagramItem(items);
+    if (!item) {
+      throw new Error("Apify Instagram scraper returned empty items.");
+    }
 
     console.log(
       "Instagram API Response Data:",
-      JSON.stringify(data).substring(0, 500)
+      JSON.stringify(item).substring(0, 500)
     );
 
-    // Extract metrics from Instagram API response
-    const postData = data?.data || data;
+    const normalized = normalizeInstagramScrapeItem(item, normalizedUrl);
+    console.log("Instagram view fields:", getInstagramViewDebug(item));
+    console.log("Instagram views resolved:", normalized.metrics.views);
 
-    if (!postData) {
-      console.error(
-        "Instagram API response missing data:",
-        JSON.stringify(data)
-      );
-      throw new Error("Instagram API response missing post data");
+    if (!normalized.ownerUsername) {
+      const itemKeys =
+        typeof item === "object" && item !== null ? Object.keys(item) : [];
+      console.warn("Instagram owner username missing", {
+        platform: "instagram",
+        shortcode: normalized.shortcode,
+        itemKeys,
+      });
     }
 
-    // Try multiple possible field names for metrics
-    // Check the actual response structure in logs and adjust if needed
-    const metrics = {
-      views:
-        postData?.video_view_count ||
-        postData?.play_count ||
-        postData?.view_count ||
-        postData?.views ||
-        postData?.video_play_count ||
-        postData?.edge_media_preview?.video_view_count ||
-        0,
-      likes:
-        postData?.like_count ||
-        postData?.likes ||
-        postData?.edge_media_preview_like?.count ||
-        postData?.edge_liked_by?.count ||
-        0,
-      comments:
-        postData?.comment_count ||
-        postData?.comments ||
-        postData?.edge_media_to_comment?.count ||
-        0,
-      shares: 0, // Instagram doesn't expose share count
-      engagement_rate: 0, // Will be calculated later
+    const metrics: ScrapedMetrics = {
+      ...normalized.metrics,
+      owner_username: normalized.ownerUsername,
     };
+
+    const totalMetrics =
+      normalized.metrics.views +
+      normalized.metrics.likes +
+      normalized.metrics.comments;
+    if (totalMetrics === 0) {
+      throw new Error(
+        "Apify Instagram scraper returned zero metrics. The result structure may differ."
+      );
+    }
 
     console.log("Instagram Metrics Extracted:", metrics);
     return metrics;
   } catch (error) {
     console.error("Instagram scraping error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to scrape Instagram: ${errorMessage}`);
+    throw new Error("Failed to scrape Instagram: " + errorMessage);
   }
 }
 
@@ -858,15 +319,9 @@ async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
     const youtubeApiKey = Deno.env.get("YOUTUBE_API_KEY");
 
     if (!youtubeApiKey) {
-      console.warn("YOUTUBE_API_KEY not configured, returning mock data");
-      // Return mock data for development
-      return {
-        views: Math.floor(Math.random() * 500000) + 50000,
-        likes: Math.floor(Math.random() * 20000) + 2000,
-        comments: Math.floor(Math.random() * 1000) + 100,
-        shares: 0, // YouTube doesn't expose share count via API
-        engagement_rate: 0,
-      };
+      throw new Error(
+        "YOUTUBE_API_KEY not configured. Please set the YOUTUBE_API_KEY secret in Supabase Edge Functions."
+      );
     }
 
     // Extract video ID from URL
@@ -889,18 +344,11 @@ async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
       const errorText = await response.text().catch(() => "Unknown error");
       console.error("YouTube API error:", response.status, errorText);
 
-      // Handle temporary errors gracefully
+      // Handle temporary errors - throw proper errors instead of fake data
       if (response.status === 503 || response.status === 429 || response.status === 502 || response.status === 504) {
-        console.warn(
-          `YouTube API temporarily unavailable (${response.status}), falling back to mock data`
+        throw new Error(
+          `YouTube API temporarily unavailable (${response.status}). Please try again later.`
         );
-        return {
-          views: Math.floor(Math.random() * 500000) + 50000,
-          likes: Math.floor(Math.random() * 20000) + 2000,
-          comments: Math.floor(Math.random() * 1000) + 100,
-          shares: 0,
-          engagement_rate: 0,
-        };
       }
 
       throw new Error(`YouTube API error: ${response.status} ${errorText.substring(0, 200)}`);
@@ -941,14 +389,9 @@ async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
     console.log("RapidAPI Key length:", rapidApiKey?.length || 0);
 
     if (!rapidApiKey) {
-      console.warn("RAPIDAPI_KEY not configured, returning mock data");
-      return {
-        views: Math.floor(Math.random() * 10000) + 1000,
-        likes: Math.floor(Math.random() * 500) + 50,
-        comments: Math.floor(Math.random() * 100) + 10,
-        shares: Math.floor(Math.random() * 200) + 20,
-        engagement_rate: 0,
-      };
+      throw new Error(
+        "RAPIDAPI_KEY not configured. Please set the RAPIDAPI_KEY secret in Supabase Edge Functions."
+      );
     }
 
     // Twttr API (RapidAPI) - "Twttr API"
@@ -991,60 +434,29 @@ async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
       console.error("Twitter API error:", response.status, errorText);
       console.error("Full error response:", errorText);
 
-      // Handle specific error cases
+      // Handle specific error cases - throw errors instead of returning fake data
       if (response.status === 403) {
-        console.warn(
-          "Twitter API subscription issue, falling back to mock data"
+        throw new Error(
+          "Twitter API subscription issue (403). Please check your RapidAPI subscription."
         );
-        return {
-          views: Math.floor(Math.random() * 10000) + 1000,
-          likes: Math.floor(Math.random() * 500) + 50,
-          comments: Math.floor(Math.random() * 100) + 10,
-          shares: Math.floor(Math.random() * 200) + 20,
-          engagement_rate: 0,
-        };
       }
 
-      // Handle 503 Service Unavailable - API is temporarily down
       if (response.status === 503) {
-        console.warn(
-          "Twitter API temporarily unavailable (503), falling back to mock data"
+        throw new Error(
+          "Twitter API temporarily unavailable (503). Please try again later."
         );
-        return {
-          views: Math.floor(Math.random() * 10000) + 1000,
-          likes: Math.floor(Math.random() * 500) + 50,
-          comments: Math.floor(Math.random() * 100) + 10,
-          shares: Math.floor(Math.random() * 200) + 20,
-          engagement_rate: 0,
-        };
       }
 
-      // Handle 429 Rate Limit - too many requests
       if (response.status === 429) {
-        console.warn(
-          "Twitter API rate limit exceeded (429), falling back to mock data"
+        throw new Error(
+          "Twitter API rate limit exceeded (429). Please wait before trying again."
         );
-        return {
-          views: Math.floor(Math.random() * 10000) + 1000,
-          likes: Math.floor(Math.random() * 500) + 50,
-          comments: Math.floor(Math.random() * 100) + 10,
-          shares: Math.floor(Math.random() * 200) + 20,
-          engagement_rate: 0,
-        };
       }
 
-      // Handle 502/504 Gateway errors - temporary failures
       if (response.status === 502 || response.status === 504) {
-        console.warn(
-          `Twitter API gateway error (${response.status}), falling back to mock data`
+        throw new Error(
+          `Twitter API gateway error (${response.status}). Please try again later.`
         );
-        return {
-          views: Math.floor(Math.random() * 10000) + 1000,
-          likes: Math.floor(Math.random() * 500) + 50,
-          comments: Math.floor(Math.random() * 100) + 10,
-          shares: Math.floor(Math.random() * 200) + 20,
-          engagement_rate: 0,
-        };
       }
 
       throw new Error(
@@ -1207,6 +619,134 @@ async function scrapePost(
   }
 }
 
+interface CreatorMatchResult {
+  creatorId: string;
+  creatorHandle: string;
+  creatorName: string | null;
+  created: boolean;
+}
+
+async function findInstagramCreatorMatch(
+  supabase: ReturnType<typeof createClient>,
+  workspaceId: string,
+  ownerUsername: string
+): Promise<CreatorMatchResult | null> {
+  if (!normalizeHandle(ownerUsername)) return null;
+
+  const { data, error } = await supabase
+    .from("workspace_creators")
+    .select("creator_id, creator:creators(id, handle, platform, name)")
+    .eq("workspace_id", workspaceId);
+
+  if (error || !data) {
+    console.warn("Failed to fetch workspace creators for match:", error);
+    return null;
+  }
+
+  const match = data.find((entry) => {
+    const creator = entry.creator;
+    if (!creator || creator.platform !== "instagram") return false;
+    return handlesMatch(creator.handle, ownerUsername);
+  });
+
+  if (!match?.creator) return null;
+
+  return {
+    creatorId: match.creator.id,
+    creatorHandle: match.creator.handle,
+    creatorName: match.creator.name ?? null,
+    created: false,
+  };
+}
+
+/**
+ * Create a new Instagram creator from scraped owner username
+ * and add them to the workspace
+ */
+async function createInstagramCreator(
+  supabase: ReturnType<typeof createClient>,
+  workspaceId: string,
+  ownerUsername: string
+): Promise<CreatorMatchResult | null> {
+  const normalizedHandle = normalizeHandle(ownerUsername);
+  if (!normalizedHandle) return null;
+
+  console.log(`Creating new Instagram creator: @${normalizedHandle} for workspace ${workspaceId}`);
+
+  // Create the creator record
+  const { data: newCreator, error: createError } = await supabase
+    .from("creators")
+    .insert({
+      user_id: workspaceId,
+      name: normalizedHandle,
+      handle: normalizedHandle,
+      platform: "instagram",
+      source_type: "scraper_extraction",
+      created_by_workspace_id: workspaceId,
+    })
+    .select("id, handle, name")
+    .single();
+
+  if (createError) {
+    // Check if it's a unique constraint violation (creator already exists)
+    if (createError.code === "23505") {
+      console.log("Creator already exists, fetching existing record...");
+      const { data: existingCreator } = await supabase
+        .from("creators")
+        .select("id, handle, name")
+        .eq("user_id", workspaceId)
+        .eq("handle", normalizedHandle)
+        .eq("platform", "instagram")
+        .single();
+
+      if (existingCreator) {
+        // Ensure they're in workspace_creators
+        await supabase
+          .from("workspace_creators")
+          .upsert(
+            {
+              workspace_id: workspaceId,
+              creator_id: existingCreator.id,
+              source: "scraper",
+            },
+            { onConflict: "workspace_id,creator_id" }
+          );
+
+        return {
+          creatorId: existingCreator.id,
+          creatorHandle: existingCreator.handle,
+          creatorName: existingCreator.name ?? null,
+          created: false,
+        };
+      }
+    }
+    console.error("Failed to create Instagram creator:", createError);
+    return null;
+  }
+
+  // Add creator to workspace_creators
+  const { error: workspaceError } = await supabase
+    .from("workspace_creators")
+    .insert({
+      workspace_id: workspaceId,
+      creator_id: newCreator.id,
+      source: "scraper",
+    });
+
+  if (workspaceError && workspaceError.code !== "23505") {
+    console.warn("Failed to add creator to workspace:", workspaceError);
+  }
+
+  console.log(`Created new Instagram creator: ${newCreator.id} (@${normalizedHandle})`);
+
+  return {
+    creatorId: newCreator.id,
+    creatorHandle: newCreator.handle,
+    creatorName: newCreator.name ?? null,
+    created: true,
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -1304,12 +844,59 @@ serve(async (req) => {
     // Check if post is currently being scraped (conflict prevention)
     const { data: post, error: postError } = await supabase
       .from("posts")
-      .select("status, updated_at")
+      .select("status, updated_at, campaign_id, creator_id")
       .eq("id", postId)
       .single();
 
     if (postError) {
       throw new Error(`Post not found: ${postError.message}`);
+    }
+
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("workspace_id")
+      .eq("id", post.campaign_id)
+      .single();
+
+    if (campaignError || !campaign) {
+      throw new Error("Campaign not found for post");
+    }
+
+    const { data: scrapeGate, error: gateError } = await supabase.rpc(
+      "can_trigger_scrape",
+      {
+        target_workspace_id: campaign.workspace_id,
+        target_campaign_id: post.campaign_id,
+        target_platform: platform,
+      }
+    );
+
+    if (gateError) {
+      throw new Error(`Scrape permission check failed: ${gateError.message}`);
+    }
+
+    const gate = Array.isArray(scrapeGate) ? scrapeGate[0] : scrapeGate;
+    if (!gate?.allowed) {
+      const reason = gate?.reason || "not_allowed";
+      const message =
+        reason === "platform_not_allowed"
+          ? "Platform not available on your current plan."
+          : reason === "scrape_interval_not_met"
+          ? "Scrape interval not met. Please wait before scraping again."
+          : reason === "subscription_past_due"
+          ? "Subscription past due. Update payment to resume scraping."
+          : "Scraping not allowed at this time.";
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: message,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        }
+      );
     }
 
     // If post is being scraped and this is a manual request, check if we should wait
@@ -1360,23 +947,107 @@ serve(async (req) => {
     };
 
     // Update post in database
-    const { error: updateError } = await supabase
+    const updatePayload: Record<string, unknown> = {
+      views: scrapedMetrics.views,
+      likes: scrapedMetrics.likes,
+      comments: scrapedMetrics.comments,
+      shares: scrapedMetrics.shares,
+      engagement_rate: scrapedMetrics.engagement_rate,
+      status: "scraped",
+      last_scraped_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      canonical_url: postUrl, // Save the URL used for scraping
+    };
+
+    // Add owner_username if available (especially useful for Instagram posts)
+    if (scrapedMetrics.owner_username) {
+      updatePayload.owner_username = scrapedMetrics.owner_username;
+      updatePayload.creator_handle = scrapedMetrics.owner_username;
+      console.log(`Setting owner_username to: ${scrapedMetrics.owner_username}`);
+    }
+
+    let creatorMatch: {
+      matched: boolean;
+      created: boolean;
+      creatorId?: string;
+      creatorHandle?: string;
+      creatorName?: string | null;
+    } = { matched: false, created: false };
+
+    if (
+      !post.creator_id &&
+      platform === "instagram" &&
+      scrapedMetrics.owner_username
+    ) {
+      // First try to find an existing creator match
+      let match = await findInstagramCreatorMatch(
+        supabase,
+        campaign.workspace_id,
+        scrapedMetrics.owner_username
+      );
+
+      // If no match found, auto-create the creator
+      if (!match) {
+        console.log(`No existing creator match for @${scrapedMetrics.owner_username}, creating new creator...`);
+        match = await createInstagramCreator(
+          supabase,
+          campaign.workspace_id,
+          scrapedMetrics.owner_username
+        );
+      }
+
+      if (match) {
+        updatePayload.creator_id = match.creatorId;
+        creatorMatch = {
+          matched: true,
+          created: match.created,
+          creatorId: match.creatorId,
+          creatorHandle: match.creatorHandle,
+          creatorName: match.creatorName,
+        };
+
+        // Add creator to campaign
+        const { error: campaignCreatorError } = await supabase
+          .from("campaign_creators")
+          .upsert(
+            { campaign_id: post.campaign_id, creator_id: match.creatorId },
+            { onConflict: "campaign_id,creator_id" }
+          );
+
+        if (campaignCreatorError) {
+          console.warn(
+            "Failed to attach creator to campaign:",
+            campaignCreatorError
+          );
+        }
+
+        console.log(`Creator ${match.created ? "created and " : ""}attached: @${match.creatorHandle} (${match.creatorId})`);
+      }
+    }
+
+    const { data: updatedPost, error: updateError } = await supabase
       .from("posts")
-      .update({
-        views: scrapedMetrics.views,
-        likes: scrapedMetrics.likes,
-        comments: scrapedMetrics.comments,
-        shares: scrapedMetrics.shares,
-        engagement_rate: scrapedMetrics.engagement_rate,
-        status: "scraped",
-        last_scraped_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", postId);
+      .update(updatePayload)
+      .eq("id", postId)
+      .select(
+        "id, platform, external_id, post_url, owner_username, creator_id, status"
+      )
+      .single();
 
     if (updateError) {
       throw updateError;
     }
+
+    await supabase
+      .from("campaign_platform_scrapes")
+      .upsert(
+        {
+          campaign_id: post.campaign_id,
+          platform,
+          last_scraped_at: new Date().toISOString(),
+        },
+        { onConflict: "campaign_id,platform" }
+      );
 
     // Save historical metrics snapshot
     const { error: metricsError } = await supabase.from("post_metrics").insert({
@@ -1400,6 +1071,18 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         metrics: scrapedMetrics,
+        post: updatedPost
+          ? {
+              id: updatedPost.id,
+              platform: updatedPost.platform,
+              externalId: updatedPost.external_id,
+              sourceUrl: updatedPost.post_url,
+              ownerUsername: updatedPost.owner_username ?? null,
+              creatorId: updatedPost.creator_id ?? null,
+              status: updatedPost.status,
+            }
+          : null,
+        creatorMatch,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
