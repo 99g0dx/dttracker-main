@@ -132,7 +132,6 @@ const BillingCancel = React.lazy(() =>
   }))
 );
 
-
 function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();

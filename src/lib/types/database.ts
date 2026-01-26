@@ -96,6 +96,8 @@ export interface Campaign {
   share_created_at: string | null;
   share_expires_at: string | null;
   share_allow_export: boolean;
+  sound_url?: string | null;
+  sound_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -131,6 +133,49 @@ export interface PostMetric {
   shares: number;
   engagement_rate: number;
   scraped_at: string;
+}
+
+// Sound tracking types
+export type SoundIndexingState = "queued" | "indexing" | "active" | "failed";
+
+export interface Sound {
+  id: string;
+  user_id: string;
+  platform: Platform;
+  canonical_sound_key: string;
+  title: string | null;
+  artist: string | null;
+  source: string | null;
+  sound_page_url: string | null;
+  last_crawled_at: string | null;
+  indexing_state: SoundIndexingState;
+  geo_estimated: Array<{ country: string; percent: number }> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SoundVideo {
+  id: string;
+  sound_id: string;
+  platform: Platform;
+  video_id: string;
+  video_url: string;
+  creator_handle: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  engagement_rate: number;
+  posted_at: string | null;
+  bucket: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SoundWithVideos extends Sound {
+  videos: SoundVideo[];
+  videos_count: number;
+  total_views: number;
+  top_video_views: number;
 }
 
 export interface CampaignMember {

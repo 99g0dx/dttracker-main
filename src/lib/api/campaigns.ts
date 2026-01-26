@@ -143,7 +143,10 @@ export async function getById(id: string): Promise<ApiResponse<Campaign>> {
   try {
     const { data, error } = await supabase
       .from('campaigns')
-      .select('*')
+      .select(`
+        *,
+        sound:sounds(*)
+      `)
       .eq('id', id)
       .single();
 

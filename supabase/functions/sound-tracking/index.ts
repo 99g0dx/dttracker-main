@@ -57,16 +57,36 @@ serve(async (req) => {
   )
   
   let soundId: string | null = null
+  let userId: string | null = null
 
   try {
     // Unified Ingest Endpoint
     // Body: { action: 'ingest' | 'refresh', url: string, campaignId?: string }
     const { action = 'ingest', url, campaignId, sound_id } = await req.json()
     
+    const authHeader =
+      req.headers.get('Authorization') ||
+      req.headers.get('authorization') ||
+      ''
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim()
+    if (!bearerToken) throw new Error('Missing authorization token')
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(bearerToken)
+
+    if (userError) throw userError
+    if (!user) throw new Error('Unable to identify authenticated user')
+    userId = user.id
+
     if (!url && !sound_id) throw new Error('URL or sound_id is required')
     const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY')
     if (!RAPIDAPI_KEY) throw new Error('RAPIDAPI_KEY secret is not set')
-    
+
+    const APIFY_API_TOKEN = Deno.env.get('APIFY_API_TOKEN')
+    if (!APIFY_API_TOKEN) throw new Error('APIFY_API_TOKEN secret is not set')
+
     // Debug collector
     const debug: any = { steps: [] }
     const log = (step: string, data: any) => debug.steps.push({ step, data })
@@ -84,6 +104,7 @@ serve(async (req) => {
     if (soundId) {
       const { data: s, error } = await supabase.from('sounds').select('*').eq('id', soundId).single()
       if (error || !s) throw new Error('Sound not found')
+      if (s.user_id !== userId) throw new Error('Sound not found')
       platform = s.platform as any
       soundMeta.canonical_key = s.canonical_sound_key
       soundMeta.title = s.title
@@ -207,6 +228,7 @@ serve(async (req) => {
     const { data: soundData, error: soundError } = await supabase
       .from('sounds')
       .upsert({
+        user_id: userId,
         platform,
         canonical_sound_key: soundMeta.canonical_key,
         title: soundMeta.title || 'Unknown Sound',
@@ -224,46 +246,51 @@ serve(async (req) => {
 
     // 4. Link to Campaign (if provided)
     if (campaignId) {
+      const { data: campaign, error: campaignError } = await supabase
+        .from('campaigns')
+        .select('id, user_id')
+        .eq('id', campaignId)
+        .single()
+
+      if (campaignError || !campaign || campaign.user_id !== userId) {
+        throw new Error('Campaign not found or unauthorized')
+      }
+
       await supabase
         .from('campaigns')
         .update({ sound_id: soundId, sound_url: url }) // Keep sound_url for legacy reference
         .eq('id', campaignId)
     }
 
-    // 5. Fetch & Index Videos (The "Crawl" Step)
-    // We fetch "Top" videos to populate the index immediately
+    // 5. Scrape Videos (Synchronous)
+    log('Scraping videos for sound...', { soundId, platform })
+
     let videosToIndex: any[] = []
     let regions: string[] = []
+    const canonicalKey = soundMeta.canonical_key
 
     if (platform === 'tiktok') {
-      log('Executing TikTok video fetch using Apify actor...', {})
-      const APIFY_API_TOKEN = Deno.env.get('APIFY_API_TOKEN')
-      if (!APIFY_API_TOKEN) throw new Error('APIFY_API_TOKEN secret is not set')
-
       const apifyUrl = `https://api.apify.com/v2/acts/clockworks~tiktok-sound-scraper/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`
-      
+
       const runInput = {
-          "musics": [{ "id": soundMeta.canonical_key }],
-          "maxItems": 30,
-          "proxyConfiguration": { "useApifyProxy": true }
+        "musics": [{ "id": canonicalKey }],
+        "maxItems": 100,
+        "proxyConfiguration": { "useApifyProxy": true }
       }
 
       const res = await fetchWithRetry(apifyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(runInput)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(runInput)
       })
 
       if (!res.ok) {
-          const errText = await res.text()
-          log('Apify TikTok API failed', { status: res.status, body: errText })
-          throw new Error(`Apify TikTok API failed: ${res.status} ${errText.slice(0, 100)}`)
+        throw new Error(`Apify API failed: ${res.status}`)
       }
 
       const videos = await res.json()
-      log('Apify Response TikTok Videos', { count: videos.length })
 
-      // Extract regions for geo estimation
+      // Extract regions
       regions = videos
         .map((v: any) => v.authorMeta?.region || v.author?.region || v.region)
         .filter((r: any) => typeof r === 'string' && r.length === 2)
@@ -271,12 +298,12 @@ serve(async (req) => {
       videosToIndex = videos.map((v: any) => {
         const author = v.authorMeta || v.author || {}
         const stats = {
-            playCount: v.playCount || v.stats?.playCount || 0,
-            diggCount: v.diggCount || v.stats?.diggCount || 0
+          playCount: v.playCount || v.stats?.playCount || 0,
+          diggCount: v.diggCount || v.stats?.diggCount || 0
         }
         const videoId = v.id || v.video_id
         const uniqueId = author.name || author.uniqueId || author.unique_id
-        
+
         return {
           sound_id: soundId,
           platform: 'tiktok',
@@ -290,27 +317,24 @@ serve(async (req) => {
         }
       })
     } else if (platform === 'instagram') {
-      // Try primary endpoint for reels (often /audio/reels or /music/clips)
-      let res = await fetchWithRetry(`https://instagram-scraper-stable.p.rapidapi.com/audio/reels?audio_id=${soundMeta.canonical_key}`, {
-        headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': 'instagram-scraper-stable.p.rapidapi.com' }
-      })
-
-      // Fallback
-      if (!res.ok) {
-        res = await fetchWithRetry(`https://instagram-scraper-stable.p.rapidapi.com/music/clips?id=${soundMeta.canonical_key}`, {
-            headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': 'instagram-scraper-stable.p.rapidapi.com' }
+      const [res1, res2] = await Promise.all([
+        fetchWithRetry(`https://instagram-scraper-stable.p.rapidapi.com/audio/reels?audio_id=${canonicalKey}`, {
+          headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': 'instagram-scraper-stable.p.rapidapi.com' }
+        }),
+        fetchWithRetry(`https://instagram-scraper-stable.p.rapidapi.com/music/clips?id=${canonicalKey}`, {
+          headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': 'instagram-scraper-stable.p.rapidapi.com' }
         })
-      }
+      ])
 
       let clips: any[] = []
-      if (res.ok) {
-        const data = await res.json()
-        log('API Response IG Reels', data)
+      if (res1.ok) {
+        const data = await res1.json()
+        clips = data.items || data.data?.items || data.reels || []
+      } else if (res2.ok) {
+        const data = await res2.json()
         clips = data.items || data.data?.items || data.reels || []
       } else {
-        const errText = await res.text()
-        log('IG API failed', { status: res.status, body: errText })
-        throw new Error(`Instagram API failed: ${res.status} ${errText.slice(0, 100)}`)
+        throw new Error('Instagram API failed')
       }
 
       videosToIndex = clips.map((c: any) => ({
@@ -326,24 +350,44 @@ serve(async (req) => {
       }))
     }
 
-    // Bulk Insert Videos
+    // 6. Bulk insert videos
     if (videosToIndex.length > 0) {
       const { error: videoError } = await supabase
         .from('sound_videos')
         .upsert(videosToIndex, { onConflict: 'sound_id, video_id' })
-      
-      if (videoError) log('Error indexing videos', videoError)
+
+      if (videoError) {
+        console.warn('Video insert warning:', videoError)
+      }
     }
 
-    // Calculate Geo Stats & Update Sound
+    // 7. Update sound with geo stats and mark as active
     const geoStats = calculateGeoStats(regions)
-    await supabase.from('sounds').update({ 
+    await supabase.from('sounds').update({
       indexing_state: 'active',
-      geo_estimated: geoStats
+      geo_estimated: geoStats,
+      last_crawled_at: new Date().toISOString()
     }).eq('id', soundId)
 
+    log('Successfully indexed videos', { soundId, count: videosToIndex.length })
+
     return new Response(
-      JSON.stringify({ success: true, sound: soundData, indexed_count: videosToIndex.length, debug }),
+      JSON.stringify({
+        success: true,
+        sound: {
+          id: soundId,
+          platform,
+          canonical_sound_key: soundMeta.canonical_key,
+          title: soundMeta.title,
+          artist: soundMeta.artist,
+          sound_page_url: soundMeta.sound_page_url,
+          indexing_state: 'active'
+        },
+        status: 'active',
+        message: 'Sound indexed successfully!',
+        indexed_count: videosToIndex.length,
+        debug
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

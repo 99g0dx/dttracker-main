@@ -78,6 +78,8 @@ import { AddPostDialog } from "./add-post-dialog";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
 import { SubcampaignSection } from "./subcampaign-section";
+import { CampaignSoundSection } from "./campaign-sound-section";
+import { SoundIngest } from "./sound-ingest";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -100,6 +102,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import {
+  useSound,
+  useSoundVideos,
+  useLinkSoundToCampaign,
+  useUnlinkSoundFromCampaign,
+  useRefreshSound,
+} from "../../hooks/useSounds";
 import type { Creator } from "../../lib/types/database";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
@@ -128,6 +137,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [showDeleteCampaignDialog, setShowDeleteCampaignDialog] =
     useState(false);
   const [showShareLinkModal, setShowShareLinkModal] = useState(false);
+  const [showAddSoundDialog, setShowAddSoundDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<CSVImportResult | null>(
@@ -262,6 +272,13 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
   const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
+
+  // Sound tracking hooks
+  const { data: linkedSound } = useSound(campaign?.sound_id);
+  const { data: soundVideos = [] } = useSoundVideos(campaign?.sound_id, 'views');
+  const linkSoundMutation = useLinkSoundToCampaign();
+  const unlinkSoundMutation = useUnlinkSoundFromCampaign();
+  const refreshSoundMutation = useRefreshSound();
 
   const derivedCampaignStatus = React.useMemo(() => {
     if (!campaign) return null;
@@ -2112,6 +2129,59 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           parentCampaignName={campaign.name}
           parentBrandName={campaign.brand_name || null}
         />
+      )}
+
+      {/* Sound Tracking Section */}
+      {campaign && (
+        <>
+          <CampaignSoundSection
+            campaignId={campaign.id}
+            sound={linkedSound || null}
+            soundVideos={soundVideos}
+            loading={refreshSoundMutation.isPending}
+            onAddSound={() => setShowAddSoundDialog(true)}
+            onRemoveSound={() => {
+              if (confirm('Remove sound from this campaign?')) {
+                unlinkSoundMutation.mutate(campaign.id)
+              }
+            }}
+            onRefreshSound={() => {
+              if (linkedSound?.id) {
+                refreshSoundMutation.mutate(linkedSound.id)
+              }
+            }}
+          />
+
+          {/* Add Sound Dialog */}
+          <Dialog open={showAddSoundDialog} onOpenChange={setShowAddSoundDialog}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Link Sound to Campaign</DialogTitle>
+                <DialogDescription>
+                  Paste a TikTok or Instagram link to start tracking the sound used in that post.
+                </DialogDescription>
+              </DialogHeader>
+              <SoundIngest
+                campaignId={campaign.id}
+                onSuccess={() => {
+                  setShowAddSoundDialog(false)
+                  // Refresh campaign data to show linked sound
+                  queryClient.invalidateQueries({
+                    queryKey: campaignsKeys.detail(campaign.id),
+                  })
+                }}
+                onSoundDetected={(sound) => {
+                  if (campaign?.id && sound.id) {
+                    linkSoundMutation.mutate({
+                      campaignId: campaign.id,
+                      soundId: sound.id,
+                    })
+                  }
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       {/* Creators Section */}
