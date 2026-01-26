@@ -914,7 +914,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 403,
+          status: 200,
         }
       );
     }
@@ -940,7 +940,7 @@ serve(async (req) => {
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 409, // Conflict
+            status: 200,
           }
         );
       } else {
@@ -1119,7 +1119,7 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: error.message === "Unauthorized" ? 401 : 400,
+        status: 200,
       }
     );
   }
