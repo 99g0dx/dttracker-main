@@ -524,7 +524,7 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_share_token ON public.campaigns(share_t
 CREATE INDEX IF NOT EXISTS idx_posts_campaign_id ON public.posts(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_posts_creator_id ON public.posts(creator_id);
 CREATE INDEX IF NOT EXISTS idx_posts_platform ON public.posts(platform);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_platform_external_id ON public.posts(platform, external_id) WHERE external_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_campaign_platform_external_id ON public.posts(campaign_id, platform, external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_posts_status ON public.posts(status);
 CREATE INDEX IF NOT EXISTS idx_post_metrics_post_id ON public.post_metrics(post_id);
 CREATE INDEX IF NOT EXISTS idx_post_metrics_scraped_at ON public.post_metrics(scraped_at);
