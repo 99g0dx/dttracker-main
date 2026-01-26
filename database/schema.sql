@@ -1685,3 +1685,335 @@ BEGIN
   END IF;
 END
 $$;
+
+-- ============================================================
+-- SOUND TRACKING TABLES (Migration 038)
+-- ============================================================
+
+-- Create sounds table
+CREATE TABLE IF NOT EXISTS public.sounds (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'instagram', 'youtube')),
+  canonical_sound_key TEXT NOT NULL,
+  title TEXT,
+  artist TEXT,
+  source TEXT,
+  sound_page_url TEXT,
+  last_crawled_at TIMESTAMPTZ,
+  indexing_state TEXT NOT NULL DEFAULT 'queued' CHECK (indexing_state IN ('queued', 'indexing', 'active', 'failed')),
+  geo_estimated JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT sounds_unique_per_platform UNIQUE(platform, canonical_sound_key)
+);
+
+-- Create sound_videos table
+CREATE TABLE IF NOT EXISTS public.sound_videos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sound_id UUID NOT NULL REFERENCES public.sounds(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'instagram', 'youtube')),
+  video_id TEXT NOT NULL,
+  video_url TEXT NOT NULL,
+  creator_handle TEXT,
+  views INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
+  comments INTEGER DEFAULT 0,
+  engagement_rate DECIMAL(5,2) DEFAULT 0,
+  posted_at TIMESTAMPTZ,
+  bucket TEXT DEFAULT 'top' CHECK (bucket IN ('top', 'recent', 'trending')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT sound_videos_unique UNIQUE(sound_id, video_id)
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_sounds_user_id ON public.sounds(user_id);
+CREATE INDEX IF NOT EXISTS idx_sounds_platform_key ON public.sounds(platform, canonical_sound_key);
+CREATE INDEX IF NOT EXISTS idx_sounds_last_crawled ON public.sounds(last_crawled_at);
+CREATE INDEX IF NOT EXISTS idx_sound_videos_sound_id ON public.sound_videos(sound_id);
+CREATE INDEX IF NOT EXISTS idx_sound_videos_views ON public.sound_videos(views DESC);
+CREATE INDEX IF NOT EXISTS idx_sound_videos_engagement ON public.sound_videos(engagement_rate DESC);
+CREATE INDEX IF NOT EXISTS idx_sound_videos_posted_at ON public.sound_videos(posted_at DESC);
+
+-- Enable RLS
+ALTER TABLE public.sounds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sound_videos ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for sounds - users can only access their own sounds
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sounds' AND policyname='Users can view their own sounds'
+  ) THEN
+    CREATE POLICY "Users can view their own sounds"
+      ON public.sounds FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sounds' AND policyname='Users can insert their own sounds'
+  ) THEN
+    CREATE POLICY "Users can insert their own sounds"
+      ON public.sounds FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sounds' AND policyname='Users can update their own sounds'
+  ) THEN
+    CREATE POLICY "Users can update their own sounds"
+      ON public.sounds FOR UPDATE
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sounds' AND policyname='Users can delete their own sounds'
+  ) THEN
+    CREATE POLICY "Users can delete their own sounds"
+      ON public.sounds FOR DELETE
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+-- RLS Policies for sound_videos - inherit access from parent sound
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sound_videos' AND policyname='Users can view videos from their sounds'
+  ) THEN
+    CREATE POLICY "Users can view videos from their sounds"
+      ON public.sound_videos FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.sounds
+          WHERE sounds.id = sound_videos.sound_id
+          AND sounds.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sound_videos' AND policyname='Users can insert videos to their sounds'
+  ) THEN
+    CREATE POLICY "Users can insert videos to their sounds"
+      ON public.sound_videos FOR INSERT
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.sounds
+          WHERE sounds.id = sound_videos.sound_id
+          AND sounds.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sound_videos' AND policyname='Users can update videos from their sounds'
+  ) THEN
+    CREATE POLICY "Users can update videos from their sounds"
+      ON public.sound_videos FOR UPDATE
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.sounds
+          WHERE sounds.id = sound_videos.sound_id
+          AND sounds.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sound_videos' AND policyname='Users can delete videos from their sounds'
+  ) THEN
+    CREATE POLICY "Users can delete videos from their sounds"
+      ON public.sound_videos FOR DELETE
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.sounds
+          WHERE sounds.id = sound_videos.sound_id
+          AND sounds.user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
+
+-- Create trigger for updated_at
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc
+    WHERE proname = 'update_sounds_updated_at'
+  ) THEN
+    CREATE FUNCTION update_sounds_updated_at()
+    RETURNS TRIGGER AS $inner$
+    BEGIN
+        NEW.updated_at = NOW();
+        RETURN NEW;
+    END;
+    $inner$ LANGUAGE plpgsql;
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'update_sounds_updated_at_trigger'
+  ) THEN
+    CREATE TRIGGER update_sounds_updated_at_trigger BEFORE UPDATE ON public.sounds
+      FOR EACH ROW EXECUTE FUNCTION update_sounds_updated_at();
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'update_sound_videos_updated_at_trigger'
+  ) THEN
+    CREATE TRIGGER update_sound_videos_updated_at_trigger BEFORE UPDATE ON public.sound_videos
+      FOR EACH ROW EXECUTE FUNCTION update_sounds_updated_at();
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- ADD SOUND FIELDS TO CAMPAIGNS (Migration 039)
+-- ============================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='campaigns' AND column_name='sound_id'
+  ) THEN
+    ALTER TABLE public.campaigns
+    ADD COLUMN sound_url TEXT,
+    ADD COLUMN sound_id UUID REFERENCES public.sounds(id) ON DELETE SET NULL;
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE indexname = 'idx_campaigns_sound_id'
+  ) THEN
+    CREATE INDEX idx_campaigns_sound_id ON public.campaigns(sound_id);
+  END IF;
+END
+$$;
+
+-- ============================================================
+-- SOUND REFRESH QUEUE (Migration 040)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.sound_refresh_queue (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sound_id UUID NOT NULL REFERENCES public.sounds(id) ON DELETE CASCADE,
+  action TEXT NOT NULL DEFAULT 'ingest' CHECK (action IN ('ingest', 'refresh')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  priority INT DEFAULT 0,
+  error_message TEXT,
+  attempt_count INT DEFAULT 0,
+  max_attempts INT DEFAULT 3,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  next_retry_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_sound_refresh_queue_status ON public.sound_refresh_queue(status)
+  WHERE status IN ('pending', 'processing');
+
+CREATE INDEX IF NOT EXISTS idx_sound_refresh_queue_priority ON public.sound_refresh_queue(priority DESC, created_at ASC)
+  WHERE status = 'pending';
+
+CREATE INDEX IF NOT EXISTS idx_sound_refresh_queue_next_retry ON public.sound_refresh_queue(next_retry_at)
+  WHERE status = 'failed' AND attempt_count < max_attempts;
+
+CREATE INDEX IF NOT EXISTS idx_sound_refresh_queue_sound_id ON public.sound_refresh_queue(sound_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc
+    WHERE proname = 'update_sound_refresh_queue_updated_at'
+  ) THEN
+    CREATE FUNCTION update_sound_refresh_queue_updated_at()
+    RETURNS TRIGGER AS $inner$
+    BEGIN
+        NEW.updated_at = NOW();
+        RETURN NEW;
+    END;
+    $inner$ LANGUAGE plpgsql;
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'update_sound_refresh_queue_updated_at_trigger'
+  ) THEN
+    CREATE TRIGGER update_sound_refresh_queue_updated_at_trigger BEFORE UPDATE ON public.sound_refresh_queue
+      FOR EACH ROW EXECUTE FUNCTION update_sound_refresh_queue_updated_at();
+  END IF;
+END
+$$;
+
+ALTER TABLE public.sound_refresh_queue ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='sound_refresh_queue' AND policyname='Service role can manage queue'
+  ) THEN
+    CREATE POLICY "Service role can manage queue"
+      ON public.sound_refresh_queue
+      FOR ALL
+      TO service_role
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END
+$$;
