@@ -14,15 +14,36 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function extractTikTokVideoId(url: string): string | null {
+  try {
+    let normalizedUrl = url.trim();
+    normalizedUrl = normalizedUrl.replace(/^["'<>]+|["'<>]+$/g, '');
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+    const urlObj = new URL(normalizedUrl);
+    const pathname = urlObj.pathname;
+    const videoMatch = pathname.match(/\/video\/(\d+)/) || pathname.match(/\/v\/(\d+)/);
+    if (videoMatch) {
+      return videoMatch[1];
+    }
+    const fallbackMatch = normalizedUrl.match(/\/(\d+)(?:\?|$)/);
+    return fallbackMatch ? fallbackMatch[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================
 // API CONFIGURATION
 // ============================================================
-// Primary: Apify actors for TikTok and Instagram
+// Primary: RapidAPI (TikTok) + Apify actors (Instagram)
+// - RAPIDAPI_KEY: Your RapidAPI key used for TikTok video info
 // - APIFY_TOKEN: Your Apify API token
-// - Actors: clockworks~tiktok-scraper, apify~instagram-scraper
-//
-// RapidAPI (Twitter/X only):
-// - RAPIDAPI_KEY: Your RapidAPI key
+// - Actors: apify~instagram-scraper
+
+// Twitter (RapidAPI)
+// - RAPIDAPI_KEY: (also used above)
 const TWITTER_API_BASE_URL = "https://twitter241.p.rapidapi.com";
 const TWITTER_API_HOST = "twitter241.p.rapidapi.com";
 const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
@@ -46,90 +67,59 @@ interface ScrapedMetrics {
 }
 
 /**
- * Scrape TikTok post metrics using RapidAPI
- * API: TikTok Video No Watermark by Toolbench RapidAPI
+ * Scrape TikTok post metrics using RapidAPI video info endpoint
  */
 
 async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
   try {
-    const apifyToken = Deno.env.get("APIFY_TOKEN");
-    const apifyActorId =
-      Deno.env.get("APIFY_TIKTOK_ACTOR_ID") ?? "clockworks~tiktok-scraper";
-
-    console.log("=== TikTok Scraping (Apify) ===");
-    console.log("Post URL:", postUrl);
-    console.log("Apify token present:", !!apifyToken);
-    console.log("Apify actor:", apifyActorId);
-
-    if (!apifyToken) {
+    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
+    if (!rapidApiKey) {
       throw new Error(
-        "APIFY_TOKEN not configured. Please set the APIFY_TOKEN secret in Supabase Edge Functions."
+        "RAPIDAPI_KEY not configured. Please set the RAPIDAPI_KEY secret in Supabase Edge Functions."
       );
     }
 
-    let normalizedUrl = postUrl.trim();
-    if (
-      !normalizedUrl.startsWith("http://") &&
-      !normalizedUrl.startsWith("https://")
-    ) {
-      normalizedUrl = "https://" + normalizedUrl;
+    const videoId = extractTikTokVideoId(postUrl);
+    if (!videoId) {
+      throw new Error("Unable to extract TikTok video ID from the URL.");
     }
 
-    const apifyUrl =
-      "https://api.apify.com/v2/acts/" +
-      encodeURIComponent(apifyActorId) +
-      "/run-sync-get-dataset-items?token=" +
-      encodeURIComponent(apifyToken);
-
-    // clockworks/tiktok-scraper input format
-    const input = {
-      postURLs: [normalizedUrl],
-      maxProfilesPerQuery: 1,
-      resultsPerPage: 1,
-      shouldDownloadVideos: false,
-      shouldDownloadCovers: false,
-      shouldDownloadSubtitles: false,
-      shouldDownloadSlideshowImages: false,
-    };
-
-    const response = await fetch(apifyUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+    const apiUrl = `https://tiktok-data-api.p.rapidapi.com/video/info?video_id=${videoId}`;
+    const response = await fetch(apiUrl, {
+      headers: {
+        "X-RapidAPI-Key": rapidApiKey,
+        "X-RapidAPI-Host": "tiktok-data-api.p.rapidapi.com",
+      },
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error");
+      const text = await response.text().catch(() => "Unknown error");
       throw new Error(
-        "Apify TikTok API error (" +
-          response.status +
-          "): " +
-          errorText.substring(0, 200)
+        `RapidAPI TikTok request failed (${response.status}): ${text.substring(
+          0,
+          200
+        )}`
       );
     }
 
     const payload = await response.json().catch((err) => {
-      console.error("Failed to parse Apify response:", err);
-      throw new Error("Invalid response from Apify TikTok scraper");
+      console.error("Failed to parse RapidAPI TikTok response:", err);
+      throw new Error("Invalid response from RapidAPI TikTok video info");
     });
 
-    const items = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.items)
-      ? payload.items
-      : [];
+    const item =
+      payload.aweme_detail ||
+      payload.itemInfo?.itemStruct ||
+      payload.data?.itemStruct ||
+      payload.data ||
+      payload;
 
-    if (!items.length) {
-      throw new Error("Apify TikTok scraper returned no results.");
-    }
-
-    const item = items[0] ?? {};
     const stats =
       item.stats ||
       item.statistics ||
-      item.videoMeta?.itemStruct?.stats ||
       item.itemStruct?.stats ||
       item.videoStats ||
+      item.video_meta?.stats ||
       item;
 
     const views =
@@ -162,11 +152,26 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       ) || 0;
     const shares =
       Number(
-        stats.shareCount ?? stats.shares ?? item.shareCount ?? item.shares ?? 0
+        stats.shareCount ??
+          stats.shares ??
+          item.shareCount ??
+          item.shares ??
+          0
       ) || 0;
 
-    // Extract owner username for TikTok
-    const ownerUsername = item.authorMeta?.name || item.author?.uniqueId || item.author_unique_id || null;
+    const ownerUsername =
+      item.authorMeta?.name ??
+      item.author?.nickname ??
+      item.author?.uniqueId ??
+      item.author_unique_id ??
+      null;
+
+    const totalMetrics = views + likes + comments + shares;
+    if (!totalMetrics) {
+      throw new Error(
+        "RapidAPI TikTok scraper returned zero metrics. The result structure may differ."
+      );
+    }
 
     const metrics: ScrapedMetrics = {
       views,
@@ -176,13 +181,6 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       engagement_rate: 0,
       owner_username: ownerUsername,
     };
-
-    const totalMetrics = views + likes + comments + shares;
-    if (totalMetrics === 0) {
-      throw new Error(
-        "Apify TikTok scraper returned zero metrics. The result structure may differ."
-      );
-    }
 
     return metrics;
   } catch (error) {
