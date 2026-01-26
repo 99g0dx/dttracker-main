@@ -23,20 +23,20 @@ const navItems: NavItem[] = [
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
-  { 
-    name: 'Calendar', 
-    href: '/calendar', 
+  {
+    name: 'Calendar',
+    href: '/calendar',
     icon: <Calendar className="w-5 h-5" />,
+    tag: 'Coming soon'
   },
-
-  //add teams once rls works
-  { 
-    name: 'Team', 
-    href: '/team', 
+  {
+    name: 'Team',
+    href: '/team',
     icon: <Shield className="w-5 h-5" />,
+    tag: 'Coming soon'
   },
   { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
-  
+
 ];
 
 interface SidebarProps {
@@ -94,10 +94,10 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     !access.canEditWorkspace &&
     !access.canManageTeam;
   const filteredNavItems = navItems.filter(item => {
+    // Hide coming soon features
+    if (item.tag === 'Coming soon') return false;
     if (!activeWorkspaceId || access.loading) return true;
     if (isViewerOnly) return item.name === 'Dashboard' || item.name === 'Campaigns';
-    if (item.name === 'Calendar') return access.canViewCalendar;
-    if (item.name === 'Team') return access.canManageTeam;
     if (item.name === 'Creator Library' || item.name === 'Requests') {
       return access.canViewWorkspace;
     }
