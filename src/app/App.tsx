@@ -121,6 +121,21 @@ const Pricing = React.lazy(() =>
     default: module.Pricing,
   }))
 );
+const Sounds = React.lazy(() =>
+  import("./components/sounds").then((module) => ({
+    default: module.Sounds,
+  }))
+);
+const SoundTrackNew = React.lazy(() =>
+  import("./components/sound-track-new").then((module) => ({
+    default: module.SoundTrackNew,
+  }))
+);
+const SoundTrackDetail = React.lazy(() =>
+  import("./components/sound-track-detail").then((module) => ({
+    default: module.SoundTrackDetail,
+  }))
+);
 const BillingSuccess = React.lazy(() =>
   import("./components/billing-success").then((module) => ({
     default: module.BillingSuccess,
@@ -316,6 +331,30 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute>
                       <CreatorScraper onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sounds"
+                  element={
+                    <ProtectedRoute>
+                      <Sounds onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sounds/new"
+                  element={
+                    <ProtectedRoute>
+                      <SoundTrackNew onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sounds/:id"
+                  element={
+                    <ProtectedRoute>
+                      <SoundTrackDetail onNavigate={(path) => navigate(path)} />
                     </ProtectedRoute>
                   }
                 />

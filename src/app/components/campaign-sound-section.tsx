@@ -61,6 +61,31 @@ export function CampaignSoundSection({
 }: CampaignSoundSectionProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
 
+  // Show loading state while fetching sound data
+  if (loading && !sound) {
+    return (
+      <Card className="border-white/5 bg-white/5">
+        <CardHeader className="items-start gap-4">
+          <div>
+            <CardTitle className="text-lg text-white flex items-center gap-2">
+              <Music2 className="h-5 w-5 text-primary" />
+              Sound Performance
+            </CardTitle>
+            <CardDescription className="text-slate-400">
+              Loading sound data...
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-xl border border-dashed border-border bg-background/50 px-4 py-8 text-center">
+            <Loader2 className="h-8 w-8 text-slate-500 mx-auto mb-3 animate-spin" />
+            <p className="text-sm text-slate-400">Loading sound information...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (!sound) {
     return (
       <Card className="border-white/5 bg-white/5">

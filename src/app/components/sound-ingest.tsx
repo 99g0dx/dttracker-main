@@ -1,76 +1,117 @@
-import { useState } from 'react'
-import { Loader2, Music2, Search, ArrowRight, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react'
+import { useState } from "react";
+import {
+  Loader2,
+  Music2,
+  Search,
+  ArrowRight,
+  RefreshCw,
+  Trash2,
+  CheckCircle2,
+} from "lucide-react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from './ui/card'
-import { Button } from './ui/button'
-import { supabase } from '../../lib/supabase'
-import type { Sound } from '../../lib/types/database'
+} from "./ui/card";
+import { Button } from "./ui/button";
+import { supabase } from "../../lib/supabase";
+import type { Sound } from "../../lib/types/database";
 
 type Props = {
-  onSuccess?: () => void
-  onSoundDetected?: (sound: Sound) => void
-  campaignId?: string
-}
+  onSuccess?: () => void;
+  onSoundDetected?: (sound: Sound) => void;
+  campaignId?: string;
+};
 
 export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
-  const [url, setUrl] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState<'idle' | 'analyzing' | 'indexing' | 'detected'>('idle')
-  const [resolvedSound, setResolvedSound] = useState<Sound | null>(null)
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<
+    "idle" | "analyzing" | "indexing" | "detected"
+  >("idle");
+  const [resolvedSound, setResolvedSound] = useState<Sound | null>(null);
 
   const handleIngest = async () => {
-    if (!url.trim()) return
-    setLoading(true)
-    setStatus('analyzing')
-    setResolvedSound(null)
+    if (!url.trim()) return;
+    setLoading(true);
+    setStatus("analyzing");
+    setResolvedSound(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('sound-tracking', {
-        body: {
-          action: 'ingest',
-          url: url.trim(),
-          campaignId: campaignId,
-        },
-      })
+      // Get current session to ensure we have a valid auth token
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
-      setResolvedSound(data?.sound || null)
-      setStatus(data?.sound?.indexing_state === 'active' ? 'detected' : 'indexing')
-      setUrl('')
-      if (onSuccess) onSuccess()
+      if (sessionError || !session) {
+        throw new Error("Not authenticated. Please log in again.");
+      }
+
+      // Explicitly pass Authorization and apikey headers
+      const headers: Record<string, string> = {};
+      if (session.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+      // Include apikey header (Supabase anon key) for edge function authentication
+      // The Supabase client should handle this automatically, but we include it explicitly
+      const anonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+      if (anonKey) {
+        headers.apikey = anonKey;
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "sound-tracking",
+        {
+          body: {
+            action: "ingest",
+            url: url.trim(),
+            campaignId: campaignId,
+          },
+          headers,
+        },
+      );
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setResolvedSound(data?.sound || null);
+      setStatus(
+        data?.sound?.indexing_state === "active" ? "detected" : "indexing",
+      );
+      setUrl("");
+      if (onSuccess) onSuccess();
       if (onSoundDetected && data?.sound) {
-        onSoundDetected(data.sound)
+        onSoundDetected(data.sound);
       }
     } catch (err: any) {
-      console.error('Sound ingest failed', err)
-      alert(err?.message || 'Unable to track that link right now.')
-      setStatus('idle')
+      console.error("Sound ingest failed", err);
+      alert(err?.message || "Unable to track that link right now.");
+      setStatus("idle");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const reset = () => {
-    setStatus('idle')
-    setResolvedSound(null)
-  }
+    setStatus("idle");
+    setResolvedSound(null);
+  };
 
   const deleteCurrentSound = async () => {
-    if (!resolvedSound?.id) return
-    if (!confirm('Delete this sound?')) return
+    if (!resolvedSound?.id) return;
+    if (!confirm("Delete this sound?")) return;
 
-    const { error } = await supabase.from('sounds').delete().eq('id', resolvedSound.id)
+    const { error } = await supabase
+      .from("sounds")
+      .delete()
+      .eq("id", resolvedSound.id);
     if (!error) {
-      reset()
-      if (onSuccess) onSuccess()
+      reset();
+      if (onSuccess) onSuccess();
     }
-  }
+  };
 
   return (
     <Card className="border-white/5 bg-white/5 shadow-[0_20px_35px_rgba(5,5,5,0.45)]">
@@ -81,10 +122,11 @@ export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
             Track a Sound
           </CardTitle>
           <CardDescription className="text-sm text-slate-400">
-            Paste a TikTok, Instagram Reel, or YouTube Shorts link to let DTTracker index sound usage continuously.
+            Paste a TikTok, Instagram Reel, or YouTube Shorts link to let
+            DTTracker index sound usage continuously.
           </CardDescription>
         </div>
-        {(status === 'detected' || status === 'indexing') && (
+        {(status === "detected" || status === "indexing") && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -108,7 +150,7 @@ export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
         )}
       </CardHeader>
       <CardContent className="space-y-6">
-        {(status === 'idle' || status === 'analyzing') && (
+        {(status === "idle" || status === "analyzing") && (
           <div className="space-y-4">
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -125,7 +167,8 @@ export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground sm:max-w-sm">
-                Sound indexing begins immediately. First insights appear in minutes.
+                Sound indexing begins immediately. First insights appear in
+                minutes.
               </p>
               <Button
                 onClick={handleIngest}
@@ -147,7 +190,7 @@ export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
             </div>
           </div>
         )}
-        {status !== 'idle' && status !== 'analyzing' && resolvedSound && (
+        {status !== "idle" && status !== "analyzing" && resolvedSound && (
           <div className="space-y-2 rounded-xl border border-border bg-background/50 p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -159,10 +202,12 @@ export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
                     Sound detected
                   </p>
                   <h3 className="text-lg font-semibold text-white">
-                    {resolvedSound.title || 'Original / Unnamed Audio'}
+                    {resolvedSound.title || "Original / Unnamed Audio"}
                   </h3>
                   <p className="text-sm text-slate-400">
-                    {resolvedSound.artist || resolvedSound.source || 'Unknown artist or creator'}
+                    {resolvedSound.artist ||
+                      resolvedSound.source ||
+                      "Unknown artist or creator"}
                   </p>
                 </div>
               </div>
@@ -172,11 +217,13 @@ export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
               </div>
             </div>
             <p className="text-xs text-slate-400">
-              We're discovering videos using this sound. This continues automatically and updates as new content appears.
+              We're discovering videos using this sound. This continues
+              automatically and updates as new content appears.
             </p>
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <span className="rounded-full border border-border px-3 py-1">
-                Platform: {resolvedSound.platform ? resolvedSound.platform : 'Unknown'}
+                Platform:{" "}
+                {resolvedSound.platform ? resolvedSound.platform : "Unknown"}
               </span>
               {resolvedSound.sound_page_url && (
                 <a
@@ -193,5 +240,5 @@ export function SoundIngest({ onSuccess, onSoundDetected, campaignId }: Props) {
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
