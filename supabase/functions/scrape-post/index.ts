@@ -14,36 +14,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function extractTikTokVideoId(url: string): string | null {
-  try {
-    let normalizedUrl = url.trim();
-    normalizedUrl = normalizedUrl.replace(/^["'<>]+|["'<>]+$/g, '');
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      normalizedUrl = `https://${normalizedUrl}`;
-    }
-    const urlObj = new URL(normalizedUrl);
-    const pathname = urlObj.pathname;
-    const videoMatch = pathname.match(/\/video\/(\d+)/) || pathname.match(/\/v\/(\d+)/);
-    if (videoMatch) {
-      return videoMatch[1];
-    }
-    const fallbackMatch = normalizedUrl.match(/\/(\d+)(?:\?|$)/);
-    return fallbackMatch ? fallbackMatch[1] : null;
-  } catch {
-    return null;
-  }
-}
-
 // ============================================================
 // API CONFIGURATION
 // ============================================================
-// Primary: RapidAPI (TikTok) + Apify actors (Instagram)
-// - RAPIDAPI_KEY: Your RapidAPI key used for TikTok video info
+// Primary: Apify actors (TikTok + Instagram) + RapidAPI (Twitter)
 // - APIFY_TOKEN: Your Apify API token
-// - Actors: apify~instagram-scraper
+// - Actors: clockworks~tiktok-scraper, apify~instagram-scraper
+// - RAPIDAPI_KEY: Used for Twitter scraping
 
 // Twitter (RapidAPI)
-// - RAPIDAPI_KEY: (also used above)
 const TWITTER_API_BASE_URL = "https://twitter241.p.rapidapi.com";
 const TWITTER_API_HOST = "twitter241.p.rapidapi.com";
 const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
@@ -72,108 +51,114 @@ interface ScrapedMetrics {
 
 async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
   try {
-    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
-    if (!rapidApiKey) {
+    const apifyToken = Deno.env.get("APIFY_TOKEN");
+    if (!apifyToken) {
       throw new Error(
-        "RAPIDAPI_KEY not configured. Please set the RAPIDAPI_KEY secret in Supabase Edge Functions."
+        "APIFY_TOKEN not configured. Please set the APIFY_TOKEN secret in Supabase Edge Functions."
       );
     }
 
-    const videoId = extractTikTokVideoId(postUrl);
-    if (!videoId) {
-      throw new Error("Unable to extract TikTok video ID from the URL.");
+    console.log(`[scrapeTikTok] Starting Apify scrape for URL: ${postUrl}`);
+
+    let normalizedUrl = postUrl.trim();
+    if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+      normalizedUrl = "https://" + normalizedUrl;
     }
 
-    const apiUrl = `https://tiktok-data-api.p.rapidapi.com/video/info?video_id=${videoId}`;
-    const response = await fetch(apiUrl, {
-      headers: {
-        "X-RapidAPI-Key": rapidApiKey,
-        "X-RapidAPI-Host": "tiktok-data-api.p.rapidapi.com",
-      },
+    const actorId = "clockworks~tiktok-scraper";
+    const apifyUrl =
+      "https://api.apify.com/v2/acts/" +
+      encodeURIComponent(actorId) +
+      "/run-sync-get-dataset-items?token=" +
+      encodeURIComponent(apifyToken);
+
+    const input = {
+      postURLs: [normalizedUrl],
+      resultsPerPage: 1,
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: false,
+      shouldDownloadSubtitles: false,
+      shouldDownloadSlideshowImages: false,
+    };
+
+    console.log("[scrapeTikTok] Calling Apify actor:", actorId);
+
+    const response = await fetch(apifyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
     });
+
+    console.log(`[scrapeTikTok] Apify response status: ${response.status}`);
 
     if (!response.ok) {
-      const text = await response.text().catch(() => "Unknown error");
+      const errorText = await response.text().catch(() => "Unknown error");
       throw new Error(
-        `RapidAPI TikTok request failed (${response.status}): ${text.substring(
-          0,
-          200
-        )}`
+        `Apify TikTok API error (${response.status}): ${errorText.substring(0, 300)}`
       );
     }
 
-    const payload = await response.json().catch((err) => {
-      console.error("Failed to parse RapidAPI TikTok response:", err);
-      throw new Error("Invalid response from RapidAPI TikTok video info");
+    const items = await response.json().catch(() => {
+      throw new Error("Invalid JSON response from Apify TikTok scraper");
     });
 
-    const item =
-      payload.aweme_detail ||
-      payload.itemInfo?.itemStruct ||
-      payload.data?.itemStruct ||
-      payload.data ||
-      payload;
+    console.log("[scrapeTikTok] Apify returned items:", Array.isArray(items) ? items.length : typeof items);
 
-    const stats =
-      item.stats ||
-      item.statistics ||
-      item.itemStruct?.stats ||
-      item.videoStats ||
-      item.video_meta?.stats ||
-      item;
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("Apify TikTok scraper returned no results for this URL.");
+    }
 
-    const views =
-      Number(
-        stats.playCount ??
-          stats.viewCount ??
-          stats.views ??
-          item.playCount ??
-          item.viewCount ??
-          item.views ??
-          0
-      ) || 0;
-    const likes =
-      Number(
-        stats.diggCount ??
-          stats.likeCount ??
-          stats.likes ??
-          item.diggCount ??
-          item.likeCount ??
-          item.likes ??
-          0
-      ) || 0;
-    const comments =
-      Number(
-        stats.commentCount ??
-          stats.comments ??
-          item.commentCount ??
-          item.comments ??
-          0
-      ) || 0;
-    const shares =
-      Number(
-        stats.shareCount ??
-          stats.shares ??
-          item.shareCount ??
-          item.shares ??
-          0
-      ) || 0;
+    const item = items[0];
+    console.log("[scrapeTikTok] Item keys:", Object.keys(item).slice(0, 25));
+    console.log("[scrapeTikTok] Item preview:", JSON.stringify(item).substring(0, 800));
+
+    const num = (...vals: unknown[]) => {
+      for (const v of vals) {
+        const n = Number(v);
+        if (n > 0) return n;
+      }
+      return 0;
+    };
+
+    const views = num(
+      item.playCount, item.play_count, item.viewCount, item.views,
+      item.videoMeta?.playCount, item.stats?.playCount,
+    );
+    const likes = num(
+      item.diggCount, item.digg_count, item.likeCount, item.likes,
+      item.videoMeta?.diggCount, item.stats?.diggCount,
+    );
+    const comments = num(
+      item.commentCount, item.comment_count, item.comments,
+      item.videoMeta?.commentCount, item.stats?.commentCount,
+    );
+    const shares = num(
+      item.shareCount, item.share_count, item.shares,
+      item.videoMeta?.shareCount, item.stats?.shareCount,
+    );
 
     const ownerUsername =
       item.authorMeta?.name ??
+      item.authorMeta?.nickName ??
       item.author?.nickname ??
       item.author?.uniqueId ??
-      item.author_unique_id ??
+      item.authorName ??
       null;
 
     const totalMetrics = views + likes + comments + shares;
+
+    console.log("[scrapeTikTok] Extracted metrics:", {
+      views, likes, comments, shares, totalMetrics, ownerUsername,
+    });
+
     if (!totalMetrics) {
+      console.error("[scrapeTikTok] Zero metrics. Full item:", JSON.stringify(item, null, 2).substring(0, 2000));
       throw new Error(
-        "RapidAPI TikTok scraper returned zero metrics. The result structure may differ."
+        "Apify TikTok scraper returned zero metrics. The response structure may have changed. Check logs for details."
       );
     }
 
-    const metrics: ScrapedMetrics = {
+    return {
       views,
       likes,
       comments,
@@ -181,8 +166,6 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       engagement_rate: 0,
       owner_username: ownerUsername,
     };
-
-    return metrics;
   } catch (error) {
     console.error("TikTok scraping error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -233,20 +216,21 @@ async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
     };
 
     console.log("Calling Apify Instagram API...");
+    console.log("Apify URL:", apifyUrl.replace(/token=[^&]+/, "token=***"));
 
     const fetchWithRetry = async (attempt: number): Promise<Response> => {
-      const response = await fetch(instagramApiUrl, {
-        method: "GET",
+      const response = await fetch(apifyUrl, {
+        method: "POST",
         headers: {
-          "X-RapidAPI-Key": rapidApiKey,
-          "X-RapidAPI-Host": INSTAGRAM_API_HOST,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify(input),
       });
 
       if (response.status === 429 && attempt < 3) {
         const backoffMs = 1500 * Math.pow(2, attempt);
         console.warn(
-          `Instagram API rate limited (429). Retrying in ${backoffMs}ms (attempt ${
+          `Apify Instagram API rate limited (429). Retrying in ${backoffMs}ms (attempt ${
             attempt + 1
           }/3)...`
         );
@@ -801,8 +785,15 @@ serve(async (req) => {
         hasUrl: !!supabaseUrl,
         hasServiceKey: !!supabaseServiceKey,
       });
-      throw new Error(
-        "Server configuration error: Missing Supabase credentials. Please check Edge Function secrets."
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Server configuration error: Missing Supabase credentials. Please check Edge Function secrets.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
       );
     }
 
@@ -842,15 +833,41 @@ serve(async (req) => {
     }
 
     // Parse request body
+    let requestBody: ScrapeRequest;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid request body. Expected JSON.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
     const {
       postId,
       postUrl,
       platform,
       isAutoScrape = false,
-    }: ScrapeRequest = await req.json();
+    } = requestBody;
 
     if (!postId || !postUrl || !platform) {
-      throw new Error("Missing required fields: postId, postUrl, platform");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing required fields: postId, postUrl, platform",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
     }
 
     console.log(
@@ -867,7 +884,16 @@ serve(async (req) => {
       .single();
 
     if (postError) {
-      throw new Error(`Post not found: ${postError.message}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Post not found: ${postError.message}`,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404,
+        }
+      );
     }
 
     const { data: campaign, error: campaignError } = await supabase
@@ -877,7 +903,16 @@ serve(async (req) => {
       .single();
 
     if (campaignError || !campaign) {
-      throw new Error("Campaign not found for post");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Campaign not found for post",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404,
+        }
+      );
     }
 
     const { data: scrapeGate, error: gateError } = await supabase.rpc(
@@ -890,7 +925,16 @@ serve(async (req) => {
     );
 
     if (gateError) {
-      throw new Error(`Scrape permission check failed: ${gateError.message}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Scrape permission check failed: ${gateError.message}`,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
     }
 
     const gate = Array.isArray(scrapeGate) ? scrapeGate[0] : scrapeGate;
@@ -952,7 +996,30 @@ serve(async (req) => {
     }
 
     // Scrape the post
-    const metrics = await scrapePost(platform, postUrl);
+    let metrics: ScrapedMetrics;
+    try {
+      metrics = await scrapePost(platform, postUrl);
+    } catch (scrapeError) {
+      const errorMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
+      console.error("Scraping failed:", errorMessage);
+      
+      // Update post status to failed
+      await supabase
+        .from("posts")
+        .update({ status: "failed" })
+        .eq("id", postId);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: errorMessage,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200, // Return 200 so frontend can parse the error message
+        }
+      );
+    }
 
     // Calculate engagement rate
     const totalEngagements = metrics.likes + metrics.comments + metrics.shares;
@@ -1109,15 +1176,25 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Scraping error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    // Log full error details for debugging
+    console.error("Error details:", {
+      message: errorMessage,
+      stack: errorStack,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+    });
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: errorMessage,
+        details: process.env.DENO_ENV === "development" ? errorStack : undefined,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+        status: 200, // Return 200 so frontend can parse the error message
       }
     );
   }
