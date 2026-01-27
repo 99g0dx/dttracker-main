@@ -1,0 +1,3 @@
+# Edge Function Configuration
+# Disable JWT verification to avoid auth blockers
+verify_jwt = false

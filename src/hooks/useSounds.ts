@@ -37,11 +37,16 @@ export function useSound(soundId: string | null | undefined) {
     queryFn: async () => {
       if (!soundId) return null
       const result = await soundsApi.getById(soundId)
-      if (result.error) throw result.error
+      if (result.error) {
+        console.error('Error fetching sound:', result.error)
+        // Don't throw - return null so UI can handle gracefully
+        return null
+      }
       return result.data
     },
     enabled: !!soundId,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1, // Only retry once on failure
   })
 }
 
@@ -107,9 +112,17 @@ export function useLinkSoundToCampaign() {
       if (result.error) throw result.error
       return { campaignId, soundId }
     },
-    onSuccess: ({ campaignId }) => {
+    onSuccess: ({ campaignId, soundId }) => {
+      // Invalidate campaign query to refresh sound_id
       queryClient.invalidateQueries({
         queryKey: ['campaigns', 'detail', campaignId],
+      })
+      // Invalidate sound queries to refresh sound data
+      queryClient.invalidateQueries({
+        queryKey: soundsKeys.detail(soundId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: soundsKeys.videos(soundId),
       })
       toast.success('Sound linked to campaign successfully')
     },
@@ -132,8 +145,13 @@ export function useUnlinkSoundFromCampaign() {
       return campaignId
     },
     onSuccess: (campaignId) => {
+      // Invalidate campaign query to refresh sound_id
       queryClient.invalidateQueries({
         queryKey: ['campaigns', 'detail', campaignId],
+      })
+      // Also invalidate sound queries
+      queryClient.invalidateQueries({
+        queryKey: soundsKeys.all,
       })
       toast.success('Sound unlinked from campaign')
     },

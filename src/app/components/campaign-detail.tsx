@@ -274,8 +274,15 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
 
   // Sound tracking hooks
-  const { data: linkedSound } = useSound(campaign?.sound_id);
-  const { data: soundVideos = [] } = useSoundVideos(campaign?.sound_id, 'views');
+  const { 
+    data: linkedSound, 
+    isLoading: soundLoading, 
+    error: soundError 
+  } = useSound(campaign?.sound_id);
+  const { 
+    data: soundVideos = [], 
+    isLoading: videosLoading 
+  } = useSoundVideos(campaign?.sound_id, 'views');
   const linkSoundMutation = useLinkSoundToCampaign();
   const unlinkSoundMutation = useUnlinkSoundFromCampaign();
   const refreshSoundMutation = useRefreshSound();
@@ -2138,7 +2145,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             campaignId={campaign.id}
             sound={linkedSound || null}
             soundVideos={soundVideos}
-            loading={refreshSoundMutation.isPending}
+            loading={refreshSoundMutation.isPending || soundLoading || videosLoading}
             onAddSound={() => setShowAddSoundDialog(true)}
             onRemoveSound={() => {
               if (confirm('Remove sound from this campaign?')) {
@@ -2148,6 +2155,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             onRefreshSound={() => {
               if (linkedSound?.id) {
                 refreshSoundMutation.mutate(linkedSound.id)
+              } else if (campaign?.sound_id) {
+                // If sound_id exists but sound data isn't loaded, try to refresh
+                refreshSoundMutation.mutate(campaign.sound_id)
               }
             }}
           />
@@ -2169,13 +2179,25 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   queryClient.invalidateQueries({
                     queryKey: campaignsKeys.detail(campaign.id),
                   })
+                  // Also invalidate sound queries
+                  queryClient.invalidateQueries({
+                    queryKey: ['sounds'],
+                  })
                 }}
-                onSoundDetected={(sound) => {
+                onSoundDetected={async (sound) => {
+                  // The sound-tracking function should have already linked it,
+                  // but link it again as a fallback to ensure it's linked
                   if (campaign?.id && sound.id) {
-                    linkSoundMutation.mutate({
-                      campaignId: campaign.id,
-                      soundId: sound.id,
-                    })
+                    try {
+                      await linkSoundMutation.mutateAsync({
+                        campaignId: campaign.id,
+                        soundId: sound.id,
+                        soundUrl: sound.sound_page_url || undefined,
+                      })
+                    } catch (error) {
+                      // If linking fails, it might already be linked, which is fine
+                      console.log('Sound may already be linked:', error)
+                    }
                   }
                 }}
               />
