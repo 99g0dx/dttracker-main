@@ -3,14 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import {
-  Eye,
-  Share2,
-  Lock,
-} from "lucide-react";
+import { Share2, Lock } from "lucide-react";
+import logoImage from "../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png";
 import * as sharingApi from "../../lib/api/campaign-sharing-v2";
 import { toast } from "sonner";
-import type { SubcampaignSummary, PostWithRankings, Platform } from "../../lib/types/database";
+import type {
+  SubcampaignSummary,
+  PostWithRankings,
+  Platform,
+} from "../../lib/types/database";
 import type { ChartDataPoint, ChartRange } from "../../lib/types/campaign-view";
 import * as csvUtils from "../../lib/utils/csv";
 
@@ -78,7 +79,7 @@ function buildSeriesFromPosts(
     shares: number;
     postedDate: string | null;
     createdAt: string;
-  }>
+  }>,
 ) {
   const metricsByDate = new Map<
     string,
@@ -108,7 +109,7 @@ function buildSeriesFromPosts(
   });
 
   const sortedDates = Array.from(metricsByDate.keys()).sort((a, b) =>
-    a.localeCompare(b)
+    a.localeCompare(b),
   );
 
   const series = {
@@ -132,7 +133,7 @@ function buildSeriesFromPosts(
 // Transform API posts to PostWithRankings format
 function transformPostsToRankings(
   posts: SharedCampaignData["posts"],
-  campaignId: string
+  campaignId: string,
 ): PostWithRankings[] {
   return posts.map((post, index) => ({
     id: post.id,
@@ -194,51 +195,59 @@ export function SharedCampaignDashboard() {
   const [chartRange, setChartRange] = useState<ChartRange>("30d");
 
   // Load shared campaign data function
-  const loadCampaign = React.useCallback(async (providedPassword?: string) => {
-    if (!token) return;
+  const loadCampaign = React.useCallback(
+    async (providedPassword?: string) => {
+      if (!token) return;
 
-    setIsLoading(true);
-    setError(null);
-    setPasswordError(null);
+      setIsLoading(true);
+      setError(null);
+      setPasswordError(null);
 
-    try {
-      const result = await sharingApi.fetchSharedCampaignData(token, providedPassword);
+      try {
+        const result = await sharingApi.fetchSharedCampaignData(
+          token,
+          providedPassword,
+        );
 
-      if (result.error) {
-        const errorCode = (result.error as any)?.code;
+        if (result.error) {
+          const errorCode = (result.error as any)?.code;
 
-        // Check if error is due to password requirement
-        if (errorCode === "PASSWORD_REQUIRED") {
-          setRequiresPassword(true);
+          // Check if error is due to password requirement
+          if (errorCode === "PASSWORD_REQUIRED") {
+            setRequiresPassword(true);
+            setIsLoading(false);
+            return;
+          }
+
+          // Check if password was incorrect
+          if (errorCode === "INCORRECT_PASSWORD") {
+            setRequiresPassword(true);
+            setPasswordError("Incorrect password. Please try again.");
+            setIsLoading(false);
+            return;
+          }
+
+          console.error("Failed to load shared campaign:", result.error);
+          setError(result.error.message || "Failed to load campaign");
           setIsLoading(false);
           return;
         }
 
-        // Check if password was incorrect
-        if (errorCode === "INCORRECT_PASSWORD") {
-          setRequiresPassword(true);
-          setPasswordError("Incorrect password. Please try again.");
+        if (result.data) {
+          setData(result.data);
+          setRequiresPassword(false);
           setIsLoading(false);
-          return;
         }
-
-        console.error("Failed to load shared campaign:", result.error);
-        setError(result.error.message || "Failed to load campaign");
-        setIsLoading(false);
-        return;
-      }
-
-      if (result.data) {
-        setData(result.data);
-        setRequiresPassword(false);
+      } catch (err) {
+        console.error("Exception loading shared campaign:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load campaign",
+        );
         setIsLoading(false);
       }
-    } catch (err) {
-      console.error("Exception loading shared campaign:", err);
-      setError(err instanceof Error ? err.message : "Failed to load campaign");
-      setIsLoading(false);
-    }
-  }, [token]);
+    },
+    [token],
+  );
 
   // Load shared campaign data on mount
   React.useEffect(() => {
@@ -253,7 +262,11 @@ export function SharedCampaignDashboard() {
 
   React.useEffect(() => {
     if (!data) return;
-    if (!data.is_parent || !data.subcampaigns || data.subcampaigns.length === 0) {
+    if (
+      !data.is_parent ||
+      !data.subcampaigns ||
+      data.subcampaigns.length === 0
+    ) {
       if (activeTab !== "all") {
         setActiveTab("all");
       }
@@ -269,11 +282,14 @@ export function SharedCampaignDashboard() {
   }, [data, activeTab]);
 
   const subcampaignTabs = data?.subcampaigns || [];
-  const hasSubcampaigns = Boolean(data?.is_parent && subcampaignTabs.length > 0);
+  const hasSubcampaigns = Boolean(
+    data?.is_parent && subcampaignTabs.length > 0,
+  );
   const selectedSubcampaign =
     activeTab === "all"
       ? null
-      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) || null;
+      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) ||
+        null;
 
   const filteredPosts = useMemo(() => {
     if (!data?.posts) return [];
@@ -283,7 +299,7 @@ export function SharedCampaignDashboard() {
 
   const totals = useMemo(() => {
     const kpiPosts = filteredPosts.filter((post) =>
-      kpiPlatforms.has(post.platform)
+      kpiPlatforms.has(post.platform),
     );
     return {
       views: kpiPosts.reduce((sum, post) => sum + (post.views || 0), 0),
@@ -350,7 +366,7 @@ export function SharedCampaignDashboard() {
       seriesData.views.length,
       seriesData.likes.length,
       seriesData.comments.length,
-      seriesData.shares.length
+      seriesData.shares.length,
     );
 
     return Array.from({ length: maxLength }, (_, i) => {
@@ -418,7 +434,8 @@ export function SharedCampaignDashboard() {
                 Password Required
               </h2>
               <p className="text-slate-400 text-center">
-                This shared dashboard is password protected. Please enter the password to continue.
+                This shared dashboard is password protected. Please enter the
+                password to continue.
               </p>
             </div>
 
@@ -490,10 +507,13 @@ export function SharedCampaignDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-white">DTTracker</h1>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <Eye className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-medium text-amber-400">View Only</span>
+              <div className="flex items-center gap-2">
+                <img
+                  src={logoImage}
+                  alt="DTTracker"
+                  className="w-8 h-8 object-contain"
+                />
+                <h1 className="text-xl font-semibold text-white">DTTracker</h1>
               </div>
             </div>
           </div>
