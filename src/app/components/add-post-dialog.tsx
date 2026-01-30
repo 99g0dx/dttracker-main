@@ -308,9 +308,7 @@ export function AddPostDialog({
                       <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
                         {parsedUrl.platform === 'tiktok' ? 'TikTok' :
                          parsedUrl.platform === 'instagram' ? 'Instagram' :
-                         parsedUrl.platform === 'youtube' ? 'YouTube' :
-                         parsedUrl.platform === 'twitter' ? 'Twitter/X' :
-                         parsedUrl.platform === 'facebook' ? 'Facebook' : 'Unknown'} detected
+                         parsedUrl.platform === 'youtube' ? 'YouTube' : 'Unknown'} detected
                       </span>
                     </div>
                   ) : (

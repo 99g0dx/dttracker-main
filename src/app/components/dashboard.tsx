@@ -502,8 +502,6 @@ useEffect(() => {
       tiktok: 0,
       instagram: 0,
       youtube: 0,
-      twitter: 0,
-      facebook: 0,
     };
 
     // Count posts by platform
@@ -521,8 +519,6 @@ useEffect(() => {
        { key: 'tiktok', name: 'TikTok', color: '#7a54a0' },
       { key: 'instagram', name: 'Instagram', color: '#E4405F' },
       { key: 'youtube', name: 'YouTube', color: '#FF0000' },
-      { key: 'twitter', name: 'Twitter', color: '#1DA1F2' },
-      { key: 'facebook', name: 'Facebook', color: '#1877F2' },
     ];
 
     // Calculate percentages and filter out platforms with 0 posts

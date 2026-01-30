@@ -138,8 +138,10 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
 
   const seatPrice = selectedPlan?.extra_seat_price_cents || 0;
   const basePrice = selectedPlan?.base_price_cents || 0;
+  const includedSeats = selectedPlan?.included_seats || 0;
+  const maxExtraSeats = selectedPlan?.max_seats != null ? selectedPlan.max_seats - includedSeats : Infinity;
   const totalPrice = basePrice + extraSeats * seatPrice;
-  const totalSeats = (selectedPlan?.included_seats || 0) + extraSeats;
+  const totalSeats = includedSeats + extraSeats;
   const currency = catalog?.currency || "USD";
   const effectiveWorkspaceId = billing?.workspace_id || workspaceId;
   const isCheckoutDisabled =
@@ -533,7 +535,8 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                 <Button
                   variant="outline"
                   className="h-9 w-9 p-0"
-                  onClick={() => setExtraSeats(extraSeats + 1)}
+                  disabled={extraSeats >= maxExtraSeats}
+                  onClick={() => setExtraSeats(Math.min(extraSeats + 1, maxExtraSeats))}
                 >
                   <Plus className="w-4 h-4" />
                 </Button>

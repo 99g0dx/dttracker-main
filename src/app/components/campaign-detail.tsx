@@ -477,8 +477,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   }, [posts, id, queryClient]);
 
   const platformOrder: Array<
-    "tiktok" | "instagram" | "youtube" | "twitter" | "facebook"
-  > = ["tiktok", "instagram", "youtube", "twitter", "facebook"];
+    "tiktok" | "instagram" | "youtube"
+  > = ["tiktok", "instagram", "youtube"];
 
   // Helper functions for scoring and KPI filtering
   // Updated to return true for all platforms (previously filtered to TikTok/Instagram only)
@@ -918,8 +918,6 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       tiktok: 0,
       instagram: 0,
       youtube: 0,
-      twitter: 0,
-      facebook: 0,
     };
     // Count unique creators by platform
     const platformSet = new Map<string, Set<string>>();
@@ -1382,9 +1380,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       platform: post.platform as
         | "tiktok"
         | "instagram"
-        | "youtube"
-        | "twitter"
-        | "facebook",
+        | "youtube",
       campaignId: id,
     });
   };
@@ -3293,7 +3289,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 Platform
               </p>
               <div className="flex flex-wrap gap-2">
-                {["all", "tiktok", "instagram", "youtube", "twitter", "facebook"].map(
+                {["all", "tiktok", "instagram", "youtube"].map(
                   (platform) => (
                     <button
                       key={platform}
@@ -3762,8 +3758,6 @@ const EmptyState = ({ searchQuery, selectedPlatform }: EmptyStateProps) => {
     tiktok: "TikTok",
     instagram: "Instagram",
     youtube: "YouTube",
-    twitter: "X",
-    facebook: "Facebook",
   };
   const platformLabel =
     selectedPlatform && selectedPlatform !== "all"

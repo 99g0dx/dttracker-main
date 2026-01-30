@@ -1,17 +1,24 @@
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
-import { User, UsersRound, Building2 } from 'lucide-react';
+import { User, UsersRound, Building2, Check } from 'lucide-react';
 
 export function PricingTeaser() {
   const tiers = [
     {
       name: 'Starter',
-      price: '$0',
+      price: '$19',
       period: '/month',
       badge: 'Great for solo campaigns',
       positioning: 'Perfect for independent artists and emerging managers',
       featured: false,
-      icon: User
+      icon: User,
+      highlights: [
+        'Up to 2 team seats',
+        '3 active campaigns',
+        '25 creators per campaign',
+        'TikTok & Instagram',
+        'Basic analytics & export',
+      ],
     },
     {
       name: 'Pro',
@@ -20,30 +27,46 @@ export function PricingTeaser() {
       badge: 'Most Popular',
       positioning: 'Built for artist managers and small labels',
       featured: true,
-      icon: UsersRound
+      icon: UsersRound,
+      highlights: [
+        'Up to 3 team seats',
+        '10 active campaigns',
+        '100 creators per campaign',
+        'All 3 platforms',
+        'Advanced analytics & API',
+        'Automated scraping (4h)',
+      ],
     },
     {
       name: 'Agency',
-      price: 'Custom',
-      period: '',
+      price: '$129',
+      period: '/month',
       badge: 'Unlimited scale',
       positioning: 'For agencies and labels managing multiple clients',
       featured: false,
-      icon: Building2
+      icon: Building2,
+      highlights: [
+        'Up to 5 team seats',
+        'Unlimited campaigns',
+        'Unlimited creators',
+        'All 3 platforms',
+        '30-min scrape interval',
+        'White-label & dedicated manager',
+      ],
     }
   ];
 
   return (
-    <section 
+    <section
       id="pricing"
       className="py-12 lg:py-18 relative bg-black"
-      style={{ 
+      style={{
         paddingTop: '48px',
         paddingBottom: '48px'
       }}
     >
       <div className="max-w-[420px] lg:max-w-[1140px] mx-auto px-4 lg:px-8">
-        <h2 
+        <h2
           className="text-[34px] lg:text-[32px] leading-[1.2] text-white text-center mb-8 lg:mb-12 tracking-[-0.02em]"
           style={{ fontFamily: 'var(--font-heading)' }}
         >
@@ -56,14 +79,14 @@ export function PricingTeaser() {
             {tiers.map((tier, index) => {
               const IconComponent = tier.icon;
               return (
-                <div 
+                <div
                   key={index}
                   className={`snap-center flex-shrink-0 w-[85vw] max-w-[340px] p-6 rounded-xl transition-all ${
                     tier.featured
                       ? 'bg-[#E50914]/10 border-2 border-[#E50914]'
                       : 'bg-[#0C0C0C] border border-[#1F1F1F]'
                   }`}
-                  style={{ 
+                  style={{
                     borderRadius: '16px',
                     padding: '20px'
                   }}
@@ -79,7 +102,7 @@ export function PricingTeaser() {
                       ? 'bg-[#E50914] text-white'
                       : 'bg-[#1F1F1F] text-[#A1A1A1]'
                   }`}
-                  style={{ 
+                  style={{
                     borderRadius: '12px',
                     fontFamily: 'var(--font-body)'
                   }}
@@ -109,11 +132,22 @@ export function PricingTeaser() {
                   </div>
 
                   <p
-                    className="text-sm text-[#A1A1A1] mb-6 leading-relaxed"
+                    className="text-sm text-[#A1A1A1] mb-4 leading-relaxed"
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     {tier.positioning}
                   </p>
+
+                  <ul className="space-y-2 mb-6">
+                    {tier.highlights.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <Check size={14} className={`mt-0.5 flex-shrink-0 ${tier.featured ? 'text-[#E50914]' : 'text-[#A1A1A1]'}`} />
+                        <span className="text-xs text-[#A1A1A1]" style={{ fontFamily: 'var(--font-body)' }}>
+                          {item}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
 
                   <Link
                     to="/pricing"
@@ -196,6 +230,17 @@ export function PricingTeaser() {
                   {tier.positioning}
                 </p>
 
+                <ul className="space-y-3 mb-6">
+                  {tier.highlights.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <Check size={16} className={`mt-0.5 flex-shrink-0 ${tier.featured ? 'text-[#E50914]' : 'text-[#A1A1A1]'}`} />
+                      <span className="text-sm text-[#A1A1A1]" style={{ fontFamily: 'var(--font-body)' }}>
+                        {item}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
                 <Link
                   to="/pricing"
                   className="h-16 flex items-center justify-center border-t border-b border-[#1F1F1F] mb-6 hover:bg-white/5 transition-colors"
@@ -223,7 +268,7 @@ export function PricingTeaser() {
           </Button>
         </div>
       </div>
-      
+
     </section>
   );
 }
