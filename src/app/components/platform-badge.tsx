@@ -1,7 +1,7 @@
 import React from "react";
 import { Badge } from "./ui/badge";
 
-type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+type Platform = "tiktok" | "instagram" | "youtube";
 
 interface PlatformBadgeProps {
   platform: Platform | undefined | null;
@@ -14,18 +14,12 @@ const platformColors: Record<Platform, string> = {
     "bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-orange-500/10 text-purple-400 border-purple-500/30 shadow-[0_0_12px_rgba(168,85,247,0.15)]",
   youtube:
     "bg-gradient-to-r from-red-500/15 to-red-500/10 text-red-400 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.15)]",
-  twitter:
-    "bg-gradient-to-r from-sky-500/15 to-blue-500/10 text-sky-400 border-sky-500/30 shadow-[0_0_12px_rgba(14,165,233,0.15)]",
-  facebook:
-    "bg-gradient-to-r from-blue-600/15 to-blue-600/10 text-blue-400 border-blue-600/30 shadow-[0_0_12px_rgba(37,99,235,0.15)]",
 };
 
 const platformNames: Record<Platform, string> = {
   tiktok: "TikTok",
   instagram: "Instagram",
   youtube: "YouTube",
-  twitter: "X",
-  facebook: "Facebook",
 };
 
 export function PlatformBadge({ platform }: PlatformBadgeProps) {

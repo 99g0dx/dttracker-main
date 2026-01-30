@@ -57,7 +57,7 @@ const TIER_CONFIGS: TierConfig[] = [
     features: [
       "10 active campaigns",
       "100 creators per campaign",
-      "All 5 platforms",
+      "All 3 platforms",
       "4-hour scrape interval",
       "Unlimited data retention",
       "Advanced analytics",
@@ -74,7 +74,7 @@ const TIER_CONFIGS: TierConfig[] = [
     features: [
       "Unlimited campaigns",
       "Unlimited creators",
-      "All 5 platforms",
+      "All 3 platforms",
       "30-minute scrape interval",
       "Unlimited data retention",
       "API access",
@@ -235,6 +235,7 @@ export function PricingCards({
                       extraSeats={extraSeats}
                       extraSeatPrice={plan.extra_seat_price_cents || 0}
                       billingCycle={billingCycle}
+                      maxSeats={plan.max_seats ?? undefined}
                       onChange={(seats) =>
                         setSelectedSeats((prev) => ({ ...prev, [config.tier]: seats }))
                       }

@@ -168,8 +168,6 @@ export function Posts() {
             <SelectItem value="tiktok">TikTok</SelectItem>
             <SelectItem value="instagram">Instagram</SelectItem>
             <SelectItem value="youtube">YouTube</SelectItem>
-            <SelectItem value="twitter">X</SelectItem>
-            <SelectItem value="facebook">Facebook</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>

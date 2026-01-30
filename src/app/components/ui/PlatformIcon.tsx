@@ -4,16 +4,12 @@ import { cn } from "./utils";
 export type PlatformIconName =
   | "tiktok"
   | "instagram"
-  | "x"
-  | "youtube"
-  | "facebook";
+  | "youtube";
 
 const platformLabels: Record<PlatformIconName, string> = {
   tiktok: "TikTok",
   instagram: "Instagram",
-  x: "X",
   youtube: "YouTube",
-  facebook: "Facebook",
 };
 
 export function normalizePlatform(
@@ -21,11 +17,9 @@ export function normalizePlatform(
 ): PlatformIconName | null {
   if (!platform) return null;
   const normalized = platform.toLowerCase();
-  if (normalized === "twitter" || normalized === "x") return "x";
   if (normalized === "tiktok") return "tiktok";
   if (normalized === "instagram") return "instagram";
   if (normalized === "youtube") return "youtube";
-  if (normalized === "facebook") return "facebook";
   return null;
 }
 
@@ -131,33 +125,6 @@ export function PlatformIcon({
         >
           <rect x="3" y="6" width="18" height="12" rx="3" fill="#FF0000" />
           <path d="M11 9l5 3-5 3V9z" fill="#FFFFFF" />
-        </svg>
-      )}
-      {platform === "x" && (
-        <svg
-          viewBox="0 0 24 24"
-          className={icon}
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path
-            fill="#FFFFFF"
-            d="M6 4h3.4l3.1 4.3L16.6 4H20l-5.7 7.1L20.5 20h-3.4l-3.5-4.9-4 4.9H6l6.3-7.7L6 4z"
-          />
-        </svg>
-      )}
-      {platform === "facebook" && (
-        <svg
-          viewBox="0 0 24 24"
-          className={icon}
-          aria-hidden="true"
-          focusable="false"
-        >
-          <circle cx="12" cy="12" r="10" fill="#1877F2" />
-          <path
-            fill="#FFFFFF"
-            d="M13.2 7.5h2.1V5.2c-.4-.1-1.3-.2-2.4-.2-2.4 0-4 1.4-4 4v2H6.7v2.6h2.2v5.2h2.7v-5.2h2.2l.4-2.6h-2.6V9c0-.9.2-1.5 1.6-1.5z"
-          />
         </svg>
       )}
     </div>

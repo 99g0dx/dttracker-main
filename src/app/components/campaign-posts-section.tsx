@@ -53,8 +53,6 @@ const isKpiPlatform = (platform: string): boolean => {
     "tiktok",
     "instagram",
     "youtube",
-    "twitter",
-    "facebook",
   ];
   return kpiPlatforms.includes(platform?.toLowerCase());
 };
@@ -1256,8 +1254,6 @@ export function CampaignPostsSection({
                   "tiktok",
                   "instagram",
                   "youtube",
-                  "twitter",
-                  "facebook",
                 ].map((platform) => (
                   <button
                     key={platform}

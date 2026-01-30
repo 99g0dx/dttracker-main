@@ -95,7 +95,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
     [uploadedImages]
   );
 
-  const platforms = ["TikTok", "Instagram", "YouTube", "Twitter", "Facebook"];
+  const platforms = ["TikTok", "Instagram", "YouTube"];
   const categories = [
     "Nano (1K-10K)",
     "Micro (10K-100K)",
@@ -407,8 +407,6 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
             tiktok: "TikTok",
             instagram: "Instagram",
             youtube: "YouTube",
-            twitter: "Twitter",
-            facebook: "Facebook",
           };
           platform = platformMap[result.data.platform] || "";
         }
@@ -538,8 +536,6 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
       TikTok: "tiktok",
       Instagram: "instagram",
       YouTube: "youtube",
-      Twitter: "twitter",
-      Facebook: "facebook",
     };
 
     let savedCount = 0;
@@ -649,8 +645,6 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
           tiktok: "TikTok",
           instagram: "Instagram",
           youtube: "YouTube",
-          twitter: "Twitter",
-          facebook: "Facebook",
         };
         setSelectedPlatform(platformMap[result.data.platform] || "");
       }
@@ -710,8 +704,6 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
         TikTok: "tiktok",
         Instagram: "instagram",
         YouTube: "youtube",
-        Twitter: "twitter",
-        Facebook: "facebook",
       };
 
       const platform = platformMap[selectedPlatform];

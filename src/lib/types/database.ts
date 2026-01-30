@@ -7,7 +7,7 @@
 // ENUM TYPES
 // ============================================================
 
-export type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+export type Platform = "tiktok" | "instagram" | "youtube";
 export type CampaignStatus = "active" | "paused" | "completed" | "archived";
 export type PostStatus = "pending" | "scraped" | "failed" | "manual" | "scraping";
 export type MemberRole = "owner" | "editor" | "viewer";
