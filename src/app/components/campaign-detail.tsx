@@ -149,7 +149,12 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   >("views");
   const isMobile = useMediaQuery("(max-width: 640px)");
   const isCompactMobile = useMediaQuery("(max-width: 479px)");
-  const { canEditWorkspace } = useWorkspaceAccess();
+  const {
+    canExportData,
+    canTriggerScrape,
+    canEditCampaign,
+    isOwner,
+  } = useWorkspaceAccess();
   const [chartRange, setChartRange] = useState<"7d" | "14d" | "30d" | "all">(
     "14d"
   );
@@ -1279,14 +1284,25 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     }
   }, [totalPages]); // Only depend on totalPages to avoid infinite loops
 
+  const canEditThisCampaign = id ? canEditCampaign(id) : false;
+
   const ensureCanEdit = (message?: string) => {
-    if (canEditWorkspace) return true;
+    if (canEditThisCampaign) return true;
     toast.error(message || "Read-only access: editing is disabled.");
     return false;
   };
 
+  const ensureCanScrape = () => {
+    if (canTriggerScrape) return true;
+    toast.error("Only workspace owners can trigger scraping.");
+    return false;
+  };
+
   const handleImportCreators = () => {
-    if (!ensureCanEdit()) return;
+    if (!isOwner) {
+      toast.error("Only workspace owners can add creators to the global library.");
+      return;
+    }
     setShowImportCreatorsDialog(true);
   };
 
@@ -1338,6 +1354,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const handleScrapeAll = () => {
     if (!id) return;
     if (!ensureCanEdit()) return;
+    if (!ensureCanScrape()) return;
     scrapeAllPostsMutation.mutate(id);
     setShowScrapeAllDialog(false);
   };
@@ -1366,6 +1383,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const handleScrapePost = (postId: string) => {
     if (!id) return;
     if (!ensureCanEdit()) return;
+    if (!ensureCanScrape()) return;
 
     // Find the post in the posts array
     const post = posts?.find((p) => p.id === postId);
@@ -1387,7 +1405,34 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   const handleExportCSV = () => {
     if (!campaign || posts.length === 0) return;
-
+    if (!canExportData) {
+      const totalReach = posts.reduce(
+        (sum, post) => sum + Number(post.views || 0),
+        0
+      );
+      const totalEngagement = posts.reduce(
+        (sum, post) =>
+          sum +
+          Number(post.likes || 0) +
+          Number(post.comments || 0) +
+          Number(post.shares || 0),
+        0
+      );
+      const rows = [
+        ["Campaign", campaign.name],
+        ["Export Type", "Summary"],
+        ["Total Posts", posts.length.toString()],
+        ["Total Reach", totalReach.toString()],
+        ["Total Engagement", totalEngagement.toString()],
+      ];
+      const csvContent = rows.map((row) => row.join(",")).join("\n");
+      const filename = `${campaign.name.replace(/[^a-z0-9]/gi, "_")}_summary_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
+      csvUtils.downloadCSV(csvContent, filename);
+      toast.success("Summary exported. Contact the owner for full exports.");
+      return;
+    }
     const csvContent = csvUtils.exportToCSV(posts);
     const filename = `${campaign.name.replace(/[^a-z0-9]/gi, "_")}_posts_${
       new Date().toISOString().split("T")[0]
@@ -1523,10 +1568,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 w-full sm:flex sm:gap-2 sm:w-auto">
               <button
                 onClick={() => {
-                  if (!ensureCanEdit("You do not have permission to share campaigns.")) return;
+                  if (!isOwner) {
+                    toast.error("Only workspace owners can share campaigns.");
+                    return;
+                  }
                   setShowShareLinkModal(true);
                 }}
-                disabled={!canEditWorkspace}
+                disabled={!isOwner}
                 className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Share campaign link"
               >
@@ -1540,7 +1588,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     type="button"
                     className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     aria-label="Campaign actions"
-                    disabled={!canEditWorkspace}
+                    disabled={!canEditThisCampaign}
                   >
                     <MoreHorizontal className="w-4 h-4" />
                     <span>Action</span>
@@ -1550,24 +1598,27 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   align="end"
                   className="w-52 bg-black text-white border-white/[0.08]"
                 >
-                  <DropdownMenuItem
-                    onSelect={() => {
+                    <DropdownMenuItem
+                      onSelect={() => {
                       if (!ensureCanEdit("You do not have permission to edit campaigns.")) return;
                       onNavigate(`/campaigns/${campaign.id}/edit`);
-                    }}
-                    disabled={!canEditWorkspace}
+                      }}
+                    disabled={!canEditThisCampaign}
                     className="text-white [&_svg]:text-white"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit Campaign
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => {
-                      if (!ensureCanEdit("You do not have permission to delete campaigns.")) return;
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => {
+                      if (!isOwner) {
+                        toast.error("Only workspace owners can delete campaigns.");
+                        return;
+                      }
                       setShowDeleteCampaignDialog(true);
-                    }}
-                    disabled={!canEditWorkspace || deleteCampaignMutation.isPending}
+                      }}
+                    disabled={!isOwner || deleteCampaignMutation.isPending}
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete Campaign
@@ -2353,7 +2404,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               )}
                             >
                               {/* Remove Button */}
-                              {canEditWorkspace && (
+                              {canEditThisCampaign && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -2475,7 +2526,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     if (!ensureCanEdit()) return;
                     setShowAddPostDialog(true);
                   }}
-                  disabled={!canEditWorkspace}
+                  disabled={!canEditThisCampaign}
                   className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
@@ -2496,9 +2547,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <DropdownMenuItem
                       onSelect={() => {
                         if (!ensureCanEdit()) return;
+                        if (!ensureCanScrape()) return;
                         setShowScrapeAllDialog(true);
                       }}
-                      disabled={posts.length === 0 || !canEditWorkspace}
+                      disabled={posts.length === 0 || !canTriggerScrape}
                     >
                       <RefreshCw className="w-4 h-4" />
                       Scrape all posts
@@ -2508,14 +2560,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       disabled={posts.length === 0}
                     >
                       <Download className="w-4 h-4" />
-                      Export CSV
+                      {canExportData ? "Export CSV" : "Export Summary"}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={handleImportCreators} disabled={!canEditWorkspace}>
+                    <DropdownMenuItem onSelect={handleImportCreators} disabled={!isOwner}>
                       <Upload className="w-4 h-4" />
                       Import creators
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleImportPosts} disabled={!canEditWorkspace}>
+                    <DropdownMenuItem onSelect={handleImportPosts} disabled={!canEditThisCampaign}>
                       <Upload className="w-4 h-4" />
                       Import posts CSV
                     </DropdownMenuItem>
@@ -2526,7 +2578,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         if (!ensureCanEdit()) return;
                         setShowDeleteAllDialog(true);
                       }}
-                      disabled={posts.length === 0 || !canEditWorkspace}
+                      disabled={posts.length === 0 || !canEditThisCampaign}
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete all posts
@@ -2644,8 +2696,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <PostCard
                           key={post.id}
                           post={post}
-                          onScrape={canEditWorkspace ? handleScrapePost : undefined}
-                          onDelete={canEditWorkspace ? setShowDeletePostDialog : undefined}
+                          onScrape={canTriggerScrape ? handleScrapePost : undefined}
+                          onDelete={canEditThisCampaign ? setShowDeletePostDialog : undefined}
                           isScraping={
                             isScrapeAllPending ||
                             post.status === "scraping" ||
@@ -2672,8 +2724,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <PostCard
                           key={post.id}
                           post={post}
-                          onScrape={canEditWorkspace ? handleScrapePost : undefined}
-                          onDelete={canEditWorkspace ? setShowDeletePostDialog : undefined}
+                          onScrape={canTriggerScrape ? handleScrapePost : undefined}
+                          onDelete={canEditThisCampaign ? setShowDeletePostDialog : undefined}
                           isScraping={
                             isScrapeAllPending ||
                             post.status === "scraping" ||
@@ -2693,8 +2745,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <PostCard
                         key={post.id}
                         post={post}
-                        onScrape={canEditWorkspace ? handleScrapePost : undefined}
-                        onDelete={canEditWorkspace ? setShowDeletePostDialog : undefined}
+                        onScrape={canTriggerScrape ? handleScrapePost : undefined}
+                        onDelete={canEditThisCampaign ? setShowDeletePostDialog : undefined}
                         isScraping={
                           isScrapeAllPending ||
                           post.status === "scraping" ||
@@ -2919,6 +2971,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     <button
                                       onClick={() => {
                                         if (!ensureCanEdit()) return;
+                                        if (!ensureCanScrape()) return;
                                         if (!id) return;
                                         scrapePostMutation.mutate({
                                           postId: post.id,
@@ -2928,12 +2981,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                         });
                                       }}
                                       disabled={
-                                        isScrapingPost || !canEditWorkspace
+                                        isScrapingPost || !canTriggerScrape
                                       }
                                       className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       title={
                                         isScrapingPost
                                           ? "Scraping..."
+                                          : !canTriggerScrape
+                                          ? "Only workspace owners can trigger scraping"
                                           : "Scrape this post"
                                       }
                                     >
@@ -2944,7 +2999,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       )}
                                     </button>
                                   )}
-                                  {canEditWorkspace && (
+                                  {canEditThisCampaign && (
                                     <button
                                       onClick={() =>
                                         setShowDeletePostDialog(post.id)
@@ -3078,6 +3133,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 <button
                                   onClick={() => {
                                     if (!ensureCanEdit()) return;
+                                    if (!ensureCanScrape()) return;
                                     if (!id) return;
                                     scrapePostMutation.mutate({
                                       postId: post.id,
@@ -3087,13 +3143,15 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     });
                                   }}
                                   disabled={
-                                    isScrapingPost || !canEditWorkspace
+                                    isScrapingPost || !canTriggerScrape
                                   }
                                   className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Refresh metrics"
                                   title={
                                     isScrapingPost
                                       ? "Scraping..."
+                                      : !canTriggerScrape
+                                      ? "Only workspace owners can trigger scraping"
                                       : "Scrape this post"
                                   }
                                 >
@@ -3104,7 +3162,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   )}
                                 </button>
                               )}
-                              {canEditWorkspace && (
+                              {canEditThisCampaign && (
                                 <button
                                   onClick={() => setShowDeletePostDialog(post.id)}
                                   className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"

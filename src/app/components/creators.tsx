@@ -143,10 +143,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const {
     loading: accessLoading,
     canViewWorkspace,
-    canEditWorkspace,
+    canManageCreators,
+    canExportData,
   } = useWorkspaceAccess();
   const canViewCreators = accessLoading || canViewWorkspace;
-  const canEditCreators = accessLoading || canEditWorkspace;
+  const canEditCreators = accessLoading || canManageCreators;
   
   // Cart/Request state for "All Creators" tab
   const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } = useCart();
@@ -575,6 +576,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
   };
 
   const handleExportCSV = () => {
+    if (!canExportData) {
+      toast.error("Only workspace owners can export raw data.");
+      return;
+    }
     if (creators.length === 0) {
       toast.error("No creators to export");
       return;
@@ -664,7 +669,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onSelect={() => onNavigate?.("/creators/scraper")}>
+                <DropdownMenuItem
+                  onSelect={() => onNavigate?.("/creators/scraper")}
+                  disabled={!canManageCreators}
+                >
                   <Sparkles className="w-4 h-4" />
                   Creator scraper
                 </DropdownMenuItem>
@@ -675,7 +683,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 {networkFilter === "my_network" && (
                   <DropdownMenuItem
                     onSelect={handleExportCSV}
-                    disabled={creators.length === 0 || isCreatorsLoading}
+                    disabled={creators.length === 0 || isCreatorsLoading || !canExportData}
                   >
                     <Download className="w-4 h-4" />
                     Export CSV

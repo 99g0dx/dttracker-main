@@ -38,7 +38,6 @@ import { useBillingSummary } from '../../hooks/useBilling';
 import { UpgradeModal } from './upgrade-modal';
 import { getEffectiveLimits, hasAgencyBypass } from '../../lib/entitlements';
 import {
-  isWorkspaceAdmin,
   isWorkspaceOwner,
   normalizeWorkspaceRole,
 } from '../../lib/roles';
@@ -179,7 +178,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const currentUserMember = members.find((member) => member.user_id === currentUser?.id);
-  const canManage = isWorkspaceAdmin(currentUserMember?.role);
+  const canManage = isWorkspaceOwner(currentUserMember?.role);
   const seatsUsed = billing?.seats_used ?? activeMembers.length;
   const projectedSeats = seatsUsed + pendingInvites.length;
   const seatLimitReached = seatLimit !== -1 && projectedSeats >= seatLimit;
@@ -245,16 +244,18 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   const getRoleBadge = (role: string, scopes?: TeamMemberWithScopes['scopes']) => {
     const normalizedRole = normalizeWorkspaceRole(role as TeamRole);
     const badges = {
-      brand_owner: { icon: <Crown className="w-3 h-3" />, label: 'Brand Owner', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
-      agency_admin: { icon: <Shield className="w-3 h-3" />, label: 'Agency Admin', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-      agency_ops: { icon: <Eye className="w-3 h-3" />, label: 'Agency Ops', color: 'text-slate-300 bg-slate-300/10 border-slate-300/20' },
-      brand_member: { icon: <Users className="w-3 h-3" />, label: 'Brand Member', color: 'text-primary bg-primary/10 border-primary/20' },
+      brand_owner: { icon: <Crown className="w-3 h-3" />, label: 'Owner', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+      agency_admin: { icon: <Shield className="w-3 h-3" />, label: 'Operator', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
+      agency_ops: { icon: <Eye className="w-3 h-3" />, label: 'Operator', color: 'text-slate-300 bg-slate-300/10 border-slate-300/20' },
+      brand_member: { icon: <Users className="w-3 h-3" />, label: 'Operator', color: 'text-primary bg-primary/10 border-primary/20' },
     };
     return badges[(normalizedRole || 'agency_ops') as keyof typeof badges] || badges.agency_ops;
   };
 
   const getScopesSummary = (member: TeamMemberWithScopes) => {
-    return 'Full access';
+    const normalizedRole = normalizeWorkspaceRole(member.role);
+    if (normalizedRole === 'brand_owner') return 'Full control (billing, invites, campaigns)';
+    return 'Campaign operator access';
   };
 
   if (loading) {
@@ -333,7 +334,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-4">
             <div className="text-2xl font-semibold text-primary">
-              {members.filter((m) => isWorkspaceAdmin(m.role)).length}
+              {members.filter((m) => isWorkspaceOwner(m.role)).length}
             </div>
             <p className="text-sm text-slate-400 mt-1">Admins</p>
           </CardContent>
@@ -434,9 +435,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                               className="w-full h-8 px-2 rounded-md bg-white/[0.04] border border-white/[0.1] text-xs text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors"
                             >
                               <optgroup label="Team Role">
-                                <option value="agency_admin">Agency Admin - Full access</option>
-                                <option value="brand_member">Brand Member - Full access</option>
-                                <option value="agency_ops">Agency Ops - Full access</option>
+                                <option value="agency_admin">Operator (Agency Admin)</option>
+                                <option value="brand_member">Operator (Brand Member)</option>
+                                <option value="agency_ops">Operator (Agency Ops)</option>
                               </optgroup>
                             </select>
                           </div>
@@ -586,9 +587,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                   className="w-full h-10 px-3 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors [&>option]:bg-[#0D0D0D] [&>option]:text-white [&>optgroup]:bg-[#0D0D0D] [&>optgroup]:text-slate-400 [&>optgroup]:font-semibold"
                 >
                   <optgroup label="Team Role">
-                    <option value="agency_admin">Agency Admin - Full access</option>
-                    <option value="brand_member">Brand Member - Full access</option>
-                    <option value="agency_ops">Agency Ops - Full access</option>
+                    <option value="agency_admin">Operator (Agency Admin)</option>
+                    <option value="brand_member">Operator (Brand Member)</option>
+                    <option value="agency_ops">Operator (Agency Ops)</option>
                   </optgroup>
                 </select>
               </div>
@@ -778,9 +779,9 @@ function InviteModal({
                   onChange={(e) => setRolePreset(e.target.value as InviteData['rolePreset'])}
                   className="w-full h-12 pl-4 pr-12 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm font-medium focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white"
                 >
-                  <option value="agency_admin">Agency Admin - Full access</option>
-                  <option value="brand_member">Brand Member - Full access</option>
-                  <option value="agency_ops">Agency Ops - Full access</option>
+                  <option value="agency_admin">Operator (Agency Admin)</option>
+                  <option value="brand_member">Operator (Brand Member)</option>
+                  <option value="agency_ops">Operator (Agency Ops)</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-slate-400">

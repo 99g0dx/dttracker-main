@@ -16,6 +16,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
+  const storageKey = user?.id ? `dt_active_workspace_${user.id}` : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +28,27 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        const storedWorkspaceId = storageKey
+          ? window.localStorage.getItem(storageKey)
+          : null;
+
+        if (storedWorkspaceId) {
+          const { data: storedMembership } = await supabase
+            .from("workspace_members")
+            .select("workspace_id")
+            .eq("workspace_id", storedWorkspaceId)
+            .eq("user_id", user.id)
+            .eq("status", "active")
+            .maybeSingle();
+
+          if (storedMembership?.workspace_id) {
+            if (!cancelled) {
+              setActiveWorkspaceIdState(storedWorkspaceId);
+            }
+            return;
+          }
+        }
+
         const { data } = await supabase
           .from("workspace_members")
           .select("workspace_id")
@@ -56,6 +78,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const setActiveWorkspaceId = (workspaceId: string | null) => {
     setActiveWorkspaceIdState(workspaceId);
     setIsSwitching(true);
+    if (storageKey) {
+      if (workspaceId) {
+        window.localStorage.setItem(storageKey, workspaceId);
+      } else {
+        window.localStorage.removeItem(storageKey);
+      }
+    }
     window.setTimeout(() => {
       setIsSwitching(false);
     }, 600);

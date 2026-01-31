@@ -14,6 +14,7 @@ import type { CampaignUpdate } from "../../lib/types/database";
 import { FormSkeleton } from "./ui/skeleton";
 import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
+import { toast } from "sonner";
 
 interface CampaignEditProps {
   onNavigate: (path: string) => void;
@@ -22,7 +23,8 @@ interface CampaignEditProps {
 export function CampaignEdit({ onNavigate }: CampaignEditProps) {
   const { id } = useParams<{ id: string }>();
   const { data: campaign, isLoading, error } = useCampaign(id || "");
-  const { canEditWorkspace } = useWorkspaceAccess();
+  const { canEditCampaign, isOwner } = useWorkspaceAccess();
+  const canEditThisCampaign = id ? canEditCampaign(id) : false;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -45,7 +47,7 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
   const updateCampaignMutation = useUpdateCampaign();
   const deleteCampaignMutation = useDeleteCampaign();
 
-  if (!canEditWorkspace) {
+  if (!canEditThisCampaign) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -161,6 +163,10 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
   };
 
   const handleDelete = () => {
+    if (!isOwner) {
+      toast.error("Only workspace owners can delete campaigns.");
+      return;
+    }
     if (!id) return;
     deleteCampaignMutation.mutate(id);
     onNavigate("/campaigns");
@@ -369,13 +375,19 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
 
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => setShowDeleteDialog(true)}
-          className="h-10 px-4 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium flex items-center gap-2 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete Campaign
-        </button>
+        {isOwner ? (
+          <button
+            onClick={() => setShowDeleteDialog(true)}
+            className="h-10 px-4 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium flex items-center gap-2 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Campaign
+          </button>
+        ) : (
+          <div className="text-xs text-slate-500">
+            Only owners can delete campaigns.
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate(`/campaigns/${id}`)}

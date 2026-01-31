@@ -35,6 +35,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
     canViewCampaign,
     canEditCampaign,
     canEditWorkspace,
+    isOwner,
   } = useWorkspaceAccess();
   const deleteCampaignMutation = useDeleteCampaign();
   const duplicateCampaignMutation = useDuplicateCampaign();
@@ -286,22 +287,26 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                                 <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
                                 Edit Campaign
                               </button>
-                              <div className="h-px bg-white/[0.06]" />
-                              <button
-                                onClick={(e) => handleDeleteClick(e, campaign.id)}
-                                className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
-                              >
-                                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                                Delete Campaign
-                              </button>
-                              <div className="h-px bg-white/[0.06]" />
-                              <button
-                                onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
-                                className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
-                              >
-                                <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
-                                Duplicate Campaign
-                              </button>
+                              {isOwner && (
+                                <>
+                                  <div className="h-px bg-white/[0.06]" />
+                                  <button
+                                    onClick={(e) => handleDeleteClick(e, campaign.id)}
+                                    className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                                  >
+                                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    Delete Campaign
+                                  </button>
+                                  <div className="h-px bg-white/[0.06]" />
+                                  <button
+                                    onClick={(e) => handleDuplicateCampaign(e, campaign.id)}
+                                    className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                                  >
+                                    <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    Duplicate Campaign
+                                  </button>
+                                </>
+                              )}
                             </>
                           ) : (
                             <div className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-500">
