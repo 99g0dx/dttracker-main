@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut, Gauge } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 import { useBillingSummary } from '../../hooks/useBilling';
+import { useCompanyAdmin } from '../../hooks/useCompanyAdmin';
 
 interface NavItem {
   name: string;
@@ -21,13 +22,12 @@ const navItems: NavItem[] = [
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
+  { name: 'Admin', href: '/admin', icon: <Gauge className="w-5 h-5" /> },
 
-  //add teams once rls works
   { 
     name: 'Team', 
     href: '/team', 
-    icon: <Shield className="w-5 h-5" />,
-    tag: 'Coming soon'
+    icon: <Shield className="w-5 h-5" />
   },
   { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
 
@@ -59,6 +59,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   const { data: billing } = useBillingSummary();
   const { activeWorkspaceId } = useWorkspace();
   const access = useWorkspaceAccess();
+  const { isCompanyAdmin } = useCompanyAdmin();
   const [workspace, setWorkspace] = React.useState<WorkspaceRow | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = React.useState(false);
   const [workspaceError, setWorkspaceError] = React.useState<string | null>(null);
@@ -75,6 +76,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     if (!activeWorkspaceId || access.loading) return true;
     if (isViewerOnly) return item.name === 'Dashboard' || item.name === 'Campaigns';
     if (item.name === 'Team') return access.canManageTeam;
+    if (item.name === 'Admin') return isCompanyAdmin;
     if (item.name === 'Creator Library' || item.name === 'Requests') {
       return access.canViewWorkspace;
     }

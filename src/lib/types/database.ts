@@ -395,6 +395,18 @@ export interface CreatorRequestInsert {
   contact_person_email?: string | null;
   contact_person_phone?: string | null;
   creator_ids: string[]; // Array of creator IDs to associate with the request
+  // Optional bulk request target (for large creator counts)
+  target?: {
+    platform?: string | null;
+    quantity: number;
+    follower_min?: number | null;
+    follower_max?: number | null;
+    geo?: string | null;
+    budget_min?: number | null;
+    budget_max?: number | null;
+    content_types?: string[] | null;
+    notes?: string | null;
+  };
 }
 
 export interface CreatorRequestItemInsert {

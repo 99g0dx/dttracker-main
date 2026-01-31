@@ -43,9 +43,10 @@ export async function createRequest(
       return { data: null, error: authError || new Error('Not authenticated') };
     }
 
-    // Extract creator_ids before inserting the request
+    // Extract creator_ids and optional target before inserting the request
     const creatorIds = request.creator_ids || [];
-    const { creator_ids, ...requestData } = request;
+    const target = request.target || null;
+    const { creator_ids, target: _target, ...requestData } = request;
 
     // Insert the request
     const { data: createdRequest, error: requestError } = await supabase
@@ -81,8 +82,9 @@ export async function createRequest(
       return { data: null, error: requestError || new Error('Failed to create request') };
     }
 
-    // Insert request items (creator associations)
-    if (creatorIds.length > 0) {
+    // Insert request items (creator associations) - only for small selections
+    const MAX_EXPLICIT_CREATORS = 25;
+    if (creatorIds.length > 0 && creatorIds.length <= MAX_EXPLICIT_CREATORS) {
       const items = creatorIds.map(creatorId => ({
         request_id: createdRequest.id,
         creator_id: creatorId,
@@ -96,6 +98,34 @@ export async function createRequest(
         console.error('Error creating request items:', itemsError);
         // If items fail, we should probably rollback the request, but for now just log
         // In production, you'd want to use a transaction
+      }
+    }
+
+    // Insert bulk target if provided OR if creator count exceeds threshold
+    if (target || creatorIds.length > MAX_EXPLICIT_CREATORS) {
+      const fallbackTarget = target || {
+        platform: null,
+        quantity: creatorIds.length,
+        notes: `User selected ${creatorIds.length} creators; stored as bulk target to avoid large insert.`,
+      };
+
+      const { error: targetError } = await supabase
+        .from('creator_request_targets')
+        .insert({
+          request_id: createdRequest.id,
+          platform: fallbackTarget.platform ?? null,
+          quantity: fallbackTarget.quantity,
+          follower_min: fallbackTarget.follower_min ?? null,
+          follower_max: fallbackTarget.follower_max ?? null,
+          geo: fallbackTarget.geo ?? null,
+          budget_min: fallbackTarget.budget_min ?? null,
+          budget_max: fallbackTarget.budget_max ?? null,
+          content_types: fallbackTarget.content_types ?? null,
+          notes: fallbackTarget.notes ?? null,
+        });
+
+      if (targetError) {
+        console.error('Error creating request target:', targetError);
       }
     }
 
