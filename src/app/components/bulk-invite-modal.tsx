@@ -306,9 +306,9 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
                             onChange={(e) => updateInvite(invite.tempId, 'rolePreset', e.target.value)}
                             className="w-full h-10 pl-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white"
                           >
-                            <option value="agency_admin">Agency Admin - Full access</option>
-                            <option value="brand_member">Brand Member - Full access</option>
-                            <option value="agency_ops">Agency Ops - Full access</option>
+                            <option value="agency_admin">Operator (Agency Admin)</option>
+                            <option value="brand_member">Operator (Brand Member)</option>
+                            <option value="agency_ops">Operator (Agency Ops)</option>
                           </select>
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-slate-400">

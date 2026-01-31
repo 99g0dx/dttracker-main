@@ -281,11 +281,19 @@ const DEFAULT_FREE_PLAN: PlanCatalogEntry = {
   white_label: false,
 };
 
-export async function getBillingSummary(): Promise<BillingSummary> {
-  const { workspaceId, error } = await resolveWorkspaceId();
+export async function getBillingSummary(
+  workspaceOverrideId?: string
+): Promise<BillingSummary> {
+  const { workspaceId: resolvedWorkspaceId, error } = await resolveWorkspaceId();
   if (error) {
     throw error;
   }
+  const effectiveWorkspaceId = workspaceOverrideId || resolvedWorkspaceId;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const personalWorkspaceId = user?.id || resolvedWorkspaceId;
 
   // Fetch agency_role from profiles
   let agencyRole: AgencyRole = null;
@@ -312,7 +320,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     const { data, error: subError } = await supabase
       .from("subscriptions")
       .select("*")
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", effectiveWorkspaceId)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -327,6 +335,12 @@ export async function getBillingSummary(): Promise<BillingSummary> {
 
   const tier = (subscription?.tier as BillingTier) || "free";
   const billingCycle = (subscription?.billing_cycle as BillingCycle) || "monthly";
+
+  const isPaidWorkspace =
+    subscription?.status === "active" || subscription?.status === "trialing";
+  if (effectiveWorkspaceId !== personalWorkspaceId && !isPaidWorkspace) {
+    return await getBillingSummary(personalWorkspaceId);
+  }
 
   // Try to get plan from catalog - use default if not available
   let plan: any = null;
@@ -356,7 +370,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     const { data: usage } = await supabase
       .from("usage_counters")
       .select("active_campaigns_count")
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", effectiveWorkspaceId)
       .maybeSingle();
     usageCount = usage?.active_campaigns_count ?? 0;
   } catch (e) {
@@ -365,7 +379,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
       const { count } = await supabase
         .from("campaigns")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", workspaceId)
+        .eq("workspace_id", effectiveWorkspaceId)
         .eq("status", "active");
       usageCount = count || 0;
     } catch {
@@ -379,7 +393,8 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     const { count: workspaceMemberCount } = await supabase
       .from("workspace_members")
       .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId);
+      .eq("workspace_id", effectiveWorkspaceId)
+      .eq("status", "active");
 
     if (workspaceMemberCount !== null && workspaceMemberCount > 0) {
       seatsUsed = workspaceMemberCount;
@@ -392,7 +407,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
       const { count: teamMemberCount } = await supabase
         .from("team_members")
         .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId);
+        .eq("workspace_id", effectiveWorkspaceId);
       seatsUsed = teamMemberCount || 1;
     } catch {
       seatsUsed = 1;
@@ -413,7 +428,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
 
   const fallbackSubscription: SubscriptionRecord = subscription || {
     id: "",
-    workspace_id: workspaceId,
+    workspace_id: effectiveWorkspaceId,
     tier: "free",
     billing_cycle: "monthly",
     status: "active",
@@ -429,7 +444,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     subscription?.total_seats ?? effectivePlan.included_seats ?? 1;
 
   return {
-    workspace_id: workspaceId,
+    workspace_id: effectiveWorkspaceId,
     subscription: fallbackSubscription,
     plan: effectivePlan,
     usage: {

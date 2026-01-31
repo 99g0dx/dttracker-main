@@ -22,7 +22,7 @@ create policy creator_request_targets_select_company_admin
   on public.creator_request_targets for select
   using (public.is_company_admin());
 
-drop policy if exists creator_request_targets_insert_owner on public.creator_request_targets;
+drop policy if exists creator_,request_targets_insert_owner on public.creator_request_targets;
 create policy creator_request_targets_insert_owner
   on public.creator_request_targets for insert
   with check (

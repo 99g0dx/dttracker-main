@@ -12,6 +12,7 @@ import {
   UpdateSeatsResponse,
 } from '../lib/api/billing';
 import { canAccessFeature, getEffectiveLimits, isWithinLimit, Feature, PlanLimits } from '../lib/entitlements';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Query keys
 export const billingKeys = {
@@ -24,9 +25,10 @@ export const billingKeys = {
  * Hook to fetch billing summary for current workspace
  */
 export function useBillingSummary() {
+  const { activeWorkspaceId } = useWorkspace();
   return useQuery<BillingSummary, Error>({
-    queryKey: billingKeys.summary(),
-    queryFn: getBillingSummary,
+    queryKey: [...billingKeys.summary(), activeWorkspaceId],
+    queryFn: () => getBillingSummary(activeWorkspaceId || undefined),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: true,
   });

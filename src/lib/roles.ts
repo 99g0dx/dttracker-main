@@ -15,11 +15,11 @@ export function isWorkspaceOwner(role: WorkspaceRole | null | undefined): boolea
 }
 
 export function isWorkspaceAdmin(role: WorkspaceRole | null | undefined): boolean {
-  return role === "brand_owner" || role === "agency_admin";
+  return role === "brand_owner";
 }
 
 export function canEditWorkspaceRole(role: WorkspaceRole | null | undefined): boolean {
-  return role === "brand_owner" || role === "agency_admin" || role === "brand_member";
+  return role === "brand_owner";
 }
 
 export function canViewWorkspaceRole(role: WorkspaceRole | null | undefined): boolean {
@@ -31,12 +31,10 @@ export function workspaceRoleLabel(role: WorkspaceRole | null | undefined): stri
     case "brand_owner":
       return "Owner";
     case "agency_admin":
-      return "Admin";
     case "brand_member":
-      return "Editor";
     case "agency_ops":
-      return "Viewer";
+      return "Operator";
     default:
-      return "Viewer";
+      return "Operator";
   }
 }

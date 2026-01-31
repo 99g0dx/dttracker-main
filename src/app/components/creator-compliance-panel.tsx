@@ -8,6 +8,7 @@ import {
   getPlatformLabel,
 } from './ui/PlatformIcon';
 import { toast } from 'sonner';
+import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 
 interface CreatorCompliancePanelProps {
   open: boolean;
@@ -25,6 +26,7 @@ export function CreatorCompliancePanel({
   activities,
 }: CreatorCompliancePanelProps) {
   const [selectedCampaign, setSelectedCampaign] = useState<number | null>(null);
+  const { canExportData } = useWorkspaceAccess();
 
   if (!open) return null;
 
@@ -271,6 +273,10 @@ export function CreatorCompliancePanel({
                   </Button>
                   <Button
                     onClick={() => {
+                      if (!canExportData) {
+                        toast.error('Only workspace owners can export raw data.');
+                        return;
+                      }
                       const csv = [
                         ['Creator', 'Platform', 'Status'],
                         ...campaignCreators.map(c => [
@@ -288,7 +294,8 @@ export function CreatorCompliancePanel({
                       a.click();
                     }}
                     variant="outline"
-                    className="flex-1 h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                    disabled={!canExportData}
+                    className="flex-1 h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Export Report
                   </Button>

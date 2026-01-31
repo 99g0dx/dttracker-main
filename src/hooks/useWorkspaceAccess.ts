@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { supabase } from '../lib/supabase';
 import type { MemberScope, TeamMember, TeamRole } from '../lib/types/database';
+import { isWorkspaceOwner } from '../lib/roles';
 
 type CampaignAccess = {
   campaignId: string;
@@ -69,20 +70,25 @@ export function useWorkspaceAccess() {
     .map((scope) => parseCampaignScope(scope.scope_value));
 
   const hasWorkspaceViewer = hasAccess;
-  const hasWorkspaceEditor = hasAccess;
+  const hasWorkspaceEditor = isWorkspaceOwner(member?.role);
+  const isOwner = isWorkspaceOwner(member?.role);
 
   const canViewCalendar = hasWorkspaceViewer;
   const canEditCalendar = hasWorkspaceEditor;
 
   const canViewCampaign = (_campaignId: string) => hasWorkspaceViewer;
-  const canEditCampaign = (_campaignId: string) => hasWorkspaceEditor;
+  const canEditCampaign = (_campaignId: string) => hasWorkspaceViewer;
 
   return {
     loading: isLoading,
     member,
     scopes,
     role: (member?.role || null) as TeamRole | null,
-    canManageTeam: hasAccess,
+    isOwner,
+    canManageTeam: isOwner,
+    canExportData: isOwner,
+    canTriggerScrape: isOwner,
+    canManageCreators: isOwner,
     canViewWorkspace: hasWorkspaceViewer,
     canEditWorkspace: hasWorkspaceEditor,
     canViewCalendar,

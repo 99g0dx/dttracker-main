@@ -218,6 +218,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     canViewWorkspace,
     hasCampaignAccess,
     canViewCampaign,
+    canExportData,
   } = useWorkspaceAccess();
   const dateDropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -659,6 +660,36 @@ useEffect(() => {
   const handleExportCSV = () => {
       const rows: string[][] = [];
 
+      if (!canExportData) {
+        rows.push([
+          "Date Range",
+          `${dateRange.start.toLocaleDateString()} – ${dateRange.end.toLocaleDateString()}`
+        ]);
+        rows.push(["Metric", "Value"]);
+        rows.push(["Total Reach", kpiMetrics.totalReach]);
+        rows.push(["Total Posts", kpiMetrics.totalPosts.toString()]);
+        rows.push(["Active Creators", kpiMetrics.activeCreators.toString()]);
+        rows.push(["Engagement Rate", `${kpiMetrics.engagementRate}%`]);
+
+        const csvContent = rows.map(r => r.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.setAttribute("href", url);
+        link.setAttribute(
+          "download",
+          `analytics_summary_${new Date().toISOString().split("T")[0]}.csv`
+        );
+        link.style.visibility = "hidden";
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("Summary exported. Contact the owner for full exports.");
+        return;
+      }
+
       // 1️⃣ Date range row
       rows.push([
         "Date Range",
@@ -830,11 +861,13 @@ useEffect(() => {
           </div>
           <button
             onClick={handleExportCSV}
-            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Export analytics"
           >
             <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">
+              {canExportData ? "Export" : "Export Summary"}
+            </span>
           </button>
         </div>
       </div>
