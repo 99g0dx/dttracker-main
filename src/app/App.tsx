@@ -11,6 +11,7 @@ import { CommandPalette } from "./components/command-palette";
 import { ToastProvider } from "./components/toast-provider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CompanyAdminRoute } from "./components/company-admin-route";
 import { useAuth } from "../contexts/AuthContext";
 import { useWorkspace } from "../contexts/WorkspaceContext";
 import { cn } from "./components/ui/utils";
@@ -119,6 +120,11 @@ const Pricing = React.lazy(() =>
 const Sounds = React.lazy(() =>
   import("./components/sounds").then((module) => ({
     default: module.Sounds,
+  }))
+);
+const AdminDashboard = React.lazy(() =>
+  import("./components/admin-dashboard").then((module) => ({
+    default: module.AdminDashboard,
   }))
 );
 const SoundTrackNew = React.lazy(() =>
@@ -276,6 +282,16 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute>
                       <Dashboard onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <CompanyAdminRoute>
+                        <AdminDashboard onNavigate={(path) => navigate(path)} />
+                      </CompanyAdminRoute>
                     </ProtectedRoute>
                   }
                 />
