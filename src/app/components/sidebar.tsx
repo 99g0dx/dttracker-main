@@ -286,6 +286,17 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     setDeletingWorkspace(true);
     setWorkspaceError(null);
 
+    const { error: creatorsError } = await supabase
+      .from('workspace_creators')
+      .delete()
+      .eq('workspace_id', deletingId);
+
+    if (creatorsError) {
+      setWorkspaceError(creatorsError.message || 'Unable to remove workspace creators');
+      setDeletingWorkspace(false);
+      return;
+    }
+
     const { error } = await supabase
       .from('workspaces')
       .delete()
