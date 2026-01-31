@@ -21,6 +21,11 @@ entrypoint = "./functions/checkEmail/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/checkEmail/*.html" ]
 
+[functions.notify-request-deletion]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/notify-request-deletion/index.ts"
+
 [functions.scrape-all-scheduled]
 enabled = true
 verify_jwt = false

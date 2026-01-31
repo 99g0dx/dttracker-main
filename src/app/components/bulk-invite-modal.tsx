@@ -7,41 +7,29 @@ import {
   Plus,
   Trash2,
   Mail,
-  Upload,
   Download,
   AlertCircle,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { createTeamInvite } from '../../lib/api/team';
-import type { TeamRole, ScopeType } from '../../lib/types/database';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useBillingSummary } from '../../hooks/useBilling';
+import { getEffectiveLimits, hasAgencyBypass } from '../../lib/entitlements';
 
 // Keep InviteData type for the modal
 type InviteData = {
-  rolePreset: 'admin' | 'editor' | 'viewer';
+  rolePreset: 'agency_admin' | 'brand_member' | 'agency_ops';
   email: string;
   message?: string;
 };
 
-// Helper function to map rolePreset to TeamRole and scopes (same as in team-management.tsx)
-function mapRolePresetToRoleAndScopes(
+function mapRolePresetToRole(
   rolePreset: InviteData['rolePreset']
-): { role: TeamRole; scopes: Array<{ scope_type: ScopeType; scope_value: string }> } {
-  const scopes: Array<{ scope_type: ScopeType; scope_value: string }> = [];
-  let role: TeamRole = 'viewer';
-
-  if (rolePreset === 'admin') {
-    role = 'admin';
-    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
-  } else if (rolePreset === 'editor') {
-    role = 'editor';
-    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
-  } else if (rolePreset === 'viewer') {
-    role = 'viewer';
-    scopes.push({ scope_type: 'workspace', scope_value: 'viewer' });
-  }
-
-  return { role, scopes };
+): { role: 'agency_admin' | 'brand_member' | 'agency_ops'; scopes: Array<{ scope_type: 'workspace'; scope_value: 'editor' }> } {
+  return {
+    role: rolePreset,
+    scopes: [{ scope_type: 'workspace', scope_value: 'editor' }],
+  };
 }
 
 interface BulkInviteModalProps {
@@ -55,25 +43,20 @@ interface InviteRow extends InviteData {
 
 export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
   const { activeWorkspaceId } = useWorkspace();
+  const { data: billing } = useBillingSummary();
+  const [memberCount, setMemberCount] = useState(0);
+  const [pendingInviteCount, setPendingInviteCount] = useState(0);
+  const [countsLoading, setCountsLoading] = useState(false);
   const [invites, setInvites] = useState<InviteRow[]>([
     {
       tempId: 1,
       email: '',
-      rolePreset: 'viewer',
+      rolePreset: 'brand_member',
     },
   ]);
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
-
-  const addInviteRow = () => {
-    const newId = Math.max(...invites.map(i => i.tempId)) + 1;
-    setInvites([...invites, {
-      tempId: newId,
-      email: '',
-      rolePreset: 'viewer',
-    }]);
-  };
 
   const removeInviteRow = (tempId: number) => {
     setInvites(invites.filter(i => i.tempId !== tempId));
@@ -110,6 +93,60 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
     return isValid;
   };
 
+  const agencyBypass = hasAgencyBypass(billing);
+  const seatLimit = agencyBypass ? -1 : getEffectiveLimits(billing).team_members;
+  const seatsUsed = Math.max(memberCount, billing?.seats_used ?? 0);
+  const remainingSeats = seatLimit === -1
+    ? Number.POSITIVE_INFINITY
+    : Math.max(seatLimit - seatsUsed - pendingInviteCount, 0);
+  const canAddAnother = seatLimit === -1 || invites.length < remainingSeats;
+
+  const addInviteRow = () => {
+    if (!canAddAnother) return;
+    const newId = Math.max(...invites.map(i => i.tempId)) + 1;
+    setInvites([...invites, {
+      tempId: newId,
+      email: '',
+      rolePreset: 'brand_member',
+    }]);
+  };
+
+  React.useEffect(() => {
+    const loadCounts = async () => {
+      setCountsLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setCountsLoading(false);
+          return;
+        }
+
+        const workspaceId = activeWorkspaceId || user.id;
+
+        const [{ count: members }, { count: pending }] = await Promise.all([
+          supabase
+            .from('workspace_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('workspace_id', workspaceId)
+            .eq('status', 'active'),
+          supabase
+            .from('workspace_invites')
+            .select('id', { count: 'exact', head: true })
+            .eq('workspace_id', workspaceId)
+            .is('accepted_at', null)
+            .gt('expires_at', new Date().toISOString()),
+        ]);
+
+        setMemberCount(members || 0);
+        setPendingInviteCount(pending || 0);
+      } finally {
+        setCountsLoading(false);
+      }
+    };
+
+    loadCounts();
+  }, [activeWorkspaceId]);
+
   const handleSubmit = async () => {
     if (!validateInvites()) {
       return;
@@ -126,16 +163,34 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
         return;
       }
 
-      const inviteData = invites.map(({ tempId, ...rest }) => rest);
-      const workspaceId = activeWorkspaceId || undefined;
+      const workspaceId = activeWorkspaceId || user.id;
+      const seatsUsed = Math.max(memberCount, billing?.seats_used ?? 0);
+      let pendingInviteCount = 0;
+      if (seatLimit !== -1 && workspaceId) {
+        const { count } = await supabase
+          .from('workspace_invites')
+          .select('id', { count: 'exact', head: true })
+          .eq('workspace_id', workspaceId)
+          .is('accepted_at', null)
+          .gt('expires_at', new Date().toISOString());
+        pendingInviteCount = count || 0;
+      }
 
+      if (seatLimit !== -1 && seatsUsed + pendingInviteCount + invites.length > seatLimit) {
+        setGlobalError(
+          `Seat limit reached. You can invite up to ${Math.max(seatLimit - seatsUsed - pendingInviteCount, 0)} more teammate${
+            seatLimit - seatsUsed - pendingInviteCount === 1 ? '' : 's'
+          }. Upgrade to add more seats.`
+        );
+        setLoading(false);
+        return;
+      }
+
+      const inviteData = invites.map(({ tempId, ...rest }) => rest);
       // Create invites one by one
       const results = await Promise.allSettled(
         inviteData.map(async (invite) => {
-          const { role, scopes } = mapRolePresetToRoleAndScopes(
-            invite.rolePreset
-          );
-
+          const { role, scopes } = mapRolePresetToRole(invite.rolePreset);
           return createTeamInvite(
             workspaceId,
             invite.email,
@@ -170,7 +225,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
   };
 
   const downloadTemplate = () => {
-    const csv = 'Email,Access Level\nexample1@company.com,viewer\nexample2@company.com,editor\nexample3@company.com,admin';
+    const csv = 'Email,Role\nexample1@company.com,brand_member\nexample2@company.com,agency_admin\nexample3@company.com,agency_ops';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -189,7 +244,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-white tracking-tight">Bulk Invite Team Members</h2>
-                <p className="text-sm text-slate-500 mt-1.5">Invite multiple people at once with specific access levels</p>
+                <p className="text-sm text-slate-500 mt-1.5">Invite multiple people at once (all roles have full access)</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -243,7 +298,7 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
 
                       <div>
                         <label className="block text-xs font-medium text-slate-400 mb-2">
-                          Access Level <span className="text-red-400">*</span>
+                          Role <span className="text-red-400">*</span>
                         </label>
                         <div className="relative">
                           <select
@@ -251,9 +306,9 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
                             onChange={(e) => updateInvite(invite.tempId, 'rolePreset', e.target.value)}
                             className="w-full h-10 pl-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white"
                           >
-                            <option value="admin">Admin</option>
-                            <option value="editor">Editor</option>
-                            <option value="viewer">Viewer</option>
+                            <option value="agency_admin">Agency Admin - Full access</option>
+                            <option value="brand_member">Brand Member - Full access</option>
+                            <option value="agency_ops">Agency Ops - Full access</option>
                           </select>
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-slate-400">
@@ -288,10 +343,11 @@ export function BulkInviteModal({ onClose, onComplete }: BulkInviteModalProps) {
             <Button
               onClick={addInviteRow}
               variant="outline"
-              className="w-full mt-4 h-11 bg-white/[0.02] hover:bg-white/[0.04] border-white/[0.08] hover:border-white/[0.12] border-dashed text-slate-400 hover:text-white transition-all duration-200"
+              disabled={!canAddAnother || countsLoading}
+              className="w-full mt-4 h-11 bg-white/[0.02] hover:bg-white/[0.04] border-white/[0.08] hover:border-white/[0.12] border-dashed text-slate-400 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Another Person
+              {!canAddAnother ? 'Seat capacity reached' : 'Add Another Person'}
             </Button>
           </div>
 

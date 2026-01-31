@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.team_members (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   workspace_id uuid NOT NULL,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role text NOT NULL DEFAULT 'member' CHECK (role = ANY (ARRAY['owner','admin','member','viewer'])),
+  role text NOT NULL DEFAULT 'agency_ops' CHECK (role = ANY (ARRAY['brand_owner','agency_admin','brand_member','agency_ops'])),
   status text NOT NULL DEFAULT 'active' CHECK (status = ANY (ARRAY['active','pending'])),
   invited_by uuid REFERENCES auth.users(id),
   invited_at timestamptz DEFAULT now(),
@@ -159,7 +159,7 @@ LANGUAGE sql STABLE SECURITY DEFINER AS $$
     SELECT 1 FROM public.team_members tm
     WHERE tm.workspace_id = p_workspace_id
       AND tm.user_id = auth.uid()
-      AND tm.role IN ('owner','admin')
+      AND tm.role IN ('brand_owner','agency_admin')
   ) OR p_workspace_id = auth.uid();
 $$;
 
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS public.team_invites (
   workspace_id uuid NOT NULL,
   email text NOT NULL,
   invited_by uuid NOT NULL REFERENCES auth.users(id),
-  role text NOT NULL DEFAULT 'member' CHECK (role = ANY (ARRAY['owner','admin','member','viewer'])),
+  role text NOT NULL DEFAULT 'agency_ops' CHECK (role = ANY (ARRAY['brand_owner','agency_admin','brand_member','agency_ops'])),
   invite_token text NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL,
   accepted_at timestamptz,
@@ -276,4 +276,3 @@ BEGIN
   RAISE NOTICE '✅ RLS enabled and policies created';
   RAISE NOTICE '✅ Helper function created: is_workspace_admin';
 END$$;
-

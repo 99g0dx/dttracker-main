@@ -1,12 +1,10 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Megaphone, Users, Settings, Command, Crown, Menu, X, Link2, FolderOpen, Calendar, Shield, LogOut, ChevronDown, Plus, Trash2, Loader2, Music } from 'lucide-react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 import { useBillingSummary } from '../../hooks/useBilling';
@@ -22,18 +20,7 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: <LayoutDashboard className="w-5 h-5" /> },
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
-  {
-    name: 'Sound Tracking',
-    href: '/sounds',
-    icon: <Music className="w-5 h-5" />,
-    tag: 'Coming soon',
-  },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
-  { 
-    name: 'Calendar', 
-    href: '/calendar', 
-    icon: <Calendar className="w-5 h-5" />,
-  },
 
   //add teams once rls works
   { 
@@ -57,16 +44,7 @@ interface SidebarProps {
 type WorkspaceRow = {
   id: string;
   name: string;
-  type: string;
   owner_user_id: string;
-};
-
-type WorkspaceMembershipRow = {
-  workspace_id: string;
-  user_id: string;
-  role: string;
-  status: string;
-  workspace: WorkspaceRow | null;
 };
 
 const getInitial = (name: string | null | undefined, email: string | null | undefined) => {
@@ -78,20 +56,11 @@ const getInitial = (name: string | null | undefined, email: string | null | unde
 export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
   const { user } = useAuth();
   const { data: billing } = useBillingSummary();
-  const { activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
+  const { activeWorkspaceId } = useWorkspace();
   const access = useWorkspaceAccess();
-  const [workspaces, setWorkspaces] = React.useState<WorkspaceRow[]>([]);
+  const [workspace, setWorkspace] = React.useState<WorkspaceRow | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = React.useState(false);
   const [workspaceError, setWorkspaceError] = React.useState<string | null>(null);
-  const [showCreateWorkspace, setShowCreateWorkspace] = React.useState(false);
-  const [newWorkspaceName, setNewWorkspaceName] = React.useState('');
-  const [creatingWorkspace, setCreatingWorkspace] = React.useState(false);
-  const [workspaceToDelete, setWorkspaceToDelete] = React.useState<WorkspaceRow | null>(null);
-  const [deletingWorkspace, setDeletingWorkspace] = React.useState(false);
-  const [ownedWorkspaceIds, setOwnedWorkspaceIds] = React.useState<string[]>([]);
-  const [memberWorkspaceIds, setMemberWorkspaceIds] = React.useState<string[]>([]);
-  const [switchingWorkspaceId, setSwitchingWorkspaceId] = React.useState<string | null>(null);
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false);
   const canSeeCampaigns =
     access.canViewWorkspace || access.hasCampaignAccess || !activeWorkspaceId;
   const isViewerOnly =
@@ -102,7 +71,6 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   const filteredNavItems = navItems.filter(item => {
     if (!activeWorkspaceId || access.loading) return true;
     if (isViewerOnly) return item.name === 'Dashboard' || item.name === 'Campaigns';
-    if (item.name === 'Calendar') return access.canViewCalendar;
     if (item.name === 'Team') return access.canManageTeam;
     if (item.name === 'Creator Library' || item.name === 'Requests') {
       return access.canViewWorkspace;
@@ -127,196 +95,34 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
   const userInitial = getInitial(user?.user_metadata?.full_name, user?.email);
 
-  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) || null;
-  const ownedWorkspaces = workspaces.filter((workspace) =>
-    ownedWorkspaceIds.includes(workspace.id)
-  );
-  const joinedWorkspaces = workspaces.filter((workspace) =>
-    memberWorkspaceIds.includes(workspace.id)
-  );
-  const formatWorkspaceName = (workspace: WorkspaceRow | null) => {
-    if (!workspace) return "Select workspace";
-    if (workspace.type === "personal") {
-      return `${userName}'s Workspace`;
-    }
-    return workspace.name || "Workspace";
+  const formatWorkspaceName = (workspaceRow: WorkspaceRow | null) => {
+    if (workspaceRow?.name) return workspaceRow.name;
+    return `${userName}'s Workspace`;
   };
 
-  const loadWorkspaces = async () => {
-    if (!user?.id) return;
+  const loadWorkspace = async () => {
+    if (!activeWorkspaceId) {
+      setWorkspace(null);
+      return;
+    }
     setWorkspaceLoading(true);
     setWorkspaceError(null);
 
-    const { data: memberRows, error: memberError } = await supabase
-      .from('workspace_members')
-      .select('workspace_id, user_id, role, status, workspace:workspaces ( id, name, type, owner_user_id )')
-      .eq('user_id', user.id)
-      .eq('status', 'active');
-
-    let resolvedWorkspaces: WorkspaceRow[] = [];
-    let ownerWorkspaceIds: string[] = [];
-    let memberWorkspaceIds: string[] = [];
-
-    if (!memberError && memberRows) {
-      const unique = new Map<string, WorkspaceRow>();
-      (memberRows as WorkspaceMembershipRow[]).forEach((row) => {
-        if (row.workspace) {
-          unique.set(row.workspace.id, row.workspace);
-          if (row.workspace.owner_user_id === user.id) {
-            ownerWorkspaceIds.push(row.workspace.id);
-          } else {
-            memberWorkspaceIds.push(row.workspace.id);
-          }
-        }
-      });
-      resolvedWorkspaces = Array.from(unique.values());
-    } else {
-      const { data: memberships, error: fallbackError } = await supabase
-        .from('workspace_members')
-        .select('workspace_id, user_id, role, status')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      if (fallbackError) {
-        setWorkspaceError(fallbackError.message || 'Unable to load workspaces');
-        setWorkspaceLoading(false);
-        return;
-      }
-
-      const workspaceIds = (memberships || []).map((row) => row.workspace_id);
-      if (workspaceIds.length > 0) {
-        const { data: workspaceRows, error: workspaceError } = await supabase
-          .from('workspaces')
-          .select('id, name, type, owner_user_id')
-          .in('id', workspaceIds);
-
-        if (workspaceError) {
-          setWorkspaceError(workspaceError.message || 'Unable to load workspaces');
-          setWorkspaceLoading(false);
-          return;
-        }
-
-        resolvedWorkspaces = workspaceRows || [];
-        ownerWorkspaceIds = (workspaceRows || [])
-          .filter((workspace) => workspace.owner_user_id === user.id)
-          .map((workspace) => workspace.id);
-        memberWorkspaceIds = (workspaceRows || [])
-          .filter((workspace) => workspace.owner_user_id !== user.id)
-          .map((workspace) => workspace.id);
-      }
-    }
-
-    setWorkspaces(resolvedWorkspaces);
-    setOwnedWorkspaceIds(ownerWorkspaceIds);
-    setMemberWorkspaceIds(memberWorkspaceIds);
-    const nextWorkspaceId =
-      activeWorkspaceId &&
-      resolvedWorkspaces.some((workspace) => workspace.id === activeWorkspaceId)
-        ? activeWorkspaceId
-        : resolvedWorkspaces[0]?.id || null;
-
-    if (nextWorkspaceId !== activeWorkspaceId) {
-      setActiveWorkspaceId(nextWorkspaceId);
-    }
-    setWorkspaceLoading(false);
-  };
-
-  const handleSelectWorkspace = (workspaceId: string) => {
-    setSwitchingWorkspaceId(workspaceId);
-    setActiveWorkspaceId(workspaceId);
-    setWorkspaceMenuOpen(false);
-    window.setTimeout(() => {
-      setSwitchingWorkspaceId(null);
-    }, 600);
-  };
-
-  const handleCreateWorkspace = async () => {
-    if (!user?.id || !newWorkspaceName.trim()) {
-      return;
-    }
-
-    setWorkspaceError(null);
-    setCreatingWorkspace(true);
-
-    const workspaceType = workspaces.length === 0 ? 'personal' : 'team';
-
-    const { data: workspace, error: workspaceError } = await supabase
+    const { data, error } = await supabase
       .from('workspaces')
-      .insert({
-        name: newWorkspaceName.trim(),
-        type: workspaceType,
-        owner_user_id: user.id,
-      })
-      .select()
-      .single();
-
-    if (workspaceError || !workspace) {
-      setWorkspaceError(workspaceError?.message || 'Unable to create workspace');
-      setCreatingWorkspace(false);
-      return;
-    }
-
-    const { error: memberError } = await supabase
-      .from('workspace_members')
-      .insert({
-        workspace_id: workspace.id,
-        user_id: user.id,
-        role: 'owner',
-        status: 'active',
-        invited_by: user.id,
-      });
-
-    if (memberError) {
-      setWorkspaceError(memberError.message || 'Unable to add workspace member');
-      setCreatingWorkspace(false);
-      return;
-    }
-
-    setNewWorkspaceName('');
-    setShowCreateWorkspace(false);
-    await loadWorkspaces();
-    setActiveWorkspaceId(workspace.id);
-    setCreatingWorkspace(false);
-  };
-
-  const handleDeleteWorkspace = async () => {
-    if (!workspaceToDelete) return;
-    const deletingId = workspaceToDelete.id;
-    const nextWorkspaceId = workspaces.find((workspace) => workspace.id !== deletingId)?.id || null;
-    setDeletingWorkspace(true);
-    setWorkspaceError(null);
-
-    const { error: creatorsError } = await supabase
-      .from('workspace_creators')
-      .delete()
-      .eq('workspace_id', deletingId);
-
-    if (creatorsError) {
-      setWorkspaceError(creatorsError.message || 'Unable to remove workspace creators');
-      setDeletingWorkspace(false);
-      return;
-    }
-
-    const { error } = await supabase
-      .from('workspaces')
-      .delete()
-      .eq('id', deletingId);
+      .select('id, name, owner_user_id')
+      .eq('id', activeWorkspaceId)
+      .maybeSingle();
 
     if (error) {
-      setWorkspaceError(error.message || 'Unable to delete workspace');
-      setDeletingWorkspace(false);
+      setWorkspaceError(error.message || 'Unable to load workspace');
+      setWorkspace(null);
+      setWorkspaceLoading(false);
       return;
     }
 
-    const deletingActive = deletingId === activeWorkspaceId;
-    setWorkspaceToDelete(null);
-    await loadWorkspaces();
-
-    if (deletingActive) {
-      setActiveWorkspaceId(nextWorkspaceId);
-    }
-
-    setDeletingWorkspace(false);
+    setWorkspace(data || null);
+    setWorkspaceLoading(false);
   };
 
   React.useEffect(() => {
@@ -324,15 +130,8 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   }, [currentPath, setSidebarOpen]);
 
   React.useEffect(() => {
-    loadWorkspaces();
-  }, [user?.id]);
-
-  React.useEffect(() => {
-    if (!showCreateWorkspace || !userName) return;
-    if (newWorkspaceName.trim().length > 0) return;
-    if (workspaces.length > 0) return;
-    setNewWorkspaceName(`${userName}'s Workspace`);
-  }, [showCreateWorkspace, userName, workspaces.length, newWorkspaceName]);
+    loadWorkspace();
+  }, [activeWorkspaceId]);
 
   return (
     <>
@@ -410,150 +209,19 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             <div className="text-[11px] uppercase tracking-wide text-slate-500 px-2 mb-2">
               Workspace
             </div>
-            <details
-              className="group"
-              open={workspaceMenuOpen}
-              onToggle={(event) => setWorkspaceMenuOpen(event.currentTarget.open)}
-            >
-              <summary className="list-none cursor-pointer">
-                <div className="w-full flex items-center justify-between gap-2 px-3 h-9 rounded-md bg-white/[0.03] border border-white/[0.08] text-slate-200 hover:bg-white/[0.05] transition-colors">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-6 h-6 rounded-md bg-white/[0.08] flex items-center justify-center text-[11px] text-white">
-                      {activeWorkspace?.name?.charAt(0).toUpperCase() || 'W'}
-                    </div>
-                    <span className="text-[13px] font-medium truncate">
-                      {workspaceLoading ? "Loading..." : formatWorkspaceName(activeWorkspace)}
-                    </span>
-                    {switchingWorkspaceId && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-slate-400">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        Switching
-                      </span>
-                    )}
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" />
-                </div>
-              </summary>
-              <div className="mt-2 p-1 rounded-md border border-white/[0.08] bg-[#0D0D0D] shadow-lg">
-                {workspaceError && (
-                  <div className="px-3 py-2 text-[12px] text-red-400">
-                    {workspaceError}
-                  </div>
-                )}
-                {!workspaceLoading && workspaces.length === 0 && !workspaceError && (
-                  <div className="px-3 py-2 text-[12px] text-slate-500">
-                    No workspaces yet
-                  </div>
-                )}
-                {ownedWorkspaces.length > 0 && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-[0.2em] text-slate-600">
-                    Your Workspaces
-                  </div>
-                )}
-                {ownedWorkspaces.map((workspace) => (
-                  <div
-                    key={`owned-${workspace.id}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleSelectWorkspace(workspace.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        handleSelectWorkspace(workspace.id);
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-3 h-8 rounded-md text-[12px] transition-colors",
-                      workspace.id === activeWorkspaceId
-                        ? "bg-white/[0.08] text-white"
-                        : "text-slate-300 hover:bg-white/[0.06]"
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setWorkspaceToDelete(workspace);
-                      }}
-                      disabled={workspace.type === 'personal'}
-                      className={cn(
-                        "w-5 h-5 rounded flex items-center justify-center transition-colors",
-                        workspace.type === 'personal'
-                          ? "bg-white/[0.04] text-slate-600 cursor-not-allowed"
-                          : "bg-white/[0.06] text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                      )}
-                      aria-label="Delete workspace"
-                      title={
-                        workspace.type === 'personal'
-                          ? 'Personal workspaces cannot be deleted'
-                          : 'Delete workspace'
-                      }
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    <div className="w-5 h-5 rounded bg-white/[0.08] flex items-center justify-center text-[10px] text-white">
-                      {workspace.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="truncate">{formatWorkspaceName(workspace)}</span>
-                    {switchingWorkspaceId === workspace.id && (
-                      <Loader2 className="w-3.5 h-3.5 text-slate-500 animate-spin ml-auto" />
-                    )}
-                  </div>
-                ))}
-                {joinedWorkspaces.length > 0 && (
-                  <div className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-[0.2em] text-slate-600">
-                    Joined Workspaces
-                  </div>
-                )}
-                {joinedWorkspaces.map((workspace) => (
-                  <div
-                    key={`member-${workspace.id}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleSelectWorkspace(workspace.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        handleSelectWorkspace(workspace.id);
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-3 h-8 rounded-md text-[12px] transition-colors",
-                      workspace.id === activeWorkspaceId
-                        ? "bg-white/[0.08] text-white"
-                        : "text-slate-300 hover:bg-white/[0.06]"
-                    )}
-                  >
-                    <div
-                      className="w-5 h-5 rounded flex items-center justify-center bg-white/[0.04] text-slate-600"
-                      aria-label="Delete workspace"
-                      title="Only workspace owners can delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="w-5 h-5 rounded bg-white/[0.08] flex items-center justify-center text-[10px] text-white">
-                      {workspace.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="truncate">{formatWorkspaceName(workspace)}</span>
-                    {switchingWorkspaceId === workspace.id && (
-                      <Loader2 className="w-3.5 h-3.5 text-slate-500 animate-spin ml-auto" />
-                    )}
-                  </div>
-                ))}
-                <div className="h-px bg-white/[0.06] my-1" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWorkspaceError(null);
-                    setShowCreateWorkspace(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 h-8 rounded-md text-[12px] text-slate-300 hover:bg-white/[0.06] transition-colors"
-                >
-                  <Plus className="w-4 h-4 text-slate-400" />
-                  <span>Create workspace</span>
-                </button>
+            <div className="w-full flex items-center gap-2 px-3 h-9 rounded-md bg-white/[0.03] border border-white/[0.08] text-slate-200">
+              <div className="w-6 h-6 rounded-md bg-white/[0.08] flex items-center justify-center text-[11px] text-white">
+                {workspace?.name?.charAt(0).toUpperCase() || userInitial}
               </div>
-            </details>
+              <span className="text-[13px] font-medium truncate">
+                {workspaceLoading ? "Loading..." : formatWorkspaceName(workspace)}
+              </span>
+            </div>
+            {workspaceError && (
+              <div className="px-2 pt-2 text-[12px] text-red-400">
+                {workspaceError}
+              </div>
+            )}
           </div>
 
           <ul className="space-y-0.5">
@@ -625,93 +293,6 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
         </div>
       </aside>
 
-      {showCreateWorkspace && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-sm rounded-lg border border-white/[0.08] bg-[#0D0D0D] shadow-xl">
-            <div className="px-5 py-4 border-b border-white/[0.08]">
-              <h3 className="text-sm font-semibold text-white">Create workspace</h3>
-              <p className="text-xs text-slate-500 mt-1">Give your workspace a name.</p>
-            </div>
-            <div className="px-5 py-4 space-y-4">
-              <div>
-                <label className="block text-xs text-slate-400 mb-2">Workspace name</label>
-                <Input
-                  value={newWorkspaceName}
-                  onChange={(e) => setNewWorkspaceName(e.target.value)}
-                  placeholder="Acme Studio"
-                  className="h-10 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 focus:bg-white/[0.06] focus:border-white/[0.2]"
-                />
-              </div>
-              {workspaceError && (
-                <div className="text-xs text-red-400">{workspaceError}</div>
-              )}
-            </div>
-            <div className="px-5 py-4 border-t border-white/[0.08] flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowCreateWorkspace(false);
-                  setWorkspaceError(null);
-                }}
-                className="h-9 bg-transparent border-white/[0.1] text-white hover:bg-white/[0.04]"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateWorkspace}
-                disabled={creatingWorkspace || !newWorkspaceName.trim()}
-                className="h-9 bg-white text-black hover:bg-white/90 disabled:opacity-50"
-              >
-                {creatingWorkspace ? 'Creating...' : 'Create'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {workspaceToDelete && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-sm rounded-lg border border-red-500/20 bg-[#0D0D0D] shadow-xl">
-            <div className="px-5 py-4 border-b border-white/[0.08]">
-              <h3 className="text-sm font-semibold text-white">Delete workspace?</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                This action cannot be undone.
-              </p>
-            </div>
-            <div className="px-5 py-4 space-y-3">
-              <div className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                You will lose access to all campaigns, creators, and data in{" "}
-                <span className="font-semibold text-red-200">
-                  {formatWorkspaceName(workspaceToDelete)}
-                </span>
-                .
-              </div>
-              {workspaceError && (
-                <div className="text-xs text-red-400">{workspaceError}</div>
-              )}
-            </div>
-            <div className="px-5 py-4 border-t border-white/[0.08] flex items-center justify-between">
-              <Button
-                onClick={handleDeleteWorkspace}
-                disabled={deletingWorkspace}
-                className="h-9 bg-red-500/90 hover:bg-red-500 text-white"
-              >
-                {deletingWorkspace ? "Deleting..." : "Delete workspace"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setWorkspaceToDelete(null);
-                  setWorkspaceError(null);
-                }}
-                className="h-9 bg-transparent border-white/[0.1] text-white hover:bg-white/[0.04]"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

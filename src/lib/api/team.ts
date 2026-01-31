@@ -1,4 +1,7 @@
 import { supabase } from "../supabase";
+import { getBillingSummary } from "./billing";
+import { getEffectiveLimits, getLimitReachedMessage, hasAgencyBypass } from "../entitlements";
+import { isWorkspaceAdmin, isWorkspaceOwner } from "../roles";
 import type {
   TeamMember,
   TeamMemberInsert,
@@ -198,6 +201,34 @@ export async function createTeamInvite(
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     const targetWorkspaceId = workspaceId || user.id;
+
+    // Enforce seat limits based on subscription tier
+    try {
+      const billing = await getBillingSummary();
+      if (!hasAgencyBypass(billing)) {
+        const limits = getEffectiveLimits(billing);
+        const seatLimit = limits.team_members;
+        if (seatLimit !== -1) {
+          const { count: pendingInviteCount } = await supabase
+            .from("workspace_invites")
+            .select("id", { count: "exact", head: true })
+            .eq("workspace_id", targetWorkspaceId)
+            .is("accepted_at", null)
+            .gt("expires_at", new Date().toISOString());
+
+          const seatsUsed = billing.seats_used ?? 0;
+          const projectedSeats = seatsUsed + (pendingInviteCount || 0);
+          if (projectedSeats >= seatLimit) {
+            return {
+              data: null,
+              error: new Error(getLimitReachedMessage("team_members")),
+            };
+          }
+        }
+      }
+    } catch {
+      // If billing lookup fails, fall through and allow invite attempt
+    }
 
     const inviteData: TeamInviteInsert = {
       workspace_id: targetWorkspaceId,
@@ -564,11 +595,11 @@ export async function deleteTeamMember(
       return { data: null, error: new Error("Not authorized to remove this team member") };
     }
 
-    if (!["owner", "admin"].includes(currentMembership.role)) {
+    if (!isWorkspaceAdmin(currentMembership.role)) {
       return { data: null, error: new Error("Not authorized to remove this team member") };
     }
 
-    if (member.user_id === user.id || member.role === "owner") {
+    if (member.user_id === user.id || isWorkspaceOwner(member.role)) {
       return { data: null, error: new Error("Cannot remove this team member") };
     }
 
@@ -639,11 +670,11 @@ export async function updateTeamMemberRole(
       return { data: null, error: new Error("Not authorized to update this team member") };
     }
 
-    if (!["owner", "admin"].includes(currentMembership.role)) {
+    if (!isWorkspaceAdmin(currentMembership.role)) {
       return { data: null, error: new Error("Not authorized to update this team member") };
     }
 
-    if (member.role === "owner") {
+    if (isWorkspaceOwner(member.role)) {
       return { data: null, error: new Error("Cannot update the workspace owner role") };
     }
 
@@ -704,11 +735,11 @@ export async function updateTeamMemberAccess(
       return { data: null, error: new Error("Not authorized to update this team member") };
     }
 
-    if (!["owner", "admin"].includes(currentMembership.role)) {
+    if (!isWorkspaceAdmin(currentMembership.role)) {
       return { data: null, error: new Error("Not authorized to update this team member") };
     }
 
-    if (member.role === "owner") {
+    if (isWorkspaceOwner(member.role)) {
       return { data: null, error: new Error("Cannot update the workspace owner role") };
     }
 

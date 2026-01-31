@@ -94,24 +94,6 @@ serve(async (req) => {
       }
     }
 
-    if (!hasAdminAccess) {
-      const { data: legacyMember, error: legacyError } = await supabase
-        .from("team_members")
-        .select("role,status")
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (
-        !legacyError &&
-        legacyMember &&
-        ["owner", "admin"].includes(legacyMember.role) &&
-        legacyMember.status !== "inactive"
-      ) {
-        hasAdminAccess = true;
-      }
-    }
-
     if (!hasAdminAccess && workspaceId === user.id) {
       hasAdminAccess = true;
     }

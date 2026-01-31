@@ -9,6 +9,7 @@ import { useCheckOnboarding } from "../../hooks/useOnboarding";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
 import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
+import { normalizeWorkspaceRole, workspaceRoleLabel } from "../../lib/roles";
 import {
   Users,
   Mail,
@@ -173,26 +174,27 @@ export function TeamInviteAccept() {
   };
 
   const getRoleInfo = (role: string) => {
-    switch (role) {
-      case "owner":
+    const normalizedRole = normalizeWorkspaceRole(role as any);
+    switch (normalizedRole) {
+      case "brand_owner":
         return {
           icon: <Crown className="w-4 h-4" />,
           label: "Owner",
           color: "text-amber-400",
         };
-      case "admin":
+      case "agency_admin":
         return {
           icon: <Shield className="w-4 h-4" />,
           label: "Admin",
           color: "text-purple-400",
         };
-      case "editor":
+      case "brand_member":
         return {
           icon: <Users className="w-4 h-4" />,
           label: "Editor",
           color: "text-primary",
         };
-      case "viewer":
+      case "agency_ops":
         return {
           icon: <Eye className="w-4 h-4" />,
           label: "Viewer",
@@ -201,7 +203,7 @@ export function TeamInviteAccept() {
       default:
         return {
           icon: <Users className="w-4 h-4" />,
-          label: role,
+          label: workspaceRoleLabel(role as any),
           color: "text-slate-400",
         };
     }

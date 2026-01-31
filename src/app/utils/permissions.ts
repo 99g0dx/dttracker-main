@@ -1,6 +1,6 @@
 // Permission and access control utilities for DTTracker
 
-export type WorkspaceRole = 'owner' | 'admin' | 'editor' | 'viewer';
+export type WorkspaceRole = 'brand_owner' | 'agency_admin' | 'brand_member' | 'agency_ops';
 export type MemberStatus = 'active' | 'pending';
 export type ScopeType = 'workspace' | 'campaign' | 'calendar';
 export type AccessLevel = 'editor' | 'viewer';
@@ -107,7 +107,7 @@ export function initializeCurrentUser(): CurrentUser {
       userId: 1,
       email: defaultUser.email,
       name: defaultUser.name,
-      role: 'owner',
+      role: 'brand_owner',
       status: 'active',
       invitedAt: new Date().toISOString(),
       joinedAt: new Date().toISOString(),
@@ -327,7 +327,7 @@ export function getUserRole(userId: number): WorkspaceRole | null {
 
 export function isOwnerOrAdmin(userId: number): boolean {
   const role = getUserRole(userId);
-  return role === 'owner' || role === 'admin';
+  return role === 'brand_owner' || role === 'agency_admin';
 }
 
 export function canManageTeam(userId: number): boolean {
@@ -336,7 +336,7 @@ export function canManageTeam(userId: number): boolean {
 
 export function canManageBilling(userId: number): boolean {
   const role = getUserRole(userId);
-  return role === 'owner';
+  return role === 'brand_owner';
 }
 
 // Invite creation helper
@@ -352,7 +352,12 @@ export function createInvite(data: InviteData, invitedBy: number): TeamMember {
   const newMemberId = Date.now() + 1;
   
   // Determine role based on preset
-  const role: WorkspaceRole = data.rolePreset;
+  const role: WorkspaceRole =
+    data.rolePreset === 'admin'
+      ? 'agency_admin'
+      : data.rolePreset === 'editor'
+        ? 'brand_member'
+        : 'agency_ops';
   
   const member: TeamMember = {
     id: newMemberId,

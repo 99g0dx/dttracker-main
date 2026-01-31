@@ -8,7 +8,6 @@ import {
   Mail,
   Search,
   Shield,
-  Eye,
   Trash2,
   UserPlus,
   Check,
@@ -39,7 +38,7 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
   const updateRoleMutation = useUpdateCampaignMemberRole();
   const removeMemberMutation = useRemoveCampaignMember();
 
-  const handleAddMember = (userId: string, role: 'viewer' | 'editor') => {
+  const handleAddMember = (userId: string, role: 'editor') => {
     addMemberMutation.mutate({
       campaign_id: campaignId,
       user_id: userId,
@@ -51,7 +50,7 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
     removeMemberMutation.mutate({ campaignId, userId });
   };
 
-  const handleUpdateAccess = (userId: string, role: 'viewer' | 'editor') => {
+  const handleUpdateAccess = (userId: string, role: 'editor') => {
     updateRoleMutation.mutate({ campaignId, userId, role });
   };
 
@@ -140,15 +139,9 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <select
-                            value={campaignMember?.role || 'viewer'}
-                            onChange={(e) => handleUpdateAccess(member.id, e.target.value as 'viewer' | 'editor')}
-                            className="h-9 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
-                            disabled={updateRoleMutation.isPending}
-                          >
-                            <option value="viewer">Can View</option>
-                            <option value="editor">Can Edit</option>
-                          </select>
+                          <div className="h-9 px-3 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm flex items-center">
+                            Full access
+                          </div>
                           <button
                             onClick={() => handleRemoveMember(member.id)}
                             disabled={removeMemberMutation.isPending}
@@ -193,23 +186,13 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
-                            onClick={() => handleAddMember(member.id, 'viewer')}
-                            size="sm"
-                            variant="outline"
-                            className="h-9 px-3 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300 hover:text-white text-sm"
-                            disabled={addMemberMutation.isPending}
-                          >
-                            <Eye className="w-3.5 h-3.5 mr-1.5" />
-                            Viewer
-                          </Button>
-                          <Button
                             onClick={() => handleAddMember(member.id, 'editor')}
                             size="sm"
                             className="h-9 px-3 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-sm"
                             disabled={addMemberMutation.isPending}
                           >
                             <Shield className="w-3.5 h-3.5 mr-1.5" />
-                            Editor
+                            Add member
                           </Button>
                         </div>
                       </div>

@@ -298,7 +298,7 @@ export function Settings({ onNavigate }: SettingsProps) {
         userId: user.id,
         name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You',
         email: user.email || 'Email unavailable',
-        role: 'owner',
+        role: 'brand_owner',
         status: 'active',
         isCurrentUser: true,
       });
@@ -324,15 +324,14 @@ export function Settings({ onNavigate }: SettingsProps) {
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Settings</h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Switch to your workspace to manage account settings.
+              Only workspace owners can manage account settings.
             </p>
           </div>
         </div>
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-6">
             <p className="text-sm text-slate-400">
-              Settings are only available for your own workspace. Use the workspace selector to
-              switch back to your personal workspace.
+              Settings are only available to the workspace owner.
             </p>
           </CardContent>
         </Card>
@@ -468,10 +467,15 @@ export function Settings({ onNavigate }: SettingsProps) {
     const workspaceId = activeWorkspaceId || user.id;
 
     const scopeValue = inviteRole === 'viewer' ? 'viewer' : 'editor';
+    const roleMap: Record<typeof inviteRole, TeamMemberRow['role']> = {
+      admin: 'agency_admin',
+      editor: 'brand_member',
+      viewer: 'agency_ops',
+    };
     const result = await createTeamInvite(
       workspaceId,
       emailValue,
-      inviteRole,
+      roleMap[inviteRole],
       [{ scope_type: 'workspace', scope_value: scopeValue }],
       null
     );
@@ -516,10 +520,10 @@ export function Settings({ onNavigate }: SettingsProps) {
   };
 
   const roleStyles: Record<string, string> = {
-    owner: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-    admin: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
-    editor: 'text-primary bg-primary/10 border-primary/20',
-    viewer: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+    brand_owner: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+    agency_admin: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+    brand_member: 'text-primary bg-primary/10 border-primary/20',
+    agency_ops: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
   };
 
   const statusStyles: Record<string, string> = {

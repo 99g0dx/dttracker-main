@@ -243,7 +243,7 @@ export async function create(
           .insert({
             workspace_id: targetWorkspaceId,
             user_id: user.id,
-            role: 'owner',
+            role: 'brand_owner',
             status: 'active',
             invited_by: user.id,
           });

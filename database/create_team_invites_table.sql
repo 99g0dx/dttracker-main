@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.team_invites (
   workspace_id uuid NOT NULL,
   email text NOT NULL,
   invited_by uuid NOT NULL REFERENCES auth.users(id),
-  role text NOT NULL DEFAULT 'member' CHECK (role = ANY (ARRAY['owner','admin','member','viewer'])),
+  role text NOT NULL DEFAULT 'agency_ops' CHECK (role = ANY (ARRAY['brand_owner','agency_admin','brand_member','agency_ops'])),
   invite_token text NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL,
   accepted_at timestamptz,
@@ -69,7 +69,7 @@ BEGIN
         SELECT 1 FROM public.team_members
         WHERE team_members.workspace_id = team_invites.workspace_id
         AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
+        AND team_members.role IN ('brand_owner', 'agency_admin')
       )
     );
   END IF;
@@ -95,7 +95,7 @@ BEGIN
         SELECT 1 FROM public.team_members
         WHERE team_members.workspace_id = team_invites.workspace_id
         AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
+        AND team_members.role IN ('brand_owner', 'agency_admin')
       )
     );
   END IF;
@@ -121,7 +121,7 @@ BEGIN
         SELECT 1 FROM public.team_members
         WHERE team_members.workspace_id = team_invites.workspace_id
         AND team_members.user_id = auth.uid()
-        AND team_members.role IN ('owner', 'admin')
+        AND team_members.role IN ('brand_owner', 'agency_admin')
       )
     );
   END IF;
@@ -138,4 +138,3 @@ FROM information_schema.columns
 WHERE table_schema = 'public'
 AND table_name = 'team_invites'
 ORDER BY ordinal_position;
-

@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "./AuthContext";
 
 type WorkspaceContextValue = {
   activeWorkspaceId: string | null;
@@ -11,23 +13,49 @@ const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(
 );
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(
-    () => {
-      if (typeof window === "undefined") return null;
-      return localStorage.getItem("dttracker-active-workspace");
-    }
-  );
+  const { user } = useAuth();
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveWorkspaceId = async () => {
+      if (!user?.id) {
+        setActiveWorkspaceIdState(null);
+        return;
+      }
+
+      try {
+        const { data } = await supabase
+          .from("workspace_members")
+          .select("workspace_id")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .limit(1)
+          .maybeSingle();
+
+        const workspaceId = data?.workspace_id || user.id;
+        if (!cancelled) {
+          setActiveWorkspaceIdState(workspaceId);
+        }
+      } catch {
+        if (!cancelled) {
+          setActiveWorkspaceIdState(user.id);
+        }
+      }
+    };
+
+    resolveWorkspaceId();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const setActiveWorkspaceId = (workspaceId: string | null) => {
     setActiveWorkspaceIdState(workspaceId);
     setIsSwitching(true);
-    if (typeof window === "undefined") return;
-    if (workspaceId) {
-      localStorage.setItem("dttracker-active-workspace", workspaceId);
-    } else {
-      localStorage.removeItem("dttracker-active-workspace");
-    }
     window.setTimeout(() => {
       setIsSwitching(false);
     }, 600);
