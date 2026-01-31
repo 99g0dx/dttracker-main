@@ -116,6 +116,21 @@ const Pricing = React.lazy(() =>
     default: module.Pricing,
   }))
 );
+const Sounds = React.lazy(() =>
+  import("./components/sounds").then((module) => ({
+    default: module.Sounds,
+  }))
+);
+const SoundTrackNew = React.lazy(() =>
+  import("./components/sound-track-new").then((module) => ({
+    default: module.SoundTrackNew,
+  }))
+);
+const SoundTrackDetail = React.lazy(() =>
+  import("./components/sound-track-detail").then((module) => ({
+    default: module.SoundTrackDetail,
+  }))
+);
 const BillingSuccess = React.lazy(() =>
   import("./components/billing-success").then((module) => ({
     default: module.BillingSuccess,
@@ -126,7 +141,6 @@ const BillingCancel = React.lazy(() =>
     default: module.BillingCancel,
   }))
 );
-
 
 function AppRoutes() {
   const location = useLocation();

@@ -19,6 +19,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: <LayoutDashboard className="w-5 h-5" /> },
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
+  { name: 'Sound Tracking', href: '/sounds', icon: <Music className="w-5 h-5" />, tag: 'Coming soon' },
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
 
@@ -27,9 +28,10 @@ const navItems: NavItem[] = [
     name: 'Team', 
     href: '/team', 
     icon: <Shield className="w-5 h-5" />,
+    tag: 'Coming soon'
   },
   { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
-  
+
 ];
 
 interface SidebarProps {
@@ -69,6 +71,8 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     !access.canEditWorkspace &&
     !access.canManageTeam;
   const filteredNavItems = navItems.filter(item => {
+    // Hide coming soon features
+    if (item.tag === 'Coming soon') return false;
     if (!activeWorkspaceId || access.loading) return true;
     if (isViewerOnly) return item.name === 'Dashboard' || item.name === 'Campaigns';
     if (item.name === 'Team') return access.canManageTeam;
