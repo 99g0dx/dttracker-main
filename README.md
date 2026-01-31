@@ -153,6 +153,10 @@ Edge Function secrets (set via Supabase CLI):
 
 - `RAPIDAPI_KEY` - RapidAPI key for TikTok/Instagram scraping
 - `YOUTUBE_API_KEY` - Google Cloud API key for YouTube
+- `APIFY_API_TOKEN` - Apify token for TikTok sound scraping
+- `SB_URL` or `SUPABASE_URL` - Supabase project URL
+- `SB_ANON_KEY` or `SUPABASE_ANON_KEY` - Supabase anon key
+- `SB_SERVICE_ROLE_KEY` or `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
 
 ## License
 

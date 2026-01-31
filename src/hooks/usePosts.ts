@@ -293,7 +293,7 @@ export function useAddPostWithScrape() {
         const scrapeResult = await scrapingApi.scrapePost({
           postId: createdPost.id,
           postUrl: createdPost.post_url,
-          platform: createdPost.platform as 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'facebook',
+          platform: createdPost.platform as 'tiktok' | 'instagram' | 'youtube',
         });
 
         if (scrapeResult.error) {

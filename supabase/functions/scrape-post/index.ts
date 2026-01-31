@@ -17,12 +17,12 @@ const corsHeaders = {
 // ============================================================
 // API CONFIGURATION
 // ============================================================
-// Primary: Apify actors for TikTok and Instagram
+// Primary: Apify actors (TikTok + Instagram) + RapidAPI (Twitter)
 // - APIFY_TOKEN: Your Apify API token
 // - Actors: clockworks~tiktok-scraper, apify~instagram-scraper
-//
-// RapidAPI (Twitter/X only):
-// - RAPIDAPI_KEY: Your RapidAPI key
+// - RAPIDAPI_KEY: Used for Twitter scraping
+
+// Twitter (RapidAPI)
 const TWITTER_API_BASE_URL = "https://twitter241.p.rapidapi.com";
 const TWITTER_API_HOST = "twitter241.p.rapidapi.com";
 const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
@@ -31,7 +31,7 @@ const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
 interface ScrapeRequest {
   postId: string;
   postUrl: string;
-  platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+  platform: "tiktok" | "instagram" | "youtube";
   isAutoScrape?: boolean; // Flag to indicate auto-scraping vs manual
 }
 
@@ -46,45 +46,34 @@ interface ScrapedMetrics {
 }
 
 /**
- * Scrape TikTok post metrics using RapidAPI
- * API: TikTok Video No Watermark by Toolbench RapidAPI
+ * Scrape TikTok post metrics using RapidAPI video info endpoint
  */
 
 async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
   try {
     const apifyToken = Deno.env.get("APIFY_TOKEN");
-    const apifyActorId =
-      Deno.env.get("APIFY_TIKTOK_ACTOR_ID") ?? "clockworks~tiktok-scraper";
-
-    console.log("=== TikTok Scraping (Apify) ===");
-    console.log("Post URL:", postUrl);
-    console.log("Apify token present:", !!apifyToken);
-    console.log("Apify actor:", apifyActorId);
-
     if (!apifyToken) {
       throw new Error(
         "APIFY_TOKEN not configured. Please set the APIFY_TOKEN secret in Supabase Edge Functions."
       );
     }
 
+    console.log(`[scrapeTikTok] Starting Apify scrape for URL: ${postUrl}`);
+
     let normalizedUrl = postUrl.trim();
-    if (
-      !normalizedUrl.startsWith("http://") &&
-      !normalizedUrl.startsWith("https://")
-    ) {
+    if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
       normalizedUrl = "https://" + normalizedUrl;
     }
 
+    const actorId = "clockworks~tiktok-scraper";
     const apifyUrl =
       "https://api.apify.com/v2/acts/" +
-      encodeURIComponent(apifyActorId) +
+      encodeURIComponent(actorId) +
       "/run-sync-get-dataset-items?token=" +
       encodeURIComponent(apifyToken);
 
-    // clockworks/tiktok-scraper input format
     const input = {
       postURLs: [normalizedUrl],
-      maxProfilesPerQuery: 1,
       resultsPerPage: 1,
       shouldDownloadVideos: false,
       shouldDownloadCovers: false,
@@ -92,83 +81,84 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       shouldDownloadSlideshowImages: false,
     };
 
+    console.log("[scrapeTikTok] Calling Apify actor:", actorId);
+
     const response = await fetch(apifyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
 
+    console.log(`[scrapeTikTok] Apify response status: ${response.status}`);
+
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
       throw new Error(
-        "Apify TikTok API error (" +
-          response.status +
-          "): " +
-          errorText.substring(0, 200)
+        `Apify TikTok API error (${response.status}): ${errorText.substring(0, 300)}`
       );
     }
 
-    const payload = await response.json().catch((err) => {
-      console.error("Failed to parse Apify response:", err);
-      throw new Error("Invalid response from Apify TikTok scraper");
+    const items = await response.json().catch(() => {
+      throw new Error("Invalid JSON response from Apify TikTok scraper");
     });
 
-    const items = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.items)
-      ? payload.items
-      : [];
+    console.log("[scrapeTikTok] Apify returned items:", Array.isArray(items) ? items.length : typeof items);
 
-    if (!items.length) {
-      throw new Error("Apify TikTok scraper returned no results.");
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("Apify TikTok scraper returned no results for this URL.");
     }
 
-    const item = items[0] ?? {};
-    const stats =
-      item.stats ||
-      item.statistics ||
-      item.videoMeta?.itemStruct?.stats ||
-      item.itemStruct?.stats ||
-      item.videoStats ||
-      item;
+    const item = items[0];
+    console.log("[scrapeTikTok] Item keys:", Object.keys(item).slice(0, 25));
+    console.log("[scrapeTikTok] Item preview:", JSON.stringify(item).substring(0, 800));
 
-    const views =
-      Number(
-        stats.playCount ??
-          stats.viewCount ??
-          stats.views ??
-          item.playCount ??
-          item.viewCount ??
-          item.views ??
-          0
-      ) || 0;
-    const likes =
-      Number(
-        stats.diggCount ??
-          stats.likeCount ??
-          stats.likes ??
-          item.diggCount ??
-          item.likeCount ??
-          item.likes ??
-          0
-      ) || 0;
-    const comments =
-      Number(
-        stats.commentCount ??
-          stats.comments ??
-          item.commentCount ??
-          item.comments ??
-          0
-      ) || 0;
-    const shares =
-      Number(
-        stats.shareCount ?? stats.shares ?? item.shareCount ?? item.shares ?? 0
-      ) || 0;
+    const num = (...vals: unknown[]) => {
+      for (const v of vals) {
+        const n = Number(v);
+        if (n > 0) return n;
+      }
+      return 0;
+    };
 
-    // Extract owner username for TikTok
-    const ownerUsername = item.authorMeta?.name || item.author?.uniqueId || item.author_unique_id || null;
+    const views = num(
+      item.playCount, item.play_count, item.viewCount, item.views,
+      item.videoMeta?.playCount, item.stats?.playCount,
+    );
+    const likes = num(
+      item.diggCount, item.digg_count, item.likeCount, item.likes,
+      item.videoMeta?.diggCount, item.stats?.diggCount,
+    );
+    const comments = num(
+      item.commentCount, item.comment_count, item.comments,
+      item.videoMeta?.commentCount, item.stats?.commentCount,
+    );
+    const shares = num(
+      item.shareCount, item.share_count, item.shares,
+      item.videoMeta?.shareCount, item.stats?.shareCount,
+    );
 
-    const metrics: ScrapedMetrics = {
+    const ownerUsername =
+      item.authorMeta?.name ??
+      item.authorMeta?.nickName ??
+      item.author?.nickname ??
+      item.author?.uniqueId ??
+      item.authorName ??
+      null;
+
+    const totalMetrics = views + likes + comments + shares;
+
+    console.log("[scrapeTikTok] Extracted metrics:", {
+      views, likes, comments, shares, totalMetrics, ownerUsername,
+    });
+
+    if (!totalMetrics) {
+      console.error("[scrapeTikTok] Zero metrics. Full item:", JSON.stringify(item, null, 2).substring(0, 2000));
+      throw new Error(
+        "Apify TikTok scraper returned zero metrics. The response structure may have changed. Check logs for details."
+      );
+    }
+
+    return {
       views,
       likes,
       comments,
@@ -176,15 +166,6 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       engagement_rate: 0,
       owner_username: ownerUsername,
     };
-
-    const totalMetrics = views + likes + comments + shares;
-    if (totalMetrics === 0) {
-      throw new Error(
-        "Apify TikTok scraper returned zero metrics. The result structure may differ."
-      );
-    }
-
-    return metrics;
   } catch (error) {
     console.error("TikTok scraping error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -235,20 +216,21 @@ async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
     };
 
     console.log("Calling Apify Instagram API...");
+    console.log("Apify URL:", apifyUrl.replace(/token=[^&]+/, "token=***"));
 
     const fetchWithRetry = async (attempt: number): Promise<Response> => {
-      const response = await fetch(instagramApiUrl, {
-        method: "GET",
+      const response = await fetch(apifyUrl, {
+        method: "POST",
         headers: {
-          "X-RapidAPI-Key": rapidApiKey,
-          "X-RapidAPI-Host": INSTAGRAM_API_HOST,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify(input),
       });
 
       if (response.status === 429 && attempt < 3) {
         const backoffMs = 1500 * Math.pow(2, attempt);
         console.warn(
-          `Instagram API rate limited (429). Retrying in ${backoffMs}ms (attempt ${
+          `Apify Instagram API rate limited (429). Retrying in ${backoffMs}ms (attempt ${
             attempt + 1
           }/3)...`
         );
@@ -628,17 +610,6 @@ async function scrapePost(
       return await scrapeInstagram(postUrl);
     case "youtube":
       return await scrapeYouTube(postUrl);
-    case "twitter":
-      return await scrapeTwitter(postUrl);
-    case "facebook":
-      console.warn("Facebook scraping not yet implemented");
-      return {
-        views: 0,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        engagement_rate: 0,
-      };
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }
@@ -803,8 +774,15 @@ serve(async (req) => {
         hasUrl: !!supabaseUrl,
         hasServiceKey: !!supabaseServiceKey,
       });
-      throw new Error(
-        "Server configuration error: Missing Supabase credentials. Please check Edge Function secrets."
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Server configuration error: Missing Supabase credentials. Please check Edge Function secrets.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
       );
     }
 
@@ -844,15 +822,41 @@ serve(async (req) => {
     }
 
     // Parse request body
+    let requestBody: ScrapeRequest;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid request body. Expected JSON.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
     const {
       postId,
       postUrl,
       platform,
       isAutoScrape = false,
-    }: ScrapeRequest = await req.json();
+    } = requestBody;
 
     if (!postId || !postUrl || !platform) {
-      throw new Error("Missing required fields: postId, postUrl, platform");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing required fields: postId, postUrl, platform",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
     }
 
     console.log(
@@ -869,7 +873,16 @@ serve(async (req) => {
       .single();
 
     if (postError) {
-      throw new Error(`Post not found: ${postError.message}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Post not found: ${postError.message}`,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404,
+        }
+      );
     }
 
     const { data: campaign, error: campaignError } = await supabase
@@ -879,7 +892,16 @@ serve(async (req) => {
       .single();
 
     if (campaignError || !campaign) {
-      throw new Error("Campaign not found for post");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Campaign not found for post",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404,
+        }
+      );
     }
 
     const { data: scrapeGate, error: gateError } = await supabase.rpc(
@@ -892,7 +914,16 @@ serve(async (req) => {
     );
 
     if (gateError) {
-      throw new Error(`Scrape permission check failed: ${gateError.message}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Scrape permission check failed: ${gateError.message}`,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
     }
 
     const gate = Array.isArray(scrapeGate) ? scrapeGate[0] : scrapeGate;
@@ -914,7 +945,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 403,
+          status: 200,
         }
       );
     }
@@ -940,7 +971,7 @@ serve(async (req) => {
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 409, // Conflict
+            status: 200,
           }
         );
       } else {
@@ -954,7 +985,30 @@ serve(async (req) => {
     }
 
     // Scrape the post
-    const metrics = await scrapePost(platform, postUrl);
+    let metrics: ScrapedMetrics;
+    try {
+      metrics = await scrapePost(platform, postUrl);
+    } catch (scrapeError) {
+      const errorMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
+      console.error("Scraping failed:", errorMessage);
+      
+      // Update post status to failed
+      await supabase
+        .from("posts")
+        .update({ status: "failed" })
+        .eq("id", postId);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: errorMessage,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200, // Return 200 so frontend can parse the error message
+        }
+      );
+    }
 
     // Calculate engagement rate
     const totalEngagements = metrics.likes + metrics.comments + metrics.shares;
@@ -1111,15 +1165,25 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Scraping error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    // Log full error details for debugging
+    console.error("Error details:", {
+      message: errorMessage,
+      stack: errorStack,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+    });
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: errorMessage,
+        details: process.env.DENO_ENV === "development" ? errorStack : undefined,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: error.message === "Unauthorized" ? 401 : 400,
+        status: 200, // Return 200 so frontend can parse the error message
       }
     );
   }

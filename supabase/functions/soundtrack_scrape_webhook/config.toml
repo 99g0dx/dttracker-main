@@ -1,0 +1,3 @@
+# Edge Function Configuration
+# Webhook endpoint - no JWT verification needed (uses secret instead)
+verify_jwt = false

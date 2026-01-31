@@ -141,6 +141,7 @@ export async function list(
  */
 export async function getById(id: string): Promise<ApiResponse<Campaign>> {
   try {
+    // First, get the campaign with all fields including sound_id
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')

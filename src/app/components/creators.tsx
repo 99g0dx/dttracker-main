@@ -94,8 +94,6 @@ function PlatformSelect({
     "tiktok",
     "instagram",
     "youtube",
-    "twitter",
-    "facebook",
   ];
 
   const selectedValue = selected[0] ?? "all";
@@ -241,7 +239,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
     handle: string;
     email: string;
     phone: string;
-    platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+    platform: "tiktok" | "instagram" | "youtube";
     follower_count: number;
     avg_engagement: number;
     niche: string;
@@ -1547,8 +1545,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <option value="instagram">Instagram</option>
                     <option value="tiktok">TikTok</option>
                     <option value="youtube">YouTube</option>
-                    <option value="twitter">Twitter/X</option>
-                    <option value="facebook">Facebook</option>
                   </select>
                 </div>
                 <div>

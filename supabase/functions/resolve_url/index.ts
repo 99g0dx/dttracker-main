@@ -93,8 +93,6 @@ serve(async (req) => {
     if (hostname.includes('tiktok.com')) platform = 'tiktok';
     else if (hostname.includes('instagram.com')) platform = 'instagram';
     else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) platform = 'youtube';
-    else if (hostname.includes('twitter.com') || hostname.includes('x.com')) platform = 'twitter';
-    else if (hostname.includes('facebook.com')) platform = 'facebook';
 
     // 3. Extract Handle and Post ID
     let creatorHandle: string | null = null;

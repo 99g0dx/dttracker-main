@@ -855,8 +855,8 @@ export async function addCreatorsToCampaign(
       .or(buildWorkspaceCreatorsFilter(workspaceKeys))
       .in('creator_id', creatorIds);
 
-    if (gateError) {
-      return { data: null, error: new Error(gateError.message) };
+    if (creatorsError) {
+      return { data: null, error: creatorsError };
     }
 
     const workspaceCreatorIds = new Set((workspaceCreators || []).map((wc: any) => wc.creator_id));
