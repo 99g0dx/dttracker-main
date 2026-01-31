@@ -31,7 +31,7 @@ INSERT INTO plan_catalog (
   1900, -- $19
   1,
   500, -- $5/extra seat
-  5,
+  2,   -- Max 2 total seats (1 included + 1 extra)
   '{
     "campaigns": 3,
     "creators_per_campaign": 25,
@@ -58,7 +58,7 @@ INSERT INTO plan_catalog (
   18200, -- $182
   1,
   4800, -- $48/extra seat yearly ($5 * 12 * 0.8)
-  5,
+  2,   -- Max 2 total seats (1 included + 1 extra)
   '{
     "campaigns": 3,
     "creators_per_campaign": 25,
@@ -85,7 +85,7 @@ INSERT INTO plan_catalog (
   4900, -- $49
   2, -- 2 included seats
   900, -- $9/extra seat
-  25, -- Max 25 seats
+  3,  -- Max 3 total seats (2 included + 1 extra)
   '{
     "campaigns": 10,
     "creators_per_campaign": 100,
@@ -117,7 +117,7 @@ INSERT INTO plan_catalog (
   47000, -- $470
   2, -- 2 included seats
   8600, -- $86/extra seat yearly ($9 * 12 * 0.8 = $86.4)
-  25,
+  3,  -- Max 3 total seats (2 included + 1 extra)
   '{
     "campaigns": 10,
     "creators_per_campaign": 100,
@@ -149,7 +149,7 @@ INSERT INTO plan_catalog (
   12900, -- $129
   3, -- 3 included seats
   700, -- $7/extra seat
-  NULL, -- Unlimited seats
+  5,   -- Max 5 total seats (3 included + 2 extra)
   '{
     "campaigns": -1,
     "creators_per_campaign": -1,
@@ -183,7 +183,7 @@ INSERT INTO plan_catalog (
   123800, -- $1238
   3, -- 3 included seats
   6700, -- $67/extra seat yearly ($7 * 12 * 0.8 = $67.2)
-  NULL, -- Unlimited seats
+  5,   -- Max 5 total seats (3 included + 2 extra)
   '{
     "campaigns": -1,
     "creators_per_campaign": -1,

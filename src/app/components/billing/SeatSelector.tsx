@@ -19,7 +19,7 @@ export function SeatSelector({
   extraSeatPrice,
   billingCycle,
   onChange,
-  maxSeats = 50,
+  maxSeats = 10,
   disabled = false,
 }: SeatSelectorProps) {
   const totalSeats = includedSeats + extraSeats;

@@ -4,7 +4,7 @@ import type { ApiResponse } from "../types/database";
 interface ScrapePostRequest {
   postId: string;
   postUrl: string;
-  platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+  platform: "tiktok" | "instagram" | "youtube";
 }
 
 interface ScrapePostResponse {
@@ -19,7 +19,7 @@ interface ScrapePostResponse {
   };
   post?: {
     id: string;
-    platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+    platform: "tiktok" | "instagram" | "youtube";
     externalId: string | null;
     sourceUrl: string;
     ownerUsername: string | null;
@@ -107,23 +107,70 @@ export async function scrapePost(
       currentSession.access_token?.length || 0
     );
 
+    // Use direct fetch to get better error details
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      return {
+        data: null,
+        error: new Error('Missing Supabase URL configuration'),
+      };
+    }
+
     const invokeScrape = async (accessToken?: string) => {
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
-      return supabase.functions.invoke<ScrapePostResponse>("scrape-post", {
-        body: request,
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (anonKey) {
+        headers.apikey = anonKey;
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/scrape-post`, {
+        method: 'POST',
         headers,
+        body: JSON.stringify(request),
       });
+
+      const responseText = await response.text();
+      let responseData: any = null;
+
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (parseError) {
+        // Non-JSON response - return error with response text
+        return {
+          data: null,
+          error: new Error(`Invalid response from scrape-post: ${response.status} ${response.statusText}`),
+          status: response.status,
+          responseText: responseText.substring(0, 500),
+        };
+      }
+
+      if (!response.ok) {
+        const errorMessage = responseData?.error || responseData?.message || `HTTP ${response.status}: ${response.statusText}`;
+        return {
+          data: null,
+          error: new Error(errorMessage),
+          status: response.status,
+        };
+      }
+
+      return {
+        data: responseData,
+        error: null,
+      };
     };
 
     console.log("Invoking edge function scrape-post...");
-    let { data, error } = await invokeScrape(currentSession.access_token);
+    let result = await invokeScrape(currentSession.access_token);
+    let { data, error } = result as any;
 
     if (error) {
       const errorMessage = error.message || "";
-      const errorStatus = (error as any)?.status || (error as any)?.context?.status;
+      const errorStatus = (error as any)?.status || result?.status;
       const isAuthError =
         errorStatus === 401 || errorMessage.includes("JWT") || errorMessage.includes("Unauthorized");
 
@@ -135,17 +182,19 @@ export async function scrapePost(
             data: { session: refreshedSession },
           } = await supabase.auth.getSession();
           if (refreshedSession?.access_token) {
-            ({ data, error } = await invokeScrape(refreshedSession.access_token));
+            result = await invokeScrape(refreshedSession.access_token);
+            ({ data, error } = result as any);
           }
         }
       }
     }
 
     if (error || !data) {
-      console.error("Scraping failed:", error);
+      console.error("Scraping failed:", error, result);
+      const errorMessage = error?.message || result?.responseText || "Failed to scrape post";
       return {
         data: null,
-        error: new Error(error?.message || "Failed to scrape post"),
+        error: new Error(errorMessage),
       };
     }
 
@@ -174,7 +223,10 @@ export async function scrapePost(
     // Provide more specific error messages for common issues
     let errorMessage = error.message || "Network error while scraping post";
 
-    if (
+    // Check if it's a non-2xx status code error
+    if (errorMessage.includes("non-2xx") || errorMessage.includes("Edge Function returned")) {
+      errorMessage = "Scraping service error. The post may be unavailable or the scraping service is temporarily down. Please try again in a moment.";
+    } else if (
       errorMessage.includes("Failed to fetch") ||
       errorMessage.includes("NetworkError") ||
       errorMessage.includes("Network request failed")

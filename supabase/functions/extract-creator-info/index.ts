@@ -249,7 +249,7 @@ Analyze this social media profile screenshot and extract the following informati
    - Examples: "hello@example.com", "www.mysite.com", "link in bio"
 
 4. **Platform**: Detect which social media platform this is
-   - Options: "tiktok", "instagram", "youtube", "twitter", "facebook"
+   - Options: "tiktok", "instagram", "youtube"
    - Use visual cues: UI design, button shapes, color schemes
    - If uncertain, set to null
 
@@ -282,7 +282,7 @@ Return ONLY a valid JSON object with this EXACT structure (no markdown, no code 
   "handle": "@username or null",
   "followers": "125K" or "1.2M" or "10500" or null,
   "contact": "email@example.com or URL or null",
-  "platform": "tiktok" | "instagram" | "youtube" | "twitter" | "facebook" | null,
+  "platform": "tiktok" | "instagram" | "youtube" | null,
   "location": "City, State/Country or null",
   "niche": "Content category or null",
   "confidence": {

@@ -72,8 +72,6 @@ export async function parseCSV(
           "tiktok",
           "instagram",
           "youtube",
-          "twitter",
-          "facebook",
         ];
 
         // Log available columns for debugging (first row only)
@@ -342,8 +340,6 @@ export async function parseCreatorHandlesCSV(
       "tiktok",
       "instagram",
       "youtube",
-      "twitter",
-      "facebook",
     ];
 
     Papa.parse(file, {
