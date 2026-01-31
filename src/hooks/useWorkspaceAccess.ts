@@ -63,15 +63,13 @@ export function useWorkspaceAccess() {
   const member = data?.member || null;
   const scopes = data?.scopes || [];
 
-  const role = member?.role || null;
-  const isOwnerOrAdmin = role === 'owner' || role === 'admin';
-  const isEditor = role === 'editor';
+  const hasAccess = Boolean(member);
   const campaignAccess = scopes
     .filter((scope) => scope.scope_type === 'campaign')
     .map((scope) => parseCampaignScope(scope.scope_value));
 
-  const hasWorkspaceViewer = Boolean(role);
-  const hasWorkspaceEditor = isOwnerOrAdmin || isEditor;
+  const hasWorkspaceViewer = hasAccess;
+  const hasWorkspaceEditor = hasAccess;
 
   const canViewCalendar = hasWorkspaceViewer;
   const canEditCalendar = hasWorkspaceEditor;
@@ -83,8 +81,8 @@ export function useWorkspaceAccess() {
     loading: isLoading,
     member,
     scopes,
-    role: role as TeamRole | null,
-    canManageTeam: isOwnerOrAdmin,
+    role: (member?.role || null) as TeamRole | null,
+    canManageTeam: hasAccess,
     canViewWorkspace: hasWorkspaceViewer,
     canEditWorkspace: hasWorkspaceEditor,
     canViewCalendar,
@@ -92,6 +90,6 @@ export function useWorkspaceAccess() {
     canViewCampaign,
     canEditCampaign,
     campaignAccess,
-    hasCampaignAccess: campaignAccess.length > 0,
+    hasCampaignAccess: hasAccess,
   };
 }

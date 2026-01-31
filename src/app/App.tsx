@@ -71,11 +71,6 @@ const Payment = React.lazy(() =>
     default: module.Payment,
   }))
 );
-const ActivityScheduler = React.lazy(() =>
-  import("./components/activity-scheduler").then((module) => ({
-    default: module.ActivityScheduler,
-  }))
-);
 const Home = React.lazy(() =>
   import("./components/home").then((module) => ({
     default: module.Home,
@@ -317,14 +312,6 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute>
                       <CreatorScraper onNavigate={(path) => navigate(path)} />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/calendar"
-                  element={
-                    <ProtectedRoute>
-                      <ActivityScheduler onNavigate={(path) => navigate(path)} />
                     </ProtectedRoute>
                   }
                 />

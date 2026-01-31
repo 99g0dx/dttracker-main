@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.team_members (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   workspace_id uuid NOT NULL, -- References workspaces(id) or user_id depending on model
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role text NOT NULL DEFAULT 'member' CHECK (role = ANY (ARRAY['owner','admin','member','viewer'])),
+  role text NOT NULL DEFAULT 'agency_ops' CHECK (role = ANY (ARRAY['brand_owner','agency_admin','brand_member','agency_ops'])),
   status text NOT NULL DEFAULT 'active' CHECK (status = ANY (ARRAY['active','pending'])),
   invited_by uuid REFERENCES auth.users(id),
   invited_at timestamptz DEFAULT now(),
@@ -28,4 +28,3 @@ ALTER TABLE public.team_members
   ADD COLUMN IF NOT EXISTS joined_at timestamptz;
 
 CREATE INDEX IF NOT EXISTS idx_team_members_workspace_user ON public.team_members (workspace_id, user_id);
-

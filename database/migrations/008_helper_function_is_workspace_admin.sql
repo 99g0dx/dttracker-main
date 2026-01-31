@@ -7,10 +7,9 @@ LANGUAGE sql STABLE SECURITY DEFINER AS $$
     SELECT 1 FROM public.team_members tm
     WHERE tm.workspace_id = p_workspace_id
       AND tm.user_id = auth.uid()
-      AND tm.role IN ('owner','admin')
+      AND tm.role IN ('brand_owner','agency_admin')
   ) OR p_workspace_id = auth.uid(); -- Support current model: workspace_id = user_id
 $$;
 
 -- Revoke execute from anon/authenticated to prevent direct client-side use
 REVOKE EXECUTE ON FUNCTION public.is_workspace_admin(uuid) FROM anon, authenticated;
-

@@ -1,4 +1,4 @@
--- Update workspace roles to owner/admin/editor/viewer and align RLS policies.
+-- Update workspace roles to brand_owner/agency_admin/brand_member/agency_ops and align RLS policies.
 
 -- 1) Update role constraints for workspace_members/workspace_invites.
 DO $$
@@ -17,7 +17,7 @@ END $$;
 
 ALTER TABLE public.workspace_members
   ADD CONSTRAINT workspace_members_role_check
-  CHECK (role IN ('owner', 'admin', 'editor', 'viewer'));
+  CHECK (role IN ('brand_owner', 'agency_admin', 'brand_member', 'agency_ops'));
 
 DO $$
 DECLARE
@@ -35,7 +35,7 @@ END $$;
 
 ALTER TABLE public.workspace_invites
   ADD CONSTRAINT workspace_invites_role_check
-  CHECK (role IN ('owner', 'admin', 'editor', 'viewer'));
+  CHECK (role IN ('brand_owner', 'agency_admin', 'brand_member', 'agency_ops'));
 
 -- 2) Migrate existing role values from member -> editor/viewer (based on scopes).
 UPDATE public.workspace_members wm
@@ -45,22 +45,22 @@ SET role = CASE
     WHERE ms.team_member_id = wm.id
       AND ms.scope_type = 'workspace'
       AND ms.scope_value = 'editor'
-  ) THEN 'editor'
+  ) THEN 'brand_member'
   WHEN EXISTS (
     SELECT 1 FROM public.member_scopes ms
     WHERE ms.team_member_id = wm.id
       AND ms.scope_type = 'workspace'
       AND ms.scope_value = 'viewer'
-  ) THEN 'viewer'
-  ELSE 'viewer'
+  ) THEN 'agency_ops'
+  ELSE 'agency_ops'
 END
 WHERE wm.role = 'member';
 
 UPDATE public.workspace_invites wi
 SET role = CASE
-  WHEN wi.scopes @> '[{"scope_type":"workspace","scope_value":"editor"}]'::jsonb THEN 'editor'
-  WHEN wi.scopes @> '[{"scope_type":"workspace","scope_value":"viewer"}]'::jsonb THEN 'viewer'
-  ELSE 'viewer'
+  WHEN wi.scopes @> '[{"scope_type":"workspace","scope_value":"editor"}]'::jsonb THEN 'brand_member'
+  WHEN wi.scopes @> '[{"scope_type":"workspace","scope_value":"viewer"}]'::jsonb THEN 'agency_ops'
+  ELSE 'agency_ops'
 END
 WHERE wi.role = 'member';
 
@@ -123,7 +123,7 @@ CREATE POLICY workspace_members_update_owner
       SELECT 1 FROM public.workspace_members wm
       WHERE wm.workspace_id = workspace_members.workspace_id
         AND wm.user_id = auth.uid()
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
     )
   )
   WITH CHECK (
@@ -131,7 +131,7 @@ CREATE POLICY workspace_members_update_owner
       SELECT 1 FROM public.workspace_members wm
       WHERE wm.workspace_id = workspace_members.workspace_id
         AND wm.user_id = auth.uid()
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
     )
   );
 
@@ -145,7 +145,7 @@ CREATE POLICY workspace_members_delete_owner_or_self
       SELECT 1 FROM public.workspace_members wm
       WHERE wm.workspace_id = workspace_members.workspace_id
         AND wm.user_id = auth.uid()
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
     )
   );
 
@@ -182,7 +182,7 @@ CREATE POLICY workspace_invites_insert_owner
       SELECT 1 FROM public.workspace_members wm
       WHERE wm.workspace_id = workspace_invites.workspace_id
         AND wm.user_id = auth.uid()
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
         AND wm.status = 'active'
     )
   );
@@ -196,7 +196,7 @@ CREATE POLICY workspace_invites_update_owner_or_invitee
       SELECT 1 FROM public.workspace_members wm
       WHERE wm.workspace_id = workspace_invites.workspace_id
         AND wm.user_id = auth.uid()
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
         AND wm.status = 'active'
     )
     OR lower(workspace_invites.email) = lower(
@@ -212,7 +212,7 @@ CREATE POLICY workspace_invites_update_owner_or_invitee
       SELECT 1 FROM public.workspace_members wm
       WHERE wm.workspace_id = workspace_invites.workspace_id
         AND wm.user_id = auth.uid()
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
         AND wm.status = 'active'
     )
     OR lower(workspace_invites.email) = lower(
@@ -233,7 +233,7 @@ CREATE POLICY workspace_invites_delete_owner
       SELECT 1 FROM public.workspace_members wm
       WHERE wm.workspace_id = workspace_invites.workspace_id
         AND wm.user_id = auth.uid()
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
         AND wm.status = 'active'
     )
   );
@@ -266,7 +266,7 @@ CREATE POLICY campaigns_insert_workspace_editor
       WHERE wm.workspace_id = campaigns.workspace_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -279,7 +279,7 @@ CREATE POLICY campaigns_update_workspace_editor
       WHERE wm.workspace_id = campaigns.workspace_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
     OR campaigns.created_by = auth.uid()
   );
@@ -293,7 +293,7 @@ CREATE POLICY campaigns_delete_workspace_editor
       WHERE wm.workspace_id = campaigns.workspace_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
     OR campaigns.created_by = auth.uid()
   );
@@ -332,7 +332,7 @@ CREATE POLICY posts_write_workspace_editor
       WHERE c.id = posts.campaign_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -348,7 +348,7 @@ CREATE POLICY posts_update_workspace_editor
       WHERE c.id = posts.campaign_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -364,7 +364,7 @@ CREATE POLICY posts_delete_workspace_editor
       WHERE c.id = posts.campaign_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -400,7 +400,7 @@ CREATE POLICY post_metrics_insert_workspace_editor
       WHERE p.id = post_metrics.post_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -435,7 +435,7 @@ CREATE POLICY campaign_creators_insert_workspace_editor
       WHERE c.id = campaign_creators.campaign_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -450,7 +450,7 @@ CREATE POLICY campaign_creators_delete_workspace_editor
       WHERE c.id = campaign_creators.campaign_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -481,7 +481,7 @@ CREATE POLICY workspace_creators_insert
       WHERE wm.workspace_id = workspace_creators.workspace_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -494,7 +494,7 @@ CREATE POLICY workspace_creators_delete
       WHERE wm.workspace_id = workspace_creators.workspace_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin', 'editor')
+        AND wm.role IN ('brand_owner', 'agency_admin', 'brand_member')
     )
   );
 
@@ -560,7 +560,7 @@ CREATE POLICY member_scopes_insert
       WHERE wm.workspace_id = tm.workspace_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
     )
   );
 
@@ -575,7 +575,7 @@ CREATE POLICY member_scopes_delete
       WHERE wm.workspace_id = tm.workspace_id
         AND wm.user_id = auth.uid()
         AND wm.status = 'active'
-        AND wm.role IN ('owner', 'admin')
+        AND wm.role IN ('brand_owner', 'agency_admin')
     )
   );
 

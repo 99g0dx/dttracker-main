@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.team_invites (
   workspace_id uuid NOT NULL,
   email text NOT NULL,
   invited_by uuid NOT NULL REFERENCES auth.users(id),
-  role text NOT NULL DEFAULT 'member' CHECK (role = ANY (ARRAY['owner','admin','member','viewer'])),
+  role text NOT NULL DEFAULT 'agency_ops' CHECK (role = ANY (ARRAY['brand_owner','agency_admin','brand_member','agency_ops'])),
   invite_token text NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL,
   accepted_at timestamptz,
@@ -88,4 +88,3 @@ BEGIN
   END IF;
 END
 $$;
-

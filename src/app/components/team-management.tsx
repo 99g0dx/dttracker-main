@@ -36,10 +36,16 @@ import { BulkInviteModal } from './bulk-invite-modal';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useBillingSummary } from '../../hooks/useBilling';
 import { UpgradeModal } from './upgrade-modal';
+import { getEffectiveLimits, hasAgencyBypass } from '../../lib/entitlements';
+import {
+  isWorkspaceAdmin,
+  isWorkspaceOwner,
+  normalizeWorkspaceRole,
+} from '../../lib/roles';
 
 // Keep InviteData type for the modal
 export type InviteData = {
-  rolePreset: 'admin' | 'editor' | 'viewer';
+  rolePreset: 'agency_admin' | 'brand_member' | 'agency_ops';
   email: string;
   message?: string;
 };
@@ -55,30 +61,22 @@ function mapRolePresetToRoleAndScopes(
   rolePreset: RolePreset,
 ): { role: TeamRole; scopes: Array<{ scope_type: ScopeType; scope_value: string }> } {
   const scopes: Array<{ scope_type: ScopeType; scope_value: string }> = [];
-  let role: TeamRole = 'viewer';
-
-  if (rolePreset === 'admin') {
-    role = 'admin';
-    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
-  } else if (rolePreset === 'editor') {
-    role = 'editor';
-    scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
-  } else if (rolePreset === 'viewer') {
-    role = 'viewer';
-    scopes.push({ scope_type: 'workspace', scope_value: 'viewer' });
-  }
+  const role: TeamRole = rolePreset;
+  scopes.push({ scope_type: 'workspace', scope_value: 'editor' });
 
   return { role, scopes };
 }
 
 const getRolePresetFromMember = (member: TeamMemberWithScopes): RolePreset => {
-  if (member.role === 'admin') return 'admin';
-  if (member.role === 'editor') return 'editor';
-  if (member.role === 'viewer') return 'viewer';
+  const normalizedRole = normalizeWorkspaceRole(member.role);
+  if (normalizedRole === 'agency_admin') return 'agency_admin';
+  if (normalizedRole === 'brand_owner') return 'agency_admin';
+  if (normalizedRole === 'brand_member') return 'brand_member';
+  if (normalizedRole === 'agency_ops') return 'agency_ops';
   const scopes = member.scopes || [];
   const workspaceScope = scopes.find((scope) => scope.scope_type === 'workspace');
-  if (workspaceScope?.scope_value === 'editor') return 'editor';
-  return 'viewer';
+  if (workspaceScope?.scope_value === 'editor') return 'brand_member';
+  return 'agency_ops';
 };
 
 
@@ -100,6 +98,10 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     memberName: string;
     rolePreset: RolePreset;
   } | null>(null);
+  const { data: billing } = useBillingSummary();
+  const activeMembers = members.filter((m) => m.status === 'active');
+  const agencyBypass = hasAgencyBypass(billing);
+  const seatLimit = agencyBypass ? -1 : getEffectiveLimits(billing).team_members;
 
   useEffect(() => {
     loadCurrentUser();
@@ -177,7 +179,10 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const currentUserMember = members.find((member) => member.user_id === currentUser?.id);
-  const canManage = currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin';
+  const canManage = isWorkspaceAdmin(currentUserMember?.role);
+  const seatsUsed = billing?.seats_used ?? activeMembers.length;
+  const projectedSeats = seatsUsed + pendingInvites.length;
+  const seatLimitReached = seatLimit !== -1 && projectedSeats >= seatLimit;
 
   const handleInviteComplete = async (invite?: TeamInviteWithInviter) => {
     if (invite) {
@@ -238,54 +243,19 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   };
 
   const getRoleBadge = (role: string, scopes?: TeamMemberWithScopes['scopes']) => {
-    if (role === 'editor') {
-      return { icon: <Users className="w-3 h-3" />, label: 'Editor', color: 'text-primary bg-primary/10 border-primary/20' };
-    }
-    if (role === 'viewer') {
-      return { icon: <Eye className="w-3 h-3" />, label: 'Viewer', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' };
-    }
+    const normalizedRole = normalizeWorkspaceRole(role as TeamRole);
     const badges = {
-      owner: { icon: <Crown className="w-3 h-3" />, label: 'Owner', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
-      admin: { icon: <Shield className="w-3 h-3" />, label: 'Admin', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-      viewer: { icon: <Eye className="w-3 h-3" />, label: 'Viewer', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' },
-      editor: { icon: <Users className="w-3 h-3" />, label: 'Editor', color: 'text-primary bg-primary/10 border-primary/20' },
+      brand_owner: { icon: <Crown className="w-3 h-3" />, label: 'Brand Owner', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+      agency_admin: { icon: <Shield className="w-3 h-3" />, label: 'Agency Admin', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
+      agency_ops: { icon: <Eye className="w-3 h-3" />, label: 'Agency Ops', color: 'text-slate-300 bg-slate-300/10 border-slate-300/20' },
+      brand_member: { icon: <Users className="w-3 h-3" />, label: 'Brand Member', color: 'text-primary bg-primary/10 border-primary/20' },
     };
-    return badges[role as keyof typeof badges] || badges.viewer;
+    return badges[(normalizedRole || 'agency_ops') as keyof typeof badges] || badges.agency_ops;
   };
 
   const getScopesSummary = (member: TeamMemberWithScopes) => {
-    if (member.role === 'admin' || member.role === 'owner') return 'Full workspace access';
-    if (member.role === 'editor') return 'Workspace edit access';
-    if (member.role === 'viewer') return 'Workspace view access';
-    const scopes = member.scopes || [];
-    if (scopes.length === 0) return 'No access';
-    
-    const calendarScope = scopes.find(s => s.scope_type === 'calendar');
-    const campaignScopes = scopes.filter(s => s.scope_type === 'campaign');
-    
-    const parts = [];
-    if (calendarScope) {
-      parts.push(`Calendar ${calendarScope.scope_value}`);
-    }
-    if (campaignScopes.length > 0) {
-      const parsed = campaignScopes.map(scope => {
-        const [campaignId, access] = scope.scope_value.split(':');
-        return { campaignId, access: access || 'viewer' };
-      });
-      const editorCount = parsed.filter(item => item.access === 'editor').length;
-      const viewerCount = parsed.filter(item => item.access === 'viewer').length;
-      if (editorCount > 0) {
-        parts.push(`${editorCount} campaign edit${editorCount !== 1 ? 's' : ''}`);
-      }
-      if (viewerCount > 0) {
-        parts.push(`${viewerCount} campaign view${viewerCount !== 1 ? 's' : ''}`);
-      }
-    }
-    
-    return parts.join(', ') || 'Custom access';
+    return 'Full access';
   };
-
-  const activeMembers = members.filter((m) => m.status === 'active');
 
   if (loading) {
     return (
@@ -318,8 +288,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
             <Button
               onClick={() => setShowBulkInviteModal(true)}
               variant="outline"
-              disabled={showBulkInviteModal || showInviteModal}
+              disabled={showBulkInviteModal || showInviteModal || seatLimitReached}
               className="h-9 px-4 flex-1 sm:flex-none bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300 hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+              title={seatLimitReached ? "Seat limit reached" : undefined}
             >
               {showBulkInviteModal ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -330,8 +301,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
             </Button>
             <Button
               onClick={() => setShowInviteModal(true)}
-              disabled={showInviteModal || showBulkInviteModal}
+              disabled={showInviteModal || showBulkInviteModal || seatLimitReached}
               className="h-9 px-4 flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] disabled:opacity-60 disabled:cursor-not-allowed"
+              title={seatLimitReached ? "Seat limit reached" : undefined}
             >
               {showInviteModal ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -360,11 +332,20 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         </Card>
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-4">
-            <div className="text-2xl font-semibold text-primary">{members.filter(m => m.role === 'owner' || m.role === 'admin').length}</div>
+            <div className="text-2xl font-semibold text-primary">
+              {members.filter((m) => isWorkspaceAdmin(m.role)).length}
+            </div>
             <p className="text-sm text-slate-400 mt-1">Admins</p>
           </CardContent>
         </Card>
       </div>
+      {seatLimitReached && (
+        <div className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          {seatLimit === -1
+            ? "Unlimited seats are enabled for this workspace."
+            : `Seat limit reached (${projectedSeats}/${seatLimit}). Upgrade to invite more teammates.`}
+        </div>
+      )}
 
       {/* Active Members */}
       <Card className="bg-[#0D0D0D] border-white/[0.08]">
@@ -386,8 +367,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                 'Email unavailable';
               const memberInitial = memberName.charAt(0).toUpperCase();
               const isCurrentUser = member.user_id === currentUser?.id;
-              const secondaryLine =
-                member.role === 'owner' ? member.user_id : memberEmail;
+              const secondaryLine = isWorkspaceOwner(member.role)
+                ? member.user_id
+                : memberEmail;
               const rolePreset = getRolePresetFromMember(member);
               
               return (
@@ -420,7 +402,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                       </div>
                     </div>
                     
-                    {canManage && !isCurrentUser && member.role !== 'owner' && (
+                    {canManage && !isCurrentUser && !isWorkspaceOwner(member.role) && (
                       <div className="relative group">
                         <button
                           className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors disabled:opacity-60"
@@ -452,9 +434,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                               className="w-full h-8 px-2 rounded-md bg-white/[0.04] border border-white/[0.1] text-xs text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors"
                             >
                               <optgroup label="Team Role">
-                                <option value="admin">Admin - Full access</option>
-                                <option value="editor">Editor - Can edit workspace data</option>
-                                <option value="viewer">Viewer - Read-only access</option>
+                                <option value="agency_admin">Agency Admin - Full access</option>
+                                <option value="brand_member">Brand Member - Full access</option>
+                                <option value="agency_ops">Agency Ops - Full access</option>
                               </optgroup>
                             </select>
                           </div>
@@ -604,9 +586,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                   className="w-full h-10 px-3 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors [&>option]:bg-[#0D0D0D] [&>option]:text-white [&>optgroup]:bg-[#0D0D0D] [&>optgroup]:text-slate-400 [&>optgroup]:font-semibold"
                 >
                   <optgroup label="Team Role">
-                    <option value="admin">Admin - Full access</option>
-                    <option value="editor">Editor - Can edit workspace data</option>
-                    <option value="viewer">Viewer - Read-only access</option>
+                    <option value="agency_admin">Agency Admin - Full access</option>
+                    <option value="brand_member">Brand Member - Full access</option>
+                    <option value="agency_ops">Agency Ops - Full access</option>
                   </optgroup>
                 </select>
               </div>
@@ -656,13 +638,15 @@ function InviteModal({
   workspaceId?: string;
 }) {
   const [email, setEmail] = useState('');
-  const [rolePreset, setRolePreset] = useState<InviteData['rolePreset']>('viewer');
+  const [rolePreset, setRolePreset] = useState<InviteData['rolePreset']>('brand_member');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const { data: billing } = useBillingSummary();
+  const agencyBypass = hasAgencyBypass(billing);
+  const seatLimit = agencyBypass ? -1 : getEffectiveLimits(billing).team_members;
 
   const handleSubmit = async () => {
     if (!email) {
@@ -673,7 +657,7 @@ function InviteModal({
     setError(null);
     setLoading(true);
 
-    if (billing && billing.seats_used >= billing.seats_total) {
+    if (!agencyBypass && seatLimit !== -1 && (billing?.seats_used ?? 0) >= seatLimit) {
       setUpgradeOpen(true);
       setLoading(false);
       return;
@@ -706,9 +690,21 @@ function InviteModal({
       // Check if email failed (invite was created but email wasn't sent)
       const emailError = (result as any).emailError;
       if (emailError) {
+        const inviteToken = (result.data as any)?.token;
+        const inviteLink = inviteToken
+          ? `${window.location.origin}/team/invite/${inviteToken}`
+          : null;
+        if (inviteLink && navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(inviteLink);
+          } catch {
+            // Clipboard failure shouldn't block the user flow.
+          }
+        }
         setError(
-          `Invite created successfully, but email failed to send: ${emailError.message}. ` +
-          `The invite is in the database. Please check RESEND_API_KEY configuration in Supabase.`
+          `Invite created, but email failed to send. ` +
+          `${inviteLink ? 'The invite link was copied to your clipboard.' : 'You can still resend or share the invite from the Pending Invites list.'} ` +
+          `Reason: ${emailError.message}`
         );
         setLoading(false);
         // Don't close modal so user can see the error
@@ -742,7 +738,7 @@ function InviteModal({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-white tracking-tight">Invite Team Member</h2>
-                <p className="text-sm text-slate-500 mt-1.5">Add someone to your workspace with specific access</p>
+                <p className="text-sm text-slate-500 mt-1.5">Add someone to your workspace (all roles have full access)</p>
               </div>
               <button
                 onClick={onClose}
@@ -774,19 +770,17 @@ function InviteModal({
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                Access Level <span className="text-red-400">*</span>
+                Role <span className="text-red-400">*</span>
               </label>
               <div className="relative">
                 <select
                   value={rolePreset}
                   onChange={(e) => setRolePreset(e.target.value as InviteData['rolePreset'])}
-                  className="w-full h-12 pl-4 pr-12 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm font-medium focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white [&>optgroup]:bg-[#0D0D0D] [&>optgroup]:text-slate-400 [&>optgroup]:font-semibold"
+                  className="w-full h-12 pl-4 pr-12 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm font-medium focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white"
                 >
-                  <optgroup label="Team Role">
-                    <option value="admin">Admin - Full access</option>
-                    <option value="editor">Editor - Can edit workspace data</option>
-                    <option value="viewer">Viewer - Read-only access</option>
-                  </optgroup>
+                  <option value="agency_admin">Agency Admin - Full access</option>
+                  <option value="brand_member">Brand Member - Full access</option>
+                  <option value="agency_ops">Agency Ops - Full access</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-slate-400">

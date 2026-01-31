@@ -374,10 +374,13 @@ export async function deleteRequest(id: string): Promise<ApiResponse<void>> {
   try {
     // Send email notification to agency (don't fail deletion if email fails)
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
       await supabase.functions.invoke('notify-request-deletion', {
         body: {
           request_id: id,
         },
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       });
     } catch (emailError) {
       console.error('Failed to send deletion notification email to agency:', emailError);

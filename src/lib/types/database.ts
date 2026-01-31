@@ -11,7 +11,11 @@ export type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "faceboo
 export type CampaignStatus = "active" | "paused" | "completed" | "archived";
 export type PostStatus = "pending" | "scraped" | "failed" | "manual" | "scraping";
 export type MemberRole = "owner" | "editor" | "viewer";
-export type TeamRole = "owner" | "admin" | "editor" | "viewer";
+export type TeamRole =
+  | "brand_owner"
+  | "brand_member"
+  | "agency_admin"
+  | "agency_ops";
 export type MemberStatus = "active" | "pending";
 export type ScopeType = "workspace" | "campaign" | "calendar";
 export type CreatorRequestStatus = "submitted" | "reviewing" | "quoted" | "approved" | "in_fulfillment" | "delivered";

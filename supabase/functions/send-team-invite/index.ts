@@ -69,10 +69,10 @@ serve(async (req) => {
 
     // Get role label
     const roleLabels: Record<string, string> = {
-      owner: "Owner",
-      admin: "Admin",
-      editor: "Editor",
-      viewer: "Viewer",
+      brand_owner: "Owner",
+      agency_admin: "Admin",
+      brand_member: "Editor",
+      agency_ops: "Viewer",
     };
     const roleLabel = roleLabels[role] || role;
 
