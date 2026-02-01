@@ -77,6 +77,7 @@ import type { CreatorWithStats, Platform } from "../../lib/types/database";
 import { useCart } from "../../contexts/CartContext";
 import { ReviewRequestModal } from "./review-request-modal";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
+import { useWorkspace } from "../../contexts/WorkspaceContext";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
 interface CreatorsProps {
@@ -144,13 +145,14 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
+  const { activeWorkspaceId } = useWorkspace();
   const {
     loading: accessLoading,
     canViewWorkspace,
-    canEditWorkspace,
+    canManageCreators,
   } = useWorkspaceAccess();
   const canViewCreators = accessLoading || canViewWorkspace;
-  const canEditCreators = accessLoading || canEditWorkspace;
+  const canEditCreators = accessLoading || canManageCreators;
 
   // Cart/Request state for "All Creators" tab
   const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } =
@@ -603,9 +605,20 @@ export function Creators({ onNavigate }: CreatorsProps) {
     setShowImportDialog(true);
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (creators.length === 0) {
       toast.error("No creators to export");
+      return;
+    }
+    if (!activeWorkspaceId) return;
+
+    const { data: exportGate, error: exportGateError } = await supabase.rpc(
+      "record_export_and_check_limit",
+      { p_workspace_id: activeWorkspaceId }
+    );
+    const result = Array.isArray(exportGate) ? exportGate[0] : exportGate;
+    if (exportGateError || !result?.allowed) {
+      toast.error("Export limit reached for today. Try again tomorrow.");
       return;
     }
 

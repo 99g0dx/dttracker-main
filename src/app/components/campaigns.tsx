@@ -56,14 +56,13 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
     hasCampaignAccess,
     canViewCampaign,
     canEditCampaign,
-    canEditWorkspace,
     isOwner,
   } = useWorkspaceAccess();
   const deleteCampaignMutation = useDeleteCampaign();
   const duplicateCampaignMutation = useDuplicateCampaign();
   const isCampaignsLoading = !shouldFetch || isLoading;
   const canCreateCampaign =
-    !activeWorkspaceId || accessLoading || canEditWorkspace;
+    !activeWorkspaceId || accessLoading || canViewWorkspace;
 
   React.useEffect(() => {
     const timer = setTimeout(() => setShouldFetch(true), 500);

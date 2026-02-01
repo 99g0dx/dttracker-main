@@ -961,6 +961,34 @@ serve(async (req) => {
       );
     }
 
+    // Per-operator scrape limit (manual scrape only)
+    let requestUserId: string | null = null;
+    if (!isAutoScrape && token) {
+      const {
+        data: { user: requestUser },
+      } = await supabase.auth.getUser(token);
+      requestUserId = requestUser?.id ?? null;
+      if (requestUserId) {
+        const { data: opLimit, error: opLimitError } = await supabase.rpc(
+          "check_operator_scrape_limit",
+          { p_workspace_id: campaign.workspace_id, p_user_id: requestUserId }
+        );
+        const opResult = Array.isArray(opLimit) ? opLimit[0] : opLimit;
+        if (!opLimitError && opResult && opResult.allowed === false) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Daily manual scrape limit reached. Try again tomorrow.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 429,
+            }
+          );
+        }
+      }
+    }
+
     // If post is being scraped and this is a manual request, check if we should wait
     if (post.status === "scraping" && !isAutoScrape) {
       const updatedAt = new Date(post.updated_at);
@@ -1150,6 +1178,20 @@ serve(async (req) => {
       // Don't throw - historical metrics are optional
     } else {
       console.log(`✅ Historical metrics snapshot saved for post ${postId}`);
+    }
+
+    // Increment per-operator scrape count (manual scrape only)
+    if (!isAutoScrape && token) {
+      const {
+        data: { user: requestUser },
+      } = await supabase.auth.getUser(token);
+      const uid = requestUser?.id ?? null;
+      if (uid) {
+        await supabase.rpc("increment_operator_scrapes_today", {
+          p_workspace_id: campaign.workspace_id,
+          p_user_id: uid,
+        });
+      }
     }
 
     return new Response(

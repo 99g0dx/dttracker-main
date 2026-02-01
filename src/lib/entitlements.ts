@@ -19,6 +19,18 @@ export interface PlanLimits {
 }
 
 /**
+ * Per-operator limits (owner is not subject to these).
+ * PRO: 3 campaigns created/month, 30 creators/month, 10 scrapes/day, 5 exports/day.
+ * AGENCY: 10, 150, 25, 15.
+ */
+export const OPERATOR_LIMITS: Record<string, { campaigns_created_month: number; creators_added_month: number; scrapes_today: number; exports_today: number }> = {
+  pro: { campaigns_created_month: 3, creators_added_month: 30, scrapes_today: 10, exports_today: 5 },
+  agency: { campaigns_created_month: 10, creators_added_month: 150, scrapes_today: 25, exports_today: 15 },
+  free: { campaigns_created_month: 3, creators_added_month: 30, scrapes_today: 10, exports_today: 5 },
+  starter: { campaigns_created_month: 3, creators_added_month: 30, scrapes_today: 10, exports_today: 5 },
+};
+
+/**
  * Default limits for each plan
  */
 const DEFAULT_LIMITS: Record<string, PlanLimits> = {
@@ -114,10 +126,13 @@ export function getEffectiveLimits(billing: BillingSummary | null | undefined): 
         billing.plan.max_creators_per_campaign ??
         DEFAULT_LIMITS[planSlug]?.creators_per_campaign ??
         10,
-      team_members:
-        billing.subscription?.total_seats ??
-        DEFAULT_LIMITS[planSlug]?.team_members ??
-        1,
+      team_members: (() => {
+        const limit =
+          billing.subscription?.total_seats ??
+          DEFAULT_LIMITS[planSlug]?.team_members ??
+          1;
+        return (planSlug === 'pro' || billing?.plan?.tier === 'pro') ? Math.max(limit, 3) : limit;
+      })(),
     };
   }
 

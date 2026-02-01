@@ -813,9 +813,15 @@ export function CreatorRequestChatbot({
             <div className="space-y-4">
               <Label
                 htmlFor="contact_name"
-                className="text-white text-sm font-medium"
+                className="text-white text-sm font-medium flex items-center gap-2"
               >
                 Contact Person <span className="text-red-400"> *</span>
+                {!formData.contact_person_name?.trim() &&
+                  currentStep === 6 && (
+                    <span className="text-xs text-red-400">
+                      Contact person is required.
+                    </span>
+                  )}
               </Label>
               <Input
                 id="contact_name"
@@ -829,9 +835,6 @@ export function CreatorRequestChatbot({
                 placeholder="Name"
                 className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
               />
-              {!formData.contact_person_name?.trim() && currentStep === 6 && (
-                <p className="text-xs text-red-400">Contact person is required.</p>
-              )}
               <Input
                 id="contact_email"
                 type="email"

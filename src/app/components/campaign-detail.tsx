@@ -152,7 +152,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   >("views");
   const isMobile = useMediaQuery("(max-width: 640px)");
   const isCompactMobile = useMediaQuery("(max-width: 479px)");
-  const { canEditWorkspace } = useWorkspaceAccess();
+  const { canEditCampaign, canDeleteCampaign } = useWorkspaceAccess();
+  const canEditThisCampaign = id ? canEditCampaign(id) : false;
   const [chartRange, setChartRange] = useState<"7d" | "14d" | "30d" | "all">(
     "14d"
   );
@@ -1302,7 +1303,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   }, [totalPages]); // Only depend on totalPages to avoid infinite loops
 
   const ensureCanEdit = (message?: string) => {
-    if (canEditWorkspace) return true;
+    if (canEditThisCampaign) return true;
     toast.error(message || "Read-only access: editing is disabled.");
     return false;
   };
@@ -1409,8 +1410,19 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     });
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (!campaign || posts.length === 0) return;
+    if (!activeWorkspaceId) return;
+
+    const { data: exportGate, error: exportGateError } = await supabase.rpc(
+      "record_export_and_check_limit",
+      { p_workspace_id: activeWorkspaceId }
+    );
+    const result = Array.isArray(exportGate) ? exportGate[0] : exportGate;
+    if (exportGateError || !result?.allowed) {
+      toast.error("Export limit reached for today. Try again tomorrow.");
+      return;
+    }
 
     const csvContent = csvUtils.exportToCSV(posts);
     const filename = `${campaign.name.replace(/[^a-z0-9]/gi, "_")}_posts_${
@@ -1555,7 +1567,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     return;
                   setShowShareLinkModal(true);
                 }}
-                disabled={!canEditWorkspace}
+                disabled={!canEditThisCampaign}
                 className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Share campaign link"
               >
@@ -1569,7 +1581,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     type="button"
                     className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     aria-label="Campaign actions"
-                    disabled={!canEditWorkspace}
+                    disabled={!canEditThisCampaign}
                   >
                     <MoreHorizontal className="w-4 h-4" />
                     <span>Action</span>
@@ -1589,7 +1601,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         return;
                       onNavigate(`/campaigns/${campaign.id}/edit`);
                     }}
-                    disabled={!canEditWorkspace}
+                    disabled={!canEditThisCampaign}
                     className="text-white [&_svg]:text-white"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -1598,16 +1610,16 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <DropdownMenuItem
                     variant="destructive"
                     onSelect={() => {
-                      if (
-                        !ensureCanEdit(
+                      if (!canDeleteCampaign) {
+                        toast.error(
                           "You do not have permission to delete campaigns."
-                        )
-                      )
+                        );
                         return;
+                      }
                       setShowDeleteCampaignDialog(true);
                     }}
                     disabled={
-                      !canEditWorkspace || deleteCampaignMutation.isPending
+                      !canDeleteCampaign || deleteCampaignMutation.isPending
                     }
                   >
                     <Trash2 className="w-4 h-4" />
@@ -2416,7 +2428,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               )}
                             >
                               {/* Remove Button */}
-                              {canEditWorkspace && (
+                              {canEditThisCampaign && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -2541,7 +2553,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     if (!ensureCanEdit()) return;
                     setShowAddPostDialog(true);
                   }}
-                  disabled={!canEditWorkspace}
+                  disabled={!canEditThisCampaign}
                   className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
@@ -2564,7 +2576,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         if (!ensureCanEdit()) return;
                         setShowScrapeAllDialog(true);
                       }}
-                      disabled={posts.length === 0 || !canEditWorkspace}
+                      disabled={posts.length === 0 || !canEditThisCampaign}
                     >
                       <RefreshCw className="w-4 h-4" />
                       Scrape all posts
@@ -2579,14 +2591,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={handleImportCreators}
-                      disabled={!canEditWorkspace}
+                      disabled={!canEditThisCampaign}
                     >
                       <Upload className="w-4 h-4" />
                       Import creators
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={handleImportPosts}
-                      disabled={!canEditWorkspace}
+                      disabled={!canEditThisCampaign}
                     >
                       <Upload className="w-4 h-4" />
                       Import posts CSV
@@ -2598,7 +2610,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         if (!ensureCanEdit()) return;
                         setShowDeleteAllDialog(true);
                       }}
-                      disabled={posts.length === 0 || !canEditWorkspace}
+                      disabled={posts.length === 0 || !canEditThisCampaign}
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete all posts
@@ -2718,10 +2730,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           key={post.id}
                           post={post}
                           onScrape={
-                            canEditWorkspace ? handleScrapePost : undefined
+                            canEditThisCampaign ? handleScrapePost : undefined
                           }
                           onDelete={
-                            canEditWorkspace
+                            canEditThisCampaign
                               ? setShowDeletePostDialog
                               : undefined
                           }
@@ -2752,10 +2764,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           key={post.id}
                           post={post}
                           onScrape={
-                            canEditWorkspace ? handleScrapePost : undefined
+                            canEditThisCampaign ? handleScrapePost : undefined
                           }
                           onDelete={
-                            canEditWorkspace
+                            canEditThisCampaign
                               ? setShowDeletePostDialog
                               : undefined
                           }
@@ -2779,10 +2791,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         key={post.id}
                         post={post}
                         onScrape={
-                          canEditWorkspace ? handleScrapePost : undefined
+                          canEditThisCampaign ? handleScrapePost : undefined
                         }
                         onDelete={
-                          canEditWorkspace ? setShowDeletePostDialog : undefined
+                          canEditThisCampaign ? setShowDeletePostDialog : undefined
                         }
                         isScraping={
                           isScrapeAllPending ||
@@ -3020,7 +3032,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                         });
                                       }}
                                       disabled={
-                                        isScrapingPost || !canEditWorkspace
+                                        isScrapingPost || !canEditThisCampaign
                                       }
                                       className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       title={
@@ -3036,7 +3048,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       )}
                                     </button>
                                   )}
-                                  {canEditWorkspace && (
+                                  {canEditThisCampaign && (
                                     <button
                                       onClick={() =>
                                         setShowDeletePostDialog(post.id)
@@ -3181,7 +3193,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       campaignId: id,
                                     });
                                   }}
-                                  disabled={isScrapingPost || !canEditWorkspace}
+                                  disabled={isScrapingPost || !canEditThisCampaign}
                                   className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Refresh metrics"
                                   title={
@@ -3197,7 +3209,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   )}
                                 </button>
                               )}
-                              {canEditWorkspace && (
+                              {canEditThisCampaign && (
                                 <button
                                   onClick={() =>
                                     setShowDeletePostDialog(post.id)
