@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
-import { Check, Crown, Building2, Star } from "lucide-react";
+import { Check, Zap, Crown, Building2, Star } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import {
   BillingTier,
@@ -21,6 +21,20 @@ interface TierConfig {
 }
 
 const TIER_CONFIGS: TierConfig[] = [
+  {
+    tier: "free",
+    name: "Free",
+    description: "Get started with basic tracking",
+    icon: <Zap className="w-5 h-5" />,
+    features: [
+      "1 active campaign",
+      "10 creators per campaign",
+      "TikTok only",
+      "48-hour scrape interval",
+      "30-day data retention",
+      "Basic analytics",
+    ],
+  },
   {
     tier: "starter",
     name: "Starter",
@@ -43,7 +57,7 @@ const TIER_CONFIGS: TierConfig[] = [
     features: [
       "10 active campaigns",
       "100 creators per campaign",
-      "All 3 platforms",
+      "All 5 platforms",
       "4-hour scrape interval",
       "Unlimited data retention",
       "Advanced analytics",
@@ -60,7 +74,7 @@ const TIER_CONFIGS: TierConfig[] = [
     features: [
       "Unlimited campaigns",
       "Unlimited creators",
-      "All 3 platforms",
+      "All 5 platforms",
       "30-minute scrape interval",
       "Unlimited data retention",
       "API access",
@@ -88,6 +102,7 @@ export function PricingCards({
 }: PricingCardsProps) {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [selectedSeats, setSelectedSeats] = useState<Record<BillingTier, number>>({
+    free: 0,
     starter: 0,
     pro: 0,
     agency: 0,
@@ -98,6 +113,9 @@ export function PricingCards({
   };
 
   const getPlan = (tier: BillingTier) => {
+    if (tier === "free") {
+      return plans.free?.monthly;
+    }
     return billingCycle === "yearly" ? plans[tier]?.yearly : plans[tier]?.monthly;
   };
 

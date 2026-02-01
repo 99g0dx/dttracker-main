@@ -2,7 +2,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import {
+  Calendar,
   Download,
+  ChevronDown,
   TrendingUp,
   TrendingDown,
   Eye,
@@ -14,9 +16,7 @@ import {
   MoreVertical,
   ArrowUpRight,
   Search,
-  Filter,
-  Calendar,
-  ChevronDown
+  Filter
 } from 'lucide-react';
 import { NotificationsCenter } from './notifications-center';
 import { StatusBadge } from './status-badge';
@@ -52,8 +52,6 @@ import {
 import { format } from 'date-fns';
 import { subDays, startOfMonth } from 'date-fns';
 import { cn } from './ui/utils';
-import { DashboardKpiSkeleton, ChartPanelSkeleton, TableRowSkeleton, Skeleton } from './ui/skeleton';
-import { toast } from 'sonner';
 
 
 type DateRange = {
@@ -62,15 +60,13 @@ type DateRange = {
   label: string;
 };
 
-const DATE_RANGE_STORAGE_KEY = 'dashboard_date_range';
-
 
 interface DashboardProps {
   onNavigate: (path: string) => void;
 }
 
 
-const getDateRangePresets = (): DateRange[] => ([
+export const DATE_RANGE_PRESETS: DateRange[] = [
   {
     label: 'Last 24 hours',
     start: subDays(new Date(), 1),
@@ -101,7 +97,7 @@ const getDateRangePresets = (): DateRange[] => ([
     start: startOfMonth(new Date()),
     end: new Date(),
   },
-]);
+];
 
 
 function formatDateRange(dateRange: { start: Date; end: Date }) {
@@ -190,14 +186,9 @@ function getPostDateKey(post: any): string | null {
 
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const presets = getDateRangePresets();
-    if (typeof window === 'undefined') return presets[3];
-    const savedLabel = window.localStorage.getItem(DATE_RANGE_STORAGE_KEY);
-    const matched = presets.find((preset) => preset.label === savedLabel);
-    return matched || presets[3];
-  }); // Last 7 days
+  const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGE_PRESETS[3]); // Last 7 days
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [campaignPage, setCampaignPage] = useState(1);
@@ -220,39 +211,20 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     canViewWorkspace,
     hasCampaignAccess,
     canViewCampaign,
-    canExportData,
   } = useWorkspaceAccess();
-  const dateDropdownRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(DATE_RANGE_STORAGE_KEY, dateRange.label);
-    }
-
-    if (!isDateDropdownOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node;
-      if (dateDropdownRef.current && !dateDropdownRef.current.contains(target)) {
-        setIsDateDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('touchstart', handlePointerDown);
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('touchstart', handlePointerDown);
-    };
-  }, [isDateDropdownOpen]);
 
 
   // Fetch real campaign data
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
   const isCampaignsLoading = campaignsLoading || (!!activeWorkspaceId && accessLoading);
+
+  const dateRangeOptions = [
+    'Last 24 hours',
+    'Last 48 hours',
+    'Last 3 days',
+    'Last 7 days',
+    'Last 30 days',
+  ];
 
   // Filter options
   const filterOptions = {
@@ -428,10 +400,18 @@ const campaignIds = useMemo(
 );
 
 useEffect(() => {
-  const fetchAllPosts = async () => {
+  const fetchAllPosts = async (dateRange: DateRange) => {
     if (campaigns.length === 0) {
       setAllPosts([]);
       setMetricsHistory([]);
+      setKpiMetrics({
+        totalReach: '0',
+        totalReachValue: 0,
+        engagementRate: '0.0',
+        engagementRateValue: 0,
+        activeCreators: 0,
+        totalPosts: 0,
+      });
       setPostsLoading(false);
       return;
     }
@@ -470,51 +450,48 @@ useEffect(() => {
           setMetricsHistory(history || []);
         }
 
+        const postsInRange = (data || []).filter(post => isPostInRange(post, dateRange));
+        
+        // Filter out posts without valid dates to ensure consistency between KPI and chart
+        const postsInRangeWithDates = postsInRange.filter(post => {
+          const dateStr = getPostDateKey(post);
+          return dateStr !== null;
+        });
+
+        const totalReachValue = postsInRangeWithDates.reduce((sum, p) => sum + Number(p.views || 0), 0);
+        const totalEngagementValue = postsInRangeWithDates.reduce((sum, p) =>
+          sum + Number(p.likes || 0) + Number(p.comments || 0) + Number(p.shares || 0), 0
+        );
+        const engagementRateValue = totalReachValue > 0 ? (totalEngagementValue / totalReachValue) * 100 : 0;
+        const activeCreators = new Set(postsInRangeWithDates.map(p => p.creator_id)).size;
+
+        setKpiMetrics({
+          totalReach: formatReach(totalReachValue),
+          totalReachValue,
+          engagementRate: engagementRateValue.toFixed(1),
+          engagementRateValue,
+          activeCreators,
+          totalPosts: postsInRangeWithDates.length,
+        });
       }
     } catch (err) {
       setAllPosts([]);
       setMetricsHistory([]);
+      setKpiMetrics({
+        totalReach: '0',
+        totalReachValue: 0,
+        engagementRate: '0.0',
+        engagementRateValue: 0,
+        activeCreators: 0,
+        totalPosts: 0,
+      });
     } finally {
       setPostsLoading(false);
     }
   };
 
-  fetchAllPosts();
-}, [campaignIds]);
-
-useEffect(() => {
-  if (!postsInRangeWithDates.length && timeSeriesData.length === 0) {
-    setKpiMetrics({
-      totalReach: '0',
-      totalReachValue: 0,
-      engagementRate: '0.0',
-      engagementRateValue: 0,
-      activeCreators: 0,
-      totalPosts: 0,
-    });
-    return;
-  }
-
-  const reachFromPosts = postsInRangeWithDates.reduce((sum, p) => sum + Number(p.views || 0), 0);
-  const reachFromHistory = timeSeriesData.length > 0 ? timeSeriesData[timeSeriesData.length - 1].reach : 0;
-  const totalReachValue = reachFromPosts > 0 ? reachFromPosts : reachFromHistory;
-
-  const totalEngagementValue = postsInRangeWithDates.reduce(
-    (sum, p) => sum + Number(p.likes || 0) + Number(p.comments || 0) + Number(p.shares || 0),
-    0
-  );
-  const engagementRateValue = totalReachValue > 0 ? (totalEngagementValue / totalReachValue) * 100 : 0;
-  const activeCreators = new Set(postsInRangeWithDates.map(p => p.creator_id)).size;
-
-  setKpiMetrics({
-    totalReach: formatReach(totalReachValue),
-    totalReachValue,
-    engagementRate: engagementRateValue.toFixed(1),
-    engagementRateValue,
-    activeCreators,
-    totalPosts: postsInRangeWithDates.length,
-  });
-}, [postsInRangeWithDates, timeSeriesData]);
+  fetchAllPosts(dateRange);
+}, [campaignIds, dateRange.start, dateRange.end]);
 
 
 
@@ -525,6 +502,8 @@ useEffect(() => {
       tiktok: 0,
       instagram: 0,
       youtube: 0,
+      twitter: 0,
+      facebook: 0,
     };
 
     // Count posts by platform
@@ -542,6 +521,8 @@ useEffect(() => {
        { key: 'tiktok', name: 'TikTok', color: '#7a54a0' },
       { key: 'instagram', name: 'Instagram', color: '#E4405F' },
       { key: 'youtube', name: 'YouTube', color: '#FF0000' },
+      { key: 'twitter', name: 'Twitter', color: '#1DA1F2' },
+      { key: 'facebook', name: 'Facebook', color: '#1877F2' },
     ];
 
     // Calculate percentages and filter out platforms with 0 posts
@@ -579,7 +560,7 @@ useEffect(() => {
         console.warn('[Platform Breakdown Warning]', 'Percentages do not sum to 100%. This may indicate a calculation error.');
       }
       if (Math.abs(totalPosts - kpiMetrics.totalPosts) >= 1) {
-        // console.warn('[Platform Breakdown Warning]', 'Platform breakdown post count does not match KPI total posts.');
+        console.warn('[Platform Breakdown Warning]', 'Platform breakdown post count does not match KPI total posts.');
       }
     }
 
@@ -661,36 +642,6 @@ useEffect(() => {
   
   const handleExportCSV = () => {
       const rows: string[][] = [];
-
-      if (!canExportData) {
-        rows.push([
-          "Date Range",
-          `${dateRange.start.toLocaleDateString()} – ${dateRange.end.toLocaleDateString()}`
-        ]);
-        rows.push(["Metric", "Value"]);
-        rows.push(["Total Reach", kpiMetrics.totalReach]);
-        rows.push(["Total Posts", kpiMetrics.totalPosts.toString()]);
-        rows.push(["Active Creators", kpiMetrics.activeCreators.toString()]);
-        rows.push(["Engagement Rate", `${kpiMetrics.engagementRate}%`]);
-
-        const csvContent = rows.map(r => r.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-
-        link.setAttribute("href", url);
-        link.setAttribute(
-          "download",
-          `analytics_summary_${new Date().toISOString().split("T")[0]}.csv`
-        );
-        link.style.visibility = "hidden";
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success("Summary exported. Contact the owner for full exports.");
-        return;
-      }
 
       // 1️⃣ Date range row
       rows.push([
@@ -777,20 +728,20 @@ useEffect(() => {
           `Chart total reach (${chartTotalReach}) does not match KPI total reach (${kpiMetrics.totalReachValue})`
         );
       } else {
-        // console.log(
-        //   '[Dashboard Data Verified]',
-        //   `Chart and KPI match: ${chartTotalReach} total reach`
-        // );
+        console.log(
+          '[Dashboard Data Verified]',
+          `Chart and KPI match: ${chartTotalReach} total reach`
+        );
       }
       // Log chart data points for debugging
-      // console.log('[Performance Overview Chart Data]', {
-      //   dataPoints: timeSeriesData.length,
-      //   firstPoint: timeSeriesData[0],
-      //   lastPoint: timeSeriesData[timeSeriesData.length - 1],
-      //   sampleData: timeSeriesData.slice(0, 3),
-      //   totalReach: chartTotalReach,
-      //   kpiReach: kpiMetrics.totalReachValue
-      // });
+      console.log('[Performance Overview Chart Data]', {
+        dataPoints: timeSeriesData.length,
+        firstPoint: timeSeriesData[0],
+        lastPoint: timeSeriesData[timeSeriesData.length - 1],
+        sampleData: timeSeriesData.slice(0, 3),
+        totalReach: chartTotalReach,
+        kpiReach: kpiMetrics.totalReachValue
+      });
     }
     if (process.env.NODE_ENV === 'development' && postsInRangeWithDates.length > 0) {
       const campaignBreakdown = postsInRangeWithDates.reduce(
@@ -805,41 +756,30 @@ useEffect(() => {
         },
         {}
       );
-      // console.log('[Dashboard Campaign Reach Breakdown]', campaignBreakdown);
+      console.log('[Dashboard Campaign Reach Breakdown]', campaignBreakdown);
     }
   }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData, postsInRangeWithDates]);
 
-  if (isCampaignsLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Dashboard</h1>
-            <p className="text-sm text-slate-400 mt-1">Track your campaign performance</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Skeleton className="h-10 w-32 rounded-md" />
-            <Skeleton className="h-10 w-24 rounded-md" />
-          </div>
-        </div>
+  useEffect(() => {
+    if (!isDateDropdownOpen) {
+      return;
+    }
 
-        <DashboardKpiSkeleton />
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(target)) {
+        setIsDateDropdownOpen(false);
+      }
+    };
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartPanelSkeleton />
-          <ChartPanelSkeleton />
-        </div>
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-0">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <TableRowSkeleton key={i} />
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [isDateDropdownOpen]);
 
   return (
     <div className="space-y-6">
@@ -850,10 +790,8 @@ useEffect(() => {
           <p className="text-sm text-slate-400 mt-1">Track your campaign performance</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="hidden lg:block">
-            <NotificationsCenter /> 
-          </div>
+          <div className="flex flex-wrap items-center gap-3">
+          
           <div className="relative" ref={dateDropdownRef}>
             <button 
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
@@ -865,43 +803,45 @@ useEffect(() => {
               <ChevronDown className="w-4 h-4" />
             </button>
             
+            {/* Dropdown Menu */}
             {isDateDropdownOpen && (
-              <div
-                className={cn(
-                  "fixed inset-x-4 top-1/2 -translate-y-1/2 mx-auto w-auto max-w-[280px] origin-top",
-                  "md:absolute md:fixed-none md:inset-auto md:right-0 md:top-full md:mt-2 md:w-48 md:translate-y-0",
-                  "bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl z-[100] py-1 animate-in fade-in zoom-in-95 duration-200"
-                )}
-              >
-                {getDateRangePresets().map((option) => (
-                  <button
-                    key={option.label}
-                    onClick={() => {
-                      const nextPreset = getDateRangePresets().find((preset) => preset.label === option.label);
-                      setDateRange(nextPreset || option);
-                      setIsDateDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-3 lg:py-2 text-sm transition-colors ${
-                      dateRange.label === option.label
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-slate-300 hover:bg-white/[0.06]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className={cn(
+              /* Mobile: Fixed at center of screen */
+              "fixed inset-x-4 top-50 mx-auto w-auto max-w-[280px] origin-top",
+              /* Desktop: Reset to absolute positioning near the button */
+              "md:absolute md:fixed-none md:inset-auto md:right-0 md:top-full sm:left-0 md:mt-2 md:w-48 md:translate-y-0",
+              "bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl z-[100] py-1 animate-in fade-in zoom-in-95 duration-200"
+            )}>
+              {DATE_RANGE_PRESETS.map((option) => (
+                <button
+                  key={option.label}
+                  onClick={() => {
+                    setDateRange(option);
+                    setIsDateDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 lg:py-2 text-sm transition-colors ${
+                    dateRange.label === option.label
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-slate-300 hover:bg-white/[0.06]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
           </div>
+          <div className="hidden lg:block">
+            <NotificationsCenter /> 
+          </div>
+          
           <button
             onClick={handleExportCSV}
-            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             aria-label="Export analytics"
           >
             <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">
-              {canExportData ? "Export" : "Export Summary"}
-            </span>
+            <span className="hidden sm:inline">Export</span>
           </button>
         </div>
       </div>
@@ -915,8 +855,7 @@ useEffect(() => {
                 <Eye className="w-4 h-4 text-[#0ea5e9]" />
               </div>
               <div className="flex items-center gap-1 text-xs text-slate-500">
-                {/* <span className="font-medium">{formatDateRange(dateRange)}</span> */}
-                <span className="font-medium">Total</span>
+                <span className="font-medium">{formatDateRange(dateRange)}</span>
               </div>
             </div>
             <div className="text-2xl font-semibold text-white mb-1">

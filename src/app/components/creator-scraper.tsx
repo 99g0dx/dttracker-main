@@ -21,7 +21,6 @@ import * as creatorsApi from "../../lib/api/creators";
 import { creatorsKeys } from "../../hooks/useCreators";
 import type { Platform } from "../../lib/types/database";
 import { toast } from "sonner";
-import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
 interface CreatorScraperProps {
   onNavigate: (path: string) => void;
@@ -48,7 +47,6 @@ interface BulkImageItem {
 }
 
 export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
-  const { canManageCreators, loading: accessLoading } = useWorkspaceAccess();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
@@ -97,7 +95,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
     [uploadedImages]
   );
 
-  const platforms = ["TikTok", "Instagram", "YouTube"];
+  const platforms = ["TikTok", "Instagram", "YouTube", "Twitter", "Facebook"];
   const categories = [
     "Nano (1K-10K)",
     "Micro (10K-100K)",
@@ -109,30 +107,6 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
   useEffect(() => {
     uploadedImagesRef.current = uploadedImages;
   }, [uploadedImages]);
-
-  if (!accessLoading && !canManageCreators) {
-    return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-4 text-center">
-          <div className="w-12 h-12 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mx-auto">
-            <AlertCircle className="w-5 h-5 text-slate-400" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-white">Owner-only tool</h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Only workspace owners can add creators to the global library.
-            </p>
-          </div>
-          <Button
-            onClick={() => onNavigate("/creators")}
-            className="h-10 px-4 bg-white text-black hover:bg-white/90"
-          >
-            Back to Creators
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Reset bulk state when switching modes
   useEffect(() => {
@@ -433,6 +407,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
             tiktok: "TikTok",
             instagram: "Instagram",
             youtube: "YouTube",
+            twitter: "Twitter",
+            facebook: "Facebook",
           };
           platform = platformMap[result.data.platform] || "";
         }
@@ -562,6 +538,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
       TikTok: "tiktok",
       Instagram: "instagram",
       YouTube: "youtube",
+      Twitter: "twitter",
+      Facebook: "facebook",
     };
 
     let savedCount = 0;
@@ -650,9 +628,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
 
     try {
       // Call real AI extraction API
-      const result = await creatorExtractionApi.extractCreatorFromImage(
-        uploadedImage
-      );
+      const result =
+        await creatorExtractionApi.extractCreatorFromImage(uploadedImage);
 
       if (!result.success || !result.data) {
         throw new Error(result.error || "Extraction failed");
@@ -671,6 +648,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
           tiktok: "TikTok",
           instagram: "Instagram",
           youtube: "YouTube",
+          twitter: "Twitter",
+          facebook: "Facebook",
         };
         setSelectedPlatform(platformMap[result.data.platform] || "");
       }
@@ -730,6 +709,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
         TikTok: "tiktok",
         Instagram: "instagram",
         YouTube: "youtube",
+        Twitter: "twitter",
+        Facebook: "facebook",
       };
 
       const platform = platformMap[selectedPlatform];

@@ -51,7 +51,7 @@ interface Activity {
   title: string;
   linkedCampaigns: number[];
   linkedCreators: number[];
-  platform?: 'tiktok' | 'instagram' | 'youtube';
+  platform?: 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'facebook';
   status: 'pending' | 'briefed' | 'active' | 'completed';
   tentativeDate?: string;
   confirmedDate?: string;
@@ -642,7 +642,7 @@ export function ActivityScheduler({ onNavigate }: ActivitySchedulerProps) {
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-2">Platform</label>
                 <div className="space-y-2">
-                  {['tiktok', 'instagram', 'youtube'].map(platform => (
+                  {['tiktok', 'instagram', 'youtube', 'twitter', 'facebook'].map(platform => (
                     <label key={platform} className="flex items-center gap-2 text-sm text-slate-300">
                       <input
                         type="checkbox"

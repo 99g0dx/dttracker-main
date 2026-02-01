@@ -204,7 +204,7 @@ export async function createTeamInvite(
 
     // Enforce seat limits based on subscription tier
     try {
-      const billing = await getBillingSummary();
+      const billing = await getBillingSummary(targetWorkspaceId);
       if (!hasAgencyBypass(billing)) {
         const limits = getEffectiveLimits(billing);
         const seatLimit = limits.team_members;

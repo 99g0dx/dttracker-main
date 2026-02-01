@@ -30,7 +30,7 @@ const DEFAULT_LIMITS: Record<string, PlanLimits> = {
   starter: {
     campaigns: 3,
     creators_per_campaign: 25,
-    team_members: 2,
+    team_members: 1,
   },
   pro: {
     campaigns: 10,

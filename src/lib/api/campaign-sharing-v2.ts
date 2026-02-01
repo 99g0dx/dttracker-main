@@ -42,12 +42,11 @@ export async function enableCampaignShare(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the campaign
+    // Verify user can access the campaign (RLS enforces workspace membership)
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
-      .select("id, user_id")
+      .select("id")
       .eq("id", params.campaignId)
-      .eq("user_id", user.id)
       .single();
 
     if (campaignError || !campaign) {
@@ -123,12 +122,11 @@ export async function regenerateCampaignShareToken(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the campaign and sharing is enabled
+    // Verify user can access the campaign (RLS enforces workspace membership)
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
-      .select("id, user_id, share_enabled, share_expires_at, share_created_at, share_allow_export")
+      .select("id, share_enabled, share_expires_at, share_created_at, share_allow_export")
       .eq("id", campaignId)
-      .eq("user_id", user.id)
       .single();
 
     if (campaignError || !campaign) {
@@ -224,12 +222,11 @@ export async function disableCampaignShare(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the campaign
+    // Verify user can access the campaign (RLS enforces workspace membership)
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
-      .select("id, user_id")
+      .select("id")
       .eq("id", campaignId)
-      .eq("user_id", user.id)
       .single();
 
     if (campaignError || !campaign) {
@@ -285,14 +282,13 @@ export async function getCampaignShareSettings(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the campaign
+    // Verify user can access the campaign (RLS enforces workspace membership)
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
       .select(
-        "id, user_id, share_enabled, share_token, share_created_at, share_expires_at, share_allow_export, share_password_protected"
+        "id, share_enabled, share_token, share_created_at, share_expires_at, share_allow_export, share_password_protected"
       )
       .eq("id", campaignId)
-      .eq("user_id", user.id)
       .single();
 
     if (campaignError || !campaign) {

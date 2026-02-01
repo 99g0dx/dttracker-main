@@ -49,12 +49,11 @@ export async function generateShareLink(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the campaign
+    // Verify user can access the campaign (RLS enforces workspace membership)
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
       .select("id")
       .eq("id", campaignId)
-      .eq("user_id", user.id)
       .single();
 
     if (campaignError || !campaign) {
@@ -124,12 +123,11 @@ export async function getShareLinksForCampaign(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the campaign
+    // Verify user can access the campaign (RLS enforces workspace membership)
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
       .select("id")
       .eq("id", campaignId)
-      .eq("user_id", user.id)
       .single();
 
     if (campaignError || !campaign) {
@@ -178,28 +176,15 @@ export async function updateShareLink(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the share link's campaign
+    // Verify user can access the share link's campaign (RLS enforces workspace membership)
     const { data: shareLink, error: shareLinkError } = await supabase
       .from("campaign_share_links")
-      .select(
-        `
-        *,
-        campaign:campaigns!inner(user_id)
-      `
-      )
+      .select("*")
       .eq("share_token", token)
       .single();
 
     if (shareLinkError || !shareLink) {
       return { data: null, error: new Error("Share link not found") };
-    }
-
-    const campaign = (shareLink as any).campaign;
-    if (campaign.user_id !== user.id) {
-      return {
-        data: null,
-        error: new Error("Not authorized to update this share link"),
-      };
     }
 
     // Prepare update data
@@ -252,28 +237,15 @@ export async function deleteShareLink(
       return { data: null, error: new Error("Not authenticated") };
     }
 
-    // Verify user owns the share link's campaign
+    // Verify user can access the share link (RLS enforces workspace membership)
     const { data: shareLink, error: shareLinkError } = await supabase
       .from("campaign_share_links")
-      .select(
-        `
-        *,
-        campaign:campaigns!inner(user_id)
-      `
-      )
+      .select("*")
       .eq("share_token", token)
       .single();
 
     if (shareLinkError || !shareLink) {
       return { data: null, error: new Error("Share link not found") };
-    }
-
-    const campaign = (shareLink as any).campaign;
-    if (campaign.user_id !== user.id) {
-      return {
-        data: null,
-        error: new Error("Not authorized to delete this share link"),
-      };
     }
 
     const { error } = await supabase

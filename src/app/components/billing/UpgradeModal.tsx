@@ -51,14 +51,14 @@ const TIER_BENEFITS: Record<BillingTier, string[]> = {
   pro: [
     "10 active campaigns",
     "100 creators per campaign",
-    "All 3 platforms",
+    "All 5 platforms",
     "4-hour scrape interval",
     "5 team seats included",
   ],
   agency: [
     "Unlimited campaigns",
     "Unlimited creators",
-    "All 3 platforms",
+    "All 5 platforms",
     "30-minute scrape interval",
     "15 team seats included",
     "API access",

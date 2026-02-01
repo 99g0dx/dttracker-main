@@ -79,13 +79,29 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     access.canViewWorkspace &&
     !access.canEditWorkspace &&
     !access.canManageTeam;
+  const subscriptionStatus = billing?.subscription?.status || 'active';
+  const trialExpired =
+    subscriptionStatus === 'trialing' && (billing?.days_until_period_end ?? 0) <= 0;
+  const freeBlocked =
+    billing?.plan?.tier === 'free' && !billing?.is_paid && !billing?.is_trialing;
+  const subscriptionBlocked =
+    ['past_due', 'canceled', 'incomplete'].includes(subscriptionStatus) ||
+    trialExpired ||
+    freeBlocked;
   const filteredNavItems = navItems.filter(item => {
     // Hide coming soon features
     if (item.tag === 'Coming soon') return false;
     if (!activeWorkspaceId || access.loading) return true;
-    if (isViewerOnly) return (item.name === 'Dashboard' || item.name === 'Campaigns' || item.name === 'Creator Library' || item.name === 'Requests' || item.name === 'Settings');
-    if (item.name === 'Team') return access.canManageTeam;
+    if (isViewerOnly && subscriptionBlocked) return item.name === 'Dashboard' || item.name === 'Campaigns';
+    if (item.name === 'Team') {
+      const tier = billing?.plan?.tier;
+      const canUseTeam = tier === 'pro' || tier === 'agency' || billing?.agency_role != null;
+      return access.canManageTeam && canUseTeam;
+    }
     if (item.name === 'Admin' || item.name === 'Admin Users') return isCompanyAdmin;
+    if (item.name === 'Creator Library' || item.name === 'Requests') {
+      return access.canViewWorkspace;
+    }
     if (item.name === 'Campaigns') return canSeeCampaigns;
     return true;
   });
@@ -254,61 +270,65 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
         
         {/* Navigation */}
         <nav className="flex-1 px-3 pt-2 overflow-y-auto custom-scrollbar">
-          {/* Workspace Switcher */}
-          <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500 px-2 mb-2">
-              Workspace
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => setWorkspaceMenuOpen((open) => !open)}
-                className="w-full flex items-center gap-2 px-3 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-200"
-              >
-                <div className="w-6 h-6 rounded-md bg-white/[0.08] flex items-center justify-center text-[11px] text-white">
-                  {workspace?.name?.charAt(0).toUpperCase() || userInitial}
+          {billing?.plan?.tier !== 'starter' && (
+            <>
+              {/* Workspace Switcher */}
+              <div className="mb-4">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 px-2 mb-2">
+                  Workspace
                 </div>
-                <span className="text-[13px] font-medium truncate flex-1 text-left">
-                  {workspaceLoading ? "Loading..." : formatWorkspaceName(workspace)}
-                </span>
-                <span className="text-[11px] text-slate-500">Switch</span>
-              </button>
-              {workspaceMenuOpen && (
-                <div className="absolute left-0 right-0 mt-2 bg-[#0D0D0D] border border-white/[0.08] rounded-md shadow-xl z-50">
+                <div className="relative">
                   <button
-                    onClick={() => {
-                      setActiveWorkspaceId(user?.id || null);
-                      setWorkspaceMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                    onClick={() => setWorkspaceMenuOpen((open) => !open)}
+                    className="w-full flex items-center gap-2 px-3 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-200"
                   >
-                    Personal Workspace
+                    <div className="w-6 h-6 rounded-md bg-white/[0.08] flex items-center justify-center text-[11px] text-white">
+                      {workspace?.name?.charAt(0).toUpperCase() || userInitial}
+                    </div>
+                    <span className="text-[13px] font-medium truncate flex-1 text-left">
+                      {workspaceLoading ? "Loading..." : formatWorkspaceName(workspace)}
+                    </span>
+                    <span className="text-[11px] text-slate-500">Switch</span>
                   </button>
-                  {workspaceList.map((membership) => (
-                    <button
-                      key={membership.workspace_id}
-                      onClick={() => {
-                        setActiveWorkspaceId(membership.workspace_id);
-                        setWorkspaceMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
-                    >
-                      {membership.workspaces?.name || 'Workspace'}
-                    </button>
-                  ))}
-                  {workspaceList.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-slate-500">
-                      No shared workspaces yet.
+                  {workspaceMenuOpen && (
+                    <div className="absolute left-0 right-0 mt-2 bg-[#0D0D0D] border border-white/[0.08] rounded-md shadow-xl z-50">
+                      <button
+                        onClick={() => {
+                          setActiveWorkspaceId(user?.id || null);
+                          setWorkspaceMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                      >
+                        Personal Workspace
+                      </button>
+                      {workspaceList.map((membership) => (
+                        <button
+                          key={membership.workspace_id}
+                          onClick={() => {
+                            setActiveWorkspaceId(membership.workspace_id);
+                            setWorkspaceMenuOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                        >
+                          {membership.workspaces?.name || 'Workspace'}
+                        </button>
+                      ))}
+                      {workspaceList.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-slate-500">
+                          No shared workspaces yet.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-            {workspaceError && (
-              <div className="px-2 pt-2 text-[12px] text-red-400">
-                {workspaceError}
+                {workspaceError && (
+                  <div className="px-2 pt-2 text-[12px] text-red-400">
+                    {workspaceError}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           <ul className="space-y-0.5">
             {primaryNavItems.map((item) => {
@@ -396,7 +416,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium text-white truncate">{userName}</p>
               <p className="text-[11px] text-slate-500 truncate">
-                {(billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency') && billing?.plan?.tier === 'agency'
+                {billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency'
                   ? 'Agency'
                   : billing?.plan?.tier
                     ? `${billing.plan.tier.charAt(0).toUpperCase() + billing.plan.tier.slice(1)} Plan`

@@ -46,7 +46,7 @@ const topPerformers = [
   { creator: 'Sarah Johnson', platform: 'tiktok' as const, views: 1850000, engagement: 7.8 },
   { creator: 'Jessica Wang', platform: 'instagram' as const, views: 1620000, engagement: 7.5 },
   { creator: 'Mike Chen', platform: 'instagram' as const, views: 1450000, engagement: 6.9 },
-  { creator: 'Alex Turner', platform: 'youtube' as const, views: 980000, engagement: 5.4 },
+  { creator: 'Alex Turner', platform: 'twitter' as const, views: 980000, engagement: 5.4 },
 ];
 
 export function Analytics() {

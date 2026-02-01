@@ -153,6 +153,8 @@ export function ActivityFormDialog({
       tiktok: '#ff0050',
       instagram: '#e4405f',
       youtube: '#ff0000',
+      twitter: '#1da1f2',
+      facebook: '#1877f2',
     };
     return colors[platform] || '#64748b';
   };
@@ -453,6 +455,8 @@ export function ActivityFormDialog({
                   <option value="tiktok">TikTok</option>
                   <option value="instagram">Instagram</option>
                   <option value="youtube">YouTube</option>
+                  <option value="twitter">Twitter</option>
+                  <option value="facebook">Facebook</option>
                 </select>
               </div>
 

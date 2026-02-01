@@ -4,7 +4,7 @@ import type { ApiResponse } from "../types/database";
 interface ScrapePostRequest {
   postId: string;
   postUrl: string;
-  platform: "tiktok" | "instagram" | "youtube";
+  platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
 }
 
 interface ScrapePostResponse {
@@ -19,7 +19,7 @@ interface ScrapePostResponse {
   };
   post?: {
     id: string;
-    platform: "tiktok" | "instagram" | "youtube";
+    platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
     externalId: string | null;
     sourceUrl: string;
     ownerUsername: string | null;

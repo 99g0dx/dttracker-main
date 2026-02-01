@@ -97,7 +97,11 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     memberName: string;
     rolePreset: RolePreset;
   } | null>(null);
-  const { data: billing } = useBillingSummary();
+  const { data: billing, isLoading: billingLoading } = useBillingSummary();
+  const canAccessTeam = useMemo(
+    () => hasAgencyBypass(billing) || billing?.plan?.tier === 'pro' || billing?.plan?.tier === 'agency',
+    [billing]
+  );
   const activeMembers = useMemo(
     () => members.filter((m) => m.status === 'active'),
     [members]
@@ -291,6 +295,30 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         <div className="flex items-center justify-center py-12">
           <p className="text-slate-400">Loading team members...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!billingLoading && billing != null && !canAccessTeam) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-white/[0.08] bg-white/[0.02]">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <Shield className="w-12 h-12 text-slate-500 mb-4" />
+              <h2 className="text-xl font-semibold text-white">Team is available on Pro and Agency plans</h2>
+              <p className="mt-2 text-sm text-slate-400 max-w-md">
+                Upgrade your plan to invite teammates, manage roles, and collaborate on campaigns.
+              </p>
+              <Button
+                onClick={() => onNavigate('/subscription')}
+                className="mt-6"
+              >
+                View plans
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

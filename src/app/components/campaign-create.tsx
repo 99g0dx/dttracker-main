@@ -26,14 +26,14 @@ interface CampaignCreateProps {
 
 export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
   const location = useLocation();
-  const { canViewWorkspace } = useWorkspaceAccess();
+  const { canEditWorkspace } = useWorkspaceAccess();
   const locationState = location.state as { parentCampaignId?: string } | null;
   const parentFromState = locationState?.parentCampaignId || null;
   const searchParams = new URLSearchParams(location.search);
   const parentFromQuery = searchParams.get('parent');
   const initialParentId = parentFromState || parentFromQuery || null;
 
-  if (!canViewWorkspace) {
+  if (!canEditWorkspace) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">

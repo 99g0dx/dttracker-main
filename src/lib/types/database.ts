@@ -7,25 +7,14 @@
 // ENUM TYPES
 // ============================================================
 
-export type Platform = "tiktok" | "instagram" | "youtube";
+export type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
 export type CampaignStatus = "active" | "paused" | "completed" | "archived";
 export type PostStatus = "pending" | "scraped" | "failed" | "manual" | "scraping";
 export type MemberRole = "owner" | "editor" | "viewer";
-export type TeamRole =
-  | "brand_owner"
-  | "brand_member"
-  | "agency_admin"
-  | "agency_ops";
+export type TeamRole = "owner" | "admin" | "editor" | "viewer";
 export type MemberStatus = "active" | "pending";
 export type ScopeType = "workspace" | "campaign" | "calendar";
-export type CreatorRequestStatus =
-  | "suggested"
-  | "submitted"
-  | "reviewing"
-  | "quoted"
-  | "approved"
-  | "in_fulfillment"
-  | "delivered";
+export type CreatorRequestStatus = "submitted" | "reviewing" | "quoted" | "approved" | "in_fulfillment" | "delivered";
 export type CampaignType = "music_promotion" | "brand_promotion" | "product_launch" | "event_activation" | "other";
 export type UsageRights = "creator_page_only" | "repost_brand_pages" | "run_ads" | "all_above";
 export type Urgency = "normal" | "fast_turnaround" | "asap";
@@ -41,7 +30,6 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   onboarding_completed: boolean;
-  require_password_change?: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -253,9 +241,6 @@ export interface CampaignShareLink {
 export interface CreatorRequest {
   id: string;
   user_id: string;
-  submission_type?: "request" | "suggestion" | null;
-  suggestion_reason?: string | null;
-  campaign_id?: string | null;
   status: CreatorRequestStatus;
   campaign_type?: CampaignType | null;
   campaign_brief?: string | null;
@@ -278,12 +263,6 @@ export interface CreatorRequestItem {
   id: string;
   request_id: string;
   creator_id: string;
-  status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
-  quoted_amount_cents?: number | null;
-  quoted_currency?: string | null;
-  quote_notes?: string | null;
-  quoted_by?: string | null;
-  quoted_at?: string | null;
   created_at: string;
 }
 
@@ -296,7 +275,6 @@ export interface ProfileInsert {
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
-  require_password_change?: boolean | null;
 }
 
 export interface CreatorInsert {
@@ -401,9 +379,6 @@ export interface CampaignShareLinkInsert {
 
 export interface CreatorRequestInsert {
   user_id: string;
-  submission_type?: "request" | "suggestion" | null;
-  suggestion_reason?: string | null;
-  campaign_id?: string | null;
   campaign_type?: CampaignType | null;
   campaign_brief?: string | null;
   song_asset_links?: string[] | null;
@@ -416,27 +391,11 @@ export interface CreatorRequestInsert {
   contact_person_email?: string | null;
   contact_person_phone?: string | null;
   creator_ids: string[]; // Array of creator IDs to associate with the request
-  // Optional bulk request target (for large creator counts)
-  target?: {
-    platform?: string | null;
-    quantity: number;
-    follower_min?: number | null;
-    follower_max?: number | null;
-    geo?: string | null;
-    budget_min?: number | null;
-    budget_max?: number | null;
-    content_types?: string[] | null;
-    notes?: string | null;
-  };
 }
 
 export interface CreatorRequestItemInsert {
   request_id: string;
   creator_id: string;
-  status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
-  quoted_amount_cents?: number | null;
-  quoted_currency?: string | null;
-  quote_notes?: string | null;
 }
 
 // ============================================================
@@ -447,7 +406,6 @@ export interface ProfileUpdate {
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
-  require_password_change?: boolean | null;
 }
 
 export interface CreatorUpdate {
@@ -518,9 +476,6 @@ export interface CampaignShareLinkUpdate {
 }
 
 export interface CreatorRequestUpdate {
-  submission_type?: "request" | "suggestion" | null;
-  suggestion_reason?: string | null;
-  campaign_id?: string | null;
   campaign_type?: CampaignType | null;
   campaign_brief?: string | null;
   song_asset_links?: string[] | null;
@@ -639,12 +594,6 @@ export interface CreatorRequestWithItems extends CreatorRequest {
     id: string;
     creator: Creator;
     created_at: string;
-    status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
-    quoted_amount_cents?: number | null;
-    quoted_currency?: string | null;
-    quote_notes?: string | null;
-    quoted_by?: string | null;
-    quoted_at?: string | null;
   }>;
 }
 

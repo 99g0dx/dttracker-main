@@ -4,7 +4,7 @@ export interface CreatorExtraction {
   handle: string;
   followers: string;
   contact: string | null;
-  platform: 'tiktok' | 'instagram' | 'youtube' | null;
+  platform: 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'facebook' | null;
   location: string | null;
   niche: string | null;
   confidence: {

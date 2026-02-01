@@ -1,4 +1,10 @@
 
+[functions.send-email]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-email/deno.json"
+entrypoint = "./functions/send-email/index.ts"
+
 [functions.send-checkout-email]
 enabled = true
 verify_jwt = true
@@ -20,11 +26,6 @@ entrypoint = "./functions/checkEmail/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/checkEmail/*.html" ]
-
-[functions.notify-request-deletion]
-enabled = true
-verify_jwt = false
-entrypoint = "./functions/notify-request-deletion/index.ts"
 
 [functions.scrape-all-scheduled]
 enabled = true
