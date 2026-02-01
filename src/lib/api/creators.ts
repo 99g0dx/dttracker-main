@@ -137,6 +137,25 @@ async function ensureWorkspaceCreator(
   }
 
   if (error) {
+    const msg = String((error as any).message || '');
+    const isRlsOrPolicy =
+      msg.includes('row-level security') ||
+      msg.includes('workspace_creators') ||
+      msg.includes('policy');
+    const isConflict = (error as any).code === '23505';
+    if (isRlsOrPolicy || isConflict) {
+      const workspaceIds = [workspaceKeys.workspaceId];
+      if (workspaceKeys.ownerUserId) workspaceIds.push(workspaceKeys.ownerUserId);
+      const { data: rows } = await supabase
+        .from('workspace_creators')
+        .select('creator_id')
+        .eq('creator_id', creatorId)
+        .in('workspace_id', workspaceIds)
+        .limit(1);
+      if (rows && rows.length > 0) {
+        return;
+      }
+    }
     console.error('[Workspace Creator Upsert Failed]', {
       message: error.message,
       code: (error as any).code,
@@ -219,10 +238,29 @@ export async function getOrCreate(
         .single();
 
       if (createError) {
-        return { data: null, error: createError };
+        // Race: another request already inserted this creator (e.g. double-tap Add & Scrape). Refetch and use existing.
+        const isUniqueViolation =
+          (createError as any).code === '23505' ||
+          (typeof (createError as any).code === 'string' && (createError as any).code === '23505') ||
+          String((createError as any).message || '').includes('creators_platform_handle_unique') ||
+          String((createError as any).message || '').includes('duplicate key');
+        if (isUniqueViolation) {
+          const { data: existingAfterRace, error: refetchError } = await supabase
+            .from('creators')
+            .select('*')
+            .eq('platform', platform)
+            .eq('handle', handle)
+            .maybeSingle();
+          if (refetchError || !existingAfterRace) {
+            return { data: null, error: createError };
+          }
+          creator = existingAfterRace;
+        } else {
+          return { data: null, error: createError };
+        }
+      } else {
+        creator = created!;
       }
-
-      creator = created;
     }
 
     // Ensure creator is in workspace_creators (for My Network)
@@ -681,46 +719,45 @@ export async function listWithStats(
 
       console.log(`📥 Fetched ${creators.length} creators from My Network`);
     } else if (networkFilter === 'all') {
-      const { data: myCreators, error: myCreatorsError } = await supabase
-        .from('workspace_creators')
-        .select('creator_id')
-        .or(buildWorkspaceCreatorsFilter(workspaceKeys));
+      // All Creators = only agency_inventory (marketplace / admin-imported). User-added creators stay in My Network only.
+      try {
+        const { data: inventory, error: inventoryError } = await supabase
+          .from('agency_inventory')
+          .select('creator_id')
+          .eq('status', 'active');
 
-      if (myCreatorsError) {
-        console.error('❌ Error fetching workspace creators:', myCreatorsError);
-        return { data: null, error: myCreatorsError };
+        if (inventoryError) {
+          console.warn('⚠️ agency_inventory not available:', inventoryError.message);
+          creators = [];
+        } else if (inventory && inventory.length > 0) {
+          const creatorIds = inventory.map((row: { creator_id: string }) => row.creator_id);
+          const { data: creatorRows, error: creatorsError } = await supabase
+            .from('creators')
+            .select(`
+              id,
+              name,
+              handle,
+              platform,
+              follower_count,
+              avg_engagement,
+              niche,
+              location
+            `)
+            .in('id', creatorIds)
+            .order('name', { ascending: true });
+
+          if (creatorsError) {
+            console.error('❌ Error fetching creators from agency_inventory:', creatorsError);
+            return { data: null, error: creatorsError };
+          }
+          creators = (creatorRows || []) as Creator[];
+        } else {
+          creators = [];
+        }
+      } catch (err) {
+        console.warn('⚠️ All Creators (agency_inventory) failed:', err);
+        creators = [];
       }
-
-      const myCreatorIds = myCreators?.map((c) => c.creator_id) ?? [];
-
-      let query = supabase
-        .from('creators')
-        .select(`
-          id,
-          name,
-          handle,
-          platform,
-          follower_count,
-          avg_engagement,
-          niche,
-          location
-        `)
-        .order('name', { ascending: true });
-
-      // Exclude creators already in the user's network.
-      if (myCreatorIds.length > 0) {
-        const formattedIds = myCreatorIds.map((id) => `"${id}"`).join(',');
-        query = query.not('id', 'in', `(${formattedIds})`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Error fetching all creators:', error);
-        return { data: null, error };
-      }
-
-      creators = (data || []) as Creator[];
     } else {
       // Default to my_network
       const { data: workspaceCreators, error: workspaceError } = await supabase

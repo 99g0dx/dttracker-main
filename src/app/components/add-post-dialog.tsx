@@ -19,8 +19,11 @@ import { parsePostURL, normalizeHandle, getExternalIdFromUrl } from '../../lib/u
 import { useAddPostWithScrape } from '../../hooks/usePosts';
 import { useIsParentCampaign } from '../../hooks/useSubcampaigns';
 import * as postsApi from '../../lib/api/posts';
+import * as creatorsApi from '../../lib/api/creators';
 import type { Creator, Platform } from '../../lib/types/database';
-import { CreatorRequestChatbot } from './creator-request-chatbot';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useBillingSummary } from '../../hooks/useBilling';
+import { isWithinLimit } from '../../lib/entitlements';
 
 interface AddPostDialogProps {
   open: boolean;
@@ -51,10 +54,11 @@ export function AddPostDialog({
   const [matchedCreator, setMatchedCreator] = useState<Creator | null>(null);
   const [selectedCreatorId, setSelectedCreatorId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
 
   const addPostMutation = useAddPostWithScrape();
   const { data: isParent } = useIsParentCampaign(campaignId);
+  const { activeWorkspaceId } = useWorkspace();
+  const { data: billing } = useBillingSummary();
 
   // Filter creators by detected platform
   const availableCreators = parsedUrl?.platform
@@ -148,7 +152,53 @@ export function AddPostDialog({
       }
     }
 
-    const creatorToUse = matchedCreator;
+    let creatorToUse: Creator | null = matchedCreator;
+
+    // When handle is present but creator not in campaign: get-or-create and add to campaign
+    if (!creatorToUse && parsedUrl.handle && parsedUrl.platform) {
+      const limitOk = isWithinLimit(billing, 'creators_per_campaign', campaignCreators.length + 1);
+      if (!limitOk) {
+        setError('Creator limit for this campaign reached. Upgrade to add more.');
+        return;
+      }
+      try {
+        const getOrCreateResult = await creatorsApi.getOrCreate(
+          null,
+          parsedUrl.handle,
+          parsedUrl.platform,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          'scraper_extraction',
+          activeWorkspaceId ?? undefined
+        );
+        if (getOrCreateResult.error || !getOrCreateResult.data) {
+          const raw = getOrCreateResult.error?.message ?? 'Failed to add creator.';
+          const friendly =
+            /row-level security|workspace_creators|policy/i.test(raw)
+              ? 'Post is being added. Please wait.'
+              : raw;
+          setError(friendly);
+          return;
+        }
+        creatorToUse = getOrCreateResult.data;
+        await creatorsApi.addCreatorsToCampaign(
+          campaignId,
+          [creatorToUse.id],
+          activeWorkspaceId ?? undefined
+        );
+      } catch (err) {
+        const raw = err instanceof Error ? err.message : 'Failed to add creator to campaign.';
+        const friendly =
+          /row-level security|workspace_creators|policy/i.test(raw)
+            ? 'Post is being added. Please wait.'
+            : raw;
+        setError(friendly);
+        return;
+      }
+    }
 
     if (!creatorToUse) {
       setError('Please select a creator for this post.');
@@ -158,7 +208,7 @@ export function AddPostDialog({
     try {
       await addPostMutation.mutateAsync({
         campaign_id: campaignId,
-        creator_id: creatorToUse?.id ?? null,
+        creator_id: creatorToUse.id,
         platform: parsedUrl.platform,
         post_url: postUrl.trim(),
         status: 'pending',
@@ -182,14 +232,6 @@ export function AddPostDialog({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <CreatorRequestChatbot
-        open={requestModalOpen}
-        onOpenChange={setRequestModalOpen}
-        onComplete={() => {
-          setRequestModalOpen(false);
-        }}
-        campaignId={campaignId}
-      />
       <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -334,30 +376,13 @@ export function AddPostDialog({
                 )}
                 {availableCreators.length > 0 && parsedUrl.handle && !matchedCreator && (
                   <p className="text-xs text-slate-400 mt-1.5">
-                    Handle "@{parsedUrl.handle}" not found in this campaign. Select a creator or request one.
+                    We'll add @{parsedUrl.handle} to this campaign and track the post.
                   </p>
                 )}
                 {availableCreators.length > 0 && !parsedUrl.handle && parsedUrl.platform !== 'instagram' && (
                   <p className="text-xs text-slate-400 mt-1.5">
                     Could not extract handle from URL. Please select the creator manually.
                   </p>
-                )}
-                {!matchedCreator && !selectedCreatorId && (
-                  <div className="mt-3 rounded-lg border border-white/[0.08] bg-white/[0.03] p-3">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5" />
-                      <div className="text-xs text-slate-300">
-                        Creator not in this campaign. Ask an owner to add a creator or submit a request.
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={() => setRequestModalOpen(true)}
-                      className="mt-2 h-9 w-full bg-white text-black hover:bg-white/90"
-                    >
-                      Request creator for this campaign
-                    </Button>
-                  </div>
                 )}
               </div>
             )}
@@ -369,6 +394,17 @@ export function AddPostDialog({
                   <CheckCircle className="w-4 h-4 text-emerald-400" />
                   <span className="text-sm text-emerald-400">
                     Post will be added for: <strong>{matchedCreator.name}</strong> (@{matchedCreator.handle})
+                  </span>
+                </div>
+              </div>
+            )}
+            {/* Will-add creator when handle detected but not in campaign */}
+            {parsedUrl?.handle && parsedUrl?.platform && !matchedCreator && (
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-400">
+                    Post will be added for: <strong>@{parsedUrl.handle}</strong> (we'll add them to this campaign)
                   </span>
                 </div>
               </div>
@@ -405,7 +441,7 @@ export function AddPostDialog({
                 disabled={
                   !parsedUrl?.isValid ||
                   !parsedUrl?.platform ||
-                  !matchedCreator ||
+                  (!matchedCreator && !(parsedUrl?.handle && parsedUrl?.platform)) ||
                   addPostMutation.isPending
                 }
                 className="flex-1 h-10 bg-primary hover:bg-primary/90 text-black text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
