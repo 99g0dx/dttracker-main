@@ -23,6 +23,7 @@ import { StatusBadge } from './status-badge';
 import { useCampaigns } from '../../hooks/useCampaigns';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'sonner';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 import {
@@ -640,7 +641,18 @@ useEffect(() => {
     dateRange.end,
   ]);
   
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
+      if (!activeWorkspaceId) return;
+      const { data: exportGate, error: exportGateError } = await supabase.rpc(
+        "record_export_and_check_limit",
+        { p_workspace_id: activeWorkspaceId }
+      );
+      const result = Array.isArray(exportGate) ? exportGate[0] : exportGate;
+      if (exportGateError || !result?.allowed) {
+        toast.error("Export limit reached for today. Try again tomorrow.");
+        return;
+      }
+
       const rows: string[][] = [];
 
       // 1️⃣ Date range row

@@ -48,6 +48,7 @@ type WorkspaceRow = {
   id: string;
   name: string;
   owner_user_id: string;
+  owner_display_name?: string | null;
 };
 type WorkspaceMembershipRow = {
   workspace_id: string;
@@ -70,6 +71,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   const [workspace, setWorkspace] = React.useState<WorkspaceRow | null>(null);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false);
   const [workspaceList, setWorkspaceList] = React.useState<WorkspaceMembershipRow[]>([]);
+  const [ownerNameByUserId, setOwnerNameByUserId] = React.useState<Record<string, string>>({});
   const [workspaceLoading, setWorkspaceLoading] = React.useState(false);
   const [workspaceError, setWorkspaceError] = React.useState<string | null>(null);
   const canSeeCampaigns =
@@ -77,7 +79,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   const isViewerOnly =
     activeWorkspaceId &&
     access.canViewWorkspace &&
-    !access.canEditWorkspace &&
+    !access.hasCampaignAccess &&
     !access.canManageTeam;
   const subscriptionStatus = billing?.subscription?.status || 'active';
   const trialExpired =
@@ -125,14 +127,11 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
   const userInitial = getInitial(user?.user_metadata?.full_name, user?.email);
-  const entitlementSource =
-    activeWorkspaceId && billing?.workspace_id === activeWorkspaceId
-      ? "Workspace Plan"
-      : "Personal Plan";
 
-  const formatWorkspaceName = (workspaceRow: WorkspaceRow | null) => {
-    if (workspaceRow?.name) return workspaceRow.name;
-    return `${userName}'s Workspace`;
+  const formatWorkspaceName = (workspaceRow: WorkspaceRow | null, ownerDisplayName?: string | null) => {
+    if (workspaceRow?.name?.trim()) return workspaceRow.name;
+    if (ownerDisplayName?.trim()) return `${ownerDisplayName.trim()}'s Workspace`;
+    return 'Workspace';
   };
 
   const loadWorkspace = async () => {
@@ -156,13 +155,24 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
       return;
     }
 
-    setWorkspace(data || null);
+    let ownerDisplayName: string | null = null;
+    if (data?.owner_user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.owner_user_id)
+        .maybeSingle();
+      ownerDisplayName = profile?.full_name?.trim() ?? null;
+    }
+
+    setWorkspace(data ? { ...data, owner_display_name: ownerDisplayName } : null);
     setWorkspaceLoading(false);
   };
 
   const loadWorkspaceList = async () => {
     if (!user?.id) {
       setWorkspaceList([]);
+      setOwnerNameByUserId({});
       return;
     }
 
@@ -174,14 +184,29 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
 
     if (error) {
       setWorkspaceList([]);
+      setOwnerNameByUserId({});
       return;
     }
 
-    // if (import.meta.env.DEV) {
-    //   console.log("[Workspace Switcher] memberships:", data);
-    // }
+    const memberships = (data || []) as WorkspaceMembershipRow[];
+    setWorkspaceList(memberships);
 
-    setWorkspaceList((data || []) as WorkspaceMembershipRow[]);
+    const ownerIds = [...new Set(memberships.map((m) => m.workspaces?.owner_user_id).filter(Boolean))] as string[];
+    if (ownerIds.length === 0) {
+      setOwnerNameByUserId({});
+      return;
+    }
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', ownerIds);
+
+    const map: Record<string, string> = {};
+    (profiles || []).forEach((p) => {
+      map[p.id] = p.full_name?.trim() || 'User';
+    });
+    setOwnerNameByUserId(map);
   };
 
   React.useEffect(() => {
@@ -286,7 +311,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                       {workspace?.name?.charAt(0).toUpperCase() || userInitial}
                     </div>
                     <span className="text-[13px] font-medium truncate flex-1 text-left">
-                      {workspaceLoading ? "Loading..." : formatWorkspaceName(workspace)}
+                      {workspaceLoading ? "Loading..." : formatWorkspaceName(workspace, workspace?.owner_display_name?.trim() || (workspace?.owner_user_id === user?.id ? userName : undefined))}
                     </span>
                     <span className="text-[11px] text-slate-500">Switch</span>
                   </button>
@@ -299,20 +324,24 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                         }}
                         className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
                       >
-                        Personal Workspace
+                        {userName}'s Workspace
                       </button>
-                      {workspaceList.map((membership) => (
-                        <button
-                          key={membership.workspace_id}
-                          onClick={() => {
-                            setActiveWorkspaceId(membership.workspace_id);
-                            setWorkspaceMenuOpen(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
-                        >
-                          {membership.workspaces?.name || 'Workspace'}
-                        </button>
-                      ))}
+                      {workspaceList.map((membership) => {
+                        const ownerId = membership.workspaces?.owner_user_id;
+                        const ownerName = ownerId ? ownerNameByUserId[ownerId] : undefined;
+                        return (
+                          <button
+                            key={membership.workspace_id}
+                            onClick={() => {
+                              setActiveWorkspaceId(membership.workspace_id);
+                              setWorkspaceMenuOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                          >
+                            {formatWorkspaceName(membership.workspaces ?? null, ownerName)}
+                          </button>
+                        );
+                      })}
                       {workspaceList.length === 0 && (
                         <div className="px-3 py-2 text-xs text-slate-500">
                           No shared workspaces yet.
@@ -421,9 +450,6 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                   : billing?.plan?.tier
                     ? `${billing.plan.tier.charAt(0).toUpperCase() + billing.plan.tier.slice(1)} Plan`
                     : 'Free Plan'}
-              </p>
-              <p className="text-[10px] text-slate-600 truncate">
-                {entitlementSource}
               </p>
             </div>
           </div>

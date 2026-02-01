@@ -49,15 +49,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        const { data } = await supabase
+        const { data: memberships } = await supabase
           .from("workspace_members")
-          .select("workspace_id")
+          .select("workspace_id, workspaces(owner_user_id)")
           .eq("user_id", user.id)
-          .eq("status", "active")
-          .limit(1)
-          .maybeSingle();
+          .eq("status", "active");
 
-        const workspaceId = data?.workspace_id || user.id;
+        const list = (memberships || []) as { workspace_id: string; workspaces: { owner_user_id: string } | null }[];
+        const owned = list.find((m) => m.workspaces?.owner_user_id === user.id);
+        const workspaceId = owned?.workspace_id ?? list[0]?.workspace_id ?? user.id;
         if (!cancelled) {
           setActiveWorkspaceIdState(workspaceId);
         }

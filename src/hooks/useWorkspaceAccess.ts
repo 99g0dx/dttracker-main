@@ -98,15 +98,13 @@ export function useWorkspaceAccess() {
     .filter((scope) => scope.scope_type === "campaign")
     .map((scope) => parseCampaignScope(scope.scope_value));
 
-  const hasWorkspaceViewer = hasAccess;
-  const hasWorkspaceEditor = isWorkspaceOwner(member?.role);
   const isOwner = isWorkspaceOwner(member?.role);
 
-  const canViewCalendar = hasWorkspaceViewer;
-  const canEditCalendar = hasWorkspaceEditor;
-
-  const canViewCampaign = (_campaignId: string) => hasWorkspaceViewer;
-  const canEditCampaign = (_campaignId: string) => hasWorkspaceViewer;
+  const canViewWorkspace = hasAccess;
+  const canViewCalendar = hasAccess;
+  const canEditCalendar = hasAccess;
+  const canViewCampaign = (_campaignId: string) => hasAccess;
+  const canEditCampaign = (_campaignId: string) => hasAccess;
 
   return {
     loading: isLoading,
@@ -115,11 +113,12 @@ export function useWorkspaceAccess() {
     role: (member?.role || null) as TeamRole | null,
     isOwner,
     canManageTeam: isOwner,
-    canExportData: isOwner,
-    canTriggerScrape: isOwner,
-    canManageCreators: isOwner,
-    canViewWorkspace: hasWorkspaceViewer,
-    canEditWorkspace: hasWorkspaceEditor,
+    canDeleteCampaign: isOwner,
+    canExportData: hasAccess,
+    canTriggerScrape: hasAccess,
+    canManageCreators: hasAccess,
+    canViewWorkspace,
+    canEditWorkspace: isOwner,
     canViewCalendar,
     canEditCalendar,
     canViewCampaign,
