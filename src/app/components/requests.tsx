@@ -26,8 +26,9 @@ import {
 } from "./ui/PlatformIcon";
 import {
   useCreatorRequests,
-  useCreatorRequestWithCreators,
+  useCreatorRequestWithItems,
   useDeleteCreatorRequest,
+  useRespondToCreatorQuote,
   creatorRequestsKeys,
 } from "../../hooks/useCreatorRequests";
 import { useCampaigns } from "../../hooks/useCampaigns";
@@ -145,15 +146,16 @@ export function Requests({ onNavigate }: RequestsProps) {
     [campaigns]
   );
 
-  const { data: requestDetails } = useCreatorRequestWithCreators(
+  const { data: requestDetails } = useCreatorRequestWithItems(
     selectedRequest?.id || ""
   );
+  const respondToQuoteMutation = useRespondToCreatorQuote();
 
   const prefetchRequestDetail = (requestId: string) => {
     queryClient.prefetchQuery({
-      queryKey: creatorRequestsKeys.detailWithCreators(requestId),
+      queryKey: creatorRequestsKeys.detailWithItems(requestId),
       queryFn: async () => {
-        const result = await creatorRequestsApi.getRequestWithCreators(requestId);
+        const result = await creatorRequestsApi.getRequestWithItems(requestId);
         if (result.error) {
           throw result.error;
         }
@@ -1011,48 +1013,109 @@ export function Requests({ onNavigate }: RequestsProps) {
                 </section>
               )}
 
-              {/* Selected Creators */}
-              {requestDetails.creators?.length > 0 && (
+              {/* Requested Creators + Quotes */}
+              {requestDetails.items?.length > 0 && (
                 <section className="space-y-2">
                   <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
-                    Selected Creators ({requestDetails.creators.length})
+                    Requested Creators ({requestDetails.items.length})
                   </h3>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {requestDetails.creators.map((creator) => (
-                      <div
-                        key={creator.id}
-                        className="p-3 rounded-lg bg-gray-800 border border-white/[0.08] flex flex-col sm:flex-row sm:justify-between sm:items-center"
-                      >
-                        <p className="text-sm font-medium text-white">
-                          {creator.name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                          <span>@{creator.handle}</span>
-                          {(() => {
-                            const platformIcon = normalizePlatform(
-                              creator.platform
-                            );
-                            if (!platformIcon) return null;
-                            return (
-                              <>
-                                <PlatformIcon
-                                  platform={platformIcon}
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {requestDetails.items.map((item) => {
+                      const creator = item.creator;
+                      const canRespond =
+                        requestDetails.user_id === user?.id &&
+                        item.status === "quoted";
+                      const quoteLabel =
+                        item.quoted_amount_cents != null
+                          ? `${item.quoted_currency || "USD"} ${(item.quoted_amount_cents / 100).toFixed(2)}`
+                          : "Awaiting quote";
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-3 rounded-lg bg-gray-800 border border-white/[0.08] space-y-2"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium text-white">
+                                {creator.name}
+                              </p>
+                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                <span>@{creator.handle}</span>
+                                {(() => {
+                                  const platformIcon = normalizePlatform(
+                                    creator.platform
+                                  );
+                                  if (!platformIcon) return null;
+                                  return (
+                                    <>
+                                      <PlatformIcon
+                                        platform={platformIcon}
+                                        size="sm"
+                                        className="sm:hidden"
+                                        aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                      />
+                                      <PlatformIcon
+                                        platform={platformIcon}
+                                        size="md"
+                                        className="hidden sm:flex"
+                                        aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                      />
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                            <div className="text-xs text-slate-300 capitalize">
+                              {item.status || "pending"}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="text-sm text-white">{quoteLabel}</div>
+                            {canRespond && (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
                                   size="sm"
-                                  className="sm:hidden"
-                                  aria-label={`${getPlatformLabel(platformIcon)} creator`}
-                                />
-                                <PlatformIcon
-                                  platform={platformIcon}
-                                  size="md"
-                                  className="hidden sm:flex"
-                                  aria-label={`${getPlatformLabel(platformIcon)} creator`}
-                                />
-                              </>
-                            );
-                          })()}
+                                  onClick={() =>
+                                    respondToQuoteMutation.mutate({
+                                      requestId: requestDetails.id,
+                                      creatorId: creator.id,
+                                      decision: "approved",
+                                    })
+                                  }
+                                  className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                  disabled={respondToQuoteMutation.isPending}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    respondToQuoteMutation.mutate({
+                                      requestId: requestDetails.id,
+                                      creatorId: creator.id,
+                                      decision: "rejected",
+                                    })
+                                  }
+                                  className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                                  disabled={respondToQuoteMutation.isPending}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          {item.quote_notes && (
+                            <div className="text-xs text-slate-400">
+                              {item.quote_notes}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               )}
@@ -1089,23 +1152,6 @@ export function Requests({ onNavigate }: RequestsProps) {
               )}
 
               {/* Quote Information */}
-              {requestDetails.quote_amount && (
-                <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
-                    Quote
-                  </h3>
-                  <div className="p-4 rounded-lg bg-gray-800 border border-white/[0.08]">
-                    <p className="text-xl font-semibold text-white">
-                      ${requestDetails.quote_amount.toFixed(2)}
-                    </p>
-                    {requestDetails.quote_details && (
-                      <p className="text-sm text-slate-300 mt-2 whitespace-pre-wrap">
-                        {JSON.stringify(requestDetails.quote_details, null, 2)}
-                      </p>
-                    )}
-                  </div>
-                </section>
-              )}
             </div>
           )}
         </DialogContent>

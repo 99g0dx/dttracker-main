@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut, Gauge } from 'lucide-react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut, Crown, UserCog } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
@@ -15,6 +15,7 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   tag?: string;
+  emphasis?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -22,10 +23,10 @@ const navItems: NavItem[] = [
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
-  { name: 'Admin', href: '/admin', icon: <Gauge className="w-5 h-5" /> },
-  { name: 'Admin Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
+  { name: 'Admin', href: '/admin', icon: <Crown className="w-5 h-5" />, emphasis: true },
+  { name: 'Admin Users', href: '/admin/users', icon: <UserCog className="w-5 h-5" />, emphasis: true },
 
-  { 
+  {
     name: 'Team', 
     href: '/team', 
     icon: <Shield className="w-5 h-5" />
@@ -182,6 +183,9 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     loadWorkspaceList();
   }, [user?.id]);
 
+  const adminNavItems = filteredNavItems.filter((item) => item.emphasis);
+  const primaryNavItems = filteredNavItems.filter((item) => !item.emphasis);
+
   return (
     <>
       {/* Mobile Header */}
@@ -310,7 +314,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
           </div>
 
           <ul className="space-y-0.5">
-            {filteredNavItems.map((item) => {
+            {primaryNavItems.map((item) => {
               const isActive = currentPath === item.href;
               return (
                 <li key={item.href}>
@@ -320,12 +324,14 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                       'w-full flex items-center gap-3 px-3 h-9 rounded-md transition-all text-[13px] font-medium',
                       isActive
                         ? 'bg-white/[0.08] text-white'
+                        : item.emphasis
+                        ? 'text-amber-200 hover:text-amber-100 hover:bg-amber-500/10'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                     )}
                   >
                     <span className={cn(
                       'transition-colors',
-                      isActive ? 'text-primary' : 'text-slate-500'
+                      isActive ? 'text-primary' : item.emphasis ? 'text-amber-400' : 'text-slate-500'
                     )}>
                       {item.icon}
                     </span>
@@ -341,10 +347,43 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                 </li>
               );
             })}
-            <li>
-              
-            </li>
           </ul>
+
+          {adminNavItems.length > 0 && (
+            <div className="mt-4">
+              <div className="px-3 text-[10px] uppercase tracking-[0.2em] text-amber-300/70 mb-2">
+                Company
+              </div>
+              <ul className="space-y-0.5">
+                {adminNavItems.map((item) => {
+                  const isActive = currentPath === item.href;
+                  return (
+                    <li key={item.href}>
+                      <button
+                        onClick={() => handleNavigate(item.href)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 h-9 rounded-md transition-all text-[13px] font-medium',
+                          isActive
+                            ? 'bg-amber-500/20 text-white'
+                            : 'text-amber-200 hover:text-amber-100 hover:bg-amber-500/10'
+                        )}
+                      >
+                        <span className={cn(
+                          'transition-colors',
+                          isActive ? 'text-amber-300' : 'text-amber-400'
+                        )}>
+                          {item.icon}
+                        </span>
+                        <div className="flex-1 flex items-center justify-between min-w-0">
+                          <span>{item.name}</span>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           
         </nav>
 

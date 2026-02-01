@@ -254,6 +254,79 @@ export function useUpdateRequestStatus() {
 }
 
 /**
+ * Company admin: quote per-creator items
+ */
+export function useQuoteCreatorRequestItems() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      items,
+    }: {
+      requestId: string;
+      items: Array<{
+        creator_id: string;
+        quoted_amount_cents: number;
+        quoted_currency?: string | null;
+        quote_notes?: string | null;
+      }>;
+    }) => {
+      const result = await creatorRequestsApi.quoteCreatorRequestItems(requestId, items);
+      if (result.error) {
+        throw result.error;
+      }
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detail(variables.requestId) });
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detailWithCreators(variables.requestId) });
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detailWithItems(variables.requestId) });
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.lists() });
+      toast.success('Quotes sent to requester');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to send quotes: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * User: approve or reject a quoted creator
+ */
+export function useRespondToCreatorQuote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      creatorId,
+      decision,
+    }: {
+      requestId: string;
+      creatorId: string;
+      decision: 'approved' | 'rejected';
+    }) => {
+      const result = await creatorRequestsApi.respondToCreatorQuote(requestId, creatorId, decision);
+      if (result.error) {
+        throw result.error;
+      }
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detail(variables.requestId) });
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detailWithCreators(variables.requestId) });
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detailWithItems(variables.requestId) });
+      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.lists() });
+      toast.success(`Creator ${variables.decision === 'approved' ? 'approved' : 'rejected'}`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to respond: ${error.message}`);
+    },
+  });
+}
+
+/**
  * Hook to submit an operator suggestion as a real request (owner only)
  */
 export function useSubmitCreatorRequestSuggestion() {
