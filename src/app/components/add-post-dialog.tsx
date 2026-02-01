@@ -9,8 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { X, Link as LinkIcon, CheckCircle, AlertCircle, Loader2, User } from 'lucide-react';
-import { UpgradeModal } from './upgrade-modal';
+import { X, Link as LinkIcon, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import {
   PlatformIcon,
   normalizePlatform,
@@ -19,11 +18,9 @@ import {
 import { parsePostURL, normalizeHandle, getExternalIdFromUrl } from '../../lib/utils/urlParser';
 import { useAddPostWithScrape } from '../../hooks/usePosts';
 import { useIsParentCampaign } from '../../hooks/useSubcampaigns';
-import { useQueryClient } from '@tanstack/react-query';
-import * as creatorsApi from '../../lib/api/creators';
-import { creatorsKeys } from '../../hooks/useCreators';
 import * as postsApi from '../../lib/api/posts';
 import type { Creator, Platform } from '../../lib/types/database';
+import { CreatorRequestChatbot } from './creator-request-chatbot';
 
 interface AddPostDialogProps {
   open: boolean;
@@ -53,13 +50,9 @@ export function AddPostDialog({
   const [parsedUrl, setParsedUrl] = useState<ExtendedParsedUrl | null>(null);
   const [matchedCreator, setMatchedCreator] = useState<Creator | null>(null);
   const [selectedCreatorId, setSelectedCreatorId] = useState<string>('');
-  const [manualCreatorHandle, setManualCreatorHandle] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [isCreatingCreator, setIsCreatingCreator] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState('');
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
 
-  const queryClient = useQueryClient();
   const addPostMutation = useAddPostWithScrape();
   const { data: isParent } = useIsParentCampaign(campaignId);
 
@@ -75,7 +68,6 @@ export function AddPostDialog({
       setParsedUrl(parsed);
       setError(null);
       setSelectedCreatorId(''); // Reset selection when URL changes
-      setManualCreatorHandle(''); // Reset manual handle when URL changes
 
       // Try to match creator if handle is extracted
       if (parsed.handle && parsed.platform) {
@@ -90,7 +82,7 @@ export function AddPostDialog({
         if (creator) {
           setSelectedCreatorId(creator.id);
         } else {
-          // Handle extracted but creator not found - user can still select manually
+          // Handle extracted but creator not found - user can request creator
           setMatchedCreator(null);
         }
       } else {
@@ -102,7 +94,6 @@ export function AddPostDialog({
       setParsedUrl(null);
       setMatchedCreator(null);
       setSelectedCreatorId('');
-      setManualCreatorHandle('');
       setError(null);
     }
   }, [postUrl, campaignCreators]);
@@ -124,7 +115,6 @@ export function AddPostDialog({
       setParsedUrl(null);
       setMatchedCreator(null);
       setSelectedCreatorId('');
-      setManualCreatorHandle('');
       setError(null);
     }
   }, [open]);
@@ -158,69 +148,15 @@ export function AddPostDialog({
       }
     }
 
-    let creatorToUse = matchedCreator;
+    const creatorToUse = matchedCreator;
 
-    // Determine which handle to use: parsed from URL, or manually entered
-    const handleToUse = parsedUrl.handle || (manualCreatorHandle.trim() ? normalizeHandle(manualCreatorHandle.trim()) : null);
-
-    // Auto-create creator if handle was extracted or manually entered but no match found
-    if (!creatorToUse && handleToUse) {
-      setIsCreatingCreator(true);
-      try {
-        // 1. Create or get existing creator
-        const creatorResult = await creatorsApi.getOrCreate(
-          handleToUse, // Use handle as name
-          handleToUse,
-          parsedUrl.platform,
-          undefined, // followerCount
-          undefined, // email
-          undefined, // phone
-          undefined, // niche
-          undefined, // location
-          'manual'   // sourceType
-        );
-
-        if (creatorResult.error || !creatorResult.data) {
-          setError(`Failed to create creator: ${creatorResult.error?.message || 'Unknown error'}`);
-          setIsCreatingCreator(false);
-          return;
-        }
-
-        // 2. Add creator to campaign
-        const addResult = await creatorsApi.addCreatorsToCampaign(campaignId, [creatorResult.data.id]);
-
-        if (addResult.error) {
-          if (addResult.error.message.includes('UPGRADE_REQUIRED:creator_limit_reached')) {
-            setUpgradeMessage('Upgrade to add more creators to this campaign.');
-            setUpgradeOpen(true);
-            setIsCreatingCreator(false);
-            return;
-          }
-          setError(`Failed to add creator to campaign: ${addResult.error.message}`);
-          setIsCreatingCreator(false);
-          return;
-        }
-
-        // 3. Invalidate queries to refresh campaign creators list
-        await queryClient.invalidateQueries({ queryKey: creatorsKeys.byCampaign(campaignId) });
-
-        creatorToUse = creatorResult.data;
-      } catch (err) {
-        setError(`Failed to create creator: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        setIsCreatingCreator(false);
-        return;
-      }
-      setIsCreatingCreator(false);
-    }
-
-    // If still no creator (no handle extracted and none selected)
-    if (!creatorToUse && parsedUrl.platform !== 'instagram') {
+    if (!creatorToUse) {
       setError('Please select a creator for this post.');
       return;
     }
 
     try {
-      const result = await addPostMutation.mutateAsync({
+      await addPostMutation.mutateAsync({
         campaign_id: campaignId,
         creator_id: creatorToUse?.id ?? null,
         platform: parsedUrl.platform,
@@ -246,12 +182,13 @@ export function AddPostDialog({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <UpgradeModal
-        open={upgradeOpen}
-        title="Upgrade Required"
-        message={upgradeMessage || 'Upgrade your plan to add more creators.'}
-        onClose={() => setUpgradeOpen(false)}
-        onUpgrade={() => (window.location.href = '/subscription')}
+      <CreatorRequestChatbot
+        open={requestModalOpen}
+        onOpenChange={setRequestModalOpen}
+        onComplete={() => {
+          setRequestModalOpen(false);
+        }}
+        campaignId={campaignId}
       />
       <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
         <CardContent className="p-6">
@@ -363,43 +300,16 @@ export function AddPostDialog({
               </div>
             )}
 
-            {/* Manual Creator Handle Input - shown for Instagram when no handle detected and no creator selected */}
-            {parsedUrl?.platform === 'instagram' && parsedUrl.isValid && !parsedUrl.handle && !selectedCreatorId && (
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Creator Handle
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <Input
-                    type="text"
-                    value={manualCreatorHandle}
-                    onChange={(e) => setManualCreatorHandle(e.target.value)}
-                    placeholder="Enter Instagram username (e.g. @creator_name)"
-                    className="pl-9 bg-white/[0.03] border-white/[0.08] text-white"
-                    disabled={addPostMutation.isPending}
-                  />
-                </div>
-                <p className="text-xs text-slate-400 mt-1.5">
-                  Enter the creator's Instagram handle. We'll create the creator and attach this post.
-                </p>
-              </div>
-            )}
-
             {/* Creator Selection */}
             {parsedUrl?.platform && parsedUrl.isValid && (
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
-                  {parsedUrl.handle && matchedCreator ? 'Creator (auto-matched)' :
-                   parsedUrl.platform === 'instagram' && !parsedUrl.handle && !manualCreatorHandle.trim() ? 'Or Select Existing Creator (optional)' :
-                   parsedUrl.platform === 'instagram' && !parsedUrl.handle ? 'Or Select Existing Creator' :
-                   'Select Creator'}
+                  {parsedUrl.handle && matchedCreator ? 'Creator (auto-matched)' : 'Select Creator'}
                 </label>
                 <Select
                   value={selectedCreatorId}
                   onValueChange={(value) => {
                     setSelectedCreatorId(value);
-                    if (value) setManualCreatorHandle(''); // Clear manual handle when selecting existing creator
                   }}
                   disabled={addPostMutation.isPending}
                 >
@@ -417,19 +327,14 @@ export function AddPostDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                {availableCreators.length === 0 && parsedUrl.handle && (
-                  <p className="text-xs text-emerald-400 mt-1.5">
-                    Creator "@{parsedUrl.handle}" will be automatically created and added to this campaign.
-                  </p>
-                )}
-                {availableCreators.length === 0 && !parsedUrl.handle && !manualCreatorHandle.trim() && (
+                {availableCreators.length === 0 && !parsedUrl.handle && (
                   <p className="text-xs text-amber-400 mt-1.5">
                     No {parsedUrl.platform === 'instagram' ? 'Instagram' : parsedUrl.platform === 'tiktok' ? 'TikTok' : parsedUrl.platform} creators in this campaign yet.
                   </p>
                 )}
                 {availableCreators.length > 0 && parsedUrl.handle && !matchedCreator && (
                   <p className="text-xs text-slate-400 mt-1.5">
-                    Handle "@{parsedUrl.handle}" not found in campaign. Select a creator or submit to auto-create.
+                    Handle "@{parsedUrl.handle}" not found in this campaign. Select a creator or request one.
                   </p>
                 )}
                 {availableCreators.length > 0 && !parsedUrl.handle && parsedUrl.platform !== 'instagram' && (
@@ -437,18 +342,23 @@ export function AddPostDialog({
                     Could not extract handle from URL. Please select the creator manually.
                   </p>
                 )}
-              </div>
-            )}
-
-            {/* Manual Creator Handle Confirmation */}
-            {manualCreatorHandle.trim() && !selectedCreatorId && parsedUrl?.platform === 'instagram' && (
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm text-emerald-400">
-                    Creator "@{normalizeHandle(manualCreatorHandle.trim())}" will be created and attached to this post.
-                  </span>
-                </div>
+                {!matchedCreator && !selectedCreatorId && (
+                  <div className="mt-3 rounded-lg border border-white/[0.08] bg-white/[0.03] p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5" />
+                      <div className="text-xs text-slate-300">
+                        Creator not in this campaign. Ask an owner to add a creator or submit a request.
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => setRequestModalOpen(true)}
+                      className="mt-2 h-9 w-full bg-white text-black hover:bg-white/90"
+                    >
+                      Request creator for this campaign
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -485,7 +395,7 @@ export function AddPostDialog({
               <button
                 type="button"
                 onClick={onClose}
-                disabled={addPostMutation.isPending || isCreatingCreator}
+                disabled={addPostMutation.isPending}
                 className="flex-1 h-10 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
@@ -495,16 +405,15 @@ export function AddPostDialog({
                 disabled={
                   !parsedUrl?.isValid ||
                   !parsedUrl?.platform ||
-                  (!matchedCreator && !parsedUrl?.handle && !manualCreatorHandle.trim() && parsedUrl?.platform !== 'instagram') ||
-                  addPostMutation.isPending ||
-                  isCreatingCreator
+                  !matchedCreator ||
+                  addPostMutation.isPending
                 }
                 className="flex-1 h-10 bg-primary hover:bg-primary/90 text-black text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {(addPostMutation.isPending || isCreatingCreator) ? (
+                {addPostMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {isCreatingCreator ? 'Creating creator...' : 'Adding & Scraping...'}
+                    Adding & Scraping...
                   </>
                 ) : (
                   'Add & Scrape'

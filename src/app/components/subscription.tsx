@@ -52,11 +52,6 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
   ) => {
     if (!billing?.workspace_id) return;
 
-    if (tier === "free") {
-      // Can't select free plan through checkout
-      return;
-    }
-
     try {
       await createCheckout.mutateAsync({
         workspaceId: billing.workspace_id,
@@ -108,7 +103,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
     );
   }
 
-  const currentTier = billing?.subscription?.tier || "free";
+  const currentTier = billing?.subscription?.tier || "pro";
   const currentBillingCycle = billing?.subscription?.billing_cycle || "monthly";
   const status = billing?.subscription?.status || "active";
   const isPaid = billing?.is_paid || false;
@@ -134,7 +129,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
           <p className="text-sm sm:text-base text-slate-400 px-2">
             {isPaid || isTrialing
               ? "View and manage your current subscription"
-              : "Start free and upgrade when you need more power"}
+              : "Start with a 14-day Pro trial and upgrade when you need more power"}
           </p>
         </div>
       </div>

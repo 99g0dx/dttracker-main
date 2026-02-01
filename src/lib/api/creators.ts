@@ -6,6 +6,18 @@ type WorkspaceCreatorKeys = {
   ownerUserId: string | null;
 };
 
+async function isCompanyAdmin(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('is_company_admin');
+    if (error) {
+      return false;
+    }
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+}
+
 async function getWorkspaceCreatorKeys(workspaceId: string): Promise<WorkspaceCreatorKeys> {
   const { data, error } = await supabase
     .from('workspaces')
@@ -233,6 +245,17 @@ export async function list(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { data: null, error: new Error('Not authenticated') };
+    }
+
+    if (await isCompanyAdmin()) {
+      const { data, error } = await supabase
+        .from("creators")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) {
+        return { data: null, error };
+      }
+      return { data: data || [], error: null };
     }
 
     const { workspaceId: targetWorkspaceId, error: workspaceError } =
@@ -550,6 +573,71 @@ export async function listWithStats(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { data: null, error: new Error('Not authenticated') };
+    }
+
+    const companyAdmin = await isCompanyAdmin();
+    if (companyAdmin) {
+      const { data, error } = await supabase
+        .from('creators')
+        .select(`
+          id,
+          name,
+          handle,
+          email,
+          phone,
+          platform,
+          follower_count,
+          avg_engagement,
+          niche,
+          location
+        `)
+        .order('name', { ascending: true });
+
+      if (error) {
+        return { data: null, error };
+      }
+
+      const creators = (data || []) as Creator[];
+      if (creators.length === 0) {
+        return { data: [], error: null };
+      }
+
+      const creatorIds = creators.map((creator) => creator.id);
+      const { data: posts, error: postsError } = await supabase
+        .from('posts')
+        .select('creator_id, campaign_id')
+        .in('creator_id', creatorIds);
+
+      if (postsError) {
+        return { data: null, error: postsError };
+      }
+
+      const { data: campaignCreators, error: campaignCreatorsError } = await supabase
+        .from('campaign_creators')
+        .select('creator_id, campaign_id')
+        .in('creator_id', creatorIds);
+
+      if (campaignCreatorsError) {
+        console.warn('⚠️ Could not fetch campaign_creators:', campaignCreatorsError.message);
+      }
+
+      const creatorsWithStats: CreatorWithStats[] = creators.map((creator) => {
+        const creatorPosts = posts?.filter((p) => p.creator_id === creator.id) || [];
+        const creatorCampaignRelations =
+          campaignCreators?.filter((cc) => cc.creator_id === creator.id) || [];
+        const campaignsSet = new Set([
+          ...creatorPosts.map((p) => p.campaign_id),
+          ...creatorCampaignRelations.map((cc) => cc.campaign_id),
+        ]);
+
+        return {
+          ...creator,
+          campaigns: campaignsSet.size,
+          totalPosts: creatorPosts.length,
+        };
+      });
+
+      return { data: creatorsWithStats, error: null };
     }
 
     const { workspaceId: targetWorkspaceId, error: workspaceError } =

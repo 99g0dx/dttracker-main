@@ -397,7 +397,7 @@ export async function fetchSharedCampaignData(
     // Edge Functions require both apikey and Authorization headers
     if (supabaseAnonKey) {
       headers.apikey = supabaseAnonKey;
-      
+      headers.Authorization = `Bearer ${supabaseAnonKey}`;
     }
 
     const body =

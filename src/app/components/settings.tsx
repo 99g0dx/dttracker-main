@@ -55,6 +55,13 @@ const defaultNotifications: NotificationSettings = {
   weeklyReports: false,
 };
 
+const defaultLimits: Record<string, { campaigns: number | null; creators: number | null; analytics: string }> = {
+  free: { campaigns: 1, creators: 10, analytics: 'Basic' },
+  starter: { campaigns: 3, creators: 25, analytics: 'Standard' },
+  pro: { campaigns: 10, creators: 100, analytics: 'Advanced' },
+  agency: { campaigns: null, creators: null, analytics: 'Enterprise' },
+};
+
 const splitFullName = (fullName: string) => {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   return {
@@ -104,30 +111,45 @@ export function Settings({ onNavigate }: SettingsProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [mfaLoading, setMfaLoading] = useState(false);
+  const [mfaFactors, setMfaFactors] = useState<any[]>([]);
+  const [mfaEnrollOpen, setMfaEnrollOpen] = useState(false);
+  const [mfaQr, setMfaQr] = useState<string | null>(null);
+  const [mfaSecret, setMfaSecret] = useState<string | null>(null);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
 
-  const currentTier = billing?.subscription?.tier || billing?.plan?.tier || 'free';
-  const isAgencyRole =
-    billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency';
-  const isPaid = billing?.is_paid || billing?.is_trialing || currentTier !== 'free';
-  const planLabel = isAgencyRole
-    ? 'Agency Plan'
-    : `${formatLabel(currentTier)} Plan`;
-  const planSubtitle = isPaid
-    ? 'Your current subscription details'
-    : 'Upgrade to unlock powerful features';
-  const ctaLabel = isPaid ? 'Manage Subscription' : 'Upgrade to Pro';
-  const defaultLimits: Record<string, { campaigns: number | null; creators: number | null; analytics: string }> = {
-    free: { campaigns: 1, creators: 10, analytics: 'Basic' },
-    starter: { campaigns: 3, creators: 25, analytics: 'Standard' },
-    pro: { campaigns: 10, creators: 100, analytics: 'Advanced' },
-    agency: { campaigns: null, creators: null, analytics: 'Enterprise' },
-  };
-  const tierDefaults = defaultLimits[currentTier] || defaultLimits.free;
-  const campaignLimitValue =
-    billing?.plan?.max_active_campaigns ?? tierDefaults.campaigns;
-  const creatorLimitValue =
-    billing?.plan?.max_creators_per_campaign ?? tierDefaults.creators;
-  const analyticsLabel = tierDefaults.analytics;
+  const {
+    currentTier,
+    isAgencyRole,
+    isPaid,
+    planLabel,
+    planSubtitle,
+    ctaLabel,
+    campaignLimitValue,
+    creatorLimitValue,
+    analyticsLabel,
+  } = React.useMemo(() => {
+    const tier = billing?.subscription?.tier || billing?.plan?.tier || 'free';
+    const agencyRole =
+      billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency';
+    const paid = billing?.is_paid || billing?.is_trialing || tier !== 'free';
+    const tierDefaults = defaultLimits[tier] || defaultLimits.free;
+    return {
+      currentTier: tier,
+      isAgencyRole: agencyRole,
+      isPaid: paid,
+      planLabel: agencyRole ? 'Agency Plan' : `${formatLabel(tier)} Plan`,
+      planSubtitle: paid
+        ? 'Your current subscription details'
+        : 'Upgrade to unlock powerful features',
+      ctaLabel: paid ? 'Manage Subscription' : 'Upgrade to Pro',
+      campaignLimitValue: billing?.plan?.max_active_campaigns ?? tierDefaults.campaigns,
+      creatorLimitValue: billing?.plan?.max_creators_per_campaign ?? tierDefaults.creators,
+      analyticsLabel: tierDefaults.analytics,
+    };
+  }, [billing]);
   const formatLimit = (value: number | null) =>
     value === null ? 'Unlimited' : value.toString();
   const billingCycle = billing?.subscription?.billing_cycle || 'monthly';
@@ -308,37 +330,6 @@ export function Settings({ onNavigate }: SettingsProps) {
     setTeamLoading(false);
   };
 
-  const isWorkspaceOwner =
-    !activeWorkspaceId || (workspaceOwnerId && workspaceOwnerId === user?.id);
-
-  if (!workspaceMetaLoading && user?.id && !isWorkspaceOwner) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <button
-            onClick={() => onNavigate('/')}
-            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Settings</h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Only workspace owners can manage account settings.
-            </p>
-          </div>
-        </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <p className="text-sm text-slate-400">
-              Settings are only available to the workspace owner.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const handleSaveProfile = async () => {
     if (!user?.id) return;
     setProfileSaving(true);
@@ -444,6 +435,118 @@ export function Settings({ onNavigate }: SettingsProps) {
       title: 'Password Changed',
       message: 'Your password has been updated successfully',
     });
+  };
+
+  const loadMfaFactors = async () => {
+    if (!supabase.auth.mfa?.listFactors) return;
+    setMfaLoading(true);
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) {
+      toast.error(error.message || 'Unable to load MFA status');
+      setMfaLoading(false);
+      return;
+    }
+    setMfaFactors([...(data?.totp || [])]);
+    setMfaLoading(false);
+  };
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadMfaFactors();
+  }, [user?.id]);
+
+  const startMfaEnrollment = async () => {
+    if (!supabase.auth.mfa?.enroll) {
+      toast.error('MFA is not supported in this environment');
+      return;
+    }
+    setMfaLoading(true);
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+    if (error) {
+      toast.error(error.message || 'Failed to start MFA setup');
+      setMfaLoading(false);
+      return;
+    }
+    setMfaFactorId(data.id);
+    setMfaQr(data.totp?.qr_code || null);
+    setMfaSecret(data.totp?.secret || null);
+    const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+      factorId: data.id,
+    });
+    if (challengeError) {
+      toast.error(challengeError.message || 'Unable to create MFA challenge');
+      setMfaLoading(false);
+      return;
+    }
+    setMfaChallengeId(challengeData.id);
+    setMfaEnrollOpen(true);
+    setMfaLoading(false);
+  };
+
+  const verifyMfa = async () => {
+    if (!mfaFactorId || !mfaChallengeId || !mfaCode) {
+      toast.error('Enter the 6-digit code from your authenticator app');
+      return;
+    }
+    const { error } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId,
+      challengeId: mfaChallengeId,
+      code: mfaCode.trim(),
+    });
+    if (error) {
+      toast.error(error.message || 'MFA verification failed');
+      return;
+    }
+    toast.success('MFA enabled');
+    setMfaEnrollOpen(false);
+    setMfaCode('');
+    setMfaFactorId(null);
+    setMfaChallengeId(null);
+    setMfaQr(null);
+    setMfaSecret(null);
+    loadMfaFactors();
+  };
+
+  const isWorkspaceOwner =
+    !activeWorkspaceId || (workspaceOwnerId && workspaceOwnerId === user?.id);
+
+  if (!workspaceMetaLoading && user?.id && !isWorkspaceOwner) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            onClick={() => onNavigate('/')}
+            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Settings</h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              Only workspace owners can manage account settings.
+            </p>
+          </div>
+        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-6">
+            <p className="text-sm text-slate-400">
+              Settings are only available to the workspace owner.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const removeMfa = async (factorId: string) => {
+    if (!confirm('Remove MFA from this account?')) return;
+    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+    if (error) {
+      toast.error(error.message || 'Failed to remove MFA');
+      return;
+    }
+    toast.success('MFA removed');
+    loadMfaFactors();
   };
 
   const handleSendInvite = async () => {
@@ -695,6 +798,60 @@ export function Settings({ onNavigate }: SettingsProps) {
         </CardContent>
       </Card>
 
+      {mfaEnrollOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-xl border border-white/[0.1] bg-[#0D0D0D] p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Set up MFA</h3>
+                <p className="text-xs text-slate-400">Scan the QR code in your authenticator app.</p>
+              </div>
+              <button onClick={() => setMfaEnrollOpen(false)} className="text-slate-500 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 flex flex-col items-center gap-3">
+              {mfaQr ? (
+                mfaQr.startsWith('data:') ? (
+                  <img src={mfaQr} alt="MFA QR Code" className="h-40 w-40 rounded-lg bg-white p-2" />
+                ) : (
+                  <div className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-slate-300">
+                    {mfaQr}
+                  </div>
+                )
+              ) : (
+                <div className="text-xs text-slate-500">QR code unavailable.</div>
+              )}
+
+              {mfaSecret && (
+                <div className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-slate-300">
+                  <div className="text-[11px] text-slate-500 mb-1">Manual code</div>
+                  <div className="font-mono break-all">{mfaSecret}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-xs text-slate-400 mb-2">6-digit code</label>
+              <Input
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                placeholder="123456"
+                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+              />
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => setMfaEnrollOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={verifyMfa}>Verify MFA</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Security */}
       <Card className="bg-[#0D0D0D] border-white/[0.08]">
         <CardContent className="p-6">
@@ -743,6 +900,53 @@ export function Settings({ onNavigate }: SettingsProps) {
             >
               {passwordSaving ? 'Updating...' : 'Update Password'}
             </Button>
+
+            <div className="mt-6 border-t border-white/[0.08] pt-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Multi-Factor Authentication</h4>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Protect your account with an authenticator app.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="min-h-[40px]"
+                  onClick={startMfaEnrollment}
+                  disabled={mfaLoading}
+                >
+                  {mfaLoading ? 'Loading...' : 'Set up MFA'}
+                </Button>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {mfaFactors.length === 0 ? (
+                  <div className="text-xs text-slate-500">No MFA factors configured.</div>
+                ) : (
+                  mfaFactors.map((factor: any) => (
+                    <div
+                      key={factor.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-slate-300"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-white">Authenticator App</span>
+                        <span className="text-slate-500">•</span>
+                        <span>{factor.status}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-500">Added {new Date(factor.created_at).toLocaleDateString()}</span>
+                        <button
+                          onClick={() => removeMfa(factor.id)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

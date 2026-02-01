@@ -9,12 +9,15 @@ import type {
   CreatorRequestStatus,
 } from '../lib/types/database';
 import { toast } from 'sonner';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useWorkspaceAccess } from './useWorkspaceAccess';
 
 // Query keys
 export const creatorRequestsKeys = {
   all: ['creator_requests'] as const,
   lists: () => [...creatorRequestsKeys.all, 'list'] as const,
-  list: () => [...creatorRequestsKeys.lists()] as const,
+  list: (scope: 'user' | 'workspace', workspaceId?: string | null) =>
+    [...creatorRequestsKeys.lists(), scope, workspaceId || 'none'] as const,
   details: () => [...creatorRequestsKeys.all, 'detail'] as const,
   detail: (id: string) => [...creatorRequestsKeys.details(), id] as const,
   detailWithCreators: (id: string) => [...creatorRequestsKeys.detail(id), 'with-creators'] as const,
@@ -24,17 +27,30 @@ export const creatorRequestsKeys = {
 /**
  * Hook to fetch all creator requests for the current user
  */
-export function useCreatorRequests() {
+export function useCreatorRequests(options?: { scope?: 'auto' | 'user' | 'workspace' }) {
+  const { activeWorkspaceId } = useWorkspace();
+  const { isOwner, loading: accessLoading } = useWorkspaceAccess();
+  const scopeOption = options?.scope ?? 'auto';
+  const resolvedScope =
+    scopeOption === 'auto' ? (isOwner ? 'workspace' : 'user') : scopeOption;
+
   return useQuery({
-    queryKey: creatorRequestsKeys.list(),
+    queryKey: creatorRequestsKeys.list(resolvedScope, activeWorkspaceId),
     queryFn: async () => {
-      const result = await creatorRequestsApi.getRequests();
+      const result = await creatorRequestsApi.getRequests({
+        scope: resolvedScope,
+        workspaceId: activeWorkspaceId,
+      });
       if (result.error) {
         throw result.error;
       }
       return result.data || [];
     },
+    enabled:
+      !accessLoading &&
+      (resolvedScope !== 'workspace' || Boolean(activeWorkspaceId)),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -53,6 +69,7 @@ export function useCreatorRequest(id: string) {
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -71,6 +88,7 @@ export function useCreatorRequestWithCreators(id: string) {
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -89,6 +107,7 @@ export function useCreatorRequestWithItems(id: string) {
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -97,6 +116,9 @@ export function useCreatorRequestWithItems(id: string) {
  */
 export function useCreateCreatorRequest() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
+  const { isOwner } = useWorkspaceAccess();
+  const scope = isOwner ? 'workspace' : 'user';
 
   return useMutation({
     mutationFn: async (request: CreatorRequestInsert) => {
@@ -106,17 +128,60 @@ export function useCreateCreatorRequest() {
       }
       return result.data;
     },
+    onMutate: async (request) => {
+      await queryClient.cancelQueries({
+        queryKey: creatorRequestsKeys.list(scope, activeWorkspaceId),
+      });
+      const tempId =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `temp_${Math.random().toString(36).slice(2)}`;
+      const nowIso = new Date().toISOString();
+      const optimisticRequest = {
+        id: tempId,
+        user_id: request.user_id,
+        campaign_id: request.campaign_id ?? null,
+        status: request.status ?? 'suggested',
+        submission_type: request.submission_type ?? 'suggestion',
+        campaign_type: request.campaign_type ?? null,
+        campaign_brief: request.campaign_brief ?? null,
+        deadline: request.deadline ?? null,
+        contact_person_name: request.contact_person_name ?? null,
+        contact_person_email: request.contact_person_email ?? null,
+        contact_person_phone: request.contact_person_phone ?? null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        deliverables: request.deliverables ?? [],
+        posts_per_creator: request.posts_per_creator ?? null,
+        usage_rights: request.usage_rights ?? null,
+        urgency: request.urgency ?? null,
+      } as any;
+
+      const key = creatorRequestsKeys.list(scope, activeWorkspaceId);
+      const previous = queryClient.getQueryData<any[]>(key) || [];
+      queryClient.setQueryData<any[]>(key, [optimisticRequest, ...previous]);
+      return { previous, key };
+    },
     onSuccess: (data) => {
       // Invalidate requests list to refetch
-      queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: creatorRequestsKeys.list(scope, activeWorkspaceId),
+      });
       // Set the new request in the detail query cache
       if (data) {
         queryClient.setQueryData(creatorRequestsKeys.detail(data.id), data);
         queryClient.setQueryData(creatorRequestsKeys.detailWithCreators(data.id), data);
       }
-      toast.success('Creator request submitted successfully');
+      toast.success(
+        data?.submission_type === 'suggestion'
+          ? 'Suggestion sent to owner'
+          : 'Creator request submitted successfully'
+      );
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _request, context) => {
+      if (context?.key) {
+        queryClient.setQueryData(context.key, context.previous || []);
+      }
       toast.error(`Failed to submit request: ${error.message}`);
     },
   });
@@ -189,10 +254,86 @@ export function useUpdateRequestStatus() {
 }
 
 /**
+ * Hook to submit an operator suggestion as a real request (owner only)
+ */
+export function useSubmitCreatorRequestSuggestion() {
+  const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const result = await creatorRequestsApi.submitSuggestion(id);
+      if (result.error) {
+        throw result.error;
+      }
+      return result.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: creatorRequestsKeys.list('workspace', activeWorkspaceId),
+      });
+      if (data?.id) {
+        queryClient.invalidateQueries({
+          queryKey: creatorRequestsKeys.detail(data.id),
+        });
+      }
+      toast.success('Request submitted to agency');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to submit request: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook to update a suggestion and submit as a request (owner flow)
+ */
+export function useUpdateSuggestionAndSubmit() {
+  const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
+
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      request,
+    }: {
+      requestId: string;
+      request: CreatorRequestInsert;
+    }) => {
+      const result = await creatorRequestsApi.updateSuggestionAndSubmit(
+        requestId,
+        request
+      );
+      if (result.error) {
+        throw result.error;
+      }
+      return result.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: creatorRequestsKeys.list('workspace', activeWorkspaceId),
+      });
+      if (data?.id) {
+        queryClient.invalidateQueries({
+          queryKey: creatorRequestsKeys.detail(data.id),
+        });
+      }
+      toast.success('Request submitted successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to submit request: ${error.message}`);
+    },
+  });
+}
+
+/**
  * Hook to delete a creator request
  */
 export function useDeleteCreatorRequest() {
   const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
+  const { isOwner } = useWorkspaceAccess();
+  const scope = isOwner ? 'workspace' : 'user';
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -208,10 +349,14 @@ export function useDeleteCreatorRequest() {
       await queryClient.cancelQueries({ queryKey: creatorRequestsKeys.detail(id) });
 
       // Snapshot previous value
-      const previousRequests = queryClient.getQueryData(creatorRequestsKeys.list());
+      const previousRequests = queryClient.getQueryData(
+        creatorRequestsKeys.list(scope, activeWorkspaceId)
+      );
 
       // Optimistically remove from list
-      queryClient.setQueryData(creatorRequestsKeys.list(), (old: CreatorRequest[] | undefined) => {
+      queryClient.setQueryData(
+        creatorRequestsKeys.list(scope, activeWorkspaceId),
+        (old: CreatorRequest[] | undefined) => {
         if (!old) return old;
         return old.filter((request) => request.id !== id);
       });
@@ -226,7 +371,10 @@ export function useDeleteCreatorRequest() {
     onError: (error: Error, _id, context) => {
       // Rollback optimistic update
       if (context?.previousRequests) {
-        queryClient.setQueryData(creatorRequestsKeys.list(), context.previousRequests);
+        queryClient.setQueryData(
+          creatorRequestsKeys.list(scope, activeWorkspaceId),
+          context.previousRequests
+        );
       }
       toast.error(`Failed to delete request: ${error.message}`);
     },

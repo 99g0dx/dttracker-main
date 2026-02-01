@@ -52,6 +52,8 @@ import {
 import { format } from 'date-fns';
 import { subDays, startOfMonth } from 'date-fns';
 import { cn } from './ui/utils';
+import { DashboardKpiSkeleton, ChartPanelSkeleton, TableRowSkeleton, Skeleton } from './ui/skeleton';
+import { toast } from 'sonner';
 
 
 type DateRange = {
@@ -806,6 +808,38 @@ useEffect(() => {
       console.log('[Dashboard Campaign Reach Breakdown]', campaignBreakdown);
     }
   }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData, postsInRangeWithDates]);
+
+  if (isCampaignsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Dashboard</h1>
+            <p className="text-sm text-slate-400 mt-1">Track your campaign performance</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Skeleton className="h-10 w-32 rounded-md" />
+            <Skeleton className="h-10 w-24 rounded-md" />
+          </div>
+        </div>
+
+        <DashboardKpiSkeleton />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartPanelSkeleton />
+          <ChartPanelSkeleton />
+        </div>
+
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-0">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRowSkeleton key={i} />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

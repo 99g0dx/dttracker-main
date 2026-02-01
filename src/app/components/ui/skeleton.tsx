@@ -47,21 +47,23 @@ function CampaignCardSkeleton() {
 // Post table row skeleton
 function PostRowSkeleton() {
   return (
-    <div className="flex items-center gap-4 px-6 py-4 border-b border-white/[0.08]">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 border-b border-white/[0.08]">
       {/* Avatar */}
       <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
 
       {/* Creator info */}
       <div className="flex-1 space-y-2">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-48" />
+        <Skeleton className="h-4 w-32 sm:w-40" />
+        <Skeleton className="h-3 w-40 sm:w-56" />
       </div>
 
       {/* Stats */}
-      <Skeleton className="h-8 w-16" />
-      <Skeleton className="h-8 w-16" />
-      <Skeleton className="h-8 w-16" />
-      <Skeleton className="h-8 w-16" />
+      <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        <Skeleton className="h-8 w-full sm:w-16" />
+        <Skeleton className="h-8 w-full sm:w-16" />
+        <Skeleton className="h-8 w-full sm:w-16" />
+        <Skeleton className="h-8 w-full sm:w-16" />
+      </div>
     </div>
   );
 }
@@ -122,4 +124,100 @@ function FormSkeleton() {
   );
 }
 
-export { Skeleton, CampaignCardSkeleton, PostRowSkeleton, CampaignHeaderSkeleton, FormSkeleton };
+// Dashboard KPI skeleton
+function DashboardKpiSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4"
+        >
+          <Skeleton className="h-3 w-16 mb-2" />
+          <Skeleton className="h-7 w-24" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Chart panel skeleton
+function ChartPanelSkeleton() {
+  return (
+    <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <Skeleton className="h-56 w-full" />
+    </div>
+  );
+}
+
+// Table row skeleton (compact)
+function TableRowSkeleton() {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3 border-b border-white/[0.08]">
+      <Skeleton className="h-4 w-40 sm:w-56" />
+      <Skeleton className="h-4 w-28 sm:w-24" />
+      <Skeleton className="h-4 w-24 sm:w-20" />
+      <div className="sm:ml-auto">
+        <Skeleton className="h-4 w-24 sm:w-16" />
+      </div>
+    </div>
+  );
+}
+
+// Creator card skeleton
+function CreatorCardSkeleton() {
+  return (
+    <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-3 space-y-3">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-9 w-9 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <Skeleton className="h-4 w-8" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    </div>
+  );
+}
+
+// Request row skeleton
+function RequestRowSkeleton() {
+  return (
+    <div className="flex flex-col gap-2 border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-24 rounded-full" />
+        <Skeleton className="h-4 w-20" />
+        <div className="ml-auto">
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </div>
+      <Skeleton className="h-4 w-3/4 sm:w-2/3" />
+      <div className="flex flex-wrap gap-3">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-20 sm:w-24" />
+        <Skeleton className="h-3 w-20 sm:w-24" />
+      </div>
+    </div>
+  );
+}
+
+export {
+  Skeleton,
+  CampaignCardSkeleton,
+  PostRowSkeleton,
+  CampaignHeaderSkeleton,
+  FormSkeleton,
+  DashboardKpiSkeleton,
+  ChartPanelSkeleton,
+  TableRowSkeleton,
+  CreatorCardSkeleton,
+  RequestRowSkeleton,
+};

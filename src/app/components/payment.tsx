@@ -24,7 +24,7 @@ export function Payment({ onNavigate }: PaymentProps) {
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
-  const tierOptions: BillingTier[] = ['free', 'starter', 'pro', 'agency'];
+  const tierOptions: BillingTier[] = ['starter', 'pro', 'agency'];
   const cycleOptions: BillingCycle[] = ['monthly', 'yearly'];
   const planParts = planSlug.split(/[_-]/);
   const tierFromParam = tierOptions.find((tier) => planParts.includes(tier)) || 'pro';

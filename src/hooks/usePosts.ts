@@ -86,6 +86,48 @@ export function useCreatePost() {
       }
       return result.data;
     },
+    onMutate: async (post) => {
+      await queryClient.cancelQueries({ queryKey: postsKeys.list(post.campaign_id, false) });
+      await queryClient.cancelQueries({ queryKey: postsKeys.list(post.campaign_id, true) });
+
+      const nowIso = new Date().toISOString();
+      const tempId =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `temp_${Math.random().toString(36).slice(2)}`;
+
+      const optimisticPost: PostWithCreator = {
+        id: tempId,
+        campaign_id: post.campaign_id,
+        creator_id: post.creator_id ?? null,
+        platform: post.platform,
+        post_url: post.post_url,
+        posted_date: post.posted_date ?? null,
+        status: post.status ?? 'manual',
+        views: post.views ?? 0,
+        likes: post.likes ?? 0,
+        comments: post.comments ?? 0,
+        shares: post.shares ?? 0,
+        engagement_rate: post.engagement_rate ?? 0,
+        last_scraped_at: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        external_id: post.external_id ?? null,
+        owner_username: post.owner_username ?? null,
+        creator: null,
+      };
+
+      const applyOptimistic = (key: ReturnType<typeof postsKeys.list>) => {
+        const previous = queryClient.getQueryData<PostWithCreator[]>(key) || [];
+        queryClient.setQueryData<PostWithCreator[]>(key, [optimisticPost, ...previous]);
+        return previous;
+      };
+
+      const previousDirect = applyOptimistic(postsKeys.list(post.campaign_id, false));
+      const previousHierarchy = applyOptimistic(postsKeys.list(post.campaign_id, true));
+
+      return { previousDirect, previousHierarchy, campaignId: post.campaign_id };
+    },
     onSuccess: (data) => {
       if (data) {
         // Invalidate posts list for this campaign
@@ -97,7 +139,17 @@ export function useCreatePost() {
         toast.success('Post added successfully');
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _post, context) => {
+      if (context?.campaignId) {
+        queryClient.setQueryData(
+          postsKeys.list(context.campaignId, false),
+          context.previousDirect || []
+        );
+        queryClient.setQueryData(
+          postsKeys.list(context.campaignId, true),
+          context.previousHierarchy || []
+        );
+      }
       toast.error(`Failed to add post: ${error.message}`);
     },
   });
@@ -118,6 +170,51 @@ export function useCreateManyPosts() {
       }
       return result.data || [];
     },
+    onMutate: async (posts) => {
+      if (posts.length === 0) return;
+      const campaignId = posts[0].campaign_id;
+      await queryClient.cancelQueries({ queryKey: postsKeys.list(campaignId, false) });
+      await queryClient.cancelQueries({ queryKey: postsKeys.list(campaignId, true) });
+
+      const nowIso = new Date().toISOString();
+      const optimisticPosts: PostWithCreator[] = posts.map((post) => ({
+        id:
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `temp_${Math.random().toString(36).slice(2)}`,
+        campaign_id: post.campaign_id,
+        creator_id: post.creator_id ?? null,
+        platform: post.platform,
+        post_url: post.post_url,
+        posted_date: post.posted_date ?? null,
+        status: post.status ?? 'manual',
+        views: post.views ?? 0,
+        likes: post.likes ?? 0,
+        comments: post.comments ?? 0,
+        shares: post.shares ?? 0,
+        engagement_rate: post.engagement_rate ?? 0,
+        last_scraped_at: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        external_id: post.external_id ?? null,
+        owner_username: post.owner_username ?? null,
+        creator: null,
+      }));
+
+      const applyOptimistic = (key: ReturnType<typeof postsKeys.list>) => {
+        const previous = queryClient.getQueryData<PostWithCreator[]>(key) || [];
+        queryClient.setQueryData<PostWithCreator[]>(key, [
+          ...optimisticPosts,
+          ...previous,
+        ]);
+        return previous;
+      };
+
+      const previousDirect = applyOptimistic(postsKeys.list(campaignId, false));
+      const previousHierarchy = applyOptimistic(postsKeys.list(campaignId, true));
+
+      return { previousDirect, previousHierarchy, campaignId };
+    },
     onSuccess: (data, variables) => {
       if (variables.length > 0) {
         const campaignId = variables[0].campaign_id;
@@ -130,7 +227,17 @@ export function useCreateManyPosts() {
         toast.success(`${data.length} posts imported successfully`);
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _posts, context) => {
+      if (context?.campaignId) {
+        queryClient.setQueryData(
+          postsKeys.list(context.campaignId, false),
+          context.previousDirect || []
+        );
+        queryClient.setQueryData(
+          postsKeys.list(context.campaignId, true),
+          context.previousHierarchy || []
+        );
+      }
       toast.error(`Failed to import posts: ${error.message}`);
     },
   });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -98,9 +98,19 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     rolePreset: RolePreset;
   } | null>(null);
   const { data: billing } = useBillingSummary();
-  const activeMembers = members.filter((m) => m.status === 'active');
-  const agencyBypass = hasAgencyBypass(billing);
-  const seatLimit = agencyBypass ? -1 : getEffectiveLimits(billing).team_members;
+  const activeMembers = useMemo(
+    () => members.filter((m) => m.status === 'active'),
+    [members]
+  );
+  const adminCount = useMemo(
+    () => members.filter((m) => isWorkspaceOwner(m.role)).length,
+    [members]
+  );
+  const agencyBypass = useMemo(() => hasAgencyBypass(billing), [billing]);
+  const seatLimit = useMemo(
+    () => (agencyBypass ? -1 : getEffectiveLimits(billing).team_members),
+    [agencyBypass, billing]
+  );
 
   useEffect(() => {
     loadCurrentUser();
@@ -130,30 +140,32 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       ]);
 
       if (membersResult.data) {
-        // Fetch profile data for each member to get names
-        const membersWithProfiles = await Promise.all(
-          membersResult.data.map(async (member) => {
-            try {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('full_name, id, email')
-                .eq('id', member.user_id)
-                .maybeSingle();
-              
-              return {
-                ...member,
-                profile_name: profile?.full_name || null,
-                profile_email: (profile as any)?.email || null,
-              };
-            } catch {
-              return {
-                ...member,
-                profile_name: null,
-                profile_email: null,
-              };
-            }
-          })
+        const memberUserIds = Array.from(
+          new Set(membersResult.data.map((member) => member.user_id).filter(Boolean))
         );
+        let profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
+        if (memberUserIds.length) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', memberUserIds);
+          profileMap = (profiles || []).reduce((acc: any, profile: any) => {
+            acc[profile.id] = {
+              full_name: profile.full_name || null,
+              email: profile.email || null,
+            };
+            return acc;
+          }, {});
+        }
+
+        const membersWithProfiles = membersResult.data.map((member) => {
+          const profile = profileMap[member.user_id] || { full_name: null, email: null };
+          return {
+            ...member,
+            profile_name: profile.full_name,
+            profile_email: profile.email,
+          };
+        });
         setMembers(membersWithProfiles as any);
       }
       if (invitesResult.data) {
@@ -177,11 +189,26 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     }
   };
 
-  const currentUserMember = members.find((member) => member.user_id === currentUser?.id);
-  const canManage = isWorkspaceOwner(currentUserMember?.role);
-  const seatsUsed = billing?.seats_used ?? activeMembers.length;
-  const projectedSeats = seatsUsed + pendingInvites.length;
-  const seatLimitReached = seatLimit !== -1 && projectedSeats >= seatLimit;
+  const currentUserMember = useMemo(
+    () => members.find((member) => member.user_id === currentUser?.id),
+    [members, currentUser?.id]
+  );
+  const canManage = useMemo(
+    () => isWorkspaceOwner(currentUserMember?.role),
+    [currentUserMember?.role]
+  );
+  const seatsUsed = useMemo(
+    () => billing?.seats_used ?? activeMembers.length,
+    [billing?.seats_used, activeMembers.length]
+  );
+  const projectedSeats = useMemo(
+    () => seatsUsed + pendingInvites.length,
+    [seatsUsed, pendingInvites.length]
+  );
+  const seatLimitReached = useMemo(
+    () => seatLimit !== -1 && projectedSeats >= seatLimit,
+    [seatLimit, projectedSeats]
+  );
 
   const handleInviteComplete = async (invite?: TeamInviteWithInviter) => {
     if (invite) {
@@ -333,9 +360,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         </Card>
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-4">
-            <div className="text-2xl font-semibold text-primary">
-              {members.filter((m) => isWorkspaceOwner(m.role)).length}
-            </div>
+            <div className="text-2xl font-semibold text-primary">{adminCount}</div>
             <p className="text-sm text-slate-400 mt-1">Admins</p>
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,13 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
   ArrowLeft,
   ArrowRight,
   Calendar as CalendarIcon,
@@ -24,7 +31,14 @@ import { format, parseISO } from "date-fns";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCart } from "../../contexts/CartContext";
-import { useCreateCreatorRequest } from "../../hooks/useCreatorRequests";
+import {
+  useCreateCreatorRequest,
+  useUpdateSuggestionAndSubmit,
+} from "../../hooks/useCreatorRequests";
+import { useCampaigns } from "../../hooks/useCampaigns";
+import { useCreatorsWithStats } from "../../hooks/useCreators";
+import { cn } from "./ui/utils";
+import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 import type {
   CampaignType,
   Deliverable,
@@ -38,51 +52,156 @@ interface CreatorRequestChatbotProps {
   onOpenChange: (open: boolean) => void;
   onComplete: () => void;
   initialCreatorIds?: string[]; // Optional: pre-fill creator IDs (for single creator requests)
+  campaignId?: string;
+  editRequestId?: string;
+  initialFormValues?: Partial<CreatorRequestInsert>;
+  allowCreatorEdits?: boolean;
+  submitLabel?: string;
 }
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+const defaultFormState: Partial<CreatorRequestInsert> = {
+  campaign_type: null,
+  campaign_brief: "",
+  song_asset_links: [],
+  deliverables: [],
+  posts_per_creator: 1,
+  usage_rights: null,
+  deadline: "",
+  urgency: "normal",
+  contact_person_name: "",
+  contact_person_email: "",
+  contact_person_phone: "",
+};
 
 export function CreatorRequestChatbot({
   open,
   onOpenChange,
   onComplete,
   initialCreatorIds,
+  campaignId,
+  editRequestId,
+  initialFormValues,
+  allowCreatorEdits = false,
+  submitLabel,
 }: CreatorRequestChatbotProps) {
   const { cart, clearCart } = useCart();
   const createRequestMutation = useCreateCreatorRequest();
+  const updateSuggestionMutation = useUpdateSuggestionAndSubmit();
+  const { data: campaigns = [] } = useCampaigns({ enabled: open });
+  const { data: availableCreators = [], isLoading: creatorsLoading } =
+    useCreatorsWithStats("all", {
+      enabled: open && (!initialCreatorIds || allowCreatorEdits),
+    });
+  const { isOwner } = useWorkspaceAccess();
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>(
+    campaignId ?? ""
+  );
   const [currentStep, setCurrentStep] = useState<Step>(1);
-  const [formData, setFormData] = useState<Partial<CreatorRequestInsert>>({
-    campaign_type: null,
-    campaign_brief: "",
-    song_asset_links: [],
-    deliverables: [],
-    posts_per_creator: 1,
-    usage_rights: null,
-    deadline: "",
-    urgency: "normal",
-    contact_person_name: "",
-    contact_person_email: "",
-    contact_person_phone: "",
-  });
+  const isCampaignLinked = Boolean(campaignId || selectedCampaignId);
+  const [creatorSearchQuery, setCreatorSearchQuery] = useState("");
+  const [selectedCreatorIds, setSelectedCreatorIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [formData, setFormData] =
+    useState<Partial<CreatorRequestInsert>>(defaultFormState);
 
   const [assetLinkInput, setAssetLinkInput] = useState("");
   const [selectedDeliverables, setSelectedDeliverables] = useState<
     Deliverable[]
   >([]);
   const [customPostsPerCreator, setCustomPostsPerCreator] = useState("");
+  const [suggestionReason, setSuggestionReason] = useState("");
 
   const totalSteps = 7;
+
+  useEffect(() => {
+    if (!open) return;
+    setCurrentStep(1);
+    const initialCampaign =
+      campaignId || initialFormValues?.campaign_id || "";
+    setSelectedCampaignId(initialCampaign || "");
+    if (initialCreatorIds && allowCreatorEdits) {
+      setSelectedCreatorIds(new Set(initialCreatorIds));
+    } else if (!initialCreatorIds) {
+      setSelectedCreatorIds(new Set());
+    }
+    setFormData({
+      ...defaultFormState,
+      ...initialFormValues,
+    });
+    if (initialFormValues?.deliverables) {
+      setSelectedDeliverables(initialFormValues.deliverables);
+    } else {
+      setSelectedDeliverables([]);
+    }
+    if (initialFormValues?.posts_per_creator) {
+      setCustomPostsPerCreator("");
+    }
+    if (initialFormValues?.suggestion_reason) {
+      setSuggestionReason(initialFormValues.suggestion_reason);
+    }
+  }, [open, campaignId, initialCreatorIds, initialFormValues, allowCreatorEdits]);
 
   const handleNext = () =>
     currentStep < totalSteps && setCurrentStep((prev) => (prev + 1) as Step);
   const handleBack = () =>
     currentStep > 1 && setCurrentStep((prev) => (prev - 1) as Step);
 
+  const resolvedCreatorIds = useMemo(() => {
+    if (initialCreatorIds && initialCreatorIds.length > 0 && !allowCreatorEdits) {
+      return initialCreatorIds.filter(Boolean);
+    }
+    if (cart.length > 0) {
+      return cart.map((creator) => creator.id).filter(Boolean);
+    }
+    return Array.from(selectedCreatorIds).filter(Boolean);
+  }, [initialCreatorIds, cart, selectedCreatorIds]);
+
+  const resolvedCreatorCount = resolvedCreatorIds.length;
+  const showCreatorPicker = allowCreatorEdits || (!initialCreatorIds && cart.length === 0);
+
+  const filteredCreators = useMemo(() => {
+    const query = creatorSearchQuery.trim().toLowerCase();
+    if (!query) return availableCreators;
+    return availableCreators.filter((creator) => {
+      const name = creator.name?.toLowerCase() || "";
+      const handle = creator.handle?.toLowerCase() || "";
+      return name.includes(query) || handle.includes(query);
+    });
+  }, [availableCreators, creatorSearchQuery]);
+
+  const toggleCreatorSelection = (creatorId: string) => {
+    setSelectedCreatorIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(creatorId)) {
+        next.delete(creatorId);
+      } else {
+        next.add(creatorId);
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = async () => {
     if (!formData.campaign_type || !formData.campaign_brief) return;
+    if (!isCampaignLinked) {
+      return;
+    }
+    if (resolvedCreatorIds.length === 0) {
+      return;
+    }
+    if (!isOwner && !suggestionReason.trim()) {
+      return;
+    }
 
+    const resolvedCampaignId = campaignId || selectedCampaignId || null;
     const requestData: CreatorRequestInsert = {
-      user_id: "", // Will be set by API
+      user_id: "", // Will be set by API for create
+      campaign_id: resolvedCampaignId || null,
+      submission_type: isOwner ? "request" : "suggestion",
+      suggestion_reason: isOwner ? null : suggestionReason.trim(),
       campaign_type: formData.campaign_type,
       campaign_brief: formData.campaign_brief,
       song_asset_links: formData.song_asset_links?.filter(Boolean) || [],
@@ -95,12 +214,20 @@ export function CreatorRequestChatbot({
       contact_person_name: formData.contact_person_name || null,
       contact_person_email: formData.contact_person_email || null,
       contact_person_phone: formData.contact_person_phone || null,
-      creator_ids: initialCreatorIds || cart.map((c) => c.id),
+      creator_ids: resolvedCreatorIds,
     };
 
     try {
-      await createRequestMutation.mutateAsync(requestData);
-      if (!initialCreatorIds) {
+      if (editRequestId) {
+        const { user_id: _userId, ...updateData } = requestData;
+        await updateSuggestionMutation.mutateAsync({
+          requestId: editRequestId,
+          request: updateData as CreatorRequestInsert,
+        });
+      } else {
+        await createRequestMutation.mutateAsync(requestData);
+      }
+      if (!editRequestId && !initialCreatorIds) {
         clearCart(); // Only clear cart if not using initialCreatorIds
       }
       onComplete();
@@ -123,17 +250,24 @@ export function CreatorRequestChatbot({
       setSelectedDeliverables([]);
       setCustomPostsPerCreator("");
       setAssetLinkInput("");
+      setSelectedCreatorIds(new Set());
+      setSuggestionReason("");
     } catch (error) {
       console.error("Failed to submit request:", error);
     }
   };
 
   const canProceed = () => {
+    if (!isCampaignLinked) {
+      return false;
+    }
     switch (currentStep) {
       case 1:
-        return !!formData.campaign_type;
+        return !!formData.campaign_type && resolvedCreatorCount > 0;
       case 2:
-        return !!formData.campaign_brief?.trim().length;
+        if (!formData.campaign_brief?.trim().length) return false;
+        if (!isOwner && !suggestionReason.trim()) return false;
+        return true;
       case 3:
         return true;
       case 4:
@@ -192,6 +326,96 @@ export function CreatorRequestChatbot({
       case 1:
         return (
           <div className="space-y-4">
+            {showCreatorPicker && (
+              <div className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <div>
+                  <Label className="text-white text-base font-semibold">
+                    Requested Creators
+                  </Label>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Select creators to request for this campaign.
+                  </p>
+                </div>
+                <Input
+                  value={creatorSearchQuery}
+                  onChange={(event) =>
+                    setCreatorSearchQuery(event.target.value)
+                  }
+                  placeholder="Search creators by name or handle"
+                  className="bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-slate-500"
+                />
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                  {creatorsLoading && (
+                    <div className="text-sm text-slate-500">
+                      Loading creators...
+                    </div>
+                  )}
+                  {!creatorsLoading && filteredCreators.length === 0 && (
+                    <div className="text-sm text-slate-500">
+                      No creators found.
+                    </div>
+                  )}
+                  {!creatorsLoading &&
+                    filteredCreators.map((creator) => {
+                      const selected = selectedCreatorIds.has(creator.id);
+                      return (
+                        <button
+                          key={creator.id}
+                          type="button"
+                          onClick={() => toggleCreatorSelection(creator.id)}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                            selected
+                              ? "border-primary bg-primary/10 text-white"
+                              : "border-white/[0.08] bg-white/[0.02] text-slate-200 hover:bg-white/[0.05]"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "h-4 w-4 rounded border flex items-center justify-center text-[10px]",
+                              selected
+                                ? "border-primary bg-primary text-black"
+                                : "border-white/[0.2] text-transparent"
+                            )}
+                          >
+                            ✓
+                          </span>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">
+                              {creator.name || creator.handle || "Unknown"}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              {creator.handle ? `@${creator.handle}` : "No handle"}
+                            </div>
+                          </div>
+                          <div className="text-xs text-slate-500 uppercase">
+                            {creator.platform}
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+                {selectedCreatorIds.size === 0 && (
+                  <div className="text-xs text-red-400">
+                    Select at least one creator to continue.
+                  </div>
+                )}
+              </div>
+            )}
+            {(initialCreatorIds || cart.length > 0) && !allowCreatorEdits && (
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <Label className="text-white text-base font-semibold">
+                  Requested Creators
+                </Label>
+                <p className="text-sm text-slate-400 mt-1">
+                  {resolvedCreatorCount} creator
+                  {resolvedCreatorCount === 1 ? "" : "s"} selected.
+                </p>
+                <div className="text-xs text-slate-500 mt-2">
+                  Manage selections from the creator library.
+                </div>
+              </div>
+            )}
             <Label className="text-white text-base font-semibold">
               Campaign Type
             </Label>
@@ -255,6 +479,25 @@ export function CreatorRequestChatbot({
             <p className="text-xs text-slate-400">
               {(formData.campaign_brief || "").length} characters
             </p>
+            {!isOwner && (
+              <div className="space-y-2">
+                <Label className="text-white text-sm font-medium">
+                  Why are you requesting these creators?
+                  <span className="text-red-400"> *</span>
+                </Label>
+                <Textarea
+                  value={suggestionReason}
+                  onChange={(e) => setSuggestionReason(e.target.value)}
+                  placeholder="Explain the fit, audience, or campaign intent..."
+                  className="w-full min-h-[120px] bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-slate-500"
+                />
+                {!suggestionReason.trim() && (
+                  <p className="text-xs text-red-400">
+                    Provide a short justification to continue.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         );
 
@@ -648,7 +891,7 @@ export function CreatorRequestChatbot({
                 <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
                   <p className="text-slate-400 mb-1">Selected Creators</p>
                   <p className="text-white font-medium">
-                    {cart.length} creators
+                    {resolvedCreatorCount} creators
                   </p>
                 </div>
                 <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
@@ -657,6 +900,14 @@ export function CreatorRequestChatbot({
                     {formData.campaign_type?.replace("_", " ")}
                   </p>
                 </div>
+                {!isOwner && (
+                  <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+                    <p className="text-slate-400 mb-1">Operator Briefing</p>
+                    <p className="text-white text-sm whitespace-pre-wrap">
+                      {suggestionReason || "No briefing provided."}
+                    </p>
+                  </div>
+                )}
                 <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
                   <p className="text-slate-400 mb-1">Deliverables</p>
                   <p className="text-white font-medium">
@@ -699,6 +950,49 @@ export function CreatorRequestChatbot({
           <DialogDescription className="text-sm text-slate-400 mt-1">
             Step {currentStep} of {totalSteps}
           </DialogDescription>
+          {campaignId && (
+            <div className="mt-2 text-xs text-emerald-400">
+              This request will be linked to the current campaign.
+            </div>
+          )}
+          {!campaignId && campaigns.length === 0 && (
+            <div className="mt-2 text-xs text-amber-400">
+              Create a campaign before submitting a creator request.
+            </div>
+          )}
+          {!campaignId && campaigns.length > 0 && (
+            <div className="mt-3">
+              <Label className="text-xs text-slate-400">
+                Link to campaign <span className="text-red-400">*</span>
+              </Label>
+              <Select
+                value={selectedCampaignId}
+                onValueChange={setSelectedCampaignId}
+              >
+                <SelectTrigger className="mt-2 h-10 bg-white/[0.03] border-white/[0.08] text-sm text-white">
+                  <SelectValue placeholder="Select a campaign" />
+                </SelectTrigger>
+                <SelectContent>
+                  {campaigns.map((campaign) => (
+                    <SelectItem key={campaign.id} value={campaign.id}>
+                      {campaign.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!isCampaignLinked && (
+                <div className="mt-2 text-xs text-red-400">
+                  Please select a campaign to continue.
+                </div>
+              )}
+            </div>
+          )}
+          {!isOwner && (
+            <div className="mt-3 text-xs text-amber-400">
+              This will be sent to the workspace owner as a suggestion before it
+              becomes an official request.
+            </div>
+          )}
           <div className="w-full h-2 bg-white/[0.03] rounded-full mt-4">
             <div
               className="h-full bg-primary rounded-full transition-all duration-300"
@@ -730,12 +1024,17 @@ export function CreatorRequestChatbot({
           ) : (
             <Button
               onClick={handleSubmit}
-              disabled={!canProceed() || createRequestMutation.isPending}
+              disabled={
+                !canProceed() ||
+                createRequestMutation.isPending ||
+                updateSuggestionMutation.isPending
+              }
               className="bg-primary hover:bg-primary/90 text-black font-medium flex items-center gap-2"
             >
-              {createRequestMutation.isPending
+              {createRequestMutation.isPending ||
+              updateSuggestionMutation.isPending
                 ? "Submitting..."
-                : "Submit Request"}{" "}
+                : submitLabel || "Submit Request"}{" "}
               <Check className="w-4 h-4" />
             </Button>
           )}
