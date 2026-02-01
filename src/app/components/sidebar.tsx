@@ -23,6 +23,7 @@ const navItems: NavItem[] = [
   { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
   { name: 'Admin', href: '/admin', icon: <Gauge className="w-5 h-5" /> },
+  { name: 'Admin Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
 
   { 
     name: 'Team', 
@@ -83,7 +84,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     if (!activeWorkspaceId || access.loading) return true;
     if (isViewerOnly) return item.name === 'Dashboard' || item.name === 'Campaigns';
     if (item.name === 'Team') return access.canManageTeam;
-    if (item.name === 'Admin') return isCompanyAdmin;
+    if (item.name === 'Admin' || item.name === 'Admin Users') return isCompanyAdmin;
     if (item.name === 'Creator Library' || item.name === 'Requests') {
       return access.canViewWorkspace;
     }
@@ -92,6 +93,10 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   });
   
   const handleNavigate = (path: string) => {
+    if (path === currentPath) {
+      setSidebarOpen(false);
+      return;
+    }
     onNavigate(path);
     setSidebarOpen(false);
   };

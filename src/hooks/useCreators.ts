@@ -27,7 +27,10 @@ export function useCreators() {
       }
       return result.data || [];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -46,7 +49,10 @@ export function useCreatorsByCampaign(campaignId: string) {
       return result.data || [];
     },
     enabled: !!campaignId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -142,12 +148,64 @@ export function useCreateCreator() {
       
       return result.data!;
     },
+    onMutate: async (creator) => {
+      await queryClient.cancelQueries({ queryKey: creatorsKeys.list(activeWorkspaceId) });
+      const tempId =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `temp_${Math.random().toString(36).slice(2)}`;
+      const nowIso = new Date().toISOString();
+      const optimisticCreator = {
+        id: tempId,
+        user_id: 'pending',
+        name: creator.name || creator.handle,
+        handle: creator.handle,
+        platform: creator.platform,
+        follower_count: creator.follower_count || 0,
+        avg_engagement: 0,
+        email: creator.email || null,
+        phone: creator.phone || null,
+        niche: creator.niche || null,
+        location: creator.location || null,
+        source_type: creator.source_type || 'manual',
+        imported_by_user_id: 'pending',
+        created_by_workspace_id: activeWorkspaceId || null,
+        profile_url: null,
+        display_name: creator.name || creator.handle,
+        country: null,
+        state: null,
+        city: null,
+        contact_email: null,
+        whatsapp: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      } as any;
+
+      const key = creatorsKeys.list(activeWorkspaceId);
+      const previous = queryClient.getQueryData<any[]>(key) || [];
+      queryClient.setQueryData<any[]>(key, [optimisticCreator, ...previous]);
+
+      const withStatsKey = [...creatorsKeys.list(activeWorkspaceId), 'withStats', 'my_network'];
+      const previousWithStats = queryClient.getQueryData<any[]>(withStatsKey) || [];
+      queryClient.setQueryData<any[]>(withStatsKey, [
+        { ...optimisticCreator, campaigns: 0, totalPosts: 0 },
+        ...previousWithStats,
+      ]);
+
+      return { previous, previousWithStats, key, withStatsKey };
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
       await queryClient.refetchQueries({ queryKey: creatorsKeys.all });
       toast.success('Creator created successfully');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _creator, context) => {
+      if (context?.key) {
+        queryClient.setQueryData(context.key, context.previous || []);
+      }
+      if (context?.withStatsKey) {
+        queryClient.setQueryData(context.withStatsKey, context.previousWithStats || []);
+      }
       toast.error(`Failed to create creator: ${error.message}`);
     },
   });
@@ -174,8 +232,11 @@ export function useCreatorsWithStats(
       }
       return result.data || [];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
     enabled: options?.enabled ?? true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 

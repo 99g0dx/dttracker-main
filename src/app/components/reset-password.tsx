@@ -131,6 +131,14 @@ export function ResetPassword() {
       return;
     }
 
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData.user?.id) {
+      await supabase
+        .from('profiles')
+        .update({ require_password_change: false })
+        .eq('id', userData.user.id);
+    }
+
     toast.success("Password updated successfully");
     await supabase.auth.signOut();
     navigate("/login");

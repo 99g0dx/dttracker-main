@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -12,6 +13,7 @@ import {
 } from "./ui/dialog";
 import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
 import { CreatorHandleLink } from "./ui/creator-handle-link";
+import { CreatorCardSkeleton, TableRowSkeleton, Skeleton } from "./ui/skeleton";
 import {
   Plus,
   Search,
@@ -67,10 +69,12 @@ import {
   useCreateCreator,
   useUpdateCreator,
   useDeleteCreator,
+  creatorsKeys,
 } from "../../hooks/useCreators";
 import { CampaignCreatorSelector } from "./campaign-creator-selector";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { supabase } from "../../lib/supabase";
+import * as creatorsApi from "../../lib/api/creators";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
 import type { CreatorWithStats, Platform } from "../../lib/types/database";
@@ -78,6 +82,7 @@ import { useCart } from "../../contexts/CartContext";
 import { ReviewRequestModal } from "./review-request-modal";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
+import { useWorkspace } from "../../contexts/WorkspaceContext";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
@@ -118,6 +123,8 @@ function PlatformSelect({
 }
 
 export function Creators({ onNavigate }: CreatorsProps) {
+  const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const formatFollowers = (count: number) => {
     if (count === 0) return "0";
     if (count >= 1_000_000) {
@@ -148,6 +155,25 @@ export function Creators({ onNavigate }: CreatorsProps) {
   } = useWorkspaceAccess();
   const canViewCreators = accessLoading || canViewWorkspace;
   const canEditCreators = accessLoading || canManageCreators;
+
+  const prefetchCreators = (filter: "my_network" | "all") => {
+    queryClient.prefetchQuery({
+      queryKey: [
+        ...creatorsKeys.list(activeWorkspaceId),
+        "withStats",
+        filter,
+      ],
+      queryFn: async () => {
+        const result = await creatorsApi.listWithStats(filter, activeWorkspaceId);
+        if (result.error) {
+          throw result.error;
+        }
+        return result.data || [];
+      },
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+    });
+  };
   
   // Cart/Request state for "All Creators" tab
   const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } = useCart();
@@ -699,6 +725,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
           <div className="flex gap-2">
             <button
               onClick={() => setNetworkFilter("my_network")}
+              onMouseEnter={() => prefetchCreators("my_network")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 networkFilter === "my_network"
                   ? "bg-primary text-black"
@@ -709,6 +736,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
             </button>
             <button
               onClick={() => setNetworkFilter("all")}
+              onMouseEnter={() => prefetchCreators("all")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 networkFilter === "all"
                   ? "bg-primary text-black"
@@ -717,6 +745,20 @@ export function Creators({ onNavigate }: CreatorsProps) {
             >
               All Creators
             </button>
+          </div>
+          <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-slate-300">
+            {networkFilter === "my_network" ? (
+              <div>
+                <span className="text-white font-medium">My Network:</span>{" "}
+                Creators you add here count toward your plan and can be reused across campaigns.
+              </div>
+            ) : (
+              <div>
+                <span className="text-white font-medium">All Creators:</span>{" "}
+                Browse DTTracker’s network and request creators for a specific campaign. Requests
+                do not add creators to your network.
+              </div>
+            )}
           </div>
 
           {/* Stats */}
@@ -839,11 +881,21 @@ export function Creators({ onNavigate }: CreatorsProps) {
           </div>
           {isCreatorsLoading ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-                  <UsersIcon className="w-6 h-6 text-slate-600 animate-pulse" />
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-4 w-20" />
                 </div>
-                <p className="text-sm text-slate-400">Loading creators...</p>
+                <div className="lg:hidden grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <CreatorCardSkeleton key={i} />
+                  ))}
+                </div>
+                <div className="hidden lg:block">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <TableRowSkeleton key={i} />
+                  ))}
+                </div>
               </CardContent>
             </Card>
           ) : filteredAndSortedCreators.length > 0 ? (

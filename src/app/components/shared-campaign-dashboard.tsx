@@ -20,6 +20,7 @@ import { CampaignHeader } from "./campaign-header";
 import { CampaignKPICards } from "./campaign-kpi-cards";
 import { CampaignPerformanceChart } from "./campaign-performance-chart";
 import { CampaignPostsSection } from "./campaign-posts-section";
+import { ChartPanelSkeleton, DashboardKpiSkeleton, Skeleton } from "./ui/skeleton";
 
 interface SharedCampaignData {
   campaign: {
@@ -68,10 +69,24 @@ interface SharedCampaignData {
   };
 }
 
-const kpiPlatforms = new Set(["tiktok", "instagram"]);
+const parseChartDate = (rawDate: string) => {
+  if (!rawDate) return null;
+  const dateOnly = rawDate.split("T")[0];
+  const [year, month, day] = dateOnly.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+const formatChartDate = (date: Date) =>
+  date.toLocaleDateString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 
 function buildSeriesFromPosts(
   posts: Array<{
+    id?: string;
     platform: string;
     views: number;
     likes: number;
@@ -81,34 +96,19 @@ function buildSeriesFromPosts(
     createdAt: string;
   }>,
 ) {
-  const metricsByDate = new Map<
-    string,
-    { views: number; likes: number; comments: number; shares: number }
-  >();
+  const postsByDate = new Map<string, typeof posts>();
 
   posts.forEach((post) => {
-    if (!kpiPlatforms.has(post.platform)) return;
     const rawDate = post.postedDate || post.createdAt;
     if (!rawDate) return;
     const dateStr = rawDate.split("T")[0];
-
-    if (!metricsByDate.has(dateStr)) {
-      metricsByDate.set(dateStr, {
-        views: 0,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-      });
+    if (!postsByDate.has(dateStr)) {
+      postsByDate.set(dateStr, []);
     }
-
-    const point = metricsByDate.get(dateStr)!;
-    point.views += post.views || 0;
-    point.likes += post.likes || 0;
-    point.comments += post.comments || 0;
-    point.shares += post.shares || 0;
+    postsByDate.get(dateStr)!.push(post);
   });
 
-  const sortedDates = Array.from(metricsByDate.keys()).sort((a, b) =>
+  const sortedDates = Array.from(postsByDate.keys()).sort((a, b) =>
     a.localeCompare(b),
   );
 
@@ -119,12 +119,31 @@ function buildSeriesFromPosts(
     shares: [] as Array<{ date: string; value: number }>,
   };
 
+  const currentPosts = new Map<string, (typeof posts)[number]>();
+
   sortedDates.forEach((date) => {
-    const values = metricsByDate.get(date)!;
-    series.views.push({ date, value: values.views });
-    series.likes.push({ date, value: values.likes });
-    series.comments.push({ date, value: values.comments });
-    series.shares.push({ date, value: values.shares });
+    const dayPosts = postsByDate.get(date) || [];
+    dayPosts.forEach((post) => {
+      const key = post.id || `${post.platform}-${post.postedDate || post.createdAt}`;
+      currentPosts.set(key, post);
+    });
+
+    let views = 0;
+    let likes = 0;
+    let comments = 0;
+    let shares = 0;
+
+    currentPosts.forEach((post) => {
+      views += post.views || 0;
+      likes += post.likes || 0;
+      comments += post.comments || 0;
+      shares += post.shares || 0;
+    });
+
+    series.views.push({ date, value: views });
+    series.likes.push({ date, value: likes });
+    series.comments.push({ date, value: comments });
+    series.shares.push({ date, value: shares });
   });
 
   return series;
@@ -298,14 +317,11 @@ export function SharedCampaignDashboard() {
   }, [data?.posts, activeTab]);
 
   const totals = useMemo(() => {
-    const kpiPosts = filteredPosts.filter((post) =>
-      kpiPlatforms.has(post.platform),
-    );
     return {
-      views: kpiPosts.reduce((sum, post) => sum + (post.views || 0), 0),
-      likes: kpiPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
-      comments: kpiPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
-      shares: kpiPosts.reduce((sum, post) => sum + (post.shares || 0), 0),
+      views: filteredPosts.reduce((sum, post) => sum + (post.views || 0), 0),
+      likes: filteredPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
+      comments: filteredPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
+      shares: filteredPosts.reduce((sum, post) => sum + (post.shares || 0), 0),
     };
   }, [filteredPosts]);
 
@@ -376,19 +392,18 @@ export function SharedCampaignDashboard() {
         seriesData.comments[i]?.date ||
         seriesData.shares[i]?.date ||
         "";
+      const dateValue = parseChartDate(rawDate);
+      if (!dateValue) return null;
 
       return {
-        date: new Date(rawDate).toLocaleDateString("en-US", {
-          month: "numeric",
-          day: "numeric",
-        }),
-        dateValue: new Date(rawDate),
+        date: formatChartDate(dateValue),
+        dateValue,
         views: seriesData.views[i]?.value || 0,
         likes: seriesData.likes[i]?.value || 0,
         comments: seriesData.comments[i]?.value || 0,
         shares: seriesData.shares[i]?.value || 0,
       };
-    });
+    }).filter((point): point is ChartDataPoint => Boolean(point));
   }, [seriesData]);
 
   // Filter chart data by range
@@ -411,10 +426,22 @@ export function SharedCampaignDashboard() {
   // Show loading state (but not if password is required, as that has its own UI)
   if (isLoading && !requiresPassword && !error) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading campaign...</p>
+      <div className="min-h-screen bg-[#0A0A0A] px-4 sm:px-6 py-6">
+        <div className="mx-auto max-w-6xl space-y-6">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+          <DashboardKpiSkeleton />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartPanelSkeleton />
+            <ChartPanelSkeleton />
+          </div>
+          <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
         </div>
       </div>
     );

@@ -44,9 +44,11 @@ export async function createRequest(
     }
 
     // Extract creator_ids and optional target before inserting the request
-    const creatorIds = request.creator_ids || [];
+    const creatorIds = (request.creator_ids || []).filter(Boolean);
     const target = request.target || null;
-    const { creator_ids, target: _target, ...requestData } = request;
+    const { creator_ids, target: _target, user_id: _userId, ...requestData } = request;
+    const submissionType = request.submission_type || 'request';
+    const isSuggestion = submissionType === 'suggestion';
 
     // Insert the request
     const { data: createdRequest, error: requestError } = await supabase
@@ -54,6 +56,8 @@ export async function createRequest(
       .insert({
         ...requestData,
         user_id: user.id,
+        submission_type: submissionType,
+        status: isSuggestion ? 'suggested' : 'submitted',
       })
       .select()
       .single();
@@ -130,28 +134,29 @@ export async function createRequest(
     }
 
     // Send email notification to agency (don't fail request creation if email fails)
-    // Send email notification to agency (don't fail request creation if email fails)
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-    if (!accessToken) {
-      if (import.meta.env.DEV) {
-        console.warn('[creator-requests] Skipping email notification; no access token');
-      }
-    } else {
-      const { data, error } = await supabase.functions.invoke('create-creator-request', {
-        body: {
-          request_id: createdRequest.id,
-        },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-    
-      if (error) {
-        console.error('Email notification error:', error);
+    if (!isSuggestion) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        if (import.meta.env.DEV) {
+          console.warn('[creator-requests] Skipping email notification; no access token');
+        }
       } else {
-        console.log('Email notification sent successfully:', data);
+        const { data, error } = await supabase.functions.invoke('create-creator-request', {
+          body: {
+            request_id: createdRequest.id,
+          },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+      
+        if (error) {
+          console.error('Email notification error:', error);
+        } else {
+          console.log('Email notification sent successfully:', data);
+        }
       }
     }
   } catch (emailError) {
@@ -170,18 +175,37 @@ export async function createRequest(
 /**
  * Get all creator requests for the current user
  */
-export async function getRequests(): Promise<ApiListResponse<CreatorRequest>> {
+export async function getRequests({
+  scope = 'user',
+  workspaceId,
+}: {
+  scope?: 'user' | 'workspace';
+  workspaceId?: string | null;
+} = {}): Promise<ApiListResponse<CreatorRequest>> {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
     if (!user) {
       return { data: null, error: authError || new Error('Not authenticated') };
     }
 
-    const { data: requests, error } = await supabase
-      .from('creator_requests')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    let query = supabase.from('creator_requests');
+
+    if (scope === 'workspace') {
+      if (!workspaceId) {
+        return { data: [], error: null, count: 0 };
+      }
+      query = query
+        .select('*, campaigns!inner(workspace_id)')
+        .eq('campaigns.workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
+    } else {
+      query = query
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+    }
+
+    const { data: requests, error } = await query;
 
     if (error) {
       console.error('Error fetching creator requests:', error);
@@ -191,6 +215,149 @@ export async function getRequests(): Promise<ApiListResponse<CreatorRequest>> {
     return { data: requests || [], error: null, count: requests?.length || 0 };
   } catch (err) {
     console.error('Error in getRequests:', err);
+    return { data: null, error: err as Error };
+  }
+}
+
+export async function submitSuggestion(
+  id: string
+): Promise<ApiResponse<CreatorRequest>> {
+  try {
+    const { data, error } = await supabase
+      .from('creator_requests')
+      .update({
+        status: 'submitted',
+        submission_type: 'request',
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) {
+      return { data: null, error: error || new Error('Failed to submit suggestion') };
+    }
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (accessToken) {
+        await supabase.functions.invoke('create-creator-request', {
+          body: { request_id: id },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send email notification to agency:', emailError);
+    }
+
+    return { data, error: null };
+  } catch (err) {
+    console.error('Error in submitSuggestion:', err);
+    return { data: null, error: err as Error };
+  }
+}
+
+export async function updateSuggestionAndSubmit(
+  requestId: string,
+  request: CreatorRequestInsert
+): Promise<ApiResponse<CreatorRequestWithCreators>> {
+  try {
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (!user) {
+      return { data: null, error: authError || new Error('Not authenticated') };
+    }
+
+    const creatorIds = (request.creator_ids || []).filter(Boolean);
+    const target = request.target || null;
+    const { creator_ids, target: _target, ...requestData } = request;
+
+    const { data: updatedRequest, error: updateError } = await supabase
+      .from('creator_requests')
+      .update({
+        ...requestData,
+        submission_type: 'request',
+        status: 'submitted',
+      })
+      .eq('id', requestId)
+      .select()
+      .single();
+
+    if (updateError || !updatedRequest) {
+      return { data: null, error: updateError || new Error('Failed to update request') };
+    }
+
+    const { error: deleteError } = await supabase
+      .from('creator_request_items')
+      .delete()
+      .eq('request_id', requestId);
+
+    if (deleteError) {
+      console.error('Error clearing request items:', deleteError);
+    }
+
+    const MAX_EXPLICIT_CREATORS = 25;
+    if (creatorIds.length > 0 && creatorIds.length <= MAX_EXPLICIT_CREATORS) {
+      const items = creatorIds.map((creatorId) => ({
+        request_id: requestId,
+        creator_id: creatorId,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('creator_request_items')
+        .insert(items);
+
+      if (itemsError) {
+        console.error('Error creating request items:', itemsError);
+      }
+    }
+
+    if (target || creatorIds.length > MAX_EXPLICIT_CREATORS) {
+      const fallbackTarget = target || {
+        platform: null,
+        quantity: creatorIds.length,
+        notes: `User selected ${creatorIds.length} creators; stored as bulk target to avoid large insert.`,
+      };
+
+      const { error: targetError } = await supabase
+        .from('creator_request_targets')
+        .upsert({
+          request_id: requestId,
+          platform: fallbackTarget.platform ?? null,
+          quantity: fallbackTarget.quantity,
+          follower_min: fallbackTarget.follower_min ?? null,
+          follower_max: fallbackTarget.follower_max ?? null,
+          geo: fallbackTarget.geo ?? null,
+          budget_min: fallbackTarget.budget_min ?? null,
+          budget_max: fallbackTarget.budget_max ?? null,
+          content_types: fallbackTarget.content_types ?? null,
+          notes: fallbackTarget.notes ?? null,
+        });
+
+      if (targetError) {
+        console.error('Error creating request target:', targetError);
+      }
+    }
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (accessToken) {
+        await supabase.functions.invoke('create-creator-request', {
+          body: { request_id: requestId },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send email notification to agency:', emailError);
+    }
+
+    return await getRequestWithCreators(requestId);
+  } catch (err) {
+    console.error('Error in updateSuggestionAndSubmit:', err);
     return { data: null, error: err as Error };
   }
 }
@@ -237,6 +404,7 @@ export async function getRequestWithCreators(
       .select(`
         id,
         creator_id,
+        status,
         created_at,
         creators:creator_id (
           id,

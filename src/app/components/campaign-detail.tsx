@@ -31,7 +31,7 @@ import {
   normalizePlatform,
   getPlatformLabel,
 } from "./ui/PlatformIcon";
-import { CampaignHeaderSkeleton, PostRowSkeleton } from "./ui/skeleton";
+import { CampaignHeaderSkeleton, PostRowSkeleton, DashboardKpiSkeleton, ChartPanelSkeleton } from "./ui/skeleton";
 import { cn } from "./ui/utils";
 import {
   Select,
@@ -71,15 +71,15 @@ import {
 import { useScrapeAllPosts, useScrapePost } from "../../hooks/useScraping";
 import { addNotification } from "../../lib/utils/notifications";
 import { useCreatorsByCampaign, useRemoveCreatorFromCampaign } from "../../hooks/useCreators";
+import { useCreatorRequests } from "../../hooks/useCreatorRequests";
 import * as csvUtils from "../../lib/utils/csv";
-import type { CSVImportResult } from "../../lib/types/database";
+import type { CSVImportResult, CreatorRequestWithCreators } from "../../lib/types/database";
 import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
+import { CreatorRequestChatbot } from "./creator-request-chatbot";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
 import { SubcampaignSection } from "./subcampaign-section";
-import { CampaignSoundSection } from "./campaign-sound-section";
-import { SoundIngest } from "./sound-ingest";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -102,13 +102,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import {
-  useSound,
-  useSoundVideos,
-  useLinkSoundToCampaign,
-  useUnlinkSoundFromCampaign,
-  useRefreshSound,
-} from "../../hooks/useSounds";
 import type { Creator } from "../../lib/types/database";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
@@ -129,6 +122,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     useState(false);
   const [showImportPostsDialog, setShowImportPostsDialog] = useState(false);
   const [showAddPostDialog, setShowAddPostDialog] = useState(false);
+  const [showRequestCreatorDialog, setShowRequestCreatorDialog] = useState(false);
   const [showScrapeAllDialog, setShowScrapeAllDialog] = useState(false);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [showDeletePostDialog, setShowDeletePostDialog] = useState<
@@ -137,7 +131,6 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [showDeleteCampaignDialog, setShowDeleteCampaignDialog] =
     useState(false);
   const [showShareLinkModal, setShowShareLinkModal] = useState(false);
-  const [showAddSoundDialog, setShowAddSoundDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<CSVImportResult | null>(
@@ -275,22 +268,103 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     refetch: refetchPosts,
   } = usePosts(id, Boolean(isParent));
   const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
-  const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
+  const { data: chartData = [], isLoading: chartLoading } = useCampaignMetricsTimeSeries(id);
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
+  const { data: creatorRequests = [] } = useCreatorRequests();
+  const campaignRequests = React.useMemo(() => {
+    if (!id) return [];
+    return creatorRequests.filter((request) => request.campaign_id === id);
+  }, [creatorRequests, id]);
+  const [campaignRequestDetails, setCampaignRequestDetails] = useState<
+    Array<
+      CreatorRequestWithCreators & {
+        creator_request_items?: Array<{
+          status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
+          creators?: { id: string; name?: string | null; handle?: string | null } | null;
+        }>;
+      }
+    >
+  >([]);
+  useEffect(() => {
+    const loadDetails = async () => {
+      if (campaignRequests.length === 0) {
+        setCampaignRequestDetails([]);
+        return;
+      }
+      const { data: requestDetails } = await supabase
+        .from("creator_requests")
+        .select(
+          `id, status, campaign_type, created_at, campaign_id,
+           creator_request_items(
+             status,
+             creators:creator_id(id, name, handle, platform)
+           )`
+        )
+        .in(
+          "id",
+          campaignRequests.map((request) => request.id)
+        );
 
-  // Sound tracking hooks
-  const { 
-    data: linkedSound, 
-    isLoading: soundLoading, 
-    error: soundError 
-  } = useSound(campaign?.sound_id);
-  const { 
-    data: soundVideos = [], 
-    isLoading: videosLoading 
-  } = useSoundVideos(campaign?.sound_id, 'views');
-  const linkSoundMutation = useLinkSoundToCampaign();
-  const unlinkSoundMutation = useUnlinkSoundFromCampaign();
-  const refreshSoundMutation = useRefreshSound();
+      if (!requestDetails) {
+        setCampaignRequestDetails([]);
+        return;
+      }
+
+      const mapped = (requestDetails as any[]).map((request) => ({
+        ...request,
+        creators: (request.creator_request_items || [])
+          .map((item: any) => item.creators)
+          .filter(Boolean),
+      }));
+      setCampaignRequestDetails(mapped);
+    };
+
+    loadDetails();
+  }, [campaignRequests]);
+
+  const requestedCreatorRows = React.useMemo(() => {
+    const rows: Array<{
+      requestId: string;
+      requestedAt: string;
+      requestStatus?: string | null;
+      campaignType?: string | null;
+      creatorName: string;
+      creatorHandle?: string | null;
+      creatorStatus?: string | null;
+    }> = [];
+
+    campaignRequestDetails.forEach((request) => {
+      const items = request.creator_request_items || [];
+      if (items.length === 0) {
+        rows.push({
+          requestId: request.id,
+          requestedAt: request.created_at,
+          requestStatus: request.status,
+          campaignType: request.campaign_type,
+          creatorName: "No creators selected",
+          creatorHandle: null,
+          creatorStatus: null,
+        });
+        return;
+      }
+
+      items.forEach((item) => {
+        const creator = item.creators;
+        rows.push({
+          requestId: request.id,
+          requestedAt: request.created_at,
+          requestStatus: request.status,
+          campaignType: request.campaign_type,
+          creatorName: creator?.name || creator?.handle || "Unknown creator",
+          creatorHandle: creator?.handle || null,
+          creatorStatus: item.status || "pending",
+        });
+      });
+    });
+
+    return rows;
+  }, [campaignRequestDetails]);
+
 
   const derivedCampaignStatus = React.useMemo(() => {
     if (!campaign) return null;
@@ -1691,67 +1765,71 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       )}
 
       {/* KPI Cards - Performance Metrics */}
-      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+      {chartLoading ? (
+        <DashboardKpiSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-3 sm:p-5">
+              <div className="flex items-start justify-between mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                </div>
               </div>
-            </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-              {(filteredMetrics.total_views ?? 0).toLocaleString()}
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
-          </CardContent>
-        </Card>
+              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+                {(filteredMetrics.total_views ?? 0).toLocaleString()}
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-3 sm:p-5">
+              <div className="flex items-start justify-between mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+                  <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
+                </div>
               </div>
-            </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-              {(filteredMetrics.total_likes ?? 0).toLocaleString()}
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
-          </CardContent>
-        </Card>
+              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+                {(filteredMetrics.total_likes ?? 0).toLocaleString()}
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-3 sm:p-5">
+              <div className="flex items-start justify-between mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+                </div>
               </div>
-            </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-              {(filteredMetrics.total_comments ?? 0).toLocaleString()}
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400">
-              Total Comments
-            </p>
-          </CardContent>
-        </Card>
+              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+                {(filteredMetrics.total_comments ?? 0).toLocaleString()}
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400">
+                Total Comments
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-3 sm:p-5">
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <CardContent className="p-3 sm:p-5">
+              <div className="flex items-start justify-between mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                </div>
               </div>
-            </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-              {(filteredMetrics.total_shares ?? 0).toLocaleString()}
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400">
-              Total Shares
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+                {(filteredMetrics.total_shares ?? 0).toLocaleString()}
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400">
+                Total Shares
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Chart Range Selector */}
       <div className="flex flex-wrap items-center gap-2">
@@ -1783,7 +1861,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </div>
       </div>
 
-      {chartsReady ? (
+      {chartsReady && !chartLoading ? (
         <>
           {/* Performance Charts */}
           {/* Mobile: Tabbed Interface */}
@@ -2170,11 +2248,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       </div>
         </>
       ) : (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <div className="text-sm text-slate-400">Loading charts...</div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartPanelSkeleton />
+          <ChartPanelSkeleton />
+          <ChartPanelSkeleton />
+          <ChartPanelSkeleton />
+        </div>
       )}
 
       {isParent && campaign && (
@@ -2185,76 +2264,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         />
       )}
 
-      {/* Sound Tracking Section */}
-      {campaign && (
-        <>
-          <CampaignSoundSection
-            campaignId={campaign.id}
-            sound={linkedSound || null}
-            soundVideos={soundVideos}
-            loading={refreshSoundMutation.isPending || soundLoading || videosLoading}
-            onAddSound={() => setShowAddSoundDialog(true)}
-            onRemoveSound={() => {
-              if (confirm('Remove sound from this campaign?')) {
-                unlinkSoundMutation.mutate(campaign.id)
-              }
-            }}
-            onRefreshSound={() => {
-              if (linkedSound?.id) {
-                refreshSoundMutation.mutate(linkedSound.id)
-              } else if (campaign?.sound_id) {
-                // If sound_id exists but sound data isn't loaded, try to refresh
-                refreshSoundMutation.mutate(campaign.sound_id)
-              }
-            }}
-          />
-
-          {/* Add Sound Dialog */}
-          <Dialog open={showAddSoundDialog} onOpenChange={setShowAddSoundDialog}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Link Sound to Campaign</DialogTitle>
-                <DialogDescription>
-                  Paste a TikTok or Instagram link to start tracking the sound used in that post.
-                </DialogDescription>
-              </DialogHeader>
-              <SoundIngest
-                campaignId={campaign.id}
-                onSuccess={() => {
-                  setShowAddSoundDialog(false)
-                  // Refresh campaign data to show linked sound
-                  queryClient.invalidateQueries({
-                    queryKey: campaignsKeys.detail(campaign.id),
-                  })
-                  // Also invalidate sound queries
-                  queryClient.invalidateQueries({
-                    queryKey: ['sounds'],
-                  })
-                }}
-                onSoundDetected={async (sound) => {
-                  // The sound-tracking function should have already linked it,
-                  // but link it again as a fallback to ensure it's linked
-                  if (campaign?.id && sound.id) {
-                    try {
-                      await linkSoundMutation.mutateAsync({
-                        campaignId: campaign.id,
-                        soundId: sound.id,
-                        soundUrl: sound.sound_page_url || undefined,
-                      })
-                    } catch (error) {
-                      // If linking fails, it might already be linked, which is fine
-                      console.log('Sound may already be linked:', error)
-                    }
-                  }
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-        </>
-      )}
 
       {/* Creators Section */}
-      {campaignCreators.length > 0 && (
+      {(campaignCreators.length > 0 || campaignRequests.length > 0) && (
         <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
           <CardContent className="p-5 md:p-6">
             {/* Header Section */}
@@ -2269,6 +2281,162 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     : `${uniqueRosterCreators.length} of ${uniqueRosterCreators.length} Active Participants`}
                 </p>
               </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRequestCreatorDialog(true)}
+                  className="h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                >
+                  Request creator
+                </Button>
+                <p className="text-xs text-slate-400 self-center">
+                  Requests add creators only to this campaign after approval.
+                </p>
+              </div>
+
+              {/* Requested Creators */}
+              {requestedCreatorRows.length > 0 && (
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div>
+                      <div className="text-sm font-semibold text-white">
+                        Requested Creators
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Each creator can move independently through approval.
+                      </p>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {requestedCreatorRows.length} creator
+                      {requestedCreatorRows.length === 1 ? "" : "s"} requested
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+                    <div className="hidden md:block max-h-72 overflow-auto">
+                      <table className="min-w-[560px] w-full text-sm">
+                        <thead className="bg-white/[0.03] text-slate-400 sticky top-0 z-10">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-medium">Creator</th>
+                            <th className="text-left px-3 py-2 font-medium">Creator Status</th>
+                            <th className="text-left px-3 py-2 font-medium">Request Status</th>
+                            <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Type</th>
+                            <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Submitted</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {requestedCreatorRows.map((row, index) => {
+                            const creatorStatus = (row.creatorStatus || "pending").replace("_", " ");
+                            const requestStatus =
+                              row.requestStatus === "suggested"
+                                ? "Owner approval pending"
+                                : row.requestStatus?.replace("_", " ") || "submitted";
+                            const creatorStatusTone = {
+                              pending: "bg-amber-500/10 text-amber-300 border-amber-400/30",
+                              accepted: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
+                              approved: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
+                              rejected: "bg-red-500/10 text-red-300 border-red-400/30",
+                              quoted: "bg-blue-500/10 text-blue-300 border-blue-400/30",
+                            }[creatorStatus] || "bg-white/5 text-slate-300 border-white/10";
+
+                            const requestStatusTone =
+                              row.requestStatus === "suggested"
+                                ? "bg-amber-500/10 text-amber-300 border-amber-400/30"
+                                : "bg-white/5 text-slate-300 border-white/10";
+
+                            return (
+                              <tr
+                                key={`${row.requestId}-${row.creatorName}-${index}`}
+                                className="border-t border-white/[0.06]"
+                              >
+                                <td className="px-3 py-3">
+                                  <div className="text-slate-100 font-medium">{row.creatorName}</div>
+                                  {row.creatorHandle && (
+                                    <div className="text-xs text-slate-500">@{row.creatorHandle}</div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-3">
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${creatorStatusTone}`}
+                                  >
+                                    {creatorStatus}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${requestStatusTone}`}
+                                  >
+                                    {requestStatus}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3 text-slate-400 hidden md:table-cell">
+                                  {row.campaignType?.replace("_", " ") || "N/A"}
+                                </td>
+                                <td className="px-3 py-3 text-slate-400 hidden lg:table-cell">
+                                  {new Date(row.requestedAt).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="md:hidden max-h-80 overflow-auto divide-y divide-white/[0.06]">
+                      {requestedCreatorRows.map((row, index) => {
+                        const creatorStatus = (row.creatorStatus || "pending").replace("_", " ");
+                        const requestStatus =
+                          row.requestStatus === "suggested"
+                            ? "Owner approval pending"
+                            : row.requestStatus?.replace("_", " ") || "submitted";
+                        const creatorStatusTone = {
+                          pending: "bg-amber-500/10 text-amber-300 border-amber-400/30",
+                          accepted: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
+                          approved: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
+                          rejected: "bg-red-500/10 text-red-300 border-red-400/30",
+                          quoted: "bg-blue-500/10 text-blue-300 border-blue-400/30",
+                        }[creatorStatus] || "bg-white/5 text-slate-300 border-white/10";
+                        const requestStatusTone =
+                          row.requestStatus === "suggested"
+                            ? "bg-amber-500/10 text-amber-300 border-amber-400/30"
+                            : "bg-white/5 text-slate-300 border-white/10";
+                        return (
+                          <div key={`${row.requestId}-mobile-${index}`} className="p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <div className="text-sm font-semibold text-white">{row.creatorName}</div>
+                                {row.creatorHandle && (
+                                  <div className="text-xs text-slate-500">@{row.creatorHandle}</div>
+                                )}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {new Date(row.requestedAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${creatorStatusTone}`}
+                              >
+                                {creatorStatus}
+                              </span>
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${requestStatusTone}`}
+                              >
+                                {requestStatus}
+                              </span>
+                              <span className="text-xs text-slate-400">
+                                {row.campaignType?.replace("_", " ") || "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-500">
+                    Approved creators are added to this campaign roster automatically.
+                  </div>
+                </div>
+              )}
 
               {/* Optimized Filters */}
               <div className="flex flex-col gap-3">
@@ -2404,7 +2572,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               )}
                             >
                               {/* Remove Button */}
-                              {canEditThisCampaign && (
+                              {isOwner && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -3542,6 +3710,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       name: activeCreator.name,
                     })
                   }
+                  disabled={!isOwner}
                   className="w-full sm:w-auto"
                 >
                   Delete Creator
@@ -3797,6 +3966,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           onClose={() => setShowAddPostDialog(false)}
           campaignId={id}
           campaignCreators={campaignCreators}
+        />
+      )}
+      {id && (
+        <CreatorRequestChatbot
+          open={showRequestCreatorDialog}
+          onOpenChange={setShowRequestCreatorDialog}
+          onComplete={() => setShowRequestCreatorDialog(false)}
+          campaignId={id}
         />
       )}
 

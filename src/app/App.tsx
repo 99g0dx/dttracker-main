@@ -16,6 +16,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useWorkspace } from "../contexts/WorkspaceContext";
 import { cn } from "./components/ui/utils";
 import { Requests } from "./components/requests";
+import { RouteProgress } from "./components/ui/route-progress";
 
 const Dashboard = React.lazy(() =>
   import("./components/dashboard").then((module) => ({
@@ -127,6 +128,11 @@ const AdminDashboard = React.lazy(() =>
     default: module.AdminDashboard,
   }))
 );
+const AdminUsers = React.lazy(() =>
+  import("./components/admin-users").then((module) => ({
+    default: module.AdminUsers,
+  }))
+);
 const SoundTrackNew = React.lazy(() =>
   import("./components/sound-track-new").then((module) => ({
     default: module.SoundTrackNew,
@@ -155,6 +161,7 @@ function AppRoutes() {
   const { isSwitching } = useWorkspace();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [routeProgress, setRouteProgress] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
@@ -173,6 +180,12 @@ function AppRoutes() {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, []);
+
+  React.useEffect(() => {
+    setRouteProgress(true);
+    const timer = window.setTimeout(() => setRouteProgress(false), 650);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname]);
 
   const isPublicRoute =
     [
@@ -203,6 +216,7 @@ function AppRoutes() {
 
   return (
     <ToastProvider>
+      <RouteProgress isActive={routeProgress || isSwitching} />
       <div className="dark min-h-[100dvh] w-full overflow-hidden bg-[#0A0A0A] text-foreground flex flex-col">
         {!isPublicRoute && (
           <>
@@ -291,6 +305,16 @@ function AppRoutes() {
                     <ProtectedRoute>
                       <CompanyAdminRoute>
                         <AdminDashboard onNavigate={(path) => navigate(path)} />
+                      </CompanyAdminRoute>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <ProtectedRoute>
+                      <CompanyAdminRoute>
+                        <AdminUsers onNavigate={(path) => navigate(path)} />
                       </CompanyAdminRoute>
                     </ProtectedRoute>
                   }

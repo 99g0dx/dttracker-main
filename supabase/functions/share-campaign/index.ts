@@ -278,16 +278,12 @@ serve(async (req) => {
       });
     }
 
-    // Calculate totals (only from KPI platforms: TikTok and Instagram)
-    const kpiPosts = (posts || []).filter((p) =>
-      ["tiktok", "instagram"].includes(p.platform)
-    );
-
+    // Calculate totals across all posts (all platforms)
     const totals = {
-      views: kpiPosts.reduce((sum, p) => sum + (p.views || 0), 0),
-      likes: kpiPosts.reduce((sum, p) => sum + (p.likes || 0), 0),
-      comments: kpiPosts.reduce((sum, p) => sum + (p.comments || 0), 0),
-      shares: kpiPosts.reduce((sum, p) => sum + (p.shares || 0), 0),
+      views: (posts || []).reduce((sum, p) => sum + (p.views || 0), 0),
+      likes: (posts || []).reduce((sum, p) => sum + (p.likes || 0), 0),
+      comments: (posts || []).reduce((sum, p) => sum + (p.comments || 0), 0),
+      shares: (posts || []).reduce((sum, p) => sum + (p.shares || 0), 0),
     };
 
     // Fetch time series data from post_metrics
@@ -295,6 +291,7 @@ serve(async (req) => {
       .from("post_metrics")
       .select(
         `
+        post_id,
         views,
         likes,
         comments,
@@ -304,7 +301,6 @@ serve(async (req) => {
       `
       )
       .in("posts.campaign_id", campaignIds)
-      .in("posts.platform", ["tiktok", "instagram"])
       .order("scraped_at", { ascending: true });
 
     // Build time series data
@@ -316,51 +312,49 @@ serve(async (req) => {
     };
 
     if (!metricsError && metricsHistory && metricsHistory.length > 0) {
-      const metricsByDate = new Map<
-        string,
-        {
-          views: number;
-          likes: number;
-          comments: number;
-          shares: number;
-        }
-      >();
+      const metricsByDate = new Map<string, any[]>();
 
       metricsHistory.forEach((metric: any) => {
         const dateStr = metric.scraped_at
           ? metric.scraped_at.split("T")[0]
           : null;
         if (!dateStr) return;
-
         if (!metricsByDate.has(dateStr)) {
-          metricsByDate.set(dateStr, {
-            views: 0,
-            likes: 0,
-            comments: 0,
-            shares: 0,
-          });
+          metricsByDate.set(dateStr, []);
         }
-
-        const point = metricsByDate.get(dateStr)!;
-        point.views += Number(metric.views || 0);
-        point.likes += Number(metric.likes || 0);
-        point.comments += Number(metric.comments || 0);
-        point.shares += Number(metric.shares || 0);
+        metricsByDate.get(dateStr)!.push(metric);
       });
 
-      // Convert to array format
-      Array.from(metricsByDate.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .forEach(([date, values]) => {
-          seriesData.views.push({ date, value: values.views });
-          seriesData.likes.push({ date, value: values.likes });
-          seriesData.comments.push({ date, value: values.comments });
-          seriesData.shares.push({ date, value: values.shares });
+      const sortedDates = Array.from(metricsByDate.keys()).sort();
+      const currentPostMetrics = new Map<string, any>();
+
+      sortedDates.forEach((date) => {
+        const dayMetrics = metricsByDate.get(date) || [];
+        dayMetrics.forEach((m) => {
+          currentPostMetrics.set(m.post_id, m);
         });
+
+        let views = 0,
+          likes = 0,
+          comments = 0,
+          shares = 0;
+
+        currentPostMetrics.forEach((m) => {
+          views += Number(m.views || 0);
+          likes += Number(m.likes || 0);
+          comments += Number(m.comments || 0);
+          shares += Number(m.shares || 0);
+        });
+
+        seriesData.views.push({ date, value: views });
+        seriesData.likes.push({ date, value: likes });
+        seriesData.comments.push({ date, value: comments });
+        seriesData.shares.push({ date, value: shares });
+      });
     } else {
-      // Fallback: use current post data grouped by date
-      const postsByDate = new Map<string, typeof kpiPosts>();
-      kpiPosts.forEach((post: any) => {
+      // Fallback: use current post data grouped by date, fill-forward for cumulative totals
+      const postsByDate = new Map<string, any[]>();
+      (posts || []).forEach((post: any) => {
         const dateStr = post.posted_date
           ? post.posted_date.split("T")[0]
           : post.created_at
@@ -373,26 +367,32 @@ serve(async (req) => {
         postsByDate.get(dateStr)!.push(post);
       });
 
-      Array.from(postsByDate.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .forEach(([date, datePosts]) => {
-          seriesData.views.push({
-            date,
-            value: datePosts.reduce((sum, p) => sum + (p.views || 0), 0),
-          });
-          seriesData.likes.push({
-            date,
-            value: datePosts.reduce((sum, p) => sum + (p.likes || 0), 0),
-          });
-          seriesData.comments.push({
-            date,
-            value: datePosts.reduce((sum, p) => sum + (p.comments || 0), 0),
-          });
-          seriesData.shares.push({
-            date,
-            value: datePosts.reduce((sum, p) => sum + (p.shares || 0), 0),
-          });
+      const sortedDates = Array.from(postsByDate.keys()).sort();
+      const currentPosts = new Map<string, any>();
+
+      sortedDates.forEach((date) => {
+        const dayPosts = postsByDate.get(date) || [];
+        dayPosts.forEach((p) => {
+          currentPosts.set(p.id, p);
         });
+
+        let views = 0,
+          likes = 0,
+          comments = 0,
+          shares = 0;
+
+        currentPosts.forEach((p) => {
+          views += Number(p.views || 0);
+          likes += Number(p.likes || 0);
+          comments += Number(p.comments || 0);
+          shares += Number(p.shares || 0);
+        });
+
+        seriesData.views.push({ date, value: views });
+        seriesData.likes.push({ date, value: likes });
+        seriesData.comments.push({ date, value: comments });
+        seriesData.shares.push({ date, value: shares });
+      });
     }
 
     // Sanitize response - only return safe, public fields

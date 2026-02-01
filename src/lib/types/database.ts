@@ -18,7 +18,14 @@ export type TeamRole =
   | "agency_ops";
 export type MemberStatus = "active" | "pending";
 export type ScopeType = "workspace" | "campaign" | "calendar";
-export type CreatorRequestStatus = "submitted" | "reviewing" | "quoted" | "approved" | "in_fulfillment" | "delivered";
+export type CreatorRequestStatus =
+  | "suggested"
+  | "submitted"
+  | "reviewing"
+  | "quoted"
+  | "approved"
+  | "in_fulfillment"
+  | "delivered";
 export type CampaignType = "music_promotion" | "brand_promotion" | "product_launch" | "event_activation" | "other";
 export type UsageRights = "creator_page_only" | "repost_brand_pages" | "run_ads" | "all_above";
 export type Urgency = "normal" | "fast_turnaround" | "asap";
@@ -34,6 +41,7 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   onboarding_completed: boolean;
+  require_password_change?: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -245,6 +253,9 @@ export interface CampaignShareLink {
 export interface CreatorRequest {
   id: string;
   user_id: string;
+  submission_type?: "request" | "suggestion" | null;
+  suggestion_reason?: string | null;
+  campaign_id?: string | null;
   status: CreatorRequestStatus;
   campaign_type?: CampaignType | null;
   campaign_brief?: string | null;
@@ -267,6 +278,7 @@ export interface CreatorRequestItem {
   id: string;
   request_id: string;
   creator_id: string;
+  status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
   created_at: string;
 }
 
@@ -279,6 +291,7 @@ export interface ProfileInsert {
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
+  require_password_change?: boolean | null;
 }
 
 export interface CreatorInsert {
@@ -383,6 +396,9 @@ export interface CampaignShareLinkInsert {
 
 export interface CreatorRequestInsert {
   user_id: string;
+  submission_type?: "request" | "suggestion" | null;
+  suggestion_reason?: string | null;
+  campaign_id?: string | null;
   campaign_type?: CampaignType | null;
   campaign_brief?: string | null;
   song_asset_links?: string[] | null;
@@ -412,6 +428,7 @@ export interface CreatorRequestInsert {
 export interface CreatorRequestItemInsert {
   request_id: string;
   creator_id: string;
+  status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
 }
 
 // ============================================================
@@ -422,6 +439,7 @@ export interface ProfileUpdate {
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
+  require_password_change?: boolean | null;
 }
 
 export interface CreatorUpdate {
@@ -492,6 +510,9 @@ export interface CampaignShareLinkUpdate {
 }
 
 export interface CreatorRequestUpdate {
+  submission_type?: "request" | "suggestion" | null;
+  suggestion_reason?: string | null;
+  campaign_id?: string | null;
   campaign_type?: CampaignType | null;
   campaign_brief?: string | null;
   song_asset_links?: string[] | null;
