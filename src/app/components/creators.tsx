@@ -83,6 +83,7 @@ import { ReviewRequestModal } from "./review-request-modal";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
+import { useBillingSummary } from "../../hooks/useBilling";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
@@ -165,7 +166,21 @@ export function Creators({ onNavigate }: CreatorsProps) {
     canManageCreators,
     canExportData,
   } = useWorkspaceAccess();
-  const canViewCreators = accessLoading || canViewWorkspace;
+  const { data: billing, isLoading: billingLoading } = useBillingSummary();
+  const subscriptionStatus = billing?.subscription?.status ?? "active";
+  const trialExpired =
+    subscriptionStatus === "trialing" && (billing?.days_until_period_end ?? 0) <= 0;
+  const freeBlocked =
+    billing?.plan?.tier === "free" && !billing?.is_paid && !billing?.is_trialing;
+  const subscriptionBlocked =
+    ["past_due", "canceled", "incomplete"].includes(subscriptionStatus) ||
+    trialExpired ||
+    freeBlocked;
+  const canViewCreators =
+    accessLoading ||
+    billingLoading ||
+    canViewWorkspace ||
+    !subscriptionBlocked;
   const canEditCreators = accessLoading || canManageCreators;
 
   const prefetchCreators = (filter: "my_network" | "all") => {

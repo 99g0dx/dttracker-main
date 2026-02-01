@@ -83,12 +83,9 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
     // Hide coming soon features
     if (item.tag === 'Coming soon') return false;
     if (!activeWorkspaceId || access.loading) return true;
-    if (isViewerOnly) return item.name === 'Dashboard' || item.name === 'Campaigns';
+    if (isViewerOnly) return (item.name === 'Dashboard' || item.name === 'Campaigns' || item.name === 'Creator Library' || item.name === 'Requests' || item.name === 'Settings');
     if (item.name === 'Team') return access.canManageTeam;
     if (item.name === 'Admin' || item.name === 'Admin Users') return isCompanyAdmin;
-    if (item.name === 'Creator Library' || item.name === 'Requests') {
-      return access.canViewWorkspace;
-    }
     if (item.name === 'Campaigns') return canSeeCampaigns;
     return true;
   });
@@ -399,7 +396,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium text-white truncate">{userName}</p>
               <p className="text-[11px] text-slate-500 truncate">
-                {billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency'
+                {(billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency') && billing?.plan?.tier === 'agency'
                   ? 'Agency'
                   : billing?.plan?.tier
                     ? `${billing.plan.tier.charAt(0).toUpperCase() + billing.plan.tier.slice(1)} Plan`
