@@ -83,17 +83,17 @@ export async function list(
     }
 
     // Log for debugging
-    console.log('Campaigns query result:', {
-      user_id: user.id,
-      campaigns_count: campaigns?.length || 0,
-      campaigns: campaigns?.map(c => ({ id: c.id, name: c.name })) || []
-    });
+    // console.log('Campaigns query result:', {
+    //   user_id: user.id,
+    //   campaigns_count: campaigns?.length || 0,
+    //   campaigns: campaigns?.map(c => ({ id: c.id, name: c.name })) || []
+    // });
     
-    if (!campaigns || campaigns.length === 0) {
-      console.log('No campaigns found for user:', user.id);
-    } else {
-      console.log(`Found ${campaigns.length} campaign(s) for user:`, user.id);
-    }
+    // if (!campaigns || campaigns.length === 0) {
+    //   console.log('No campaigns found for user:', user.id);
+    // } else {
+    //   console.log(`Found ${campaigns.length} campaign(s) for user:`, user.id);
+    // }
 
     // Transform data to include computed stats
     // Handle cases where nested queries might return null or error

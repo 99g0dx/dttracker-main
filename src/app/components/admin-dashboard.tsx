@@ -638,12 +638,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     return `${value}`;
   };
 
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    console.log('[Admin Chart] metric', activeMetricKey);
-    console.log('[Admin Chart] timeSeries sample', timeSeries.slice(-5));
-    console.log('[Admin Chart] chartData sample', chartData.slice(-5));
-  }, [activeMetricKey, timeSeries, chartData]);
+  // Debug logging removed for production readiness
 
   const requestDetailKey = (requestId: string) => ['admin_request_detail', requestId] as const;
 

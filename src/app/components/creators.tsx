@@ -144,6 +144,18 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [shouldFetch, setShouldFetch] = useState(false);
   const { data: creators = [], isLoading } =
     useCreatorsWithStats(networkFilter, { enabled: shouldFetch });
+  const { data: networkCreators = [] } = useCreatorsWithStats("my_network", {
+    enabled: shouldFetch && networkFilter === "all",
+  });
+  const networkCreatorIds = useMemo(
+    () => new Set(networkCreators.map((creator) => creator.id)),
+    [networkCreators]
+  );
+  const baseCreators = useMemo(() => {
+    if (networkFilter !== "all") return creators;
+    if (!networkCreators.length) return creators;
+    return creators.filter((creator) => !networkCreatorIds.has(creator.id));
+  }, [creators, networkCreators.length, networkCreatorIds, networkFilter]);
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
@@ -240,18 +252,18 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
   // Extract unique niches and locations for dropdown options
   const uniqueNiches = useMemo(() => {
-    const niches = creators
+    const niches = baseCreators
       .map((c) => c.niche)
       .filter((niche): niche is string => !!niche && niche.trim() !== "");
     return ["all", ...Array.from(new Set(niches)).sort()];
-  }, [creators]);
+  }, [baseCreators]);
 
   const uniqueLocations = useMemo(() => {
-    const locations = creators
+    const locations = baseCreators
       .map((c) => c.location)
       .filter((location): location is string => !!location && location.trim() !== "");
     return ["all", ...Array.from(new Set(locations)).sort()];
-  }, [creators]);
+  }, [baseCreators]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -291,7 +303,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
   // Filter and sort creators
   const filteredAndSortedCreators = useMemo(() => {
-    let filtered = creators;
+    let filtered = baseCreators;
 
     // Platform filter (multi-select)
     if (selectedPlatforms.length > 0) {
@@ -380,7 +392,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
     return filtered;
   }, [
-    creators,
+    baseCreators,
     selectedPlatforms,
     selectedNiche,
     selectedLocation,
@@ -606,12 +618,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
       toast.error("Only workspace owners can export raw data.");
       return;
     }
-    if (creators.length === 0) {
+    if (baseCreators.length === 0) {
       toast.error("No creators to export");
       return;
     }
 
-    const csvContent = csvUtils.exportCreatorsToCSV(creators);
+    const csvContent = csvUtils.exportCreatorsToCSV(baseCreators);
     const filename = `creators_export_${
       new Date().toISOString().split("T")[0]
     }.csv`;
@@ -709,7 +721,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 {networkFilter === "my_network" && (
                   <DropdownMenuItem
                     onSelect={handleExportCSV}
-                    disabled={creators.length === 0 || isCreatorsLoading || !canExportData}
+                    disabled={baseCreators.length === 0 || isCreatorsLoading || !canExportData}
                   >
                     <Download className="w-4 h-4" />
                     Export CSV
@@ -766,7 +778,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="text-2xl font-semibold text-white">
-                  {creators.length}
+                  {baseCreators.length}
                 </div>
                 <p className="text-sm text-slate-400 mt-1">Total Creators</p>
               </CardContent>
@@ -775,7 +787,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="text-2xl font-semibold text-purple-400">
-                  {creators.reduce((sum, c) => sum + c.totalPosts, 0)}
+                  {baseCreators.reduce((sum, c) => sum + c.totalPosts, 0)}
                 </div>
                 <p className="text-sm text-slate-400 mt-1">Total Posts</p>
               </CardContent>
@@ -852,7 +864,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               searchQuery) && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
                 <span>
-                  Showing {filteredAndSortedCreators.length} of {creators.length}
+                  Showing {filteredAndSortedCreators.length} of {baseCreators.length}
                 </span>
                 <span className="text-slate-500">•</span>
                 {selectedPlatforms.length > 0 && (
