@@ -49,22 +49,12 @@ import type { PostWithRankings } from "../../lib/types/database";
 
 // Check if platform is included in KPI calculations
 const isKpiPlatform = (platform: string): boolean => {
-  const kpiPlatforms = [
-    "tiktok",
-    "instagram",
-    "youtube",
-  ];
+  const kpiPlatforms = ["tiktok", "instagram", "youtube", "twitter", "facebook"];
   return kpiPlatforms.includes(platform?.toLowerCase());
 };
 
 // Calculate post score for ranking
-const calculatePostScore = (post: {
-  views?: number;
-  likes?: number;
-  comments?: number;
-  shares?: number;
-  engagement_rate?: number;
-}): number => {
+const calculatePostScore = (post: { views?: number; likes?: number; comments?: number; shares?: number; engagement_rate?: number }): number => {
   const views = post.views || 0;
   const likes = post.likes || 0;
   const comments = post.comments || 0;
@@ -167,9 +157,7 @@ export function CampaignPostsSection({
       });
     }
     if (postCreatorFilter !== "all") {
-      const creator = postCreatorOptions.find(
-        (c) => c.id === postCreatorFilter,
-      );
+      const creator = postCreatorOptions.find((c) => c.id === postCreatorFilter);
       filters.push({
         key: "creator",
         label: `Creator: ${creator?.name || "Unknown"}`,
@@ -189,13 +177,7 @@ export function CampaignPostsSection({
       });
     }
     return filters;
-  }, [
-    postPlatformFilter,
-    postStatusFilter,
-    postCreatorFilter,
-    postDateFilter,
-    postCreatorOptions,
-  ]);
+  }, [postPlatformFilter, postStatusFilter, postCreatorFilter, postDateFilter, postCreatorOptions]);
 
   // Filter and sort posts
   const filteredPosts = useMemo(() => {
@@ -207,11 +189,8 @@ export function CampaignPostsSection({
         const searchLower = searchQuery.trim().toLowerCase();
         if (!searchLower) return true;
         const name = post.creator?.name?.toLowerCase() || "";
-        const handle = (
-          post.creator?.handle ||
-          post.owner_username ||
-          ""
-        ).toLowerCase();
+        const handle =
+          (post.creator?.handle || post.owner_username || "").toLowerCase();
         const postUrl = post.post_url?.toLowerCase() || "";
         const platform = post.platform?.toLowerCase() || "";
         const status = post.status?.toLowerCase() || "";
@@ -226,9 +205,7 @@ export function CampaignPostsSection({
 
       // Step 2: Apply filters
       if (postPlatformFilter !== "all") {
-        filtered = filtered.filter(
-          (post) => post.platform === postPlatformFilter,
-        );
+        filtered = filtered.filter((post) => post.platform === postPlatformFilter);
       }
 
       if (postStatusFilter !== "all") {
@@ -236,9 +213,7 @@ export function CampaignPostsSection({
       }
 
       if (postCreatorFilter !== "all") {
-        filtered = filtered.filter(
-          (post) => post.creator_id === postCreatorFilter,
-        );
+        filtered = filtered.filter((post) => post.creator_id === postCreatorFilter);
       }
 
       if (postDateFilter !== "all") {
@@ -269,7 +244,7 @@ export function CampaignPostsSection({
       // Step 4: Apply Top Performers filter if enabled
       if (showTopPerformers) {
         const kpiPosts = postsWithScores.filter((post) =>
-          isKpiPlatform(post.platform),
+          isKpiPlatform(post.platform)
         );
         const sorted = [...kpiPosts].sort((a, b) => b.score - a.score);
         return sorted.slice(0, 15);
@@ -325,13 +300,7 @@ export function CampaignPostsSection({
       ...post,
       rank: index + 1,
       positionEmoji:
-        index === 0
-          ? "🥇"
-          : index === 1
-            ? "🥈"
-            : index === 2
-              ? "🥉"
-              : undefined,
+        index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : undefined,
     }));
   }, [filteredPosts]);
 
@@ -348,15 +317,12 @@ export function CampaignPostsSection({
   }, [postsWithRankings, showTopPerformers]);
 
   // Pagination
-  const totalPages = Math.max(
-    1,
-    Math.ceil(remainingPosts.length / postsPerPage),
-  );
+  const totalPages = Math.max(1, Math.ceil(remainingPosts.length / postsPerPage));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * postsPerPage;
   const paginatedRemainingPosts = remainingPosts.slice(
     startIndex,
-    startIndex + postsPerPage,
+    startIndex + postsPerPage
   );
 
   // Mobile pagination
@@ -364,8 +330,8 @@ export function CampaignPostsSection({
     1,
     Math.ceil(
       (showTopPerformers ? postsWithRankings.length : remainingPosts.length) /
-        postsPerPage,
-    ),
+        postsPerPage
+    )
   );
   const mobileSafeCurrentPage = Math.min(currentPage, mobileTotalPages);
   const mobileStartIndex = (mobileSafeCurrentPage - 1) * postsPerPage;
@@ -411,12 +377,12 @@ export function CampaignPostsSection({
 
   const mobilePaginationPages = generatePaginationPages(
     mobileTotalPages,
-    mobileSafeCurrentPage,
+    mobileSafeCurrentPage
   ).filter((p) => p > 0);
 
   const mobileAllPaginationPages = generatePaginationPages(
     Math.ceil(postsWithRankings.length / postsPerPage),
-    mobileSafeCurrentPage,
+    mobileSafeCurrentPage
   ).filter((p) => p > 0);
 
   return (
@@ -488,8 +454,9 @@ export function CampaignPostsSection({
                           Import posts CSV
                         </DropdownMenuItem>
                       )}
-                      {(onImportCreators || onImportPosts) &&
-                        onDeleteAllPosts && <DropdownMenuSeparator />}
+                      {(onImportCreators || onImportPosts) && onDeleteAllPosts && (
+                        <DropdownMenuSeparator />
+                      )}
                       {onDeleteAllPosts && (
                         <DropdownMenuItem
                           variant="destructive"
@@ -527,9 +494,7 @@ export function CampaignPostsSection({
                   <SelectContent>
                     <SelectItem value="score">Sort by: Score</SelectItem>
                     <SelectItem value="views">Sort by: Views</SelectItem>
-                    <SelectItem value="engagement">
-                      Sort by: Engagement
-                    </SelectItem>
+                    <SelectItem value="engagement">Sort by: Engagement</SelectItem>
                     <SelectItem value="latest">Sort by: Latest</SelectItem>
                   </SelectContent>
                 </Select>
@@ -555,8 +520,7 @@ export function CampaignPostsSection({
                 <PostRowSkeleton key={i} />
               ))}
             </div>
-          ) : highlightedTopPosts.length > 0 ||
-            visibleRemainingPosts.length > 0 ? (
+          ) : highlightedTopPosts.length > 0 || visibleRemainingPosts.length > 0 ? (
             <>
               {/* Search and Active Filters */}
               <div className="px-4 sm:px-6 pb-4">
@@ -630,7 +594,6 @@ export function CampaignPostsSection({
                             post.status === "scraping" ||
                             scrapingPostId === post.id
                           }
-                          showActions={isInternal}
                         />
                       ))}
                     </div>
@@ -658,7 +621,6 @@ export function CampaignPostsSection({
                             post.status === "scraping" ||
                             scrapingPostId === post.id
                           }
-                          showActions={isInternal}
                         />
                       ))}
                     </div>
@@ -679,7 +641,6 @@ export function CampaignPostsSection({
                           post.status === "scraping" ||
                           scrapingPostId === post.id
                         }
-                        showActions={isInternal}
                       />
                     ))}
                   </div>
@@ -738,48 +699,31 @@ export function CampaignPostsSection({
                           </td>
                         </tr>
                         <tr>
-                          <td
-                            colSpan={isInternal ? 9 : 8}
-                            className="px-6 py-2"
-                          >
+                          <td colSpan={isInternal ? 9 : 8} className="px-6 py-2">
                             <div className="flex items-center gap-2 flex-nowrap">
                               <button
-                                onClick={() =>
-                                  setShowTopPerformers(!showTopPerformers)
-                                }
+                                onClick={() => setShowTopPerformers(!showTopPerformers)}
                                 className={`h-8 px-2 rounded-md border text-[11px] sm:text-xs font-medium flex flex-wrap items-center justify-center gap-1.5 transition-colors w-fit shrink-0 ${
                                   showTopPerformers
                                     ? "bg-primary/20 border-primary/30 text-primary"
                                     : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
                                 }`}
                               >
-                                {showTopPerformers
-                                  ? "All Posts"
-                                  : "Top Performers"}
+                                {showTopPerformers ? "All Posts" : "Top Performers"}
                               </button>
                               <div className="w-[160px] md:hidden shrink-0">
                                 <Select
                                   value={sortBy}
-                                  onValueChange={(value: SortOption) =>
-                                    setSortBy(value)
-                                  }
+                                  onValueChange={(value: SortOption) => setSortBy(value)}
                                 >
                                   <SelectTrigger className="h-8 w-fit bg-white/[0.03] border-white/[0.08] text-slate-300 text-[11px] sm:text-xs">
                                     <SelectValue placeholder="Sort by" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="score">
-                                      Sort by: Score
-                                    </SelectItem>
-                                    <SelectItem value="views">
-                                      Sort by: Views
-                                    </SelectItem>
-                                    <SelectItem value="engagement">
-                                      Sort by: Engagement
-                                    </SelectItem>
-                                    <SelectItem value="latest">
-                                      Sort by: Latest
-                                    </SelectItem>
+                                    <SelectItem value="score">Sort by: Score</SelectItem>
+                                    <SelectItem value="views">Sort by: Views</SelectItem>
+                                    <SelectItem value="engagement">Sort by: Engagement</SelectItem>
+                                    <SelectItem value="latest">Sort by: Latest</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -801,8 +745,8 @@ export function CampaignPostsSection({
                                 isTop3
                                   ? "bg-primary/5 hover:bg-primary/10"
                                   : isTop5
-                                    ? "bg-primary/2 hover:bg-primary/5"
-                                    : "hover:bg-white/[0.02]"
+                                  ? "bg-primary/2 hover:bg-primary/5"
+                                  : "hover:bg-white/[0.02]"
                               } ${isTop5 ? "border-l-2 border-l-primary/30" : ""}`}
                             >
                               <td className="px-6 py-4">
@@ -811,10 +755,7 @@ export function CampaignPostsSection({
                                     {post.creator?.name || "Unknown"}
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    @
-                                    {post.creator?.handle ||
-                                      post.owner_username ||
-                                      "unknown"}
+                                    @{post.creator?.handle || post.owner_username || "unknown"}
                                   </div>
                                 </div>
                               </td>
@@ -856,9 +797,7 @@ export function CampaignPostsSection({
                                 <div className="flex items-center gap-2">
                                   <StatusBadge status={post.status} />
                                   {post.positionEmoji && (
-                                    <span className="text-base">
-                                      {post.positionEmoji}
-                                    </span>
+                                    <span className="text-base">{post.positionEmoji}</span>
                                   )}
                                   {post.badges?.trending && (
                                     <span className="text-base">🔥</span>
@@ -881,15 +820,12 @@ export function CampaignPostsSection({
                                   : "-"}
                               </td>
                               <td className="hidden 2xl:table-cell px-6 py-4 text-right">
-                                {post.engagement_rate &&
-                                post.engagement_rate > 0 ? (
+                                {post.engagement_rate && post.engagement_rate > 0 ? (
                                   <span className="text-sm text-emerald-400 font-medium">
                                     {post.engagement_rate}%
                                   </span>
                                 ) : (
-                                  <span className="text-sm text-slate-500">
-                                    -
-                                  </span>
+                                  <span className="text-sm text-slate-500">-</span>
                                 )}
                               </td>
                               {isInternal && (
@@ -900,11 +836,7 @@ export function CampaignPostsSection({
                                         onClick={() => onScrapePost(post.id)}
                                         disabled={isScrapingPost}
                                         className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title={
-                                          isScrapingPost
-                                            ? "Scraping..."
-                                            : "Scrape this post"
-                                        }
+                                        title={isScrapingPost ? "Scraping..." : "Scrape this post"}
                                       >
                                         {isScrapingPost ? (
                                           <RefreshCw className="w-4 h-4 text-primary animate-spin" />
@@ -963,10 +895,7 @@ export function CampaignPostsSection({
                                 {post.creator?.name || "Unknown"}
                               </div>
                               <div className="text-xs text-slate-500">
-                                @
-                                {post.creator?.handle ||
-                                  post.owner_username ||
-                                  "unknown"}
+                                @{post.creator?.handle || post.owner_username || "unknown"}
                               </div>
                             </div>
                           </td>
@@ -1008,9 +937,7 @@ export function CampaignPostsSection({
                             <div className="flex items-center gap-2">
                               <StatusBadge status={post.status} />
                               {post.positionEmoji && (
-                                <span className="text-base">
-                                  {post.positionEmoji}
-                                </span>
+                                <span className="text-base">{post.positionEmoji}</span>
                               )}
                               {post.badges?.trending && (
                                 <span className="text-base">🔥</span>
@@ -1033,8 +960,7 @@ export function CampaignPostsSection({
                               : "-"}
                           </td>
                           <td className="hidden 2xl:table-cell px-6 py-4 text-right">
-                            {post.engagement_rate &&
-                            post.engagement_rate > 0 ? (
+                            {post.engagement_rate && post.engagement_rate > 0 ? (
                               <span className="text-sm text-emerald-400 font-medium">
                                 {post.engagement_rate}%
                               </span>
@@ -1051,11 +977,7 @@ export function CampaignPostsSection({
                                     disabled={isScrapingPost}
                                     className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     aria-label="Refresh metrics"
-                                    title={
-                                      isScrapingPost
-                                        ? "Scraping..."
-                                        : "Scrape this post"
-                                    }
+                                    title={isScrapingPost ? "Scraping..." : "Scrape this post"}
                                   >
                                     {isScrapingPost ? (
                                       <RefreshCw className="w-4 h-4 text-primary animate-spin" />
@@ -1093,7 +1015,7 @@ export function CampaignPostsSection({
                       mobileStartIndex + postsPerPage,
                       showTopPerformers
                         ? postsWithRankings.length
-                        : remainingPosts.length,
+                        : remainingPosts.length
                     )}{" "}
                     of{" "}
                     {showTopPerformers
@@ -1168,8 +1090,8 @@ export function CampaignPostsSection({
                       ? `${highlightedTopPosts.length} top posts + `
                       : ""}
                     Showing {startIndex + 1} to{" "}
-                    {Math.min(startIndex + postsPerPage, remainingPosts.length)}{" "}
-                    of {remainingPosts.length} remaining posts
+                    {Math.min(startIndex + postsPerPage, remainingPosts.length)} of{" "}
+                    {remainingPosts.length} remaining posts
                     {highlightedTopPosts.length > 0 &&
                       !showTopPerformers &&
                       ` (${highlightedTopPosts.length + remainingPosts.length} total)`}
@@ -1196,7 +1118,7 @@ export function CampaignPostsSection({
                           >
                             {page}
                           </button>
-                        ),
+                        )
                       )}
                     </div>
                     <button
@@ -1224,8 +1146,8 @@ export function CampaignPostsSection({
                 {searchQuery
                   ? "Try adjusting your search query"
                   : isInternal
-                    ? "Get started by adding posts manually or importing from CSV"
-                    : "No posts have been added to this campaign yet"}
+                  ? "Get started by adding posts manually or importing from CSV"
+                  : "No posts have been added to this campaign yet"}
               </p>
             </div>
           )}
@@ -1249,24 +1171,21 @@ export function CampaignPostsSection({
                 Platform
               </p>
               <div className="flex flex-wrap gap-2">
-                {[
-                  "all",
-                  "tiktok",
-                  "instagram",
-                  "youtube",
-                ].map((platform) => (
-                  <button
-                    key={platform}
-                    onClick={() => setPostPlatformFilter(platform)}
-                    className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
-                      postPlatformFilter === platform
-                        ? "bg-primary text-black border-primary"
-                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {platform === "all" ? "All" : platform}
-                  </button>
-                ))}
+                {["all", "tiktok", "instagram", "youtube", "twitter", "facebook"].map(
+                  (platform) => (
+                    <button
+                      key={platform}
+                      onClick={() => setPostPlatformFilter(platform)}
+                      className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
+                        postPlatformFilter === platform
+                          ? "bg-primary text-black border-primary"
+                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      {platform === "all" ? "All" : platform}
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
@@ -1288,7 +1207,7 @@ export function CampaignPostsSection({
                     >
                       {status === "all" ? "All" : status}
                     </button>
-                  ),
+                  )
                 )}
               </div>
             </div>
@@ -1350,10 +1269,7 @@ export function CampaignPostsSection({
             >
               Clear All
             </Button>
-            <Button
-              onClick={() => setPostFiltersOpen(false)}
-              className="flex-1"
-            >
+            <Button onClick={() => setPostFiltersOpen(false)} className="flex-1">
               Apply
             </Button>
           </DialogFooter>

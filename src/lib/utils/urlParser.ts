@@ -47,6 +47,8 @@ export function detectPlatform(url: string): Platform | 'unknown' {
     if (hostname.includes('tiktok.com')) return 'tiktok';
     if (hostname.includes('instagram.com')) return 'instagram';
     if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube';
+    if (hostname.includes('twitter.com') || hostname.includes('x.com')) return 'twitter';
+    if (hostname.includes('facebook.com') || hostname.includes('fb.com')) return 'facebook';
 
     return 'unknown';
   } catch {
@@ -219,6 +221,44 @@ export function parsePostURL(url: string): ParsedURL {
       };
     }
 
+    // Twitter/X patterns
+    if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
+      // Pattern: twitter.com/username/status/1234567890
+      // Pattern: x.com/username/status/1234567890
+      const handleMatch = pathname.match(/^\/([^/]+)\//);
+      if (handleMatch && handleMatch[1] !== 'status' && handleMatch[1] !== 'i') {
+        return {
+          platform: 'twitter',
+          handle: handleMatch[1],
+          isValid: true,
+        };
+      }
+      return {
+        platform: 'twitter',
+        handle: null,
+        isValid: true,
+      };
+    }
+
+    // Facebook patterns
+    if (hostname.includes('facebook.com') || hostname.includes('fb.com')) {
+      // Pattern: facebook.com/username/posts/1234567890
+      // Pattern: facebook.com/username
+      const handleMatch = pathname.match(/^\/([^/]+)/);
+      if (handleMatch && !['watch', 'groups', 'pages', 'events'].includes(handleMatch[1])) {
+        return {
+          platform: 'facebook',
+          handle: handleMatch[1],
+          isValid: true,
+        };
+      }
+      return {
+        platform: 'facebook',
+        handle: null,
+        isValid: true,
+      };
+    }
+
     return {
       platform: null,
       handle: null,
@@ -288,6 +328,19 @@ export function getExternalIdFromUrl(url: string, platform: Platform): string | 
           const match = pathname.match(/^\/([^/]+)/);
           return match ? match[1] : null;
         }
+        return null;
+      }
+      case 'twitter': {
+        // twitter.com/username/status/TWEET_ID
+        const match = pathname.match(/\/status\/(\d+)/);
+        return match ? match[1] : null;
+      }
+      case 'facebook': {
+        // Various Facebook URL patterns
+        const postMatch = pathname.match(/\/posts\/(\d+)/);
+        if (postMatch) return postMatch[1];
+        const photoMatch = pathname.match(/\/photo(?:\.php)?\?.*fbid=(\d+)/);
+        if (photoMatch) return photoMatch[1];
         return null;
       }
       default:

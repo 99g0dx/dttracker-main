@@ -30,17 +30,10 @@ interface PostCardProps {
   onScrape: (postId: string) => void;
   onDelete: (postId: string) => void;
   isScraping: boolean;
-  showActions?: boolean;
 }
 
 export const PostCard = React.memo(
-  ({
-    post,
-    onScrape,
-    onDelete,
-    isScraping,
-    showActions = true,
-  }: PostCardProps) => {
+  ({ post, onScrape, onDelete, isScraping }: PostCardProps) => {
     const hasPostUrl = Boolean(post.post_url);
     const viewsValue = post.views > 0 ? post.views.toLocaleString() : "-";
     const likesValue = post.likes > 0 ? post.likes.toLocaleString() : "-";
@@ -133,11 +126,7 @@ export const PostCard = React.memo(
                 className="min-h-[44px] flex-1 border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
                 asChild
               >
-                <a
-                  href={post.post_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a href={post.post_url} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="w-4 h-4" />
                   View
                 </a>
@@ -153,55 +142,51 @@ export const PostCard = React.memo(
                 View
               </Button>
             )}
-            {showActions && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => onScrape(post.id)}
-                  disabled={!hasPostUrl || isScraping}
-                  className={`min-h-[44px] flex-1 ${
-                    post.status === "failed"
-                      ? "bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/20"
-                      : post.status === "pending"
-                        ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
-                        : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
-                  }`}
+            <Button
+              size="sm"
+              onClick={() => onScrape(post.id)}
+              disabled={!hasPostUrl || isScraping}
+              className={`min-h-[44px] flex-1 ${
+                post.status === "failed"
+                  ? "bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/20"
+                  : post.status === "pending"
+                  ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
+                  : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
+              }`}
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                  aria-label="More actions"
                 >
-                  <RefreshCw
-                    className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-                      aria-label="More actions"
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        onDelete(post.id);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onDelete(post.id);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>
     );
-  },
+  }
 );
 
 PostCard.displayName = "PostCard";

@@ -34,6 +34,8 @@ export function getCreatorProfileUrl(
     tiktok: `https://www.tiktok.com/@${encoded}`,
     instagram: `https://www.instagram.com/${encoded}`,
     youtube: `https://www.youtube.com/@${encoded}`,
+    twitter: `https://twitter.com/${encoded}`,
+    facebook: `https://www.facebook.com/${encoded}`,
   };
 
   return platformUrls[platform] || null;

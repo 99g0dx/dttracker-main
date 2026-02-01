@@ -72,6 +72,8 @@ export async function parseCSV(
           "tiktok",
           "instagram",
           "youtube",
+          "twitter",
+          "facebook",
         ];
 
         // Log available columns for debugging (first row only)
@@ -86,6 +88,7 @@ export async function parseCSV(
         const rowData: Array<{
           row: any;
           rowNumber: number;
+          creatorName: string | undefined;
           creatorHandle: string;
           platform: string;
           postUrl: string;
@@ -95,6 +98,9 @@ export async function parseCSV(
           const row = results.data[i];
           const rowNumber = i + 2;
 
+          const creatorName = getRowValue(row, "creator_name")
+            ?.toString()
+            .trim();
           const creatorHandle = getRowValue(row, "creator_handle")
             ?.toString()
             .trim();
@@ -164,6 +170,7 @@ export async function parseCSV(
           rowData.push({
             row,
             rowNumber,
+            creatorName,
             creatorHandle,
             platform: normalizedPlatform,
             postUrl,
@@ -186,21 +193,37 @@ export async function parseCSV(
           const {
             row,
             rowNumber,
+            creatorName,
             creatorHandle,
             platform: normalizedPlatform,
             postUrl,
           } = rowInfo;
 
-          // Get creator (must already exist in the library)
+          // Get or create creator (use handle as name if name not provided)
           const cacheKey = `${creatorHandle}:${normalizedPlatform}`;
           let creatorId = creatorCache.get(cacheKey);
 
           if (!creatorId) {
-            errors.push({
-              row: rowNumber,
-              message: `Creator "${creatorHandle}" not found in your library. Ask the owner to add this creator before importing posts.`,
-            });
-            continue;
+            // Use handle as name fallback if creator_name not provided
+            const finalCreatorName = creatorName || creatorHandle;
+            const creatorResult = await creatorsApi.getOrCreate(
+              finalCreatorName,
+              creatorHandle,
+              normalizedPlatform
+            );
+
+            if (creatorResult.error || !creatorResult.data) {
+              errors.push({
+                row: rowNumber,
+                message: `Failed to create/find creator: ${
+                  creatorResult.error?.message || "Unknown error"
+                }`,
+              });
+              continue;
+            }
+
+            creatorId = creatorResult.data.id;
+            creatorCache.set(cacheKey, creatorId);
           }
 
           // Parse optional date
@@ -319,6 +342,8 @@ export async function parseCreatorHandlesCSV(
       "tiktok",
       "instagram",
       "youtube",
+      "twitter",
+      "facebook",
     ];
 
     Papa.parse(file, {

@@ -18,7 +18,7 @@ export function useScrapePost() {
     mutationFn: async (params: {
       postId: string;
       postUrl: string;
-      platform: "tiktok" | "instagram" | "youtube";
+      platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
       campaignId: string;
     }) => {
       const result = await scrapingApi.scrapePost({

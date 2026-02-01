@@ -1,13 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '../contexts/AuthContext';
-import { useWorkspace } from '../contexts/WorkspaceContext';
-import { supabase } from '../lib/supabase';
-import type { MemberScope, TeamMember, TeamRole } from '../lib/types/database';
-import { isWorkspaceOwner } from '../lib/roles';
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "../contexts/AuthContext";
+import { useWorkspace } from "../contexts/WorkspaceContext";
+import { supabase } from "../lib/supabase";
+import type { MemberScope, TeamMember, TeamRole } from "../lib/types/database";
+import { isWorkspaceOwner } from "../lib/roles";
 
 type CampaignAccess = {
   campaignId: string;
-  access: 'editor' | 'viewer';
+  access: "editor" | "viewer";
 };
 
 type WorkspaceAccessData = {
@@ -16,16 +16,16 @@ type WorkspaceAccessData = {
 };
 
 const accessKeys = {
-  all: ['workspace-access'] as const,
+  all: ["workspace-access"] as const,
   byWorkspace: (workspaceId?: string, userId?: string) =>
     [...accessKeys.all, workspaceId, userId] as const,
 };
 
 const parseCampaignScope = (scopeValue: string): CampaignAccess => {
-  const [campaignId, access] = scopeValue.split(':');
+  const [campaignId, access] = scopeValue.split(":");
   return {
     campaignId,
-    access: (access as 'editor' | 'viewer') || 'viewer',
+    access: (access as "editor" | "viewer") || "viewer",
   };
 };
 
@@ -41,21 +41,50 @@ export function useWorkspaceAccess() {
         return { member: null, scopes: [] };
       }
 
-      const { data: member } = await supabase
-        .from('workspace_members')
-        .select('*')
-        .eq('workspace_id', activeWorkspaceId)
-        .eq('user_id', user.id)
+      let { data: member } = await supabase
+        .from("workspace_members")
+        .select("*")
+        .eq("workspace_id", activeWorkspaceId)
+        .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!member || member.status !== 'active') {
+      // Self-heal: if workspace owner lacks brand_owner row, upsert it
+      if (!member || member.status !== "active" || member.role !== "brand_owner") {
+        const { data: ws } = await supabase
+          .from("workspaces")
+          .select("owner_user_id")
+          .eq("id", activeWorkspaceId)
+          .maybeSingle();
+
+        if (ws?.owner_user_id === user.id) {
+          const { data: upserted } = await supabase
+            .from("workspace_members")
+            .upsert(
+              {
+                workspace_id: activeWorkspaceId,
+                user_id: user.id,
+                role: "brand_owner" as const,
+                status: "active" as const,
+              },
+              { onConflict: "workspace_id,user_id" }
+            )
+            .select("*")
+            .single();
+
+          if (upserted) {
+            member = upserted;
+          }
+        }
+      }
+
+      if (!member || member.status !== "active") {
         return { member: null, scopes: [] };
       }
 
       const { data: scopes } = await supabase
-        .from('member_scopes')
-        .select('*')
-        .eq('team_member_id', member.id);
+        .from("member_scopes")
+        .select("*")
+        .eq("team_member_id", member.id);
 
       return { member, scopes: (scopes || []) as MemberScope[] };
     },
@@ -66,7 +95,7 @@ export function useWorkspaceAccess() {
 
   const hasAccess = Boolean(member);
   const campaignAccess = scopes
-    .filter((scope) => scope.scope_type === 'campaign')
+    .filter((scope) => scope.scope_type === "campaign")
     .map((scope) => parseCampaignScope(scope.scope_value));
 
   const hasWorkspaceViewer = hasAccess;

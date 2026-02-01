@@ -192,16 +192,15 @@ export function CreatorRequestChatbot({
     if (resolvedCreatorIds.length === 0) {
       return;
     }
-    if (!isOwner && !suggestionReason.trim()) {
+    if (!formData.contact_person_name?.trim()) {
       return;
     }
-
     const resolvedCampaignId = campaignId || selectedCampaignId || null;
     const requestData: CreatorRequestInsert = {
       user_id: "", // Will be set by API for create
       campaign_id: resolvedCampaignId || null,
       submission_type: isOwner ? "request" : "suggestion",
-      suggestion_reason: isOwner ? null : suggestionReason.trim(),
+      suggestion_reason: null,
       campaign_type: formData.campaign_type,
       campaign_brief: formData.campaign_brief,
       song_asset_links: formData.song_asset_links?.filter(Boolean) || [],
@@ -266,7 +265,6 @@ export function CreatorRequestChatbot({
         return !!formData.campaign_type && resolvedCreatorCount > 0;
       case 2:
         if (!formData.campaign_brief?.trim().length) return false;
-        if (!isOwner && !suggestionReason.trim()) return false;
         return true;
       case 3:
         return true;
@@ -275,7 +273,7 @@ export function CreatorRequestChatbot({
       case 5:
         return !!formData.usage_rights;
       case 6:
-        return !!formData.deadline;
+        return !!formData.deadline && !!formData.contact_person_name?.trim();
       case 7:
         return true;
       default:
@@ -460,7 +458,7 @@ export function CreatorRequestChatbot({
         return (
           <div className="space-y-4">
             <Label className="text-white text-base font-semibold">
-              Campaign Brief
+              Campaign Brief <span className="text-red-400"> *</span>
             </Label>
             <p className="text-sm text-slate-400">
               Describe your campaign, goals, target audience, and key messages.
@@ -479,25 +477,6 @@ export function CreatorRequestChatbot({
             <p className="text-xs text-slate-400">
               {(formData.campaign_brief || "").length} characters
             </p>
-            {!isOwner && (
-              <div className="space-y-2">
-                <Label className="text-white text-sm font-medium">
-                  Why are you requesting these creators?
-                  <span className="text-red-400"> *</span>
-                </Label>
-                <Textarea
-                  value={suggestionReason}
-                  onChange={(e) => setSuggestionReason(e.target.value)}
-                  placeholder="Explain the fit, audience, or campaign intent..."
-                  className="w-full min-h-[120px] bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-slate-500"
-                />
-                {!suggestionReason.trim() && (
-                  <p className="text-xs text-red-400">
-                    Provide a short justification to continue.
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         );
 
@@ -836,7 +815,7 @@ export function CreatorRequestChatbot({
                 htmlFor="contact_name"
                 className="text-white text-sm font-medium"
               >
-                Contact Person (Optional)
+                Contact Person <span className="text-red-400"> *</span>
               </Label>
               <Input
                 id="contact_name"
@@ -850,6 +829,9 @@ export function CreatorRequestChatbot({
                 placeholder="Name"
                 className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
               />
+              {!formData.contact_person_name?.trim() && currentStep === 6 && (
+                <p className="text-xs text-red-400">Contact person is required.</p>
+              )}
               <Input
                 id="contact_email"
                 type="email"
@@ -900,14 +882,6 @@ export function CreatorRequestChatbot({
                     {formData.campaign_type?.replace("_", " ")}
                   </p>
                 </div>
-                {!isOwner && (
-                  <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
-                    <p className="text-slate-400 mb-1">Operator Briefing</p>
-                    <p className="text-white text-sm whitespace-pre-wrap">
-                      {suggestionReason || "No briefing provided."}
-                    </p>
-                  </div>
-                )}
                 <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
                   <p className="text-slate-400 mb-1">Deliverables</p>
                   <p className="text-white font-medium">

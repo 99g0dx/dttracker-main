@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -13,7 +12,6 @@ import {
 } from "./ui/dialog";
 import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
 import { CreatorHandleLink } from "./ui/creator-handle-link";
-import { CreatorCardSkeleton, TableRowSkeleton, Skeleton } from "./ui/skeleton";
 import {
   Plus,
   Search,
@@ -69,12 +67,10 @@ import {
   useCreateCreator,
   useUpdateCreator,
   useDeleteCreator,
-  creatorsKeys,
 } from "../../hooks/useCreators";
 import { CampaignCreatorSelector } from "./campaign-creator-selector";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { supabase } from "../../lib/supabase";
-import * as creatorsApi from "../../lib/api/creators";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
 import type { CreatorWithStats, Platform } from "../../lib/types/database";
@@ -82,8 +78,6 @@ import { useCart } from "../../contexts/CartContext";
 import { ReviewRequestModal } from "./review-request-modal";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
-import { useWorkspace } from "../../contexts/WorkspaceContext";
-import { useBillingSummary } from "../../hooks/useBilling";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
@@ -100,6 +94,8 @@ function PlatformSelect({
     "tiktok",
     "instagram",
     "youtube",
+    "twitter",
+    "facebook",
   ];
 
   const selectedValue = selected[0] ?? "all";
@@ -124,8 +120,6 @@ function PlatformSelect({
 }
 
 export function Creators({ onNavigate }: CreatorsProps) {
-  const queryClient = useQueryClient();
-  const { activeWorkspaceId } = useWorkspace();
   const formatFollowers = (count: number) => {
     if (count === 0) return "0";
     if (count >= 1_000_000) {
@@ -143,70 +137,28 @@ export function Creators({ onNavigate }: CreatorsProps) {
     "my_network"
   );
   const [shouldFetch, setShouldFetch] = useState(false);
-  const { data: creators = [], isLoading } =
-    useCreatorsWithStats(networkFilter, { enabled: shouldFetch });
-  const { data: networkCreators = [] } = useCreatorsWithStats("my_network", {
-    enabled: shouldFetch && networkFilter === "all",
-  });
-  const networkCreatorIds = useMemo(
-    () => new Set(networkCreators.map((creator) => creator.id)),
-    [networkCreators]
+  const { data: creators = [], isLoading } = useCreatorsWithStats(
+    networkFilter,
+    { enabled: shouldFetch }
   );
-  const baseCreators = useMemo(() => {
-    if (networkFilter !== "all") return creators;
-    if (!networkCreators.length) return creators;
-    return creators.filter((creator) => !networkCreatorIds.has(creator.id));
-  }, [creators, networkCreators.length, networkCreatorIds, networkFilter]);
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
   const {
     loading: accessLoading,
     canViewWorkspace,
-    canManageCreators,
-    canExportData,
+    canEditWorkspace,
   } = useWorkspaceAccess();
-  const { data: billing, isLoading: billingLoading } = useBillingSummary();
-  const subscriptionStatus = billing?.subscription?.status ?? "active";
-  const trialExpired =
-    subscriptionStatus === "trialing" && (billing?.days_until_period_end ?? 0) <= 0;
-  const freeBlocked =
-    billing?.plan?.tier === "free" && !billing?.is_paid && !billing?.is_trialing;
-  const subscriptionBlocked =
-    ["past_due", "canceled", "incomplete"].includes(subscriptionStatus) ||
-    trialExpired ||
-    freeBlocked;
-  const canViewCreators =
-    accessLoading ||
-    billingLoading ||
-    canViewWorkspace ||
-    !subscriptionBlocked;
-  const canEditCreators = accessLoading || canManageCreators;
+  const canViewCreators = accessLoading || canViewWorkspace;
+  const canEditCreators = accessLoading || canEditWorkspace;
 
-  const prefetchCreators = (filter: "my_network" | "all") => {
-    queryClient.prefetchQuery({
-      queryKey: [
-        ...creatorsKeys.list(activeWorkspaceId),
-        "withStats",
-        filter,
-      ],
-      queryFn: async () => {
-        const result = await creatorsApi.listWithStats(filter, activeWorkspaceId);
-        if (result.error) {
-          throw result.error;
-        }
-        return result.data || [];
-      },
-      staleTime: 10 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
-    });
-  };
-  
   // Cart/Request state for "All Creators" tab
-  const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } = useCart();
+  const { cart, addCreator, removeCreator, clearCart, isInCart, totalItems } =
+    useCart();
   const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
   const [showChatbotModal, setShowChatbotModal] = useState(false);
-  const [showSingleCreatorRequestModal, setShowSingleCreatorRequestModal] = useState(false);
+  const [showSingleCreatorRequestModal, setShowSingleCreatorRequestModal] =
+    useState(false);
   const [requestCreatorId, setRequestCreatorId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -214,11 +166,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
   const [selectedNiche, setSelectedNiche] = useState<string>("all");
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
-  const [followerRange, setFollowerRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
-  const [postsRange, setPostsRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
+  const [followerRange, setFollowerRange] = useState<{
+    min: string;
+    max: string;
+  }>({ min: "", max: "" });
+  const [postsRange, setPostsRange] = useState<{ min: string; max: string }>({
+    min: "",
+    max: "",
+  });
   const [isPaidUser] = useState(false);
   const [isSavingCreator, setIsSavingCreator] = useState(false);
-  const [deletingCreatorId, setDeletingCreatorId] = useState<string | null>(null);
+  const [deletingCreatorId, setDeletingCreatorId] = useState<string | null>(
+    null
+  );
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -233,15 +193,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => onNavigate?.('/')}
+            onClick={() => onNavigate?.("/")}
             className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Creator Library</h1>
-            <p className="text-sm text-slate-400 mt-1">Access restricted for your current role.</p>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+              Creator Library
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              Access restricted for your current role.
+            </p>
           </div>
         </div>
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
@@ -249,7 +213,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
             <div className="w-12 h-12 rounded-lg bg-white/[0.06] flex items-center justify-center mb-4">
               <Eye className="w-6 h-6 text-slate-400" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">No access</h3>
+            <h3 className="text-base font-semibold text-white mb-1">
+              No access
+            </h3>
             <p className="text-sm text-slate-400 mb-4 text-center max-w-md">
               You need workspace access to view the creator library.
             </p>
@@ -267,18 +233,20 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
   // Extract unique niches and locations for dropdown options
   const uniqueNiches = useMemo(() => {
-    const niches = baseCreators
+    const niches = creators
       .map((c) => c.niche)
       .filter((niche): niche is string => !!niche && niche.trim() !== "");
     return ["all", ...Array.from(new Set(niches)).sort()];
-  }, [baseCreators]);
+  }, [creators]);
 
   const uniqueLocations = useMemo(() => {
-    const locations = baseCreators
+    const locations = creators
       .map((c) => c.location)
-      .filter((location): location is string => !!location && location.trim() !== "");
+      .filter(
+        (location): location is string => !!location && location.trim() !== ""
+      );
     return ["all", ...Array.from(new Set(locations)).sort()];
-  }, [baseCreators]);
+  }, [creators]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -293,7 +261,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
     handle: string;
     email: string;
     phone: string;
-    platform: "tiktok" | "instagram" | "youtube";
+    platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
     follower_count: number;
     avg_engagement: number;
     niche: string;
@@ -315,10 +283,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
     return () => clearTimeout(timer);
   }, []);
 
-
   // Filter and sort creators
   const filteredAndSortedCreators = useMemo(() => {
-    let filtered = baseCreators;
+    let filtered = creators;
 
     // Platform filter (multi-select)
     if (selectedPlatforms.length > 0) {
@@ -407,7 +374,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
     return filtered;
   }, [
-    baseCreators,
+    creators,
     selectedPlatforms,
     selectedNiche,
     selectedLocation,
@@ -426,7 +393,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
     if (followerRange.min || followerRange.max) count += 1;
     if (postsRange.min || postsRange.max) count += 1;
     return count;
-  }, [selectedPlatforms, selectedNiche, selectedLocation, followerRange, postsRange]);
+  }, [
+    selectedPlatforms,
+    selectedNiche,
+    selectedLocation,
+    followerRange,
+    postsRange,
+  ]);
 
   // Paginate creators
   const totalPages = Math.ceil(filteredAndSortedCreators.length / itemsPerPage);
@@ -462,7 +435,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
       setSortDirection("asc");
     }
   };
-
 
   const handleAdd = async () => {
     if (!canEditCreators) {
@@ -577,14 +549,17 @@ export function Creators({ onNavigate }: CreatorsProps) {
       toast.error("You don't have permission to delete creators.");
       return;
     }
-    console.log('[Delete Request]', { creatorId: creator.id, creatorName: creator.name });
+    console.log("[Delete Request]", {
+      creatorId: creator.id,
+      creatorName: creator.name,
+    });
     if (!creator?.id) {
       toast.error("Creator not found");
       return;
     }
     setSelectedCreator(creator);
     setDeleteConfirm(creator.id);
-    console.log('[Delete State Updated]', { deleteConfirm: creator.id });
+    console.log("[Delete State Updated]", { deleteConfirm: creator.id });
   };
 
   const openEditDialog = (creator: CreatorWithStats) => {
@@ -629,16 +604,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
   };
 
   const handleExportCSV = () => {
-    if (!canExportData) {
-      toast.error("Only workspace owners can export raw data.");
-      return;
-    }
-    if (baseCreators.length === 0) {
+    if (creators.length === 0) {
       toast.error("No creators to export");
       return;
     }
 
-    const csvContent = csvUtils.exportCreatorsToCSV(baseCreators);
+    const csvContent = csvUtils.exportCreatorsToCSV(creators);
     const filename = `creators_export_${
       new Date().toISOString().split("T")[0]
     }.csv`;
@@ -689,7 +660,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
               onClick={handleOpenAddDialog}
               className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-semibold flex items-center justify-center gap-2 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={!canEditCreators}
-              title={!canEditCreators ? "You don't have permission to add creators" : undefined}
+              title={
+                !canEditCreators
+                  ? "You don't have permission to add creators"
+                  : undefined
+              }
             >
               <Plus className="w-4 h-4" />
               Add Creator
@@ -715,7 +690,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
               <DropdownMenuContent align="end" className="w-56">
                 {networkFilter === "all" && totalItems > 0 && (
                   <>
-                    <DropdownMenuItem onSelect={() => setShowReviewRequestModal(true)}>
+                    <DropdownMenuItem
+                      onSelect={() => setShowReviewRequestModal(true)}
+                    >
                       <Check className="w-4 h-4" />
                       Review request ({totalItems})
                     </DropdownMenuItem>
@@ -724,19 +701,21 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 )}
                 <DropdownMenuItem
                   onSelect={() => onNavigate?.("/creators/scraper")}
-                  disabled={!canManageCreators}
                 >
                   <Sparkles className="w-4 h-4" />
                   Creator scraper
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleOpenImportDialog} disabled={!canEditCreators}>
+                <DropdownMenuItem
+                  onSelect={handleOpenImportDialog}
+                  disabled={!canEditCreators}
+                >
                   <Upload className="w-4 h-4" />
                   Import CSV
                 </DropdownMenuItem>
                 {networkFilter === "my_network" && (
                   <DropdownMenuItem
                     onSelect={handleExportCSV}
-                    disabled={baseCreators.length === 0 || isCreatorsLoading || !canExportData}
+                    disabled={creators.length === 0 || isCreatorsLoading}
                   >
                     <Download className="w-4 h-4" />
                     Export CSV
@@ -752,7 +731,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
           <div className="flex gap-2">
             <button
               onClick={() => setNetworkFilter("my_network")}
-              onMouseEnter={() => prefetchCreators("my_network")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 networkFilter === "my_network"
                   ? "bg-primary text-black"
@@ -763,7 +741,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
             </button>
             <button
               onClick={() => setNetworkFilter("all")}
-              onMouseEnter={() => prefetchCreators("all")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 networkFilter === "all"
                   ? "bg-primary text-black"
@@ -773,27 +750,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
               All Creators
             </button>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-slate-300">
-            {networkFilter === "my_network" ? (
-              <div>
-                <span className="text-white font-medium">My Network:</span>{" "}
-                Creators you add here count toward your plan and can be reused across campaigns.
-              </div>
-            ) : (
-              <div>
-                <span className="text-white font-medium">All Creators:</span>{" "}
-                Browse DTTracker’s network and request creators for a specific campaign. Requests
-                do not add creators to your network.
-              </div>
-            )}
-          </div>
 
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="text-2xl font-semibold text-white">
-                  {baseCreators.length}
+                  {creators.length}
                 </div>
                 <p className="text-sm text-slate-400 mt-1">Total Creators</p>
               </CardContent>
@@ -802,7 +765,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="text-2xl font-semibold text-purple-400">
-                  {baseCreators.reduce((sum, c) => sum + c.totalPosts, 0)}
+                  {creators.reduce((sum, c) => sum + c.totalPosts, 0)}
                 </div>
                 <p className="text-sm text-slate-400 mt-1">Total Posts</p>
               </CardContent>
@@ -846,7 +809,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     if (sortField !== value) {
                       setSortDirection("asc");
                     }
-                    setSortField(value as "platform" | "follower_count" | "niche" | "location");
+                    setSortField(
+                      value as
+                        | "platform"
+                        | "follower_count"
+                        | "niche"
+                        | "location"
+                    );
                   }}
                   className="h-11 w-full sm:w-[200px] px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
                 >
@@ -879,7 +848,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
               searchQuery) && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
                 <span>
-                  Showing {filteredAndSortedCreators.length} of {baseCreators.length}
+                  Showing {filteredAndSortedCreators.length} of{" "}
+                  {creators.length}
                 </span>
                 <span className="text-slate-500">•</span>
                 {selectedPlatforms.length > 0 && (
@@ -889,7 +859,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 {selectedLocation !== "all" && <span>{selectedLocation}</span>}
                 {(followerRange.min || followerRange.max) && (
                   <span>
-                    Followers: {followerRange.min || "0"}-{followerRange.max || "∞"}
+                    Followers: {followerRange.min || "0"}-
+                    {followerRange.max || "∞"}
                   </span>
                 )}
                 {(postsRange.min || postsRange.max) && (
@@ -908,21 +879,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
           </div>
           {isCreatorsLoading ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-4 w-20" />
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
+                  <UsersIcon className="w-6 h-6 text-slate-600 animate-pulse" />
                 </div>
-                <div className="lg:hidden grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <CreatorCardSkeleton key={i} />
-                  ))}
-                </div>
-                <div className="hidden lg:block">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <TableRowSkeleton key={i} />
-                  ))}
-                </div>
+                <p className="text-sm text-slate-400">Loading creators...</p>
               </CardContent>
             </Card>
           ) : filteredAndSortedCreators.length > 0 ? (
@@ -952,7 +913,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             </div>
                           </div>
                           {(() => {
-                            const platformIcon = normalizePlatform(creator.platform);
+                            const platformIcon = normalizePlatform(
+                              creator.platform
+                            );
                             if (!platformIcon) return null;
                             return (
                               <PlatformIcon
@@ -1017,7 +980,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     e.preventDefault();
-                                    console.log('[Mobile Delete Button Clicked]', creator.id);
+                                    console.log(
+                                      "[Mobile Delete Button Clicked]",
+                                      creator.id
+                                    );
                                     handleDeleteRequest(creator);
                                   }}
                                   disabled={false}
@@ -1028,8 +994,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                 </button>
                               </>
                             )}
-                            {networkFilter === "all" && (
-                              isInCart(creator.id) ? (
+                            {networkFilter === "all" &&
+                              (isInCart(creator.id) ? (
                                 <button
                                   onClick={() => removeCreator(creator.id)}
                                   className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary flex items-center justify-center transition-colors"
@@ -1045,8 +1011,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                 >
                                   <Plus className="w-4 h-4" />
                                 </button>
-                              )
-                            )}
+                              ))}
                           </div>
                         </div>
                       </CardContent>
@@ -1062,12 +1027,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           <TableHead className="text-slate-400 font-medium w-12">
                             <input
                               type="checkbox"
-                              checked={paginatedCreators.length > 0 && paginatedCreators.every(c => isInCart(c.id))}
+                              checked={
+                                paginatedCreators.length > 0 &&
+                                paginatedCreators.every((c) => isInCart(c.id))
+                              }
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  paginatedCreators.forEach(creator => addCreator(creator));
+                                  paginatedCreators.forEach((creator) =>
+                                    addCreator(creator)
+                                  );
                                 } else {
-                                  paginatedCreators.forEach(creator => removeCreator(creator.id));
+                                  paginatedCreators.forEach((creator) =>
+                                    removeCreator(creator.id)
+                                  );
                                 }
                               }}
                               className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
@@ -1230,7 +1202,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     e.preventDefault();
-                                    console.log('[Desktop Delete Button Clicked]', creator.id);
+                                    console.log(
+                                      "[Desktop Delete Button Clicked]",
+                                      creator.id
+                                    );
                                     handleDeleteRequest(creator);
                                   }}
                                   disabled={false}
@@ -1387,7 +1362,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onClick={handleOpenAddDialog}
                     className="h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     disabled={!canEditCreators}
-                    title={!canEditCreators ? "You don't have permission to add creators" : undefined}
+                    title={
+                      !canEditCreators
+                        ? "You don't have permission to add creators"
+                        : undefined
+                    }
                     style={{
                       backgroundClip: "unset",
                       WebkitBackgroundClip: "unset",
@@ -1475,7 +1454,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     type="number"
                     placeholder="Min"
                     value={followerRange.min}
-                    onChange={(e) => setFollowerRange({ ...followerRange, min: e.target.value })}
+                    onChange={(e) =>
+                      setFollowerRange({
+                        ...followerRange,
+                        min: e.target.value,
+                      })
+                    }
                     className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
                   />
                 </div>
@@ -1484,7 +1468,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     type="number"
                     placeholder="Max"
                     value={followerRange.max}
-                    onChange={(e) => setFollowerRange({ ...followerRange, max: e.target.value })}
+                    onChange={(e) =>
+                      setFollowerRange({
+                        ...followerRange,
+                        max: e.target.value,
+                      })
+                    }
                     className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
                   />
                 </div>
@@ -1500,7 +1489,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     type="number"
                     placeholder="Min"
                     value={postsRange.min}
-                    onChange={(e) => setPostsRange({ ...postsRange, min: e.target.value })}
+                    onChange={(e) =>
+                      setPostsRange({ ...postsRange, min: e.target.value })
+                    }
                     className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
                   />
                 </div>
@@ -1509,7 +1500,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     type="number"
                     placeholder="Max"
                     value={postsRange.max}
-                    onChange={(e) => setPostsRange({ ...postsRange, max: e.target.value })}
+                    onChange={(e) =>
+                      setPostsRange({ ...postsRange, max: e.target.value })
+                    }
                     className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
                   />
                 </div>
@@ -1524,7 +1517,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
             >
               Clear
             </Button>
-            <Button onClick={() => setFiltersOpen(false)} className="flex-1 sm:flex-initial">
+            <Button
+              onClick={() => setFiltersOpen(false)}
+              className="flex-1 sm:flex-initial"
+            >
               Apply
             </Button>
           </DialogFooter>
@@ -1632,6 +1628,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <option value="instagram">Instagram</option>
                     <option value="tiktok">TikTok</option>
                     <option value="youtube">YouTube</option>
+                    <option value="twitter">Twitter/X</option>
+                    <option value="facebook">Facebook</option>
                   </select>
                 </div>
                 <div>
@@ -1709,7 +1707,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       <Loader2 className="w-4 h-4 animate-spin" />
                     )}
                     {addDialogOpen
-                      ? (isSavingCreator ? "Adding..." : "Add Creator")
+                      ? isSavingCreator
+                        ? "Adding..."
+                        : "Add Creator"
                       : "Save Changes"}
                   </Button>
                   <Button
@@ -1828,7 +1828,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <>
                       {selectedCreator.email && (
                         <div>
-                          <label className="text-xs text-slate-500">Email</label>
+                          <label className="text-xs text-slate-500">
+                            Email
+                          </label>
                           <div className="text-sm text-white mt-1">
                             {selectedCreator.email}
                           </div>
@@ -1836,7 +1838,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       )}
                       {selectedCreator.phone && (
                         <div>
-                          <label className="text-xs text-slate-500">Phone</label>
+                          <label className="text-xs text-slate-500">
+                            Phone
+                          </label>
                           <div className="text-sm text-white mt-1">
                             {selectedCreator.phone}
                           </div>
@@ -1853,7 +1857,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       Want to work with this creator?
                     </h4>
                     <p className="text-sm text-slate-400 mb-4">
-                      Submit a request and our team will reach out and confirm availability, pricing, and delivery timeline.
+                      Submit a request and our team will reach out and confirm
+                      availability, pricing, and delivery timeline.
                     </p>
                     <button
                       onClick={() => {
@@ -1877,7 +1882,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
       <ResponsiveConfirmDialog
         open={Boolean(deleteConfirm)}
         onOpenChange={(open) => {
-          console.log('[Delete Dialog]', { open, deleteConfirm });
+          console.log("[Delete Dialog]", { open, deleteConfirm });
           if (!open) setDeleteConfirm(null);
         }}
         title="Delete creator?"
@@ -1885,7 +1890,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
         confirmLabel="Delete creator"
         confirmLoading={Boolean(deletingCreatorId)}
         onConfirm={() => {
-          console.log('[Delete Confirmed]', deleteConfirm);
+          console.log("[Delete Confirmed]", deleteConfirm);
           deleteConfirm && handleDelete(deleteConfirm);
         }}
       />

@@ -31,7 +31,7 @@ import {
   normalizePlatform,
   getPlatformLabel,
 } from "./ui/PlatformIcon";
-import { CampaignHeaderSkeleton, PostRowSkeleton, DashboardKpiSkeleton, ChartPanelSkeleton } from "./ui/skeleton";
+import { CampaignHeaderSkeleton, PostRowSkeleton } from "./ui/skeleton";
 import { cn } from "./ui/utils";
 import {
   Select,
@@ -70,16 +70,19 @@ import {
 } from "../../hooks/useSubcampaigns";
 import { useScrapeAllPosts, useScrapePost } from "../../hooks/useScraping";
 import { addNotification } from "../../lib/utils/notifications";
-import { useCreatorsByCampaign, useRemoveCreatorFromCampaign } from "../../hooks/useCreators";
-import { useCreatorRequests } from "../../hooks/useCreatorRequests";
+import {
+  useCreatorsByCampaign,
+  useRemoveCreatorFromCampaign,
+} from "../../hooks/useCreators";
 import * as csvUtils from "../../lib/utils/csv";
-import type { CSVImportResult, CreatorRequestWithCreators } from "../../lib/types/database";
+import type { CSVImportResult } from "../../lib/types/database";
 import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
-import { CreatorRequestChatbot } from "./creator-request-chatbot";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
 import { SubcampaignSection } from "./subcampaign-section";
+import { CampaignSoundSection } from "./campaign-sound-section";
+import { SoundIngest } from "./sound-ingest";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -102,6 +105,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import {
+  useSound,
+  useSoundVideos,
+  useLinkSoundToCampaign,
+  useUnlinkSoundFromCampaign,
+  useRefreshSound,
+} from "../../hooks/useSounds";
 import type { Creator } from "../../lib/types/database";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
@@ -122,7 +132,6 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     useState(false);
   const [showImportPostsDialog, setShowImportPostsDialog] = useState(false);
   const [showAddPostDialog, setShowAddPostDialog] = useState(false);
-  const [showRequestCreatorDialog, setShowRequestCreatorDialog] = useState(false);
   const [showScrapeAllDialog, setShowScrapeAllDialog] = useState(false);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [showDeletePostDialog, setShowDeletePostDialog] = useState<
@@ -131,6 +140,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [showDeleteCampaignDialog, setShowDeleteCampaignDialog] =
     useState(false);
   const [showShareLinkModal, setShowShareLinkModal] = useState(false);
+  const [showAddSoundDialog, setShowAddSoundDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<CSVImportResult | null>(
@@ -142,12 +152,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   >("views");
   const isMobile = useMediaQuery("(max-width: 640px)");
   const isCompactMobile = useMediaQuery("(max-width: 479px)");
-  const {
-    canExportData,
-    canTriggerScrape,
-    canEditCampaign,
-    isOwner,
-  } = useWorkspaceAccess();
+  const { canEditWorkspace } = useWorkspaceAccess();
   const [chartRange, setChartRange] = useState<"7d" | "14d" | "30d" | "all">(
     "14d"
   );
@@ -159,7 +164,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [postDateFilter, setPostDateFilter] = useState("all");
   const [activeCreator, setActiveCreator] = useState<Creator | null>(null);
   const [creatorDrawerOpen, setCreatorDrawerOpen] = useState(false);
-  const [creatorToRemove, setCreatorToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [creatorToRemove, setCreatorToRemove] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const removeCreatorMutation = useRemoveCreatorFromCampaign();
   const [expandedPlatforms, setExpandedPlatforms] = useState<
     Record<string, boolean>
@@ -182,9 +190,11 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       : window.setTimeout(() => setChartsReady(true), 1);
     return () => {
       if (idleCallback) {
-        (window as typeof window & {
-          cancelIdleCallback?: (id: number) => void;
-        }).cancelIdleCallback?.(timeoutId);
+        (
+          window as typeof window & {
+            cancelIdleCallback?: (id: number) => void;
+          }
+        ).cancelIdleCallback?.(timeoutId);
         return;
       }
       window.clearTimeout(timeoutId);
@@ -268,107 +278,22 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     refetch: refetchPosts,
   } = usePosts(id, Boolean(isParent));
   const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
-  const { data: chartData = [], isLoading: chartLoading } = useCampaignMetricsTimeSeries(id);
+  const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
-  const { data: creatorRequests = [] } = useCreatorRequests();
-  const campaignRequests = React.useMemo(() => {
-    if (!id) return [];
-    return creatorRequests.filter((request) => request.campaign_id === id);
-  }, [creatorRequests, id]);
-  const campaignRequestIds = React.useMemo(() => {
-    if (campaignRequests.length === 0) return [];
-    return campaignRequests.map((request) => request.id).sort();
-  }, [campaignRequests]);
-  const [campaignRequestDetails, setCampaignRequestDetails] = useState<
-    Array<
-      CreatorRequestWithCreators & {
-        creator_request_items?: Array<{
-          status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
-          creators?: { id: string; name?: string | null; handle?: string | null } | null;
-        }>;
-      }
-    >
-  >([]);
-  useEffect(() => {
-    const loadDetails = async () => {
-      if (campaignRequestIds.length === 0) {
-        setCampaignRequestDetails((prev) => (prev.length ? [] : prev));
-        return;
-      }
-      const { data: requestDetails } = await supabase
-        .from("creator_requests")
-        .select(
-          `id, status, campaign_type, created_at, campaign_id,
-           creator_request_items(
-             status,
-             creators:creator_id(id, name, handle, platform)
-           )`
-        )
-        .in(
-          "id",
-          campaignRequestIds
-        );
 
-      if (!requestDetails) {
-        setCampaignRequestDetails([]);
-        return;
-      }
-
-      const mapped = (requestDetails as any[]).map((request) => ({
-        ...request,
-        creators: (request.creator_request_items || [])
-          .map((item: any) => item.creators)
-          .filter(Boolean),
-      }));
-      setCampaignRequestDetails(mapped);
-    };
-
-    loadDetails();
-  }, [campaignRequestIds]);
-
-  const requestedCreatorRows = React.useMemo(() => {
-    const rows: Array<{
-      requestId: string;
-      requestedAt: string;
-      requestStatus?: string | null;
-      campaignType?: string | null;
-      creatorName: string;
-      creatorHandle?: string | null;
-      creatorStatus?: string | null;
-    }> = [];
-
-    campaignRequestDetails.forEach((request) => {
-      const items = request.creator_request_items || [];
-      if (items.length === 0) {
-        rows.push({
-          requestId: request.id,
-          requestedAt: request.created_at,
-          requestStatus: request.status,
-          campaignType: request.campaign_type,
-          creatorName: "No creators selected",
-          creatorHandle: null,
-          creatorStatus: null,
-        });
-        return;
-      }
-
-      items.forEach((item) => {
-        const creator = item.creators;
-        rows.push({
-          requestId: request.id,
-          requestedAt: request.created_at,
-          requestStatus: request.status,
-          campaignType: request.campaign_type,
-          creatorName: creator?.name || creator?.handle || "Unknown creator",
-          creatorHandle: creator?.handle || null,
-          creatorStatus: item.status || "pending",
-        });
-      });
-    });
-
-    return rows;
-  }, [campaignRequestDetails]);
-
+  // Sound tracking hooks
+  const {
+    data: linkedSound,
+    isLoading: soundLoading,
+    error: soundError,
+  } = useSound(campaign?.sound_id);
+  const { data: soundVideos = [], isLoading: videosLoading } = useSoundVideos(
+    campaign?.sound_id,
+    "views"
+  );
+  const linkSoundMutation = useLinkSoundToCampaign();
+  const unlinkSoundMutation = useUnlinkSoundFromCampaign();
+  const refreshSoundMutation = useRefreshSound();
 
   const derivedCampaignStatus = React.useMemo(() => {
     if (!campaign) return null;
@@ -402,11 +327,20 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         return;
       }
 
-      queryClient.setQueryData(campaignsKeys.detail(campaign.id), (old: any) => {
-        if (!old) return old;
-        return { ...old, status: derivedCampaignStatus, updated_at: new Date().toISOString() };
+      queryClient.setQueryData(
+        campaignsKeys.detail(campaign.id),
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            status: derivedCampaignStatus,
+            updated_at: new Date().toISOString(),
+          };
+        }
+      );
+      queryClient.invalidateQueries({
+        queryKey: campaignsKeys.lists(activeWorkspaceId),
       });
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
     };
 
     updateStatus();
@@ -463,7 +397,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const scrapeAllPostsMutation = useScrapeAllPosts();
   const scrapePostMutation = useScrapePost();
   const activeScrapePostId = scrapePostMutation.isPending
-    ? scrapePostMutation.variables?.postId ?? null
+    ? (scrapePostMutation.variables?.postId ?? null)
     : null;
   const isScrapeAllPending = scrapeAllPostsMutation.isPending;
 
@@ -560,8 +494,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   }, [posts, id, queryClient]);
 
   const platformOrder: Array<
-    "tiktok" | "instagram" | "youtube"
-  > = ["tiktok", "instagram", "youtube"];
+    "tiktok" | "instagram" | "youtube" | "twitter" | "facebook"
+  > = ["tiktok", "instagram", "youtube", "twitter", "facebook"];
 
   // Helper functions for scoring and KPI filtering
   // Updated to return true for all platforms (previously filtered to TikTok/Instagram only)
@@ -597,10 +531,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         (sum, p) => sum + (Number(p.comments) || 0),
         0
       ),
-      total_shares: posts.reduce(
-        (sum, p) => sum + (Number(p.shares) || 0),
-        0
-      ),
+      total_shares: posts.reduce((sum, p) => sum + (Number(p.shares) || 0), 0),
     };
   }, [posts]);
 
@@ -663,27 +594,27 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         const sharesMatch =
           Math.abs(chartLatestShares - kpiMetrics.total_shares) < 1;
 
-        // console.log("[Graph Alignment Check]", {
-        //   "KPI Totals (All Platforms)": {
-        //     views: kpiMetrics.total_views,
-        //     likes: kpiMetrics.total_likes,
-        //     comments: kpiMetrics.total_comments,
-        //     shares: kpiMetrics.total_shares,
-        //   },
-        //   "Chart Latest Point Totals": {
-        //     views: chartLatestViews,
-        //     likes: chartLatestLikes,
-        //     comments: chartLatestComments,
-        //     shares: chartLatestShares,
-        //   },
-        //   "Alignment Status": {
-        //     views: viewsMatch ? "✓ Aligned" : "✗ Mismatch",
-        //     likes: likesMatch ? "✓ Aligned" : "✗ Mismatch",
-        //     comments: commentsMatch ? "✓ Aligned" : "✗ Mismatch",
-        //     shares: sharesMatch ? "✓ Aligned" : "✗ Mismatch",
-        //   },
-        //   Note: "Chart uses latest snapshot per date. Latest point should match KPI cards.",
-        // });
+        console.log("[Graph Alignment Check]", {
+          "KPI Totals (All Platforms)": {
+            views: kpiMetrics.total_views,
+            likes: kpiMetrics.total_likes,
+            comments: kpiMetrics.total_comments,
+            shares: kpiMetrics.total_shares,
+          },
+          "Chart Latest Point Totals": {
+            views: chartLatestViews,
+            likes: chartLatestLikes,
+            comments: chartLatestComments,
+            shares: chartLatestShares,
+          },
+          "Alignment Status": {
+            views: viewsMatch ? "✓ Aligned" : "✗ Mismatch",
+            likes: likesMatch ? "✓ Aligned" : "✗ Mismatch",
+            comments: commentsMatch ? "✓ Aligned" : "✗ Mismatch",
+            shares: sharesMatch ? "✓ Aligned" : "✗ Mismatch",
+          },
+          Note: "Chart uses latest snapshot per date. Latest point should match KPI cards.",
+        });
 
         // Warn if there's a mismatch
         if (!viewsMatch || !likesMatch || !commentsMatch || !sharesMatch) {
@@ -813,16 +744,13 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     return numericValue.toString();
   }, []);
 
-  const chartTooltipFormatter = React.useCallback(
-    (value: number | string) => {
-      const numericValue = Number(value);
-      if (Number.isNaN(numericValue)) {
-        return value;
-      }
-      return numericValue.toLocaleString();
-    },
-    []
-  );
+  const chartTooltipFormatter = React.useCallback((value: number | string) => {
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) {
+      return value;
+    }
+    return numericValue.toLocaleString();
+  }, []);
 
   const chartTooltipStyle = React.useMemo(
     () => ({
@@ -845,8 +773,11 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         const searchLower = searchQuery.trim().toLowerCase();
         if (!searchLower) return true;
         const name = post.creator?.name?.toLowerCase() || "";
-        const handle =
-          (post.creator?.handle || post.owner_username || "").toLowerCase();
+        const handle = (
+          post.creator?.handle ||
+          post.owner_username ||
+          ""
+        ).toLowerCase();
         const postUrl = post.post_url?.toLowerCase() || "";
         const platform = post.platform?.toLowerCase() || "";
         const status = post.status?.toLowerCase() || "";
@@ -861,7 +792,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
       // Step 2: Apply filters
       if (postPlatformFilter !== "all") {
-        filtered = filtered.filter((post) => post.platform === postPlatformFilter);
+        filtered = filtered.filter(
+          (post) => post.platform === postPlatformFilter
+        );
       }
 
       if (postStatusFilter !== "all") {
@@ -869,7 +802,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       }
 
       if (postCreatorFilter !== "all") {
-        filtered = filtered.filter((post) => post.creator_id === postCreatorFilter);
+        filtered = filtered.filter(
+          (post) => post.creator_id === postCreatorFilter
+        );
       }
 
       if (postDateFilter !== "all") {
@@ -954,7 +889,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   // Deduplicate campaign creators by creator_id to ensure uniqueness
   const uniqueRosterCreators = React.useMemo(() => {
     if (!Array.isArray(campaignCreators)) return [];
-    const uniqueMap = new Map<string, typeof campaignCreators[0]>();
+    const uniqueMap = new Map<string, (typeof campaignCreators)[0]>();
     campaignCreators.forEach((creator) => {
       if (creator.id && !uniqueMap.has(creator.id)) {
         uniqueMap.set(creator.id, creator);
@@ -986,7 +921,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     }
 
     // Ensure no duplicates in filtered results
-    const filteredMap = new Map<string, typeof uniqueRosterCreators[0]>();
+    const filteredMap = new Map<string, (typeof uniqueRosterCreators)[0]>();
     filtered.forEach((creator) => {
       if (creator.id && !filteredMap.has(creator.id)) {
         filteredMap.set(creator.id, creator);
@@ -1001,6 +936,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       tiktok: 0,
       instagram: 0,
       youtube: 0,
+      twitter: 0,
+      facebook: 0,
     };
     // Count unique creators by platform
     const platformSet = new Map<string, Set<string>>();
@@ -1048,11 +985,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   );
 
   const activePostFilters = React.useMemo(() => {
-    const filters: Array<{ key: string; label: string; onClear: () => void }> = [];
+    const filters: Array<{ key: string; label: string; onClear: () => void }> =
+      [];
     const formatLabel = (value: string) =>
-      value
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (char) => char.toUpperCase());
+      value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
     if (postPlatformFilter !== "all") {
       filters.push({
@@ -1106,7 +1042,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const groupedCreators = React.useMemo(() => {
     const groups = new Map<string, typeof filteredCreators>();
     platformOrder.forEach((platform) => groups.set(platform, []));
-    
+
     // Deduplicate while grouping by platform
     const creatorIdsInGroup = new Map<string, Set<string>>();
     filteredCreators.forEach((creator) => {
@@ -1115,7 +1051,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         if (!creatorIdsInGroup.has(platform)) {
           creatorIdsInGroup.set(platform, new Set());
         }
-        
+
         // Only add if not already in group
         if (!creatorIdsInGroup.get(platform)?.has(creator.id)) {
           const existing = groups.get(platform) || [];
@@ -1125,7 +1061,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         }
       }
     });
-    
+
     return platformOrder
       .map((platform) => {
         const creators = (groups.get(platform) || [])
@@ -1327,7 +1263,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   const mobileTotalPages = React.useMemo(() => {
     if (!showTopPerformers) return totalPages;
-    return Math.max(1, Math.ceil((postsWithRankings?.length || 0) / postsPerPage));
+    return Math.max(
+      1,
+      Math.ceil((postsWithRankings?.length || 0) / postsPerPage)
+    );
   }, [showTopPerformers, postsWithRankings, postsPerPage, totalPages]);
 
   const mobileSafeCurrentPage = Math.min(
@@ -1362,25 +1301,14 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     }
   }, [totalPages]); // Only depend on totalPages to avoid infinite loops
 
-  const canEditThisCampaign = id ? canEditCampaign(id) : false;
-
   const ensureCanEdit = (message?: string) => {
-    if (canEditThisCampaign) return true;
+    if (canEditWorkspace) return true;
     toast.error(message || "Read-only access: editing is disabled.");
     return false;
   };
 
-  const ensureCanScrape = () => {
-    if (canTriggerScrape) return true;
-    toast.error("Only workspace owners can trigger scraping.");
-    return false;
-  };
-
   const handleImportCreators = () => {
-    if (!isOwner) {
-      toast.error("Only workspace owners can add creators to the global library.");
-      return;
-    }
+    if (!ensureCanEdit()) return;
     setShowImportCreatorsDialog(true);
   };
 
@@ -1432,7 +1360,6 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const handleScrapeAll = () => {
     if (!id) return;
     if (!ensureCanEdit()) return;
-    if (!ensureCanScrape()) return;
     scrapeAllPostsMutation.mutate(id);
     setShowScrapeAllDialog(false);
   };
@@ -1461,7 +1388,6 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const handleScrapePost = (postId: string) => {
     if (!id) return;
     if (!ensureCanEdit()) return;
-    if (!ensureCanScrape()) return;
 
     // Find the post in the posts array
     const post = posts?.find((p) => p.id === postId);
@@ -1476,41 +1402,16 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       platform: post.platform as
         | "tiktok"
         | "instagram"
-        | "youtube",
+        | "youtube"
+        | "twitter"
+        | "facebook",
       campaignId: id,
     });
   };
 
   const handleExportCSV = () => {
     if (!campaign || posts.length === 0) return;
-    if (!canExportData) {
-      const totalReach = posts.reduce(
-        (sum, post) => sum + Number(post.views || 0),
-        0
-      );
-      const totalEngagement = posts.reduce(
-        (sum, post) =>
-          sum +
-          Number(post.likes || 0) +
-          Number(post.comments || 0) +
-          Number(post.shares || 0),
-        0
-      );
-      const rows = [
-        ["Campaign", campaign.name],
-        ["Export Type", "Summary"],
-        ["Total Posts", posts.length.toString()],
-        ["Total Reach", totalReach.toString()],
-        ["Total Engagement", totalEngagement.toString()],
-      ];
-      const csvContent = rows.map((row) => row.join(",")).join("\n");
-      const filename = `${campaign.name.replace(/[^a-z0-9]/gi, "_")}_summary_${
-        new Date().toISOString().split("T")[0]
-      }.csv`;
-      csvUtils.downloadCSV(csvContent, filename);
-      toast.success("Summary exported. Contact the owner for full exports.");
-      return;
-    }
+
     const csvContent = csvUtils.exportToCSV(posts);
     const filename = `${campaign.name.replace(/[^a-z0-9]/gi, "_")}_posts_${
       new Date().toISOString().split("T")[0]
@@ -1646,13 +1547,15 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 w-full sm:flex sm:gap-2 sm:w-auto">
               <button
                 onClick={() => {
-                  if (!isOwner) {
-                    toast.error("Only workspace owners can share campaigns.");
+                  if (
+                    !ensureCanEdit(
+                      "You do not have permission to share campaigns."
+                    )
+                  )
                     return;
-                  }
                   setShowShareLinkModal(true);
                 }}
-                disabled={!isOwner}
+                disabled={!canEditWorkspace}
                 className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Share campaign link"
               >
@@ -1666,7 +1569,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     type="button"
                     className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     aria-label="Campaign actions"
-                    disabled={!canEditThisCampaign}
+                    disabled={!canEditWorkspace}
                   >
                     <MoreHorizontal className="w-4 h-4" />
                     <span>Action</span>
@@ -1676,27 +1579,36 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   align="end"
                   className="w-52 bg-black text-white border-white/[0.08]"
                 >
-                    <DropdownMenuItem
-                      onSelect={() => {
-                      if (!ensureCanEdit("You do not have permission to edit campaigns.")) return;
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      if (
+                        !ensureCanEdit(
+                          "You do not have permission to edit campaigns."
+                        )
+                      )
+                        return;
                       onNavigate(`/campaigns/${campaign.id}/edit`);
-                      }}
-                    disabled={!canEditThisCampaign}
+                    }}
+                    disabled={!canEditWorkspace}
                     className="text-white [&_svg]:text-white"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit Campaign
                   </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={() => {
-                      if (!isOwner) {
-                        toast.error("Only workspace owners can delete campaigns.");
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => {
+                      if (
+                        !ensureCanEdit(
+                          "You do not have permission to delete campaigns."
+                        )
+                      )
                         return;
-                      }
                       setShowDeleteCampaignDialog(true);
-                      }}
-                    disabled={!isOwner || deleteCampaignMutation.isPending}
+                    }}
+                    disabled={
+                      !canEditWorkspace || deleteCampaignMutation.isPending
+                    }
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete Campaign
@@ -1769,71 +1681,63 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       )}
 
       {/* KPI Cards - Performance Metrics */}
-      {chartLoading ? (
-        <DashboardKpiSkeleton />
-      ) : (
-        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-3 sm:p-5">
-              <div className="flex items-start justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                </div>
+      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
-              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-                {(filteredMetrics.total_views ?? 0).toLocaleString()}
-              </div>
-              <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_views ?? 0).toLocaleString()}
+            </div>
+            <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
+          </CardContent>
+        </Card>
 
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-3 sm:p-5">
-              <div className="flex items-start justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                  <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
-                </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
               </div>
-              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-                {(filteredMetrics.total_likes ?? 0).toLocaleString()}
-              </div>
-              <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_likes ?? 0).toLocaleString()}
+            </div>
+            <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
+          </CardContent>
+        </Card>
 
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-3 sm:p-5">
-              <div className="flex items-start justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
-                </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
-              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-                {(filteredMetrics.total_comments ?? 0).toLocaleString()}
-              </div>
-              <p className="text-xs sm:text-sm text-slate-400">
-                Total Comments
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_comments ?? 0).toLocaleString()}
+            </div>
+            <p className="text-xs sm:text-sm text-slate-400">Total Comments</p>
+          </CardContent>
+        </Card>
 
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-3 sm:p-5">
-              <div className="flex items-start justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-                </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
-              <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-                {(filteredMetrics.total_shares ?? 0).toLocaleString()}
-              </div>
-              <p className="text-xs sm:text-sm text-slate-400">
-                Total Shares
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+              {(filteredMetrics.total_shares ?? 0).toLocaleString()}
+            </div>
+            <p className="text-xs sm:text-sm text-slate-400">Total Shares</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Chart Range Selector */}
       <div className="flex flex-wrap items-center gap-2">
@@ -1865,7 +1769,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </div>
       </div>
 
-      {chartsReady && !chartLoading ? (
+      {chartsReady ? (
         <>
           {/* Performance Charts */}
           {/* Mobile: Tabbed Interface */}
@@ -1876,388 +1780,403 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             }
             className="lg:hidden"
           >
-        <TabsList className="grid w-full max-w-[360px] sm:max-w-none grid-cols-4 gap-1 h-11 bg-white/[0.03] border border-white/[0.08] p-1 mx-auto sm:mx-0 overflow-y-hidden">
-          <TabsTrigger
-            value="views"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Views</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="likes"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
-          >
-            <Heart className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Likes</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="comments"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Comments</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="shares"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Shares</span>
-          </TabsTrigger>
-        </TabsList>
+            <TabsList className="grid w-full max-w-[360px] sm:max-w-none grid-cols-4 gap-1 h-11 bg-white/[0.03] border border-white/[0.08] p-1 mx-auto sm:mx-0 overflow-y-hidden">
+              <TabsTrigger
+                value="views"
+                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Views</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="likes"
+                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+              >
+                <Heart className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Likes</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="comments"
+                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Comments</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="shares"
+                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Shares</span>
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent
-          value="views"
-          className="mt-4 animate-in fade-in-50 duration-200"
-        >
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-4 sm:p-6">
-              <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-primary" />
-                  Views Over Time
-                </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={filteredChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#ffffff08"
-                    vertical={false}
-                  />
-                  <XAxis dataKey="date" {...chartXAxisProps} />
-                  <YAxis
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={formatChartTick}
-                  />
-                  <Tooltip
-                    contentStyle={chartTooltipStyle}
-                    formatter={chartTooltipFormatter}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#0ea5e9"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <TabsContent
+              value="views"
+              className="mt-4 animate-in fade-in-50 duration-200"
+            >
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="mb-4">
+                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-primary" />
+                      Views Over Time
+                    </h3>
+                    <p className="text-sm text-slate-400 mt-0.5">
+                      {chartRangeLabel}
+                    </p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={filteredChartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#ffffff08"
+                        vertical={false}
+                      />
+                      <XAxis dataKey="date" {...chartXAxisProps} />
+                      <YAxis
+                        stroke="#64748b"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={formatChartTick}
+                      />
+                      <Tooltip
+                        contentStyle={chartTooltipStyle}
+                        formatter={chartTooltipFormatter}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="views"
+                        stroke="#0ea5e9"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-        <TabsContent
-          value="likes"
-          className="mt-4 animate-in fade-in-50 duration-200"
-        >
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-4 sm:p-6">
-              <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-pink-400" />
-                  Likes Over Time
-                </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={filteredChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#ffffff08"
-                    vertical={false}
-                  />
-                  <XAxis dataKey="date" {...chartXAxisProps} />
-                  <YAxis
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={formatChartTick}
-                  />
-                  <Tooltip
-                    contentStyle={chartTooltipStyle}
-                    formatter={chartTooltipFormatter}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="likes"
-                    stroke="#ec4899"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <TabsContent
+              value="likes"
+              className="mt-4 animate-in fade-in-50 duration-200"
+            >
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="mb-4">
+                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-pink-400" />
+                      Likes Over Time
+                    </h3>
+                    <p className="text-sm text-slate-400 mt-0.5">
+                      {chartRangeLabel}
+                    </p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={filteredChartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#ffffff08"
+                        vertical={false}
+                      />
+                      <XAxis dataKey="date" {...chartXAxisProps} />
+                      <YAxis
+                        stroke="#64748b"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={formatChartTick}
+                      />
+                      <Tooltip
+                        contentStyle={chartTooltipStyle}
+                        formatter={chartTooltipFormatter}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="likes"
+                        stroke="#ec4899"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-        <TabsContent
-          value="comments"
-          className="mt-4 animate-in fade-in-50 duration-200"
-        >
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-4 sm:p-6">
-              <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-cyan-400" />
-                  Comments Over Time
-                </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={filteredChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#ffffff08"
-                    vertical={false}
-                  />
-                  <XAxis dataKey="date" {...chartXAxisProps} />
-                  <YAxis
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={formatChartTick}
-                  />
-                  <Tooltip
-                    contentStyle={chartTooltipStyle}
-                    formatter={chartTooltipFormatter}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="comments"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <TabsContent
+              value="comments"
+              className="mt-4 animate-in fade-in-50 duration-200"
+            >
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="mb-4">
+                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-cyan-400" />
+                      Comments Over Time
+                    </h3>
+                    <p className="text-sm text-slate-400 mt-0.5">
+                      {chartRangeLabel}
+                    </p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={filteredChartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#ffffff08"
+                        vertical={false}
+                      />
+                      <XAxis dataKey="date" {...chartXAxisProps} />
+                      <YAxis
+                        stroke="#64748b"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={formatChartTick}
+                      />
+                      <Tooltip
+                        contentStyle={chartTooltipStyle}
+                        formatter={chartTooltipFormatter}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="comments"
+                        stroke="#06b6d4"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-        <TabsContent
-          value="shares"
-          className="mt-4 animate-in fade-in-50 duration-200"
-        >
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
-            <CardContent className="p-4 sm:p-6">
-              <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                  <Share2 className="w-4 h-4 text-purple-400" />
-                  Shares Over Time
-                </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={filteredChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#ffffff08"
-                    vertical={false}
-                  />
-                  <XAxis dataKey="date" {...chartXAxisProps} />
-                  <YAxis
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={formatChartTick}
-                  />
-                  <Tooltip
-                    contentStyle={chartTooltipStyle}
-                    formatter={chartTooltipFormatter}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="shares"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            <TabsContent
+              value="shares"
+              className="mt-4 animate-in fade-in-50 duration-200"
+            >
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="mb-4">
+                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                      <Share2 className="w-4 h-4 text-purple-400" />
+                      Shares Over Time
+                    </h3>
+                    <p className="text-sm text-slate-400 mt-0.5">
+                      {chartRangeLabel}
+                    </p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={filteredChartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#ffffff08"
+                        vertical={false}
+                      />
+                      <XAxis dataKey="date" {...chartXAxisProps} />
+                      <YAxis
+                        stroke="#64748b"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={formatChartTick}
+                      />
+                      <Tooltip
+                        contentStyle={chartTooltipStyle}
+                        formatter={chartTooltipFormatter}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="shares"
+                        stroke="#a855f7"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
-      {/* Desktop: Keep existing 2x2 grid */}
-      <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Views Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">
-                Views Over Time
-              </h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={filteredChartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#ffffff08"
-                  vertical={false}
-                />
-                <XAxis dataKey="date" {...chartXAxisProps} />
-                <YAxis
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatChartTick}
-                />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  formatter={chartTooltipFormatter}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="views"
-                  stroke="#0ea5e9"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          {/* Desktop: Keep existing 2x2 grid */}
+          <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Views Over Time */}
+            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold text-white">
+                    Views Over Time
+                  </h3>
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    {chartRangeLabel}
+                  </p>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={filteredChartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#ffffff08"
+                      vertical={false}
+                    />
+                    <XAxis dataKey="date" {...chartXAxisProps} />
+                    <YAxis
+                      stroke="#64748b"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={formatChartTick}
+                    />
+                    <Tooltip
+                      contentStyle={chartTooltipStyle}
+                      formatter={chartTooltipFormatter}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="views"
+                      stroke="#0ea5e9"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-        {/* Likes Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">
-                Likes Over Time
-              </h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={filteredChartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#ffffff08"
-                  vertical={false}
-                />
-                <XAxis dataKey="date" {...chartXAxisProps} />
-                <YAxis
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatChartTick}
-                />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  formatter={chartTooltipFormatter}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="likes"
-                  stroke="#ec4899"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+            {/* Likes Over Time */}
+            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold text-white">
+                    Likes Over Time
+                  </h3>
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    {chartRangeLabel}
+                  </p>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={filteredChartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#ffffff08"
+                      vertical={false}
+                    />
+                    <XAxis dataKey="date" {...chartXAxisProps} />
+                    <YAxis
+                      stroke="#64748b"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={formatChartTick}
+                    />
+                    <Tooltip
+                      contentStyle={chartTooltipStyle}
+                      formatter={chartTooltipFormatter}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="likes"
+                      stroke="#ec4899"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-        {/* Comments Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">
-                Comments Over Time
-              </h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={filteredChartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#ffffff08"
-                  vertical={false}
-                />
-                <XAxis dataKey="date" {...chartXAxisProps} />
-                <YAxis
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatChartTick}
-                />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  formatter={chartTooltipFormatter}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="comments"
-                  stroke="#06b6d4"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+            {/* Comments Over Time */}
+            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold text-white">
+                    Comments Over Time
+                  </h3>
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    {chartRangeLabel}
+                  </p>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={filteredChartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#ffffff08"
+                      vertical={false}
+                    />
+                    <XAxis dataKey="date" {...chartXAxisProps} />
+                    <YAxis
+                      stroke="#64748b"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={formatChartTick}
+                    />
+                    <Tooltip
+                      contentStyle={chartTooltipStyle}
+                      formatter={chartTooltipFormatter}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="comments"
+                      stroke="#06b6d4"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-        {/* Shares Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="p-6">
-            <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">
-                Shares Over Time
-              </h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={filteredChartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#ffffff08"
-                  vertical={false}
-                />
-                <XAxis dataKey="date" {...chartXAxisProps} />
-                <YAxis
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatChartTick}
-                />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  formatter={chartTooltipFormatter}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="shares"
-                  stroke="#a855f7"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+            {/* Shares Over Time */}
+            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold text-white">
+                    Shares Over Time
+                  </h3>
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    {chartRangeLabel}
+                  </p>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={filteredChartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#ffffff08"
+                      vertical={false}
+                    />
+                    <XAxis dataKey="date" {...chartXAxisProps} />
+                    <YAxis
+                      stroke="#64748b"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={formatChartTick}
+                    />
+                    <Tooltip
+                      contentStyle={chartTooltipStyle}
+                      formatter={chartTooltipFormatter}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="shares"
+                      stroke="#a855f7"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
         </>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartPanelSkeleton />
-          <ChartPanelSkeleton />
-          <ChartPanelSkeleton />
-          <ChartPanelSkeleton />
-        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-6">
+            <div className="text-sm text-slate-400">Loading charts...</div>
+          </CardContent>
+        </Card>
       )}
 
       {isParent && campaign && (
@@ -2268,9 +2187,82 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         />
       )}
 
+      {/* Sound Tracking Section */}
+      {campaign && (
+        <>
+          <CampaignSoundSection
+            campaignId={campaign.id}
+            sound={linkedSound || null}
+            soundVideos={soundVideos}
+            loading={
+              refreshSoundMutation.isPending || soundLoading || videosLoading
+            }
+            onAddSound={() => setShowAddSoundDialog(true)}
+            onRemoveSound={() => {
+              if (confirm("Remove sound from this campaign?")) {
+                unlinkSoundMutation.mutate(campaign.id);
+              }
+            }}
+            onRefreshSound={() => {
+              if (linkedSound?.id) {
+                refreshSoundMutation.mutate(linkedSound.id);
+              } else if (campaign?.sound_id) {
+                // If sound_id exists but sound data isn't loaded, try to refresh
+                refreshSoundMutation.mutate(campaign.sound_id);
+              }
+            }}
+          />
+
+          {/* Add Sound Dialog */}
+          <Dialog
+            open={showAddSoundDialog}
+            onOpenChange={setShowAddSoundDialog}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Link Sound to Campaign</DialogTitle>
+                <DialogDescription>
+                  Paste a TikTok or Instagram link to start tracking the sound
+                  used in that post.
+                </DialogDescription>
+              </DialogHeader>
+              <SoundIngest
+                campaignId={campaign.id}
+                onSuccess={() => {
+                  setShowAddSoundDialog(false);
+                  // Refresh campaign data to show linked sound
+                  queryClient.invalidateQueries({
+                    queryKey: campaignsKeys.detail(campaign.id),
+                  });
+                  // Also invalidate sound queries
+                  queryClient.invalidateQueries({
+                    queryKey: ["sounds"],
+                  });
+                }}
+                onSoundDetected={async (sound) => {
+                  // The sound-tracking function should have already linked it,
+                  // but link it again as a fallback to ensure it's linked
+                  if (campaign?.id && sound.id) {
+                    try {
+                      await linkSoundMutation.mutateAsync({
+                        campaignId: campaign.id,
+                        soundId: sound.id,
+                        soundUrl: sound.sound_page_url || undefined,
+                      });
+                    } catch (error) {
+                      // If linking fails, it might already be linked, which is fine
+                      console.log("Sound may already be linked:", error);
+                    }
+                  }
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
 
       {/* Creators Section */}
-      {(campaignCreators.length > 0 || campaignRequests.length > 0) && (
+      {campaignCreators.length > 0 && (
         <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
           <CardContent className="p-5 md:p-6">
             {/* Header Section */}
@@ -2285,162 +2277,6 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     : `${uniqueRosterCreators.length} of ${uniqueRosterCreators.length} Active Participants`}
                 </p>
               </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowRequestCreatorDialog(true)}
-                  className="h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
-                >
-                  Request creator
-                </Button>
-                <p className="text-xs text-slate-400 self-center">
-                  Requests add creators only to this campaign after approval.
-                </p>
-              </div>
-
-              {/* Requested Creators */}
-              {requestedCreatorRows.length > 0 && (
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                    <div>
-                      <div className="text-sm font-semibold text-white">
-                        Requested Creators
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Each creator can move independently through approval.
-                      </p>
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {requestedCreatorRows.length} creator
-                      {requestedCreatorRows.length === 1 ? "" : "s"} requested
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-white/[0.06] overflow-hidden">
-                    <div className="hidden md:block max-h-72 overflow-auto">
-                      <table className="min-w-[560px] w-full text-sm">
-                        <thead className="bg-white/[0.03] text-slate-400 sticky top-0 z-10">
-                          <tr>
-                            <th className="text-left px-3 py-2 font-medium">Creator</th>
-                            <th className="text-left px-3 py-2 font-medium">Creator Status</th>
-                            <th className="text-left px-3 py-2 font-medium">Request Status</th>
-                            <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Type</th>
-                            <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Submitted</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {requestedCreatorRows.map((row, index) => {
-                            const creatorStatus = (row.creatorStatus || "pending").replace("_", " ");
-                            const requestStatus =
-                              row.requestStatus === "suggested"
-                                ? "Owner approval pending"
-                                : row.requestStatus?.replace("_", " ") || "submitted";
-                            const creatorStatusTone = {
-                              pending: "bg-amber-500/10 text-amber-300 border-amber-400/30",
-                              accepted: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
-                              approved: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
-                              rejected: "bg-red-500/10 text-red-300 border-red-400/30",
-                              quoted: "bg-blue-500/10 text-blue-300 border-blue-400/30",
-                            }[creatorStatus] || "bg-white/5 text-slate-300 border-white/10";
-
-                            const requestStatusTone =
-                              row.requestStatus === "suggested"
-                                ? "bg-amber-500/10 text-amber-300 border-amber-400/30"
-                                : "bg-white/5 text-slate-300 border-white/10";
-
-                            return (
-                              <tr
-                                key={`${row.requestId}-${row.creatorName}-${index}`}
-                                className="border-t border-white/[0.06]"
-                              >
-                                <td className="px-3 py-3">
-                                  <div className="text-slate-100 font-medium">{row.creatorName}</div>
-                                  {row.creatorHandle && (
-                                    <div className="text-xs text-slate-500">@{row.creatorHandle}</div>
-                                  )}
-                                </td>
-                                <td className="px-3 py-3">
-                                  <span
-                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${creatorStatusTone}`}
-                                  >
-                                    {creatorStatus}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-3">
-                                  <span
-                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${requestStatusTone}`}
-                                  >
-                                    {requestStatus}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-3 text-slate-400 hidden md:table-cell">
-                                  {row.campaignType?.replace("_", " ") || "N/A"}
-                                </td>
-                                <td className="px-3 py-3 text-slate-400 hidden lg:table-cell">
-                                  {new Date(row.requestedAt).toLocaleDateString()}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="md:hidden max-h-80 overflow-auto divide-y divide-white/[0.06]">
-                      {requestedCreatorRows.map((row, index) => {
-                        const creatorStatus = (row.creatorStatus || "pending").replace("_", " ");
-                        const requestStatus =
-                          row.requestStatus === "suggested"
-                            ? "Owner approval pending"
-                            : row.requestStatus?.replace("_", " ") || "submitted";
-                        const creatorStatusTone = {
-                          pending: "bg-amber-500/10 text-amber-300 border-amber-400/30",
-                          accepted: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
-                          approved: "bg-emerald-500/10 text-emerald-300 border-emerald-400/30",
-                          rejected: "bg-red-500/10 text-red-300 border-red-400/30",
-                          quoted: "bg-blue-500/10 text-blue-300 border-blue-400/30",
-                        }[creatorStatus] || "bg-white/5 text-slate-300 border-white/10";
-                        const requestStatusTone =
-                          row.requestStatus === "suggested"
-                            ? "bg-amber-500/10 text-amber-300 border-amber-400/30"
-                            : "bg-white/5 text-slate-300 border-white/10";
-                        return (
-                          <div key={`${row.requestId}-mobile-${index}`} className="p-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <div>
-                                <div className="text-sm font-semibold text-white">{row.creatorName}</div>
-                                {row.creatorHandle && (
-                                  <div className="text-xs text-slate-500">@{row.creatorHandle}</div>
-                                )}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {new Date(row.requestedAt).toLocaleDateString()}
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              <span
-                                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${creatorStatusTone}`}
-                              >
-                                {creatorStatus}
-                              </span>
-                              <span
-                                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${requestStatusTone}`}
-                              >
-                                {requestStatus}
-                              </span>
-                              <span className="text-xs text-slate-400">
-                                {row.campaignType?.replace("_", " ") || "N/A"}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="mt-3 text-xs text-slate-500">
-                    Approved creators are added to this campaign roster automatically.
-                  </div>
-                </div>
-              )}
 
               {/* Optimized Filters */}
               <div className="flex flex-col gap-3">
@@ -2474,7 +2310,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <span className="uppercase">All</span>
                       ) : (
                         (() => {
-                          const platformIcon = normalizePlatform(platform.value);
+                          const platformIcon = normalizePlatform(
+                            platform.value
+                          );
                           if (!platformIcon) return null;
                           return (
                             <>
@@ -2514,10 +2352,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     }
                   });
                   const uniqueCreatorCount = uniqueCreatorIds.size;
-                  
+
                   // Count posts for creators in this group
-                  const platformPosts = posts.filter((p) => 
-                    p.creator_id && uniqueCreatorIds.has(p.creator_id)
+                  const platformPosts = posts.filter(
+                    (p) => p.creator_id && uniqueCreatorIds.has(p.creator_id)
                   ).length;
 
                   return (
@@ -2528,7 +2366,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       {/* Platform Section Header */}
                       <div className="flex items-center gap-3 mb-4">
                         {(() => {
-                          const platformIcon = normalizePlatform(group.platform);
+                          const platformIcon = normalizePlatform(
+                            group.platform
+                          );
                           if (!platformIcon) return null;
                           return (
                             <>
@@ -2549,8 +2389,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         })()}
                         <div className="h-px flex-1 bg-white/5" />
                         <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
-                          {uniqueCreatorCount} Creators • {platformPosts}{" "}
-                          Total Posts
+                          {uniqueCreatorCount} Creators • {platformPosts} Total
+                          Posts
                         </span>
                       </div>
 
@@ -2576,11 +2416,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               )}
                             >
                               {/* Remove Button */}
-                              {isOwner && (
+                              {canEditWorkspace && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setCreatorToRemove({ id: creator.id, name: creator.name });
+                                    setCreatorToRemove({
+                                      id: creator.id,
+                                      name: creator.name,
+                                    });
                                   }}
                                   className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10"
                                   aria-label={`Remove ${creator.name} from campaign`}
@@ -2698,7 +2541,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     if (!ensureCanEdit()) return;
                     setShowAddPostDialog(true);
                   }}
-                  disabled={!canEditThisCampaign}
+                  disabled={!canEditWorkspace}
                   className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
@@ -2719,10 +2562,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <DropdownMenuItem
                       onSelect={() => {
                         if (!ensureCanEdit()) return;
-                        if (!ensureCanScrape()) return;
                         setShowScrapeAllDialog(true);
                       }}
-                      disabled={posts.length === 0 || !canTriggerScrape}
+                      disabled={posts.length === 0 || !canEditWorkspace}
                     >
                       <RefreshCw className="w-4 h-4" />
                       Scrape all posts
@@ -2732,14 +2574,20 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       disabled={posts.length === 0}
                     >
                       <Download className="w-4 h-4" />
-                      {canExportData ? "Export CSV" : "Export Summary"}
+                      Export CSV
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={handleImportCreators} disabled={!isOwner}>
+                    <DropdownMenuItem
+                      onSelect={handleImportCreators}
+                      disabled={!canEditWorkspace}
+                    >
                       <Upload className="w-4 h-4" />
                       Import creators
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleImportPosts} disabled={!canEditThisCampaign}>
+                    <DropdownMenuItem
+                      onSelect={handleImportPosts}
+                      disabled={!canEditWorkspace}
+                    >
                       <Upload className="w-4 h-4" />
                       Import posts CSV
                     </DropdownMenuItem>
@@ -2750,7 +2598,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         if (!ensureCanEdit()) return;
                         setShowDeleteAllDialog(true);
                       }}
-                      disabled={posts.length === 0 || !canEditThisCampaign}
+                      disabled={posts.length === 0 || !canEditWorkspace}
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete all posts
@@ -2781,17 +2629,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 </Select>
               </div>
               <button
-                      onClick={() => setPostFiltersOpen(true)}
-                      className="h-11 min-h-[44px] px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
-                    >
-                      <Filter className="w-4 h-4" />
-                      Filters
-                      {activePostFilterCount > 0 && (
-                        <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
-                          {activePostFilterCount}
-                        </span>
-                      )}
-                    </button>
+                onClick={() => setPostFiltersOpen(true)}
+                className="h-11 min-h-[44px] px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {activePostFilterCount > 0 && (
+                  <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
+                    {activePostFilterCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
@@ -2801,7 +2649,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 <PostRowSkeleton key={i} />
               ))}
             </div>
-          ) : highlightedTopPosts.length > 0 || visibleRemainingPosts.length > 0 ? (
+          ) : highlightedTopPosts.length > 0 ||
+            visibleRemainingPosts.length > 0 ? (
             <>
               {/* Search, Sort, and Filters */}
               <div className="px-4 sm:px-6 pb-4">
@@ -2868,8 +2717,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <PostCard
                           key={post.id}
                           post={post}
-                          onScrape={canTriggerScrape ? handleScrapePost : undefined}
-                          onDelete={canEditThisCampaign ? setShowDeletePostDialog : undefined}
+                          onScrape={
+                            canEditWorkspace ? handleScrapePost : undefined
+                          }
+                          onDelete={
+                            canEditWorkspace
+                              ? setShowDeletePostDialog
+                              : undefined
+                          }
                           isScraping={
                             isScrapeAllPending ||
                             post.status === "scraping" ||
@@ -2896,8 +2751,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <PostCard
                           key={post.id}
                           post={post}
-                          onScrape={canTriggerScrape ? handleScrapePost : undefined}
-                          onDelete={canEditThisCampaign ? setShowDeletePostDialog : undefined}
+                          onScrape={
+                            canEditWorkspace ? handleScrapePost : undefined
+                          }
+                          onDelete={
+                            canEditWorkspace
+                              ? setShowDeletePostDialog
+                              : undefined
+                          }
                           isScraping={
                             isScrapeAllPending ||
                             post.status === "scraping" ||
@@ -2917,8 +2778,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <PostCard
                         key={post.id}
                         post={post}
-                        onScrape={canTriggerScrape ? handleScrapePost : undefined}
-                        onDelete={canEditThisCampaign ? setShowDeletePostDialog : undefined}
+                        onScrape={
+                          canEditWorkspace ? handleScrapePost : undefined
+                        }
+                        onDelete={
+                          canEditWorkspace ? setShowDeletePostDialog : undefined
+                        }
                         isScraping={
                           isScrapeAllPending ||
                           post.status === "scraping" ||
@@ -3047,8 +2912,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 isTop3
                                   ? "bg-primary/5 hover:bg-primary/10"
                                   : isTop5
-                                  ? "bg-primary/2 hover:bg-primary/5"
-                                  : "hover:bg-white/[0.02]"
+                                    ? "bg-primary/2 hover:bg-primary/5"
+                                    : "hover:bg-white/[0.02]"
                               } ${
                                 isTop5 ? "border-l-2 border-l-primary/30" : ""
                               }`}
@@ -3059,7 +2924,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     {post.creator?.name || "Unknown"}
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    @{post.creator?.handle || post.owner_username || "unknown"}
+                                    @
+                                    {post.creator?.handle ||
+                                      post.owner_username ||
+                                      "unknown"}
                                   </div>
                                 </div>
                               </td>
@@ -3143,7 +3011,6 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     <button
                                       onClick={() => {
                                         if (!ensureCanEdit()) return;
-                                        if (!ensureCanScrape()) return;
                                         if (!id) return;
                                         scrapePostMutation.mutate({
                                           postId: post.id,
@@ -3153,14 +3020,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                         });
                                       }}
                                       disabled={
-                                        isScrapingPost || !canTriggerScrape
+                                        isScrapingPost || !canEditWorkspace
                                       }
                                       className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       title={
                                         isScrapingPost
                                           ? "Scraping..."
-                                          : !canTriggerScrape
-                                          ? "Only workspace owners can trigger scraping"
                                           : "Scrape this post"
                                       }
                                     >
@@ -3171,7 +3036,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       )}
                                     </button>
                                   )}
-                                  {canEditThisCampaign && (
+                                  {canEditWorkspace && (
                                     <button
                                       onClick={() =>
                                         setShowDeletePostDialog(post.id)
@@ -3223,7 +3088,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 {post.creator?.name || "Unknown"}
                               </div>
                               <div className="text-xs text-slate-500">
-                                @{post.creator?.handle || post.owner_username || "unknown"}
+                                @
+                                {post.creator?.handle ||
+                                  post.owner_username ||
+                                  "unknown"}
                               </div>
                             </div>
                           </td>
@@ -3305,7 +3173,6 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 <button
                                   onClick={() => {
                                     if (!ensureCanEdit()) return;
-                                    if (!ensureCanScrape()) return;
                                     if (!id) return;
                                     scrapePostMutation.mutate({
                                       postId: post.id,
@@ -3314,16 +3181,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       campaignId: id,
                                     });
                                   }}
-                                  disabled={
-                                    isScrapingPost || !canTriggerScrape
-                                  }
+                                  disabled={isScrapingPost || !canEditWorkspace}
                                   className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Refresh metrics"
                                   title={
                                     isScrapingPost
                                       ? "Scraping..."
-                                      : !canTriggerScrape
-                                      ? "Only workspace owners can trigger scraping"
                                       : "Scrape this post"
                                   }
                                 >
@@ -3334,9 +3197,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   )}
                                 </button>
                               )}
-                              {canEditThisCampaign && (
+                              {canEditWorkspace && (
                                 <button
-                                  onClick={() => setShowDeletePostDialog(post.id)}
+                                  onClick={() =>
+                                    setShowDeletePostDialog(post.id)
+                                  }
                                   className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
                                   aria-label="Delete post"
                                   title="Delete this post"
@@ -3372,9 +3237,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   </p>
                   <div className="flex items-center justify-between gap-2">
                     <button
-                      onClick={() =>
-                        setCurrentPage((p) => Math.max(1, p - 1))
-                      }
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={mobileSafeCurrentPage === 1}
                       className="h-9 w-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                     >
@@ -3386,36 +3249,35 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         Page {mobileSafeCurrentPage} / {mobileTotalPages}
                       </div>
                       <div className="hidden min-[360px]:flex items-center gap-1">
-                      {(showTopPerformers
-                        ? mobileAllPaginationPages
-                        : mobilePaginationPages
-                      ).map((page, index) => {
-                        const pages = showTopPerformers
+                        {(showTopPerformers
                           ? mobileAllPaginationPages
-                          : mobilePaginationPages;
-                        const prevPage = pages[index - 1];
-                        const showEllipsis =
-                          prevPage && page - prevPage > 1;
-                        return (
-                          <React.Fragment key={page}>
-                            {showEllipsis && (
-                              <span className="px-1 text-slate-500 text-xs">
-                                ...
-                              </span>
-                            )}
-                            <button
-                              onClick={() => setCurrentPage(page)}
-                              className={`h-9 w-9 rounded-md text-xs transition-colors ${
-                                mobileSafeCurrentPage === page
-                                  ? "bg-primary text-black"
-                                  : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          </React.Fragment>
-                        );
-                      })}
+                          : mobilePaginationPages
+                        ).map((page, index) => {
+                          const pages = showTopPerformers
+                            ? mobileAllPaginationPages
+                            : mobilePaginationPages;
+                          const prevPage = pages[index - 1];
+                          const showEllipsis = prevPage && page - prevPage > 1;
+                          return (
+                            <React.Fragment key={page}>
+                              {showEllipsis && (
+                                <span className="px-1 text-slate-500 text-xs">
+                                  ...
+                                </span>
+                              )}
+                              <button
+                                onClick={() => setCurrentPage(page)}
+                                className={`h-9 w-9 rounded-md text-xs transition-colors ${
+                                  mobileSafeCurrentPage === page
+                                    ? "bg-primary text-black"
+                                    : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </React.Fragment>
+                          );
+                        })}
                       </div>
                     </div>
                     <button
@@ -3519,21 +3381,26 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 Platform
               </p>
               <div className="flex flex-wrap gap-2">
-                {["all", "tiktok", "instagram", "youtube"].map(
-                  (platform) => (
-                    <button
-                      key={platform}
-                      onClick={() => setPostPlatformFilter(platform)}
-                      className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
-                        postPlatformFilter === platform
-                          ? "bg-primary text-black border-primary"
-                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                      }`}
-                    >
-                      {platform === "all" ? "All" : platform}
-                    </button>
-                  )
-                )}
+                {[
+                  "all",
+                  "tiktok",
+                  "instagram",
+                  "youtube",
+                  "twitter",
+                  "facebook",
+                ].map((platform) => (
+                  <button
+                    key={platform}
+                    onClick={() => setPostPlatformFilter(platform)}
+                    className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
+                      postPlatformFilter === platform
+                        ? "bg-primary text-black border-primary"
+                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {platform === "all" ? "All" : platform}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -3652,7 +3519,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     Platform
                   </p>
                   {(() => {
-                    const platformIcon = normalizePlatform(activeCreator.platform);
+                    const platformIcon = normalizePlatform(
+                      activeCreator.platform
+                    );
                     if (!platformIcon) {
                       return (
                         <p className="text-sm text-white mt-1">
@@ -3692,7 +3561,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   onClick={() => {
                     setPostCreatorFilter(activeCreator.id);
                     setCreatorDrawerOpen(false);
-                    const postsSection = document.getElementById("campaign-posts");
+                    const postsSection =
+                      document.getElementById("campaign-posts");
                     postsSection?.scrollIntoView({ behavior: "smooth" });
                   }}
                   className="w-full sm:w-auto"
@@ -3714,7 +3584,6 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       name: activeCreator.name,
                     })
                   }
-                  disabled={!isOwner}
                   className="w-full sm:w-auto"
                 >
                   Delete Creator
@@ -3972,15 +3841,6 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           campaignCreators={campaignCreators}
         />
       )}
-      {id && (
-        <CreatorRequestChatbot
-          open={showRequestCreatorDialog}
-          onOpenChange={setShowRequestCreatorDialog}
-          onComplete={() => setShowRequestCreatorDialog(false)}
-          campaignId={id}
-        />
-      )}
-
     </div>
   );
 }
@@ -3997,6 +3857,8 @@ const EmptyState = ({ searchQuery, selectedPlatform }: EmptyStateProps) => {
     tiktok: "TikTok",
     instagram: "Instagram",
     youtube: "YouTube",
+    twitter: "X",
+    facebook: "Facebook",
   };
   const platformLabel =
     selectedPlatform && selectedPlatform !== "all"
@@ -4006,13 +3868,13 @@ const EmptyState = ({ searchQuery, selectedPlatform }: EmptyStateProps) => {
   const title = hasQuery
     ? "No creators found"
     : platformLabel
-    ? `No ${platformLabel} creators yet`
-    : "No creators yet";
+      ? `No ${platformLabel} creators yet`
+      : "No creators yet";
   const description = hasQuery
     ? "Try adjusting your search or filters."
     : platformLabel
-    ? "Add creators or import a roster to get started."
-    : "Add creators or import a roster to get started.";
+      ? "Add creators or import a roster to get started."
+      : "Add creators or import a roster to get started.";
 
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">

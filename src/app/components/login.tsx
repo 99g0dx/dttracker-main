@@ -54,8 +54,6 @@ export function Login({ onNavigate }: LoginProps) {
         let errorMessage = signInError.message;
         if (signInError.message.includes('Invalid login credentials')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-        } else if (signInError.message.toLowerCase().includes('banned')) {
-          errorMessage = 'Your account has been banned. Please contact support.';
         } else if (signInError.message.includes('fetch')) {
           errorMessage = 'Unable to connect to Supabase. Please check your internet connection and Supabase configuration.';
         }
@@ -70,18 +68,8 @@ export function Login({ onNavigate }: LoginProps) {
         if (rememberMe) {
           localStorage.setItem('dttracker-remember', 'true');
         }
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('require_password_change')
-          .eq('id', data.user.id)
-          .maybeSingle();
-        if (profileData?.require_password_change) {
-          toast.info('Password update required');
-          navigate('/reset-password');
-        } else {
-          toast.success('Signed in successfully');
-          navigate('/');
-        }
+        toast.success('Signed in successfully');
+        navigate('/');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';

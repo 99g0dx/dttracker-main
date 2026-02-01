@@ -9,7 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { X, Link as LinkIcon, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Link as LinkIcon, CheckCircle, AlertCircle, Loader2, User } from 'lucide-react';
+import { UpgradeModal } from './upgrade-modal';
 import {
   PlatformIcon,
   normalizePlatform,
@@ -18,12 +19,11 @@ import {
 import { parsePostURL, normalizeHandle, getExternalIdFromUrl } from '../../lib/utils/urlParser';
 import { useAddPostWithScrape } from '../../hooks/usePosts';
 import { useIsParentCampaign } from '../../hooks/useSubcampaigns';
-import * as postsApi from '../../lib/api/posts';
+import { useQueryClient } from '@tanstack/react-query';
 import * as creatorsApi from '../../lib/api/creators';
+import { creatorsKeys } from '../../hooks/useCreators';
+import * as postsApi from '../../lib/api/posts';
 import type { Creator, Platform } from '../../lib/types/database';
-import { useWorkspace } from '../../contexts/WorkspaceContext';
-import { useBillingSummary } from '../../hooks/useBilling';
-import { isWithinLimit } from '../../lib/entitlements';
 
 interface AddPostDialogProps {
   open: boolean;
@@ -53,12 +53,15 @@ export function AddPostDialog({
   const [parsedUrl, setParsedUrl] = useState<ExtendedParsedUrl | null>(null);
   const [matchedCreator, setMatchedCreator] = useState<Creator | null>(null);
   const [selectedCreatorId, setSelectedCreatorId] = useState<string>('');
+  const [manualCreatorHandle, setManualCreatorHandle] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingCreator, setIsCreatingCreator] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
 
+  const queryClient = useQueryClient();
   const addPostMutation = useAddPostWithScrape();
   const { data: isParent } = useIsParentCampaign(campaignId);
-  const { activeWorkspaceId } = useWorkspace();
-  const { data: billing } = useBillingSummary();
 
   // Filter creators by detected platform
   const availableCreators = parsedUrl?.platform
@@ -72,6 +75,7 @@ export function AddPostDialog({
       setParsedUrl(parsed);
       setError(null);
       setSelectedCreatorId(''); // Reset selection when URL changes
+      setManualCreatorHandle(''); // Reset manual handle when URL changes
 
       // Try to match creator if handle is extracted
       if (parsed.handle && parsed.platform) {
@@ -86,7 +90,7 @@ export function AddPostDialog({
         if (creator) {
           setSelectedCreatorId(creator.id);
         } else {
-          // Handle extracted but creator not found - user can request creator
+          // Handle extracted but creator not found - user can still select manually
           setMatchedCreator(null);
         }
       } else {
@@ -98,6 +102,7 @@ export function AddPostDialog({
       setParsedUrl(null);
       setMatchedCreator(null);
       setSelectedCreatorId('');
+      setManualCreatorHandle('');
       setError(null);
     }
   }, [postUrl, campaignCreators]);
@@ -119,6 +124,7 @@ export function AddPostDialog({
       setParsedUrl(null);
       setMatchedCreator(null);
       setSelectedCreatorId('');
+      setManualCreatorHandle('');
       setError(null);
     }
   }, [open]);
@@ -152,63 +158,71 @@ export function AddPostDialog({
       }
     }
 
-    let creatorToUse: Creator | null = matchedCreator;
+    let creatorToUse = matchedCreator;
 
-    // When handle is present but creator not in campaign: get-or-create and add to campaign
-    if (!creatorToUse && parsedUrl.handle && parsedUrl.platform) {
-      const limitOk = isWithinLimit(billing, 'creators_per_campaign', campaignCreators.length + 1);
-      if (!limitOk) {
-        setError('Creator limit for this campaign reached. Upgrade to add more.');
-        return;
-      }
+    // Determine which handle to use: parsed from URL, or manually entered
+    const handleToUse = parsedUrl.handle || (manualCreatorHandle.trim() ? normalizeHandle(manualCreatorHandle.trim()) : null);
+
+    // Auto-create creator if handle was extracted or manually entered but no match found
+    if (!creatorToUse && handleToUse) {
+      setIsCreatingCreator(true);
       try {
-        const getOrCreateResult = await creatorsApi.getOrCreate(
-          null,
-          parsedUrl.handle,
+        // 1. Create or get existing creator
+        const creatorResult = await creatorsApi.getOrCreate(
+          handleToUse, // Use handle as name
+          handleToUse,
           parsedUrl.platform,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          'scraper_extraction',
-          activeWorkspaceId ?? undefined
+          undefined, // followerCount
+          undefined, // email
+          undefined, // phone
+          undefined, // niche
+          undefined, // location
+          'manual'   // sourceType
         );
-        if (getOrCreateResult.error || !getOrCreateResult.data) {
-          const raw = getOrCreateResult.error?.message ?? 'Failed to add creator.';
-          const friendly =
-            /row-level security|workspace_creators|policy/i.test(raw)
-              ? 'Post is being added. Please wait.'
-              : raw;
-          setError(friendly);
+
+        if (creatorResult.error || !creatorResult.data) {
+          setError(`Failed to create creator: ${creatorResult.error?.message || 'Unknown error'}`);
+          setIsCreatingCreator(false);
           return;
         }
-        creatorToUse = getOrCreateResult.data;
-        await creatorsApi.addCreatorsToCampaign(
-          campaignId,
-          [creatorToUse.id],
-          activeWorkspaceId ?? undefined
-        );
+
+        // 2. Add creator to campaign
+        const addResult = await creatorsApi.addCreatorsToCampaign(campaignId, [creatorResult.data.id]);
+
+        if (addResult.error) {
+          if (addResult.error.message.includes('UPGRADE_REQUIRED:creator_limit_reached')) {
+            setUpgradeMessage('Upgrade to add more creators to this campaign.');
+            setUpgradeOpen(true);
+            setIsCreatingCreator(false);
+            return;
+          }
+          setError(`Failed to add creator to campaign: ${addResult.error.message}`);
+          setIsCreatingCreator(false);
+          return;
+        }
+
+        // 3. Invalidate queries to refresh campaign creators list
+        await queryClient.invalidateQueries({ queryKey: creatorsKeys.byCampaign(campaignId) });
+
+        creatorToUse = creatorResult.data;
       } catch (err) {
-        const raw = err instanceof Error ? err.message : 'Failed to add creator to campaign.';
-        const friendly =
-          /row-level security|workspace_creators|policy/i.test(raw)
-            ? 'Post is being added. Please wait.'
-            : raw;
-        setError(friendly);
+        setError(`Failed to create creator: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        setIsCreatingCreator(false);
         return;
       }
+      setIsCreatingCreator(false);
     }
 
-    if (!creatorToUse) {
+    // If still no creator (no handle extracted and none selected)
+    if (!creatorToUse && parsedUrl.platform !== 'instagram') {
       setError('Please select a creator for this post.');
       return;
     }
 
     try {
-      await addPostMutation.mutateAsync({
+      const result = await addPostMutation.mutateAsync({
         campaign_id: campaignId,
-        creator_id: creatorToUse.id,
+        creator_id: creatorToUse?.id ?? null,
         platform: parsedUrl.platform,
         post_url: postUrl.trim(),
         status: 'pending',
@@ -232,6 +246,13 @@ export function AddPostDialog({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <UpgradeModal
+        open={upgradeOpen}
+        title="Upgrade Required"
+        message={upgradeMessage || 'Upgrade your plan to add more creators.'}
+        onClose={() => setUpgradeOpen(false)}
+        onUpgrade={() => (window.location.href = '/subscription')}
+      />
       <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -287,7 +308,9 @@ export function AddPostDialog({
                       <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
                         {parsedUrl.platform === 'tiktok' ? 'TikTok' :
                          parsedUrl.platform === 'instagram' ? 'Instagram' :
-                         parsedUrl.platform === 'youtube' ? 'YouTube' : 'Unknown'} detected
+                         parsedUrl.platform === 'youtube' ? 'YouTube' :
+                         parsedUrl.platform === 'twitter' ? 'Twitter/X' :
+                         parsedUrl.platform === 'facebook' ? 'Facebook' : 'Unknown'} detected
                       </span>
                     </div>
                   ) : (
@@ -342,16 +365,43 @@ export function AddPostDialog({
               </div>
             )}
 
+            {/* Manual Creator Handle Input - shown for Instagram when no handle detected and no creator selected */}
+            {parsedUrl?.platform === 'instagram' && parsedUrl.isValid && !parsedUrl.handle && !selectedCreatorId && (
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Creator Handle
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Input
+                    type="text"
+                    value={manualCreatorHandle}
+                    onChange={(e) => setManualCreatorHandle(e.target.value)}
+                    placeholder="Enter Instagram username (e.g. @creator_name)"
+                    className="pl-9 bg-white/[0.03] border-white/[0.08] text-white"
+                    disabled={addPostMutation.isPending}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5">
+                  Enter the creator's Instagram handle. We'll create the creator and attach this post.
+                </p>
+              </div>
+            )}
+
             {/* Creator Selection */}
             {parsedUrl?.platform && parsedUrl.isValid && (
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
-                  {parsedUrl.handle && matchedCreator ? 'Creator (auto-matched)' : 'Select Creator'}
+                  {parsedUrl.handle && matchedCreator ? 'Creator (auto-matched)' :
+                   parsedUrl.platform === 'instagram' && !parsedUrl.handle && !manualCreatorHandle.trim() ? 'Or Select Existing Creator (optional)' :
+                   parsedUrl.platform === 'instagram' && !parsedUrl.handle ? 'Or Select Existing Creator' :
+                   'Select Creator'}
                 </label>
                 <Select
                   value={selectedCreatorId}
                   onValueChange={(value) => {
                     setSelectedCreatorId(value);
+                    if (value) setManualCreatorHandle(''); // Clear manual handle when selecting existing creator
                   }}
                   disabled={addPostMutation.isPending}
                 >
@@ -369,14 +419,19 @@ export function AddPostDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                {availableCreators.length === 0 && !parsedUrl.handle && (
+                {availableCreators.length === 0 && parsedUrl.handle && (
+                  <p className="text-xs text-emerald-400 mt-1.5">
+                    Creator "@{parsedUrl.handle}" will be automatically created and added to this campaign.
+                  </p>
+                )}
+                {availableCreators.length === 0 && !parsedUrl.handle && !manualCreatorHandle.trim() && (
                   <p className="text-xs text-amber-400 mt-1.5">
                     No {parsedUrl.platform === 'instagram' ? 'Instagram' : parsedUrl.platform === 'tiktok' ? 'TikTok' : parsedUrl.platform} creators in this campaign yet.
                   </p>
                 )}
                 {availableCreators.length > 0 && parsedUrl.handle && !matchedCreator && (
                   <p className="text-xs text-slate-400 mt-1.5">
-                    We'll add @{parsedUrl.handle} to this campaign and track the post.
+                    Handle "@{parsedUrl.handle}" not found in campaign. Select a creator or submit to auto-create.
                   </p>
                 )}
                 {availableCreators.length > 0 && !parsedUrl.handle && parsedUrl.platform !== 'instagram' && (
@@ -387,6 +442,18 @@ export function AddPostDialog({
               </div>
             )}
 
+            {/* Manual Creator Handle Confirmation */}
+            {manualCreatorHandle.trim() && !selectedCreatorId && parsedUrl?.platform === 'instagram' && (
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-400">
+                    Creator "@{normalizeHandle(manualCreatorHandle.trim())}" will be created and attached to this post.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Matched Creator Display */}
             {matchedCreator && (
               <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
@@ -394,17 +461,6 @@ export function AddPostDialog({
                   <CheckCircle className="w-4 h-4 text-emerald-400" />
                   <span className="text-sm text-emerald-400">
                     Post will be added for: <strong>{matchedCreator.name}</strong> (@{matchedCreator.handle})
-                  </span>
-                </div>
-              </div>
-            )}
-            {/* Will-add creator when handle detected but not in campaign */}
-            {parsedUrl?.handle && parsedUrl?.platform && !matchedCreator && (
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm text-emerald-400">
-                    Post will be added for: <strong>@{parsedUrl.handle}</strong> (we'll add them to this campaign)
                   </span>
                 </div>
               </div>
@@ -431,7 +487,7 @@ export function AddPostDialog({
               <button
                 type="button"
                 onClick={onClose}
-                disabled={addPostMutation.isPending}
+                disabled={addPostMutation.isPending || isCreatingCreator}
                 className="flex-1 h-10 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
@@ -441,15 +497,16 @@ export function AddPostDialog({
                 disabled={
                   !parsedUrl?.isValid ||
                   !parsedUrl?.platform ||
-                  (!matchedCreator && !(parsedUrl?.handle && parsedUrl?.platform)) ||
-                  addPostMutation.isPending
+                  (!matchedCreator && !parsedUrl?.handle && !manualCreatorHandle.trim() && parsedUrl?.platform !== 'instagram') ||
+                  addPostMutation.isPending ||
+                  isCreatingCreator
                 }
                 className="flex-1 h-10 bg-primary hover:bg-primary/90 text-black text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {addPostMutation.isPending ? (
+                {(addPostMutation.isPending || isCreatingCreator) ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Adding & Scraping...
+                    {isCreatingCreator ? 'Creating creator...' : 'Adding & Scraping...'}
                   </>
                 ) : (
                   'Add & Scrape'

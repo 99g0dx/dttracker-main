@@ -3,15 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Share2, Lock } from "lucide-react";
-import logoImage from "../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png";
+import {
+  Eye,
+  Share2,
+  Lock,
+} from "lucide-react";
 import * as sharingApi from "../../lib/api/campaign-sharing-v2";
 import { toast } from "sonner";
-import type {
-  SubcampaignSummary,
-  PostWithRankings,
-  Platform,
-} from "../../lib/types/database";
+import type { SubcampaignSummary, PostWithRankings, Platform } from "../../lib/types/database";
 import type { ChartDataPoint, ChartRange } from "../../lib/types/campaign-view";
 import * as csvUtils from "../../lib/utils/csv";
 
@@ -20,7 +19,6 @@ import { CampaignHeader } from "./campaign-header";
 import { CampaignKPICards } from "./campaign-kpi-cards";
 import { CampaignPerformanceChart } from "./campaign-performance-chart";
 import { CampaignPostsSection } from "./campaign-posts-section";
-import { ChartPanelSkeleton, DashboardKpiSkeleton, Skeleton } from "./ui/skeleton";
 
 interface SharedCampaignData {
   campaign: {
@@ -69,24 +67,10 @@ interface SharedCampaignData {
   };
 }
 
-const parseChartDate = (rawDate: string) => {
-  if (!rawDate) return null;
-  const dateOnly = rawDate.split("T")[0];
-  const [year, month, day] = dateOnly.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(Date.UTC(year, month - 1, day));
-};
-
-const formatChartDate = (date: Date) =>
-  date.toLocaleDateString("en-US", {
-    month: "numeric",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+const kpiPlatforms = new Set(["tiktok", "instagram"]);
 
 function buildSeriesFromPosts(
   posts: Array<{
-    id?: string;
     platform: string;
     views: number;
     likes: number;
@@ -94,22 +78,37 @@ function buildSeriesFromPosts(
     shares: number;
     postedDate: string | null;
     createdAt: string;
-  }>,
+  }>
 ) {
-  const postsByDate = new Map<string, typeof posts>();
+  const metricsByDate = new Map<
+    string,
+    { views: number; likes: number; comments: number; shares: number }
+  >();
 
   posts.forEach((post) => {
+    if (!kpiPlatforms.has(post.platform)) return;
     const rawDate = post.postedDate || post.createdAt;
     if (!rawDate) return;
     const dateStr = rawDate.split("T")[0];
-    if (!postsByDate.has(dateStr)) {
-      postsByDate.set(dateStr, []);
+
+    if (!metricsByDate.has(dateStr)) {
+      metricsByDate.set(dateStr, {
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+      });
     }
-    postsByDate.get(dateStr)!.push(post);
+
+    const point = metricsByDate.get(dateStr)!;
+    point.views += post.views || 0;
+    point.likes += post.likes || 0;
+    point.comments += post.comments || 0;
+    point.shares += post.shares || 0;
   });
 
-  const sortedDates = Array.from(postsByDate.keys()).sort((a, b) =>
-    a.localeCompare(b),
+  const sortedDates = Array.from(metricsByDate.keys()).sort((a, b) =>
+    a.localeCompare(b)
   );
 
   const series = {
@@ -119,31 +118,12 @@ function buildSeriesFromPosts(
     shares: [] as Array<{ date: string; value: number }>,
   };
 
-  const currentPosts = new Map<string, (typeof posts)[number]>();
-
   sortedDates.forEach((date) => {
-    const dayPosts = postsByDate.get(date) || [];
-    dayPosts.forEach((post) => {
-      const key = post.id || `${post.platform}-${post.postedDate || post.createdAt}`;
-      currentPosts.set(key, post);
-    });
-
-    let views = 0;
-    let likes = 0;
-    let comments = 0;
-    let shares = 0;
-
-    currentPosts.forEach((post) => {
-      views += post.views || 0;
-      likes += post.likes || 0;
-      comments += post.comments || 0;
-      shares += post.shares || 0;
-    });
-
-    series.views.push({ date, value: views });
-    series.likes.push({ date, value: likes });
-    series.comments.push({ date, value: comments });
-    series.shares.push({ date, value: shares });
+    const values = metricsByDate.get(date)!;
+    series.views.push({ date, value: values.views });
+    series.likes.push({ date, value: values.likes });
+    series.comments.push({ date, value: values.comments });
+    series.shares.push({ date, value: values.shares });
   });
 
   return series;
@@ -152,7 +132,7 @@ function buildSeriesFromPosts(
 // Transform API posts to PostWithRankings format
 function transformPostsToRankings(
   posts: SharedCampaignData["posts"],
-  campaignId: string,
+  campaignId: string
 ): PostWithRankings[] {
   return posts.map((post, index) => ({
     id: post.id,
@@ -214,59 +194,51 @@ export function SharedCampaignDashboard() {
   const [chartRange, setChartRange] = useState<ChartRange>("30d");
 
   // Load shared campaign data function
-  const loadCampaign = React.useCallback(
-    async (providedPassword?: string) => {
-      if (!token) return;
+  const loadCampaign = React.useCallback(async (providedPassword?: string) => {
+    if (!token) return;
 
-      setIsLoading(true);
-      setError(null);
-      setPasswordError(null);
+    setIsLoading(true);
+    setError(null);
+    setPasswordError(null);
 
-      try {
-        const result = await sharingApi.fetchSharedCampaignData(
-          token,
-          providedPassword,
-        );
+    try {
+      const result = await sharingApi.fetchSharedCampaignData(token, providedPassword);
 
-        if (result.error) {
-          const errorCode = (result.error as any)?.code;
+      if (result.error) {
+        const errorCode = (result.error as any)?.code;
 
-          // Check if error is due to password requirement
-          if (errorCode === "PASSWORD_REQUIRED") {
-            setRequiresPassword(true);
-            setIsLoading(false);
-            return;
-          }
-
-          // Check if password was incorrect
-          if (errorCode === "INCORRECT_PASSWORD") {
-            setRequiresPassword(true);
-            setPasswordError("Incorrect password. Please try again.");
-            setIsLoading(false);
-            return;
-          }
-
-          console.error("Failed to load shared campaign:", result.error);
-          setError(result.error.message || "Failed to load campaign");
+        // Check if error is due to password requirement
+        if (errorCode === "PASSWORD_REQUIRED") {
+          setRequiresPassword(true);
           setIsLoading(false);
           return;
         }
 
-        if (result.data) {
-          setData(result.data);
-          setRequiresPassword(false);
+        // Check if password was incorrect
+        if (errorCode === "INCORRECT_PASSWORD") {
+          setRequiresPassword(true);
+          setPasswordError("Incorrect password. Please try again.");
           setIsLoading(false);
+          return;
         }
-      } catch (err) {
-        console.error("Exception loading shared campaign:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to load campaign",
-        );
+
+        console.error("Failed to load shared campaign:", result.error);
+        setError(result.error.message || "Failed to load campaign");
+        setIsLoading(false);
+        return;
+      }
+
+      if (result.data) {
+        setData(result.data);
+        setRequiresPassword(false);
         setIsLoading(false);
       }
-    },
-    [token],
-  );
+    } catch (err) {
+      console.error("Exception loading shared campaign:", err);
+      setError(err instanceof Error ? err.message : "Failed to load campaign");
+      setIsLoading(false);
+    }
+  }, [token]);
 
   // Load shared campaign data on mount
   React.useEffect(() => {
@@ -281,11 +253,7 @@ export function SharedCampaignDashboard() {
 
   React.useEffect(() => {
     if (!data) return;
-    if (
-      !data.is_parent ||
-      !data.subcampaigns ||
-      data.subcampaigns.length === 0
-    ) {
+    if (!data.is_parent || !data.subcampaigns || data.subcampaigns.length === 0) {
       if (activeTab !== "all") {
         setActiveTab("all");
       }
@@ -301,14 +269,11 @@ export function SharedCampaignDashboard() {
   }, [data, activeTab]);
 
   const subcampaignTabs = data?.subcampaigns || [];
-  const hasSubcampaigns = Boolean(
-    data?.is_parent && subcampaignTabs.length > 0,
-  );
+  const hasSubcampaigns = Boolean(data?.is_parent && subcampaignTabs.length > 0);
   const selectedSubcampaign =
     activeTab === "all"
       ? null
-      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) ||
-        null;
+      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) || null;
 
   const filteredPosts = useMemo(() => {
     if (!data?.posts) return [];
@@ -317,11 +282,14 @@ export function SharedCampaignDashboard() {
   }, [data?.posts, activeTab]);
 
   const totals = useMemo(() => {
+    const kpiPosts = filteredPosts.filter((post) =>
+      kpiPlatforms.has(post.platform)
+    );
     return {
-      views: filteredPosts.reduce((sum, post) => sum + (post.views || 0), 0),
-      likes: filteredPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
-      comments: filteredPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
-      shares: filteredPosts.reduce((sum, post) => sum + (post.shares || 0), 0),
+      views: kpiPosts.reduce((sum, post) => sum + (post.views || 0), 0),
+      likes: kpiPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
+      comments: kpiPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
+      shares: kpiPosts.reduce((sum, post) => sum + (post.shares || 0), 0),
     };
   }, [filteredPosts]);
 
@@ -382,7 +350,7 @@ export function SharedCampaignDashboard() {
       seriesData.views.length,
       seriesData.likes.length,
       seriesData.comments.length,
-      seriesData.shares.length,
+      seriesData.shares.length
     );
 
     return Array.from({ length: maxLength }, (_, i) => {
@@ -392,18 +360,19 @@ export function SharedCampaignDashboard() {
         seriesData.comments[i]?.date ||
         seriesData.shares[i]?.date ||
         "";
-      const dateValue = parseChartDate(rawDate);
-      if (!dateValue) return null;
 
       return {
-        date: formatChartDate(dateValue),
-        dateValue,
+        date: new Date(rawDate).toLocaleDateString("en-US", {
+          month: "numeric",
+          day: "numeric",
+        }),
+        dateValue: new Date(rawDate),
         views: seriesData.views[i]?.value || 0,
         likes: seriesData.likes[i]?.value || 0,
         comments: seriesData.comments[i]?.value || 0,
         shares: seriesData.shares[i]?.value || 0,
       };
-    }).filter((point): point is ChartDataPoint => Boolean(point));
+    });
   }, [seriesData]);
 
   // Filter chart data by range
@@ -426,22 +395,10 @@ export function SharedCampaignDashboard() {
   // Show loading state (but not if password is required, as that has its own UI)
   if (isLoading && !requiresPassword && !error) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] px-4 sm:px-6 py-6">
-        <div className="mx-auto max-w-6xl space-y-6">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-8 w-24" />
-          </div>
-          <DashboardKpiSkeleton />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ChartPanelSkeleton />
-            <ChartPanelSkeleton />
-          </div>
-          <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4 space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading campaign...</p>
         </div>
       </div>
     );
@@ -461,8 +418,7 @@ export function SharedCampaignDashboard() {
                 Password Required
               </h2>
               <p className="text-slate-400 text-center">
-                This shared dashboard is password protected. Please enter the
-                password to continue.
+                This shared dashboard is password protected. Please enter the password to continue.
               </p>
             </div>
 
@@ -534,13 +490,10 @@ export function SharedCampaignDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <img
-                  src={logoImage}
-                  alt="DTTracker"
-                  className="w-8 h-8 object-contain"
-                />
-                <h1 className="text-xl font-semibold text-white">DTTracker</h1>
+              <h1 className="text-xl font-semibold text-white">DTTracker</h1>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <Eye className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-medium text-amber-400">View Only</span>
               </div>
             </div>
           </div>

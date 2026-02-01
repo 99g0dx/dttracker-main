@@ -31,7 +31,7 @@ const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
 interface ScrapeRequest {
   postId: string;
   postUrl: string;
-  platform: "tiktok" | "instagram" | "youtube";
+  platform: "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
   isAutoScrape?: boolean; // Flag to indicate auto-scraping vs manual
 }
 
@@ -610,6 +610,17 @@ async function scrapePost(
       return await scrapeInstagram(postUrl);
     case "youtube":
       return await scrapeYouTube(postUrl);
+    case "twitter":
+      return await scrapeTwitter(postUrl);
+    case "facebook":
+      console.warn("Facebook scraping not yet implemented");
+      return {
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        engagement_rate: 0,
+      };
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }

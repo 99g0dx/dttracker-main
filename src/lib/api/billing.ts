@@ -182,7 +182,7 @@ const DEFAULT_CATALOG: BillingCatalogResponse = {
         extra_seat_price_cents: 900,
         max_active_campaigns: 10,
         max_creators_per_campaign: 100,
-        platforms: ["tiktok", "instagram", "youtube"],
+        platforms: ["tiktok", "instagram", "youtube", "x", "facebook"],
         scrape_interval_minutes: 240,
         retention_days: 36500,
         api_access: false,
@@ -197,7 +197,7 @@ const DEFAULT_CATALOG: BillingCatalogResponse = {
         extra_seat_price_cents: 8600,
         max_active_campaigns: 10,
         max_creators_per_campaign: 100,
-        platforms: ["tiktok", "instagram", "youtube"],
+        platforms: ["tiktok", "instagram", "youtube", "x", "facebook"],
         scrape_interval_minutes: 240,
         retention_days: 36500,
         api_access: false,
@@ -215,7 +215,7 @@ const DEFAULT_CATALOG: BillingCatalogResponse = {
         extra_seat_price_cents: 700,
         max_active_campaigns: null,
         max_creators_per_campaign: null,
-        platforms: ["tiktok", "instagram", "youtube"],
+        platforms: ["tiktok", "instagram", "youtube", "x", "facebook"],
         scrape_interval_minutes: 30,
         retention_days: 36500,
         api_access: true,
@@ -230,7 +230,7 @@ const DEFAULT_CATALOG: BillingCatalogResponse = {
         extra_seat_price_cents: 6700,
         max_active_campaigns: null,
         max_creators_per_campaign: null,
-        platforms: ["tiktok", "instagram", "youtube"],
+        platforms: ["tiktok", "instagram", "youtube", "x", "facebook"],
         scrape_interval_minutes: 30,
         retention_days: 36500,
         api_access: true,
@@ -281,19 +281,17 @@ const DEFAULT_FREE_PLAN: PlanCatalogEntry = {
   white_label: false,
 };
 
-export async function getBillingSummary(
-  workspaceOverrideId?: string
-): Promise<BillingSummary> {
-  const { workspaceId: resolvedWorkspaceId, error } = await resolveWorkspaceId();
-  if (error) {
-    throw error;
+export async function getBillingSummary(workspaceIdParam?: string): Promise<BillingSummary> {
+  let workspaceId: string;
+  if (workspaceIdParam) {
+    workspaceId = workspaceIdParam;
+  } else {
+    const lookup = await resolveWorkspaceId();
+    if (lookup.error) {
+      throw lookup.error;
+    }
+    workspaceId = lookup.workspaceId;
   }
-  const effectiveWorkspaceId = workspaceOverrideId || resolvedWorkspaceId;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const personalWorkspaceId = user?.id || resolvedWorkspaceId;
 
   // Fetch agency_role from profiles
   let agencyRole: AgencyRole = null;
@@ -320,7 +318,7 @@ export async function getBillingSummary(
     const { data, error: subError } = await supabase
       .from("subscriptions")
       .select("*")
-      .eq("workspace_id", effectiveWorkspaceId)
+      .eq("workspace_id", workspaceId)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -335,12 +333,6 @@ export async function getBillingSummary(
 
   const tier = (subscription?.tier as BillingTier) || "free";
   const billingCycle = (subscription?.billing_cycle as BillingCycle) || "monthly";
-
-  const isPaidWorkspace =
-    subscription?.status === "active" || subscription?.status === "trialing";
-  if (effectiveWorkspaceId !== personalWorkspaceId && !isPaidWorkspace) {
-    return await getBillingSummary(personalWorkspaceId);
-  }
 
   // Try to get plan from catalog - use default if not available
   let plan: any = null;
@@ -370,7 +362,7 @@ export async function getBillingSummary(
     const { data: usage } = await supabase
       .from("usage_counters")
       .select("active_campaigns_count")
-      .eq("workspace_id", effectiveWorkspaceId)
+      .eq("workspace_id", workspaceId)
       .maybeSingle();
     usageCount = usage?.active_campaigns_count ?? 0;
   } catch (e) {
@@ -379,7 +371,7 @@ export async function getBillingSummary(
       const { count } = await supabase
         .from("campaigns")
         .select("id", { count: "exact", head: true })
-        .eq("workspace_id", effectiveWorkspaceId)
+        .eq("user_id", workspaceId)
         .eq("status", "active");
       usageCount = count || 0;
     } catch {
@@ -393,8 +385,7 @@ export async function getBillingSummary(
     const { count: workspaceMemberCount } = await supabase
       .from("workspace_members")
       .select("id", { count: "exact", head: true })
-      .eq("workspace_id", effectiveWorkspaceId)
-      .eq("status", "active");
+      .eq("workspace_id", workspaceId);
 
     if (workspaceMemberCount !== null && workspaceMemberCount > 0) {
       seatsUsed = workspaceMemberCount;
@@ -407,7 +398,7 @@ export async function getBillingSummary(
       const { count: teamMemberCount } = await supabase
         .from("team_members")
         .select("id", { count: "exact", head: true })
-        .eq("workspace_id", effectiveWorkspaceId);
+        .eq("workspace_id", workspaceId);
       seatsUsed = teamMemberCount || 1;
     } catch {
       seatsUsed = 1;
@@ -428,7 +419,7 @@ export async function getBillingSummary(
 
   const fallbackSubscription: SubscriptionRecord = subscription || {
     id: "",
-    workspace_id: effectiveWorkspaceId,
+    workspace_id: workspaceId,
     tier: "free",
     billing_cycle: "monthly",
     status: "active",
@@ -444,7 +435,7 @@ export async function getBillingSummary(
     subscription?.total_seats ?? effectivePlan.included_seats ?? 1;
 
   return {
-    workspace_id: effectiveWorkspaceId,
+    workspace_id: workspaceId,
     subscription: fallbackSubscription,
     plan: effectivePlan,
     usage: {
