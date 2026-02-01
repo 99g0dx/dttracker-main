@@ -579,7 +579,7 @@ useEffect(() => {
         console.warn('[Platform Breakdown Warning]', 'Percentages do not sum to 100%. This may indicate a calculation error.');
       }
       if (Math.abs(totalPosts - kpiMetrics.totalPosts) >= 1) {
-        console.warn('[Platform Breakdown Warning]', 'Platform breakdown post count does not match KPI total posts.');
+        // console.warn('[Platform Breakdown Warning]', 'Platform breakdown post count does not match KPI total posts.');
       }
     }
 
@@ -777,20 +777,20 @@ useEffect(() => {
           `Chart total reach (${chartTotalReach}) does not match KPI total reach (${kpiMetrics.totalReachValue})`
         );
       } else {
-        console.log(
-          '[Dashboard Data Verified]',
-          `Chart and KPI match: ${chartTotalReach} total reach`
-        );
+        // console.log(
+        //   '[Dashboard Data Verified]',
+        //   `Chart and KPI match: ${chartTotalReach} total reach`
+        // );
       }
       // Log chart data points for debugging
-      console.log('[Performance Overview Chart Data]', {
-        dataPoints: timeSeriesData.length,
-        firstPoint: timeSeriesData[0],
-        lastPoint: timeSeriesData[timeSeriesData.length - 1],
-        sampleData: timeSeriesData.slice(0, 3),
-        totalReach: chartTotalReach,
-        kpiReach: kpiMetrics.totalReachValue
-      });
+      // console.log('[Performance Overview Chart Data]', {
+      //   dataPoints: timeSeriesData.length,
+      //   firstPoint: timeSeriesData[0],
+      //   lastPoint: timeSeriesData[timeSeriesData.length - 1],
+      //   sampleData: timeSeriesData.slice(0, 3),
+      //   totalReach: chartTotalReach,
+      //   kpiReach: kpiMetrics.totalReachValue
+      // });
     }
     if (process.env.NODE_ENV === 'development' && postsInRangeWithDates.length > 0) {
       const campaignBreakdown = postsInRangeWithDates.reduce(
@@ -805,7 +805,7 @@ useEffect(() => {
         },
         {}
       );
-      console.log('[Dashboard Campaign Reach Breakdown]', campaignBreakdown);
+      // console.log('[Dashboard Campaign Reach Breakdown]', campaignBreakdown);
     }
   }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData, postsInRangeWithDates]);
 

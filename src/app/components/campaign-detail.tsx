@@ -275,6 +275,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     if (!id) return [];
     return creatorRequests.filter((request) => request.campaign_id === id);
   }, [creatorRequests, id]);
+  const campaignRequestIds = React.useMemo(() => {
+    if (campaignRequests.length === 0) return [];
+    return campaignRequests.map((request) => request.id).sort();
+  }, [campaignRequests]);
   const [campaignRequestDetails, setCampaignRequestDetails] = useState<
     Array<
       CreatorRequestWithCreators & {
@@ -287,8 +291,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   >([]);
   useEffect(() => {
     const loadDetails = async () => {
-      if (campaignRequests.length === 0) {
-        setCampaignRequestDetails([]);
+      if (campaignRequestIds.length === 0) {
+        setCampaignRequestDetails((prev) => (prev.length ? [] : prev));
         return;
       }
       const { data: requestDetails } = await supabase
@@ -302,7 +306,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         )
         .in(
           "id",
-          campaignRequests.map((request) => request.id)
+          campaignRequestIds
         );
 
       if (!requestDetails) {
@@ -320,7 +324,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     };
 
     loadDetails();
-  }, [campaignRequests]);
+  }, [campaignRequestIds]);
 
   const requestedCreatorRows = React.useMemo(() => {
     const rows: Array<{
@@ -659,27 +663,27 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         const sharesMatch =
           Math.abs(chartLatestShares - kpiMetrics.total_shares) < 1;
 
-        console.log("[Graph Alignment Check]", {
-          "KPI Totals (All Platforms)": {
-            views: kpiMetrics.total_views,
-            likes: kpiMetrics.total_likes,
-            comments: kpiMetrics.total_comments,
-            shares: kpiMetrics.total_shares,
-          },
-          "Chart Latest Point Totals": {
-            views: chartLatestViews,
-            likes: chartLatestLikes,
-            comments: chartLatestComments,
-            shares: chartLatestShares,
-          },
-          "Alignment Status": {
-            views: viewsMatch ? "✓ Aligned" : "✗ Mismatch",
-            likes: likesMatch ? "✓ Aligned" : "✗ Mismatch",
-            comments: commentsMatch ? "✓ Aligned" : "✗ Mismatch",
-            shares: sharesMatch ? "✓ Aligned" : "✗ Mismatch",
-          },
-          Note: "Chart uses latest snapshot per date. Latest point should match KPI cards.",
-        });
+        // console.log("[Graph Alignment Check]", {
+        //   "KPI Totals (All Platforms)": {
+        //     views: kpiMetrics.total_views,
+        //     likes: kpiMetrics.total_likes,
+        //     comments: kpiMetrics.total_comments,
+        //     shares: kpiMetrics.total_shares,
+        //   },
+        //   "Chart Latest Point Totals": {
+        //     views: chartLatestViews,
+        //     likes: chartLatestLikes,
+        //     comments: chartLatestComments,
+        //     shares: chartLatestShares,
+        //   },
+        //   "Alignment Status": {
+        //     views: viewsMatch ? "✓ Aligned" : "✗ Mismatch",
+        //     likes: likesMatch ? "✓ Aligned" : "✗ Mismatch",
+        //     comments: commentsMatch ? "✓ Aligned" : "✗ Mismatch",
+        //     shares: sharesMatch ? "✓ Aligned" : "✗ Mismatch",
+        //   },
+        //   Note: "Chart uses latest snapshot per date. Latest point should match KPI cards.",
+        // });
 
         // Warn if there's a mismatch
         if (!viewsMatch || !likesMatch || !commentsMatch || !sharesMatch) {

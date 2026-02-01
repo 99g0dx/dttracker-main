@@ -164,9 +164,9 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
       return;
     }
 
-    if (import.meta.env.DEV) {
-      console.log("[Workspace Switcher] memberships:", data);
-    }
+    // if (import.meta.env.DEV) {
+    //   console.log("[Workspace Switcher] memberships:", data);
+    // }
 
     setWorkspaceList((data || []) as WorkspaceMembershipRow[]);
   };

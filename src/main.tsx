@@ -9,6 +9,11 @@ import "./styles/index.css";
 import { CartProvider } from "./contexts/CartContext.tsx";
 // Import connection test utilities (makes them available in browser console)
 
+// Disable noisy logs in production builds
+if (import.meta.env.PROD) {
+  console.log = () => {};
+  console.debug = () => {};
+}
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
