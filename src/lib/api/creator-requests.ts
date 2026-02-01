@@ -405,6 +405,11 @@ export async function getRequestWithCreators(
         id,
         creator_id,
         status,
+        quoted_amount_cents,
+        quoted_currency,
+        quote_notes,
+        quoted_by,
+        quoted_at,
         created_at,
         creators:creator_id (
           id,
@@ -459,6 +464,12 @@ export async function getRequestWithItems(
       .select(`
         id,
         creator_id,
+        status,
+        quoted_amount_cents,
+        quoted_currency,
+        quote_notes,
+        quoted_by,
+        quoted_at,
         created_at,
         creators:creator_id (
           id,
@@ -485,6 +496,12 @@ export async function getRequestWithItems(
       id: item.id,
       creator: item.creators,
       created_at: item.created_at,
+      status: item.status,
+      quoted_amount_cents: item.quoted_amount_cents ?? null,
+      quoted_currency: item.quoted_currency ?? null,
+      quote_notes: item.quote_notes ?? null,
+      quoted_by: item.quoted_by ?? null,
+      quoted_at: item.quoted_at ?? null,
     }));
 
     return {
@@ -523,6 +540,59 @@ export async function updateRequest(
     return { data, error: null };
   } catch (err) {
     console.error('Error in updateRequest:', err);
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Company admin: quote per-creator items on a request
+ */
+export async function quoteCreatorRequestItems(
+  requestId: string,
+  items: Array<{
+    creator_id: string;
+    quoted_amount_cents: number;
+    quoted_currency?: string | null;
+    quote_notes?: string | null;
+  }>
+): Promise<ApiResponse<{ updated: number }>> {
+  try {
+    const { data, error } = await supabase.rpc('company_admin_quote_creator_request', {
+      target_request_id: requestId,
+      items,
+    });
+    if (error) {
+      console.error('Error quoting creator request items:', error);
+      return { data: null, error };
+    }
+    return { data: data as any, error: null };
+  } catch (err) {
+    console.error('Error in quoteCreatorRequestItems:', err);
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * User: respond to a quoted creator (approve/reject)
+ */
+export async function respondToCreatorQuote(
+  requestId: string,
+  creatorId: string,
+  decision: 'approved' | 'rejected'
+): Promise<ApiResponse<{ status: string; updated: boolean }>> {
+  try {
+    const { data, error } = await supabase.rpc('respond_creator_quote', {
+      target_request_id: requestId,
+      target_creator_id: creatorId,
+      decision,
+    });
+    if (error) {
+      console.error('Error responding to creator quote:', error);
+      return { data: null, error };
+    }
+    return { data: data as any, error: null };
+  } catch (err) {
+    console.error('Error in respondToCreatorQuote:', err);
     return { data: null, error: err as Error };
   }
 }

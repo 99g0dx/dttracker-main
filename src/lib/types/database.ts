@@ -279,6 +279,11 @@ export interface CreatorRequestItem {
   request_id: string;
   creator_id: string;
   status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
+  quoted_amount_cents?: number | null;
+  quoted_currency?: string | null;
+  quote_notes?: string | null;
+  quoted_by?: string | null;
+  quoted_at?: string | null;
   created_at: string;
 }
 
@@ -429,6 +434,9 @@ export interface CreatorRequestItemInsert {
   request_id: string;
   creator_id: string;
   status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
+  quoted_amount_cents?: number | null;
+  quoted_currency?: string | null;
+  quote_notes?: string | null;
 }
 
 // ============================================================
@@ -631,6 +639,12 @@ export interface CreatorRequestWithItems extends CreatorRequest {
     id: string;
     creator: Creator;
     created_at: string;
+    status?: "pending" | "accepted" | "rejected" | "quoted" | "approved";
+    quoted_amount_cents?: number | null;
+    quoted_currency?: string | null;
+    quote_notes?: string | null;
+    quoted_by?: string | null;
+    quoted_at?: string | null;
   }>;
 }
 

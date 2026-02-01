@@ -37,6 +37,14 @@ type CreatorRequestDetail = CreatorRequestRow & {
   campaign_brief?: string | null;
   deadline?: string | null;
   creator_request_items?: Array<{
+    id?: string;
+    creator_id?: string;
+    status?: string | null;
+    quoted_amount_cents?: number | null;
+    quoted_currency?: string | null;
+    quote_notes?: string | null;
+    quoted_by?: string | null;
+    quoted_at?: string | null;
     creators: {
       id: string;
       name: string | null;
@@ -65,8 +73,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<CreatorRequestDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [campaignName, setCampaignName] = useState<string | null>(null);
+  const [quoteDrafts, setQuoteDrafts] = useState<Record<string, { amount: string; currency: string; notes: string }>>({});
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLimit, setAuditLimit] = useState(50);
@@ -656,6 +666,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             campaign_brief,
             deadline,
             creator_request_items (
+              id,
+              creator_id,
+              status,
+              quoted_amount_cents,
+              quoted_currency,
+              quote_notes,
+              quoted_by,
+              quoted_at,
               creators (
                 id,
                 name,
@@ -696,16 +714,24 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               contact_person_phone,
               campaign_brief,
               deadline,
-              creator_request_items (
-                creators (
-                  id,
-                  name,
-                  handle,
-                  platform,
-                  follower_count
-                )
+            creator_request_items (
+              id,
+              creator_id,
+              status,
+              quoted_amount_cents,
+              quoted_currency,
+              quote_notes,
+              quoted_by,
+              quoted_at,
+              creators (
+                id,
+                name,
+                handle,
+                platform,
+                follower_count
               )
-            `)
+            )
+          `)
             .eq('id', requestId)
             .single();
           if (fetchError) throw fetchError;
@@ -716,6 +742,20 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       });
 
       setSelectedRequest(data as CreatorRequestDetail);
+      const drafts: Record<string, { amount: string; currency: string; notes: string }> = {};
+      (data?.creator_request_items || []).forEach((item) => {
+        const creatorId = item.creator_id || item.creators?.id;
+        if (!creatorId) return;
+        drafts[creatorId] = {
+          amount:
+            item.quoted_amount_cents !== null && item.quoted_amount_cents !== undefined
+              ? (item.quoted_amount_cents / 100).toString()
+              : '',
+          currency: item.quoted_currency || 'USD',
+          notes: item.quote_notes || '',
+        };
+      });
+      setQuoteDrafts(drafts);
       if (data?.campaign_id) {
         const { data: campaign } = await supabase
           .from('campaigns')
@@ -774,6 +814,70 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       prev.map((r) => (r.id === selectedRequest.id ? { ...r, status: nextStatus } : r))
     );
     setStatusUpdating(false);
+  };
+
+  const sendQuotes = async () => {
+    if (!selectedRequest) return;
+    setDetailError(null);
+    setQuoteSubmitting(true);
+
+    const items = (selectedRequest.creator_request_items || [])
+      .map((item) => {
+        const creatorId = item.creator_id || item.creators?.id;
+        if (!creatorId) return null;
+        const draft = quoteDrafts[creatorId];
+        if (!draft || !draft.amount) return null;
+        const amount = Math.round(parseFloat(draft.amount) * 100);
+        if (!Number.isFinite(amount) || amount <= 0) return null;
+        return {
+          creator_id: creatorId,
+          quoted_amount_cents: amount,
+          quoted_currency: draft.currency || 'USD',
+          quote_notes: draft.notes || null,
+        };
+      })
+      .filter(Boolean) as Array<{
+        creator_id: string;
+        quoted_amount_cents: number;
+        quoted_currency?: string | null;
+        quote_notes?: string | null;
+      }>;
+
+    if (items.length === 0) {
+      setDetailError('Add quote amounts before sending.');
+      setQuoteSubmitting(false);
+      return;
+    }
+
+    const { error: quoteError } = await supabase.rpc('company_admin_quote_creator_request', {
+      target_request_id: selectedRequest.id,
+      items,
+    });
+
+    if (quoteError) {
+      setDetailError(quoteError.message || 'Failed to send quotes');
+      setQuoteSubmitting(false);
+      return;
+    }
+
+    setSelectedRequest({
+      ...selectedRequest,
+      status: 'quoted',
+      creator_request_items: (selectedRequest.creator_request_items || []).map((item) => {
+        const creatorId = item.creator_id || item.creators?.id;
+        const draft = creatorId ? quoteDrafts[creatorId] : null;
+        if (!creatorId || !draft || !draft.amount) return item;
+        return {
+          ...item,
+          status: 'quoted',
+          quoted_amount_cents: Math.round(parseFloat(draft.amount) * 100),
+          quoted_currency: draft.currency || 'USD',
+          quote_notes: draft.notes || null,
+          quoted_at: new Date().toISOString(),
+        };
+      }),
+    });
+    setQuoteSubmitting(false);
   };
 
   if (accessLoading || loading) {
@@ -1343,25 +1447,93 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <div>
                       <div className="text-xs text-slate-500 mb-2">Requested Creators</div>
                       <div className="space-y-2">
-                        {(selectedRequest.creator_request_items || [])
-                          .map((item) => item.creators)
-                          .filter(Boolean)
-                          .map((creator) => (
+                        {(selectedRequest.creator_request_items || []).map((item) => {
+                          const creator = item.creators;
+                          if (!creator) return null;
+                          const creatorId = item.creator_id || creator.id;
+                          const draft = quoteDrafts[creatorId] || {
+                            amount: '',
+                            currency: item.quoted_currency || 'USD',
+                            notes: item.quote_notes || '',
+                          };
+                          return (
                             <div
-                              key={creator!.id}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-white/[0.06] rounded-md p-3 bg-white/[0.02]"
+                              key={creator.id}
+                              className="border border-white/[0.06] rounded-md p-3 bg-white/[0.02] space-y-3"
                             >
-                              <div className="text-sm text-slate-200">
-                                {creator!.name || 'Unknown creator'}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                  <div className="text-sm text-slate-200">
+                                    {creator.name || 'Unknown creator'}
+                                  </div>
+                                  <div className="text-xs text-slate-500">
+                                    @{creator.handle || 'N/A'} • {creator.platform || 'N/A'}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  {creator.follower_count ? creator.follower_count.toLocaleString() : '—'} followers
+                                </div>
+                                <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/[0.1] text-slate-300 capitalize">
+                                  {item.status || 'pending'}
+                                </span>
                               </div>
-                              <div className="text-xs text-slate-500">
-                                @{creator!.handle || 'N/A'} • {creator!.platform || 'N/A'}
-                              </div>
-                              <div className="text-xs text-slate-400">
-                                {creator!.follower_count ? creator!.follower_count.toLocaleString() : '—'} followers
+
+                              <div className="grid grid-cols-1 sm:grid-cols-[160px_110px_1fr] gap-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="Quote amount"
+                                  value={draft.amount}
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    setQuoteDrafts((prev) => ({
+                                      ...prev,
+                                      [creatorId]: {
+                                        ...draft,
+                                        amount: value,
+                                      },
+                                    }));
+                                  }}
+                                  className="h-9 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white px-3"
+                                />
+                                <select
+                                  value={draft.currency}
+                                  onChange={(event) => {
+                                    setQuoteDrafts((prev) => ({
+                                      ...prev,
+                                      [creatorId]: {
+                                        ...draft,
+                                        currency: event.target.value,
+                                      },
+                                    }));
+                                  }}
+                                  className="h-9 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white px-2"
+                                >
+                                  <option value="USD">USD</option>
+                                  <option value="GBP">GBP</option>
+                                  <option value="EUR">EUR</option>
+                                  <option value="NGN">NGN</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  placeholder="Quote notes (optional)"
+                                  value={draft.notes}
+                                  onChange={(event) => {
+                                    setQuoteDrafts((prev) => ({
+                                      ...prev,
+                                      [creatorId]: {
+                                        ...draft,
+                                        notes: event.target.value,
+                                      },
+                                    }));
+                                  }}
+                                  className="h-9 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white px-3"
+                                />
                               </div>
                             </div>
-                          ))}
+                          );
+                        })}
                         {(!selectedRequest.creator_request_items ||
                           selectedRequest.creator_request_items.length === 0) && (
                           <div className="text-sm text-slate-500">No creators selected.</div>
@@ -1369,8 +1541,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                       </div>
                     </div>
 
-                    <div>
-                      <div className="text-xs text-slate-500 mb-2">Internal Status</div>
+                    <div className="space-y-3">
+                      <div className="text-xs text-slate-500">Internal Status</div>
                       <div className="flex flex-wrap gap-2">
                         {statusOptions.map((status) => (
                           <button
@@ -1386,6 +1558,19 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                             {status.replace('_', ' ')}
                           </button>
                         ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={sendQuotes}
+                          disabled={quoteSubmitting}
+                          className="h-9 px-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                        >
+                          {quoteSubmitting ? 'Sending...' : 'Send Quotes'}
+                        </Button>
+                        <span className="text-xs text-slate-500">
+                          Sends per‑creator pricing to the requester.
+                        </span>
                       </div>
                     </div>
                   </>
