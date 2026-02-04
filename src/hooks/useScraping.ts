@@ -43,7 +43,9 @@ export function useScrapePost() {
           queryKey: postsKeys.metrics(),
         }),
         queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
-        queryClient.refetchQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) }),
+        queryClient.refetchQueries({
+          queryKey: campaignsKeys.lists(activeWorkspaceId),
+        }),
       ]);
 
       toast.success("Post scraped successfully");
@@ -66,29 +68,56 @@ export function useScrapePost() {
       let errorMessage = error.message;
 
       // Provide more helpful error messages
-      if (errorMessage.includes("Failed to send a request to the Edge Function")) {
+      if (
+        errorMessage.includes("Failed to send a request to the Edge Function")
+      ) {
         errorMessage =
           "Cannot reach the scraping service. Check that Edge Functions (scrape-post / scrape-all-posts) are deployed and your Supabase URL is correct.";
-      } else if (errorMessage.includes("non-2xx") || errorMessage.includes("Edge Function returned")) {
-        errorMessage = "Scraping service error. The post may be unavailable or the scraping service is temporarily down. Please try again in a moment.";
-      } else if (errorMessage.includes("API error") || errorMessage.includes("RAPIDAPI_KEY") || errorMessage.includes("APIFY_TOKEN")) {
-        errorMessage = "Scraping service not configured. Please check if API keys (RAPIDAPI_KEY, APIFY_TOKEN) are set in Supabase Edge Function secrets.";
-      } else if (errorMessage.includes("Unauthorized") || errorMessage.includes("401") || errorMessage.includes("403")) {
-        errorMessage = "Authentication failed. Please try logging in again or refresh the page.";
-      } else if (errorMessage.includes("Invalid") || errorMessage.includes("Unable to extract")) {
-        errorMessage = "Invalid post URL or format. Please check the URL and try again.";
-      } else if (errorMessage.includes("Network") || errorMessage.includes("Failed to fetch")) {
-        errorMessage = "Network error. Please check your connection and try again.";
+      } else if (
+        errorMessage.includes("non-2xx") ||
+        errorMessage.includes("Edge Function returned")
+      ) {
+        errorMessage =
+          "Scraping service error. The post may be unavailable or the scraping service is temporarily down. Please try again in a moment.";
+      } else if (
+        errorMessage.includes("API error") ||
+        errorMessage.includes("RAPIDAPI_KEY") ||
+        errorMessage.includes("APIFY_TOKEN")
+      ) {
+        errorMessage =
+          "Scraping service not configured. Please check if API keys (RAPIDAPI_KEY, APIFY_TOKEN) are set in Supabase Edge Function secrets.";
+      } else if (
+        errorMessage.includes("Unauthorized") ||
+        errorMessage.includes("401") ||
+        errorMessage.includes("403")
+      ) {
+        errorMessage =
+          "Authentication failed. Please try logging in again or refresh the page.";
+      } else if (
+        errorMessage.includes("Invalid") ||
+        errorMessage.includes("Unable to extract")
+      ) {
+        errorMessage =
+          "Invalid post URL or format. Please check the URL and try again.";
+      } else if (
+        errorMessage.includes("Network") ||
+        errorMessage.includes("Failed to fetch")
+      ) {
+        errorMessage =
+          "Network error. Please check your connection and try again.";
       } else if (errorMessage.includes("Platform not available")) {
-        errorMessage = "This platform is not available on your current plan. Please upgrade to scrape this platform.";
+        errorMessage =
+          "This platform is not available on your current plan. Please upgrade to scrape this platform.";
       } else if (errorMessage.includes("Scrape interval not met")) {
         errorMessage = "Please wait a moment before scraping this post again.";
       } else if (errorMessage.includes("currently being scraped")) {
-        errorMessage = "This post is already being scraped. Please wait for it to complete.";
+        errorMessage =
+          "This post is already being scraped. Please wait for it to complete.";
       } else if (errorMessage.includes("Post not found")) {
         errorMessage = "Post not found. The post may have been deleted.";
       } else if (errorMessage.includes("Server configuration error")) {
-        errorMessage = "Server configuration error. Please contact support if this persists.";
+        errorMessage =
+          "Server configuration error. Please contact support if this persists.";
       }
 
       toast.error(`Failed to scrape post: ${errorMessage}`);
@@ -123,7 +152,9 @@ export function useScrapeAllPosts() {
           queryKey: postsKeys.metrics(),
         }),
         queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
-        queryClient.refetchQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) }),
+        queryClient.refetchQueries({
+          queryKey: campaignsKeys.lists(activeWorkspaceId),
+        }),
       ]);
 
       // Get campaign name for notification
@@ -195,7 +226,9 @@ export function useScrapeAllPosts() {
       let errorMessage = error.message;
 
       // Provide more helpful error messages
-      if (errorMessage.includes("Failed to send a request to the Edge Function")) {
+      if (
+        errorMessage.includes("Failed to send a request to the Edge Function")
+      ) {
         errorMessage =
           "Cannot reach the scraping service. Check that Edge Functions (scrape-post / scrape-all-posts) are deployed and your Supabase URL is correct.";
       } else if (errorMessage.includes("API error")) {

@@ -447,7 +447,7 @@ export function useToggleFavorite() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: creatorsKeys.favorites() });
       queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
-      toast.success(data?.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+      toast.success(data?.data?.is_favorite ? 'Added to favorites' : 'Removed from favorites');
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Favorites unavailable. Run database migrations to enable.');

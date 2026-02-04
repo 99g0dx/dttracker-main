@@ -126,4 +126,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 COMMENT ON FUNCTION public.can_trigger_scrape(uuid, uuid, text, uuid) IS
-  'Checks if a scrape can run. Pass request_user_id from Edge Function so agency users (profiles.agency_role) are allowed.';
+  'Checks if a scrape can run. When called from Edge Functions (service role), auth.uid() is null; request_user_id is required for agency bypass (has_agency_role). Do not remove request_user_id or the agency bypass.';

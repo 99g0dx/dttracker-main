@@ -63,7 +63,10 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     console.log(`[scrapeTikTok] Starting Apify scrape for URL: ${postUrl}`);
 
     let normalizedUrl = postUrl.trim();
-    if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+    if (
+      !normalizedUrl.startsWith("http://") &&
+      !normalizedUrl.startsWith("https://")
+    ) {
       normalizedUrl = "https://" + normalizedUrl;
     }
 
@@ -105,22 +108,37 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     });
 
     // #region agent log - Log full Apify response structure
-    console.log("[DEBUG] scrapeTikTok: Full Apify response type:", typeof rawResponse);
+    console.log(
+      "[DEBUG] scrapeTikTok: Full Apify response type:",
+      typeof rawResponse
+    );
     console.log("[DEBUG] scrapeTikTok: Is array?", Array.isArray(rawResponse));
-    console.log("[DEBUG] scrapeTikTok: Top-level keys:", Object.keys(rawResponse || {}));
-    console.log("[DEBUG] scrapeTikTok: Full response (first 5000 chars):", JSON.stringify(rawResponse, null, 2).substring(0, 5000));
-    
+    console.log(
+      "[DEBUG] scrapeTikTok: Top-level keys:",
+      Object.keys(rawResponse || {})
+    );
+    console.log(
+      "[DEBUG] scrapeTikTok: Full response (first 5000 chars):",
+      JSON.stringify(rawResponse, null, 2).substring(0, 5000)
+    );
+
     // Check for Apify error responses
-    if (rawResponse?.error || rawResponse?.status === "ERROR" || rawResponse?.status === "FAILED") {
+    if (
+      rawResponse?.error ||
+      rawResponse?.status === "ERROR" ||
+      rawResponse?.status === "FAILED"
+    ) {
       console.error("[DEBUG] scrapeTikTok: Apify returned error:", rawResponse);
-      throw new Error(`Apify TikTok scraper error: ${JSON.stringify(rawResponse.error || rawResponse)}`);
+      throw new Error(
+        `Apify TikTok scraper error: ${JSON.stringify(rawResponse.error || rawResponse)}`
+      );
     }
     // #endregion
 
     // Apify may return array directly or wrapped in { items }, { data }, or { data: { items } }
     // Also check for { data: [...] } or { results: [...] } structures
     let items: any[] = [];
-    
+
     if (Array.isArray(rawResponse)) {
       items = rawResponse;
     } else if (rawResponse?.items && Array.isArray(rawResponse.items)) {
@@ -128,29 +146,50 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     } else if (rawResponse?.data) {
       if (Array.isArray(rawResponse.data)) {
         items = rawResponse.data;
-      } else if (rawResponse.data?.items && Array.isArray(rawResponse.data.items)) {
+      } else if (
+        rawResponse.data?.items &&
+        Array.isArray(rawResponse.data.items)
+      ) {
         items = rawResponse.data.items;
-      } else if (rawResponse.data?.data && Array.isArray(rawResponse.data.data)) {
+      } else if (
+        rawResponse.data?.data &&
+        Array.isArray(rawResponse.data.data)
+      ) {
         items = rawResponse.data.data;
       }
     } else if (rawResponse?.results && Array.isArray(rawResponse.results)) {
       items = rawResponse.results;
-    } else if (rawResponse?.datasetItems && Array.isArray(rawResponse.datasetItems)) {
+    } else if (
+      rawResponse?.datasetItems &&
+      Array.isArray(rawResponse.datasetItems)
+    ) {
       items = rawResponse.datasetItems;
     }
-    
-    console.log("[DEBUG] scrapeTikTok: Extracted items array length:", items.length);
 
-    console.log("[scrapeTikTok] Apify returned items:", Array.isArray(items) ? items.length : typeof items);
+    console.log(
+      "[DEBUG] scrapeTikTok: Extracted items array length:",
+      items.length
+    );
+
+    console.log(
+      "[scrapeTikTok] Apify returned items:",
+      Array.isArray(items) ? items.length : typeof items
+    );
     // #region agent log
     console.log("[DEBUG] scrapeTikTok: Items array length:", items.length);
     console.log("[DEBUG] scrapeTikTok: Items type:", typeof items);
     if (items.length > 0) {
-      console.log("[DEBUG] scrapeTikTok: First item keys:", Object.keys(items[0] || {}));
-      console.log("[DEBUG] scrapeTikTok: First item preview:", JSON.stringify(items[0], null, 2).substring(0, 2000));
+      console.log(
+        "[DEBUG] scrapeTikTok: First item keys:",
+        Object.keys(items[0] || {})
+      );
+      console.log(
+        "[DEBUG] scrapeTikTok: First item preview:",
+        JSON.stringify(items[0], null, 2).substring(0, 2000)
+      );
     }
     // #endregion
-    
+
     if (!Array.isArray(items) || items.length === 0) {
       const errorDetails = {
         responseType: typeof rawResponse,
@@ -159,44 +198,78 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
         hasItems: !!rawResponse?.items,
         hasData: !!rawResponse?.data,
         hasResults: !!rawResponse?.results,
-        fullResponsePreview: JSON.stringify(rawResponse, null, 2).substring(0, 3000),
+        fullResponsePreview: JSON.stringify(rawResponse, null, 2).substring(
+          0,
+          3000
+        ),
       };
       console.error("[scrapeTikTok] Unexpected response shape:", errorDetails);
       throw new Error(
         `Apify TikTok scraper returned no results for this URL. ` +
-        `Response structure: ${JSON.stringify(errorDetails)}. ` +
-        `Full response (first 2000 chars): ${JSON.stringify(rawResponse, null, 2).substring(0, 2000)}`
+          `Response structure: ${JSON.stringify(errorDetails)}. ` +
+          `Full response (first 2000 chars): ${JSON.stringify(rawResponse, null, 2).substring(0, 2000)}`
       );
     }
 
     const item = items[0];
-    
+
+    // Apify can return { url, error } instead of video data; treat as error and do not parse metrics.
     // Check if Apify returned an error in the item (e.g., "Post not found or private")
     if (item?.error) {
-      const errorMessage = typeof item.error === "string" ? item.error : JSON.stringify(item.error);
-      console.error("[scrapeTikTok] Apify returned error in item:", errorMessage);
-      throw new Error(`TikTok post error: ${errorMessage}. The post may be private, deleted, or unavailable.`);
+      const errorMessage =
+        typeof item.error === "string"
+          ? item.error
+          : JSON.stringify(item.error);
+      console.error(
+        "[scrapeTikTok] Apify returned error in item:",
+        errorMessage
+      );
+      throw new Error(
+        `TikTok post error: ${errorMessage}. The post may be private, deleted, or unavailable.`
+      );
     }
-    
+
     // Check for error fields in the item structure
-    if (item?.status === "error" || item?.status === "failed" || item?.status === "ERROR" || item?.status === "FAILED") {
-      const errorMsg = item.message || item.error || item.reason || "Unknown error";
+    if (
+      item?.status === "error" ||
+      item?.status === "failed" ||
+      item?.status === "ERROR" ||
+      item?.status === "FAILED"
+    ) {
+      const errorMsg =
+        item.message || item.error || item.reason || "Unknown error";
       console.error("[scrapeTikTok] Apify item has error status:", errorMsg);
       throw new Error(`TikTok scraping failed: ${errorMsg}`);
     }
     // Resolve nested video object (some Apify outputs wrap video in .video)
     const video = item?.video ?? item;
-    const stats = video.stats ?? video.statistics ?? item.stats ?? item.statistics ?? {};
+    const stats =
+      video.stats ?? video.statistics ?? item.stats ?? item.statistics ?? {};
     console.log("[scrapeTikTok] Item keys:", Object.keys(item).slice(0, 25));
     console.log("[scrapeTikTok] Video keys:", Object.keys(video).slice(0, 25));
-    console.log("[scrapeTikTok] Item preview:", JSON.stringify(item).substring(0, 1200));
+    console.log(
+      "[scrapeTikTok] Item preview:",
+      JSON.stringify(item).substring(0, 1200)
+    );
     // #region agent log - Log item structure for debugging
-    console.log("[DEBUG] scrapeTikTok: Full item structure:", JSON.stringify(item, null, 2).substring(0, 4000));
-    console.log("[DEBUG] scrapeTikTok: Video object:", JSON.stringify(video, null, 2).substring(0, 2000));
-    console.log("[DEBUG] scrapeTikTok: Stats object:", JSON.stringify(stats, null, 2));
+    console.log(
+      "[DEBUG] scrapeTikTok: Full item structure:",
+      JSON.stringify(item, null, 2).substring(0, 4000)
+    );
+    console.log(
+      "[DEBUG] scrapeTikTok: Video object:",
+      JSON.stringify(video, null, 2).substring(0, 2000)
+    );
+    console.log(
+      "[DEBUG] scrapeTikTok: Stats object:",
+      JSON.stringify(stats, null, 2)
+    );
     console.log("[DEBUG] scrapeTikTok: item.video exists?", !!item?.video);
     console.log("[DEBUG] scrapeTikTok: video.stats exists?", !!video?.stats);
-    console.log("[DEBUG] scrapeTikTok: video.statistics exists?", !!video?.statistics);
+    console.log(
+      "[DEBUG] scrapeTikTok: video.statistics exists?",
+      !!video?.statistics
+    );
     // #endregion
 
     /** Parse number from value - handles "1.2K", "10.5M", numeric strings, and nested objects */
@@ -287,70 +360,164 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     // Enhanced extraction with more possible field paths
     const views = num(
       // Direct video fields
-      video.playCount, video.play_count, video.viewCount, video.views, video.view_count,
+      video.playCount,
+      video.play_count,
+      video.viewCount,
+      video.views,
+      video.view_count,
       // Stats fields
-      stats.playCount, stats.play_count, stats.viewCount, stats.views, stats.view_count,
+      stats.playCount,
+      stats.play_count,
+      stats.viewCount,
+      stats.views,
+      stats.view_count,
       // Item fields
-      item.playCount, item.play_count, item.viewCount, item.views, item.view_count,
+      item.playCount,
+      item.play_count,
+      item.viewCount,
+      item.views,
+      item.view_count,
       // Nested meta fields
-      item.videoMeta?.playCount, video.videoMeta?.playCount,
-      item.musicMeta?.playCount, video.musicMeta?.playCount,
+      item.videoMeta?.playCount,
+      video.videoMeta?.playCount,
+      item.musicMeta?.playCount,
+      video.musicMeta?.playCount,
       // Alternative paths
-      extractValue(item, ["statistics.playCount", "statistics.viewCount", "statistics.views", "metrics.views", "metrics.playCount"]),
-      extractValue(video, ["statistics.playCount", "statistics.viewCount", "statistics.views", "metrics.views", "metrics.playCount"]),
-      extractValue(stats, ["playCount", "viewCount", "views"]),
+      extractValue(item, [
+        "statistics.playCount",
+        "statistics.viewCount",
+        "statistics.views",
+        "metrics.views",
+        "metrics.playCount",
+      ]),
+      extractValue(video, [
+        "statistics.playCount",
+        "statistics.viewCount",
+        "statistics.views",
+        "metrics.views",
+        "metrics.playCount",
+      ]),
+      extractValue(stats, ["playCount", "viewCount", "views"])
     );
-    
+
     const likes = num(
       // Direct video fields
-      video.diggCount, video.digg_count, video.likeCount, video.likes, video.like_count,
+      video.diggCount,
+      video.digg_count,
+      video.likeCount,
+      video.likes,
+      video.like_count,
       // Stats fields
-      stats.diggCount, stats.digg_count, stats.likeCount, stats.likes, stats.like_count,
+      stats.diggCount,
+      stats.digg_count,
+      stats.likeCount,
+      stats.likes,
+      stats.like_count,
       // Item fields
-      item.diggCount, item.digg_count, item.likeCount, item.likes, item.like_count,
+      item.diggCount,
+      item.digg_count,
+      item.likeCount,
+      item.likes,
+      item.like_count,
       // Nested meta fields
-      item.videoMeta?.diggCount, video.videoMeta?.diggCount,
-      item.musicMeta?.diggCount, video.musicMeta?.diggCount,
+      item.videoMeta?.diggCount,
+      video.videoMeta?.diggCount,
+      item.musicMeta?.diggCount,
+      video.musicMeta?.diggCount,
       // Alternative paths
-      extractValue(item, ["statistics.diggCount", "statistics.likeCount", "statistics.likes", "metrics.likes", "metrics.diggCount"]),
-      extractValue(video, ["statistics.diggCount", "statistics.likeCount", "statistics.likes", "metrics.likes", "metrics.diggCount"]),
-      extractValue(stats, ["diggCount", "likeCount", "likes"]),
+      extractValue(item, [
+        "statistics.diggCount",
+        "statistics.likeCount",
+        "statistics.likes",
+        "metrics.likes",
+        "metrics.diggCount",
+      ]),
+      extractValue(video, [
+        "statistics.diggCount",
+        "statistics.likeCount",
+        "statistics.likes",
+        "metrics.likes",
+        "metrics.diggCount",
+      ]),
+      extractValue(stats, ["diggCount", "likeCount", "likes"])
     );
-    
+
     const comments = num(
       // Direct video fields
-      video.commentCount, video.comment_count, video.comments,
+      video.commentCount,
+      video.comment_count,
+      video.comments,
       // Stats fields
-      stats.commentCount, stats.comment_count, stats.comments,
+      stats.commentCount,
+      stats.comment_count,
+      stats.comments,
       // Item fields
-      item.commentCount, item.comment_count, item.comments,
+      item.commentCount,
+      item.comment_count,
+      item.comments,
       // Nested meta fields
-      item.videoMeta?.commentCount, video.videoMeta?.commentCount,
-      item.musicMeta?.commentCount, video.musicMeta?.commentCount,
+      item.videoMeta?.commentCount,
+      video.videoMeta?.commentCount,
+      item.musicMeta?.commentCount,
+      video.musicMeta?.commentCount,
       // Alternative paths
-      extractValue(item, ["statistics.commentCount", "statistics.comments", "metrics.comments", "metrics.commentCount"]),
-      extractValue(video, ["statistics.commentCount", "statistics.comments", "metrics.comments", "metrics.commentCount"]),
-      extractValue(stats, ["commentCount", "comments"]),
+      extractValue(item, [
+        "statistics.commentCount",
+        "statistics.comments",
+        "metrics.comments",
+        "metrics.commentCount",
+      ]),
+      extractValue(video, [
+        "statistics.commentCount",
+        "statistics.comments",
+        "metrics.comments",
+        "metrics.commentCount",
+      ]),
+      extractValue(stats, ["commentCount", "comments"])
     );
-    
+
     const shares = num(
       // Direct video fields
-      video.shareCount, video.share_count, video.shares,
+      video.shareCount,
+      video.share_count,
+      video.shares,
       // Stats fields
-      stats.shareCount, stats.share_count, stats.shares,
+      stats.shareCount,
+      stats.share_count,
+      stats.shares,
       // Item fields
-      item.shareCount, item.share_count, item.shares,
+      item.shareCount,
+      item.share_count,
+      item.shares,
       // Nested meta fields
-      item.videoMeta?.shareCount, video.videoMeta?.shareCount,
-      item.musicMeta?.shareCount, video.musicMeta?.shareCount,
+      item.videoMeta?.shareCount,
+      video.videoMeta?.shareCount,
+      item.musicMeta?.shareCount,
+      video.musicMeta?.shareCount,
       // Alternative paths
-      extractValue(item, ["statistics.shareCount", "statistics.shares", "metrics.shares", "metrics.shareCount"]),
-      extractValue(video, ["statistics.shareCount", "statistics.shares", "metrics.shares", "metrics.shareCount"]),
-      extractValue(stats, ["shareCount", "shares"]),
+      extractValue(item, [
+        "statistics.shareCount",
+        "statistics.shares",
+        "metrics.shares",
+        "metrics.shareCount",
+      ]),
+      extractValue(video, [
+        "statistics.shareCount",
+        "statistics.shares",
+        "metrics.shares",
+        "metrics.shareCount",
+      ]),
+      extractValue(stats, ["shareCount", "shares"])
     );
 
     // #region agent log - Log parsed metrics
-    console.log("[DEBUG] scrapeTikTok: Parsed metrics:", { views, likes, comments, shares, total: views + likes + comments + shares });
+    console.log("[DEBUG] scrapeTikTok: Parsed metrics:", {
+      views,
+      likes,
+      comments,
+      shares,
+      total: views + likes + comments + shares,
+    });
     // #endregion
 
     const ownerUsername =
@@ -369,50 +536,68 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     const totalMetrics = views + likes + comments + shares;
 
     console.log("[scrapeTikTok] Extracted metrics:", {
-      views, likes, comments, shares, totalMetrics, ownerUsername,
+      views,
+      likes,
+      comments,
+      shares,
+      totalMetrics,
+      ownerUsername,
     });
 
     // If all metrics are zero, try a deep search through the entire item structure
     if (!totalMetrics) {
-      console.warn("[scrapeTikTok] Initial extraction returned zero metrics, attempting deep search...");
-      
+      console.warn(
+        "[scrapeTikTok] Initial extraction returned zero metrics, attempting deep search..."
+      );
+
       // Deep search function that recursively searches for numeric values
       const deepSearch = (obj: any, depth = 0, maxDepth = 5): number[] => {
-        if (depth > maxDepth || obj == null || typeof obj !== "object") return [];
+        if (depth > maxDepth || obj == null || typeof obj !== "object")
+          return [];
         const values: number[] = [];
-        
+
         for (const key in obj) {
           if (!obj.hasOwnProperty(key)) continue;
           const val = obj[key];
-          
+
           // Check if key suggests it's a metric field
-          const isMetricKey = /(view|play|like|digg|comment|share|count|metric)/i.test(key);
-          
+          const isMetricKey =
+            /(view|play|like|digg|comment|share|count|metric)/i.test(key);
+
           if (isMetricKey && val != null) {
             const parsed = parseNum(val);
             if (parsed > 0) values.push(parsed);
           }
-          
+
           // Recursively search nested objects
           if (typeof val === "object" && val !== null && !Array.isArray(val)) {
             values.push(...deepSearch(val, depth + 1, maxDepth));
           }
         }
-        
+
         return values;
       };
-      
+
       // Try deep search and use the first 4 largest values found
       const foundValues = deepSearch(item).sort((a, b) => b - a);
-      
+
       if (foundValues.length >= 4) {
-        console.log("[scrapeTikTok] Deep search found values:", foundValues.slice(0, 4));
+        console.log(
+          "[scrapeTikTok] Deep search found values:",
+          foundValues.slice(0, 4)
+        );
         // Use the 4 largest values as views, likes, comments, shares
-        const [deepViews, deepLikes, deepComments, deepShares] = foundValues.slice(0, 4);
+        const [deepViews, deepLikes, deepComments, deepShares] =
+          foundValues.slice(0, 4);
         const deepTotal = deepViews + deepLikes + deepComments + deepShares;
-        
+
         if (deepTotal > 0) {
-          console.log("[scrapeTikTok] Using deep search results:", { deepViews, deepLikes, deepComments, deepShares });
+          console.log("[scrapeTikTok] Using deep search results:", {
+            deepViews,
+            deepLikes,
+            deepComments,
+            deepShares,
+          });
           return {
             views: deepViews,
             likes: deepLikes,
@@ -423,68 +608,89 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
           };
         }
       }
-      
+
       // If deep search also failed, log EVERYTHING for debugging
       const fullRawResponseStr = JSON.stringify(rawResponse, null, 2);
       const fullItemStr = JSON.stringify(item, null, 2);
-      
-      console.error("[scrapeTikTok] ========== ZERO METRICS - FULL DEBUG INFO ==========");
-      console.error("[scrapeTikTok] Full Apify rawResponse (first 5000 chars):", fullRawResponseStr.substring(0, 5000));
-      console.error("[scrapeTikTok] Full item (first 5000 chars):", fullItemStr.substring(0, 5000));
-      console.error("[scrapeTikTok] Video object keys:", Object.keys(video || {}));
-      console.error("[scrapeTikTok] Stats object keys:", Object.keys(stats || {}));
-      console.error("[scrapeTikTok] Item object keys:", Object.keys(item || {}));
+
+      console.error(
+        "[scrapeTikTok] ========== ZERO METRICS - FULL DEBUG INFO =========="
+      );
+      console.error(
+        "[scrapeTikTok] Full Apify rawResponse (first 5000 chars):",
+        fullRawResponseStr.substring(0, 5000)
+      );
+      console.error(
+        "[scrapeTikTok] Full item (first 5000 chars):",
+        fullItemStr.substring(0, 5000)
+      );
+      console.error(
+        "[scrapeTikTok] Video object keys:",
+        Object.keys(video || {})
+      );
+      console.error(
+        "[scrapeTikTok] Stats object keys:",
+        Object.keys(stats || {})
+      );
+      console.error(
+        "[scrapeTikTok] Item object keys:",
+        Object.keys(item || {})
+      );
       console.error("[scrapeTikTok] Deep search found values:", foundValues);
       console.error("[scrapeTikTok] ========== END DEBUG INFO ==========");
-      
+
       // #region agent log - Log all possible metric fields when zero
-      console.error("[DEBUG] scrapeTikTok: ZERO METRICS DETECTED. All checked fields:", {
-        rawResponseType: typeof rawResponse,
-        rawResponseIsArray: Array.isArray(rawResponse),
-        rawResponseKeys: Object.keys(rawResponse || {}),
-        itemsLength: items.length,
-        video: Object.keys(video || {}),
-        stats: Object.keys(stats || {}),
-        item: Object.keys(item || {}),
-        videoValues: {
-          playCount: video?.playCount,
-          play_count: video?.play_count,
-          viewCount: video?.viewCount,
-          views: video?.views,
-          diggCount: video?.diggCount,
-          likeCount: video?.likeCount,
-          commentCount: video?.commentCount,
-          shareCount: video?.shareCount,
-        },
-        statsValues: {
-          playCount: stats?.playCount,
-          viewCount: stats?.viewCount,
-          diggCount: stats?.diggCount,
-          likeCount: stats?.likeCount,
-          commentCount: stats?.commentCount,
-          shareCount: stats?.shareCount,
-        },
-        itemValues: {
-          playCount: item?.playCount,
-          viewCount: item?.viewCount,
-          diggCount: item?.diggCount,
-          likeCount: item?.likeCount,
-          commentCount: item?.commentCount,
-          shareCount: item?.shareCount,
-        },
-        deepSearchFound: foundValues,
-        fullRawResponsePreview: fullRawResponseStr.substring(0, 3000),
-        fullItemPreview: fullItemStr.substring(0, 3000),
-      });
+      console.error(
+        "[DEBUG] scrapeTikTok: ZERO METRICS DETECTED. All checked fields:",
+        {
+          rawResponseType: typeof rawResponse,
+          rawResponseIsArray: Array.isArray(rawResponse),
+          rawResponseKeys: Object.keys(rawResponse || {}),
+          itemsLength: items.length,
+          video: Object.keys(video || {}),
+          stats: Object.keys(stats || {}),
+          item: Object.keys(item || {}),
+          videoValues: {
+            playCount: video?.playCount,
+            play_count: video?.play_count,
+            viewCount: video?.viewCount,
+            views: video?.views,
+            diggCount: video?.diggCount,
+            likeCount: video?.likeCount,
+            commentCount: video?.commentCount,
+            shareCount: video?.shareCount,
+          },
+          statsValues: {
+            playCount: stats?.playCount,
+            viewCount: stats?.viewCount,
+            diggCount: stats?.diggCount,
+            likeCount: stats?.likeCount,
+            commentCount: stats?.commentCount,
+            shareCount: stats?.shareCount,
+          },
+          itemValues: {
+            playCount: item?.playCount,
+            viewCount: item?.viewCount,
+            diggCount: item?.diggCount,
+            likeCount: item?.likeCount,
+            commentCount: item?.commentCount,
+            shareCount: item?.shareCount,
+          },
+          deepSearchFound: foundValues,
+          fullRawResponsePreview: fullRawResponseStr.substring(0, 3000),
+          fullItemPreview: fullItemStr.substring(0, 3000),
+        }
+      );
       // #endregion
-      
+
       // Include the full response in the error message so it's visible in logs
-      const errorMsg = `Apify TikTok scraper returned zero metrics. Response structure may have changed. ` +
+      const errorMsg =
+        `Apify TikTok scraper returned zero metrics. Response structure may have changed. ` +
         `Full rawResponse (first 2000 chars): ${fullRawResponseStr.substring(0, 2000)}. ` +
         `Full item (first 2000 chars): ${fullItemStr.substring(0, 2000)}. ` +
         `Check Supabase Edge Function logs (scrape-post) for complete debug info. ` +
         `TikTok may also be blocking the scraper—try again later or use a different post.`;
-      
+
       throw new Error(errorMsg);
     }
 
@@ -682,13 +888,20 @@ async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
       console.error("YouTube API error:", response.status, errorText);
 
       // Handle temporary errors - throw proper errors instead of fake data
-      if (response.status === 503 || response.status === 429 || response.status === 502 || response.status === 504) {
+      if (
+        response.status === 503 ||
+        response.status === 429 ||
+        response.status === 502 ||
+        response.status === 504
+      ) {
         throw new Error(
           `YouTube API temporarily unavailable (${response.status}). Please try again later.`
         );
       }
 
-      throw new Error(`YouTube API error: ${response.status} ${errorText.substring(0, 200)}`);
+      throw new Error(
+        `YouTube API error: ${response.status} ${errorText.substring(0, 200)}`
+      );
     }
 
     const data = await response.json();
@@ -1008,7 +1221,9 @@ async function createInstagramCreator(
   const normalizedHandle = normalizeHandle(ownerUsername);
   if (!normalizedHandle) return null;
 
-  console.log(`Creating new Instagram creator: @${normalizedHandle} for workspace ${workspaceId}`);
+  console.log(
+    `Creating new Instagram creator: @${normalizedHandle} for workspace ${workspaceId}`
+  );
 
   // Create the creator record
   const { data: newCreator, error: createError } = await supabase
@@ -1038,16 +1253,14 @@ async function createInstagramCreator(
 
       if (existingCreator) {
         // Ensure they're in workspace_creators
-        await supabase
-          .from("workspace_creators")
-          .upsert(
-            {
-              workspace_id: workspaceId,
-              creator_id: existingCreator.id,
-              source: "scraper",
-            },
-            { onConflict: "workspace_id,creator_id" }
-          );
+        await supabase.from("workspace_creators").upsert(
+          {
+            workspace_id: workspaceId,
+            creator_id: existingCreator.id,
+            source: "scraper",
+          },
+          { onConflict: "workspace_id,creator_id" }
+        );
 
         return {
           creatorId: existingCreator.id,
@@ -1074,7 +1287,9 @@ async function createInstagramCreator(
     console.warn("Failed to add creator to workspace:", workspaceError);
   }
 
-  console.log(`Created new Instagram creator: ${newCreator.id} (@${normalizedHandle})`);
+  console.log(
+    `Created new Instagram creator: ${newCreator.id} (@${normalizedHandle})`
+  );
 
   return {
     creatorId: newCreator.id,
@@ -1118,7 +1333,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Server configuration error: Missing Supabase credentials. Please check Edge Function secrets.",
+          error:
+            "Server configuration error: Missing Supabase credentials. Please check Edge Function secrets.",
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1132,7 +1348,9 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.replace("Bearer ", "") ?? null;
     if (!token) {
-      console.warn("No authorization token provided; proceeding without user context");
+      console.warn(
+        "No authorization token provided; proceeding without user context"
+      );
     } else {
       console.log("Token received, length:", token.length);
     }
@@ -1210,7 +1428,9 @@ serve(async (req) => {
     // Check if post is currently being scraped (conflict prevention)
     const { data: post, error: postError } = await supabase
       .from("posts")
-      .select("status, updated_at, campaign_id, creator_id, views, likes, comments, scrape_count")
+      .select(
+        "status, updated_at, campaign_id, creator_id, views, likes, comments, scrape_count"
+      )
       .eq("id", postId)
       .single();
 
@@ -1258,9 +1478,14 @@ serve(async (req) => {
     // Fallback: when called from scrape-all-posts, JWT may not be forwarded; use body request_user_id
     if (requestUserId == null && bodyRequestUserId) {
       requestUserId = bodyRequestUserId;
-      console.log(`[DEBUG] scrape-post: using body request_user_id: ${requestUserId}`);
+      console.log(
+        `[DEBUG] scrape-post: using body request_user_id: ${requestUserId}`
+      );
     }
-    console.log(`[DEBUG] scrape-post: calling can_trigger_scrape with request_user_id=${requestUserId}, workspace_id=${campaign.workspace_id}`);
+    // Must pass request_user_id so agency bypass works (auth.uid() is null with service role).
+    console.log(
+      `[DEBUG] scrape-post: calling can_trigger_scrape with request_user_id=${requestUserId}, workspace_id=${campaign.workspace_id}`
+    );
 
     const { data: scrapeGate, error: gateError } = await supabase.rpc(
       "can_trigger_scrape",
@@ -1286,19 +1511,29 @@ serve(async (req) => {
     }
 
     const gate = Array.isArray(scrapeGate) ? scrapeGate[0] : scrapeGate;
-    console.log(`[DEBUG] scrape-post: can_trigger_scrape returned:`, JSON.stringify({ allowed: gate?.allowed, tier: gate?.tier, message: gate?.message, reason: gate?.reason }));
+    console.log(
+      `[DEBUG] scrape-post: can_trigger_scrape returned:`,
+      JSON.stringify({
+        allowed: gate?.allowed,
+        tier: gate?.tier,
+        message: gate?.message,
+        reason: gate?.reason,
+      })
+    );
     if (!gate?.allowed) {
       const reason = gate?.reason || "not_allowed";
       const dbMessage = typeof gate?.message === "string" ? gate.message : null;
-      console.log(`[DEBUG] scrape-post: scrape NOT allowed. reason=${reason}, message=${dbMessage}, request_user_id=${requestUserId}`);
+      console.log(
+        `[DEBUG] scrape-post: scrape NOT allowed. reason=${reason}, message=${dbMessage}, request_user_id=${requestUserId}`
+      );
       const message =
         reason === "platform_not_allowed"
           ? "Platform not available on your current plan."
           : reason === "scrape_interval_not_met"
-          ? "Scrape interval not met. Please wait before scraping again."
-          : reason === "subscription_past_due"
-          ? "Subscription past due. Update payment to resume scraping."
-          : dbMessage || "Scraping not allowed at this time.";
+            ? "Scrape interval not met. Please wait before scraping again."
+            : reason === "subscription_past_due"
+              ? "Subscription past due. Update payment to resume scraping."
+              : dbMessage || "Scraping not allowed at this time.";
 
       return new Response(
         JSON.stringify({
@@ -1314,23 +1549,23 @@ serve(async (req) => {
 
     // Per-operator scrape limit (manual scrape only; requestUserId already set above when token present)
     if (!isAutoScrape && requestUserId) {
-        const { data: opLimit, error: opLimitError } = await supabase.rpc(
-          "check_operator_scrape_limit",
-          { p_workspace_id: campaign.workspace_id, p_user_id: requestUserId }
+      const { data: opLimit, error: opLimitError } = await supabase.rpc(
+        "check_operator_scrape_limit",
+        { p_workspace_id: campaign.workspace_id, p_user_id: requestUserId }
+      );
+      const opResult = Array.isArray(opLimit) ? opLimit[0] : opLimit;
+      if (!opLimitError && opResult && opResult.allowed === false) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Daily manual scrape limit reached. Try again tomorrow.",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 429,
+          }
         );
-        const opResult = Array.isArray(opLimit) ? opLimit[0] : opLimit;
-        if (!opLimitError && opResult && opResult.allowed === false) {
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: "Daily manual scrape limit reached. Try again tomorrow.",
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 429,
-            }
-          );
-        }
+      }
     }
 
     // If post is being scraped and this is a manual request, check if we should wait
@@ -1372,9 +1607,12 @@ serve(async (req) => {
     try {
       metrics = await scrapePost(platform, postUrl);
     } catch (scrapeError) {
-      const errorMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
+      const errorMessage =
+        scrapeError instanceof Error
+          ? scrapeError.message
+          : String(scrapeError);
       console.error("Scraping failed:", errorMessage);
-      
+
       // Update post status to failed
       await supabase
         .from("posts")
@@ -1432,7 +1670,9 @@ serve(async (req) => {
     if (scrapedMetrics.owner_username) {
       updatePayload.owner_username = scrapedMetrics.owner_username;
       updatePayload.creator_handle = scrapedMetrics.owner_username;
-      console.log(`Setting owner_username to: ${scrapedMetrics.owner_username}`);
+      console.log(
+        `Setting owner_username to: ${scrapedMetrics.owner_username}`
+      );
     }
 
     let creatorMatch: {
@@ -1457,7 +1697,9 @@ serve(async (req) => {
 
       // If no match found, auto-create the creator
       if (!match) {
-        console.log(`No existing creator match for @${scrapedMetrics.owner_username}, creating new creator...`);
+        console.log(
+          `No existing creator match for @${scrapedMetrics.owner_username}, creating new creator...`
+        );
         match = await createInstagramCreator(
           supabase,
           campaign.workspace_id,
@@ -1490,7 +1732,9 @@ serve(async (req) => {
           );
         }
 
-        console.log(`Creator ${match.created ? "created and " : ""}attached: @${match.creatorHandle} (${match.creatorId})`);
+        console.log(
+          `Creator ${match.created ? "created and " : ""}attached: @${match.creatorHandle} (${match.creatorId})`
+        );
       }
     }
 
@@ -1507,16 +1751,14 @@ serve(async (req) => {
       throw updateError;
     }
 
-    await supabase
-      .from("campaign_platform_scrapes")
-      .upsert(
-        {
-          campaign_id: post.campaign_id,
-          platform,
-          last_scraped_at: new Date().toISOString(),
-        },
-        { onConflict: "campaign_id,platform" }
-      );
+    await supabase.from("campaign_platform_scrapes").upsert(
+      {
+        campaign_id: post.campaign_id,
+        platform,
+        last_scraped_at: new Date().toISOString(),
+      },
+      { onConflict: "campaign_id,platform" }
+    );
 
     // Save historical metrics snapshot
     const { error: metricsError } = await supabase.from("post_metrics").insert({
@@ -1588,7 +1830,8 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: errorMessage,
-        details: process.env.DENO_ENV === "development" ? errorStack : undefined,
+        details:
+          process.env.DENO_ENV === "development" ? errorStack : undefined,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

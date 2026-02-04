@@ -65,7 +65,10 @@ export async function scrapePost(
     let currentSession = refreshedSession;
 
     if (refreshError || !refreshedSession) {
-      console.warn("Session refresh failed, falling back to current session:", refreshError);
+      console.warn(
+        "Session refresh failed, falling back to current session:",
+        refreshError
+      );
       // Fall back to getting current session if refresh fails
       const {
         data: { session: fallbackSession },
@@ -112,13 +115,13 @@ export async function scrapePost(
     if (!supabaseUrl) {
       return {
         data: null,
-        error: new Error('Missing Supabase URL configuration'),
+        error: new Error("Missing Supabase URL configuration"),
       };
     }
 
     const invokeScrape = async (accessToken?: string) => {
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       };
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
@@ -129,7 +132,7 @@ export async function scrapePost(
       }
 
       const response = await fetch(`${supabaseUrl}/functions/v1/scrape-post`, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: JSON.stringify(request),
       });
@@ -143,14 +146,19 @@ export async function scrapePost(
         // Non-JSON response - return error with response text
         return {
           data: null,
-          error: new Error(`Invalid response from scrape-post: ${response.status} ${response.statusText}`),
+          error: new Error(
+            `Invalid response from scrape-post: ${response.status} ${response.statusText}`
+          ),
           status: response.status,
           responseText: responseText.substring(0, 500),
         };
       }
 
       if (!response.ok) {
-        const errorMessage = responseData?.error || responseData?.message || `HTTP ${response.status}: ${response.statusText}`;
+        const errorMessage =
+          responseData?.error ||
+          responseData?.message ||
+          `HTTP ${response.status}: ${response.statusText}`;
         return {
           data: null,
           error: new Error(errorMessage),
@@ -172,10 +180,14 @@ export async function scrapePost(
       const errorMessage = error.message || "";
       const errorStatus = (error as any)?.status || result?.status;
       const isAuthError =
-        errorStatus === 401 || errorMessage.includes("JWT") || errorMessage.includes("Unauthorized");
+        errorStatus === 401 ||
+        errorMessage.includes("JWT") ||
+        errorMessage.includes("Unauthorized");
 
       if (isAuthError) {
-        console.warn("Scrape-post auth error, refreshing session and retrying...");
+        console.warn(
+          "Scrape-post auth error, refreshing session and retrying..."
+        );
         const { error: refreshError } = await supabase.auth.refreshSession();
         if (!refreshError) {
           const {
@@ -191,7 +203,8 @@ export async function scrapePost(
 
     if (error || !data) {
       console.error("Scraping failed:", error, result);
-      const errorMessage = error?.message || result?.responseText || "Failed to scrape post";
+      const errorMessage =
+        error?.message || result?.responseText || "Failed to scrape post";
       return {
         data: null,
         error: new Error(errorMessage),
@@ -224,8 +237,12 @@ export async function scrapePost(
     let errorMessage = error.message || "Network error while scraping post";
 
     // Check if it's a non-2xx status code error
-    if (errorMessage.includes("non-2xx") || errorMessage.includes("Edge Function returned")) {
-      errorMessage = "Scraping service error. The post may be unavailable or the scraping service is temporarily down. Please try again in a moment.";
+    if (
+      errorMessage.includes("non-2xx") ||
+      errorMessage.includes("Edge Function returned")
+    ) {
+      errorMessage =
+        "Scraping service error. The post may be unavailable or the scraping service is temporarily down. Please try again in a moment.";
     } else if (
       errorMessage.includes("Failed to fetch") ||
       errorMessage.includes("NetworkError") ||
@@ -275,7 +292,10 @@ export async function scrapeAllPosts(
     let currentSession = refreshedSession;
 
     if (refreshError || !refreshedSession) {
-      console.warn("Session refresh failed, falling back to current session:", refreshError);
+      console.warn(
+        "Session refresh failed, falling back to current session:",
+        refreshError
+      );
       // Fall back to getting current session if refresh fails
       const {
         data: { session: fallbackSession },
@@ -318,36 +338,59 @@ export async function scrapeAllPosts(
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
-      return supabase.functions.invoke<{ success: boolean; data?: ScrapeAllResult; error?: string }>(
-        "scrape-all-posts",
-        {
-          body: { campaignId },
-          headers,
-        }
-      );
+      return supabase.functions.invoke<{
+        success: boolean;
+        data?: ScrapeAllResult;
+        error?: string;
+      }>("scrape-all-posts", {
+        body: { campaignId },
+        headers,
+      });
     };
 
     console.log("Invoking edge function scrape-all-posts...");
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scraping.ts:330',message:'Calling scrape-all-posts',data:{userId:currentSession.user?.id,hasToken:!!currentSession.access_token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    fetch("http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "scraping.ts:330",
+        message: "Calling scrape-all-posts",
+        data: {
+          userId: currentSession.user?.id,
+          hasToken: !!currentSession.access_token,
+        },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "run1",
+        hypothesisId: "C",
+      }),
+    }).catch(() => {});
     // #endregion
     let { data, error } = await invokeScrapeAll(currentSession.access_token);
 
     if (error) {
       const errorMessage = error.message || "";
-      const errorStatus = (error as any)?.status || (error as any)?.context?.status;
+      const errorStatus =
+        (error as any)?.status || (error as any)?.context?.status;
       const isAuthError =
-        errorStatus === 401 || errorMessage.includes("JWT") || errorMessage.includes("Unauthorized");
+        errorStatus === 401 ||
+        errorMessage.includes("JWT") ||
+        errorMessage.includes("Unauthorized");
 
       if (isAuthError) {
-        console.warn("Scrape-all-posts auth error, refreshing session and retrying...");
+        console.warn(
+          "Scrape-all-posts auth error, refreshing session and retrying..."
+        );
         const { error: refreshError } = await supabase.auth.refreshSession();
         if (!refreshError) {
           const {
             data: { session: refreshedSession },
           } = await supabase.auth.getSession();
           if (refreshedSession?.access_token) {
-            ({ data, error } = await invokeScrapeAll(refreshedSession.access_token));
+            ({ data, error } = await invokeScrapeAll(
+              refreshedSession.access_token
+            ));
           }
         }
       }
@@ -356,7 +399,26 @@ export async function scrapeAllPosts(
     if (error || !data) {
       console.error("Scraping failed:", error);
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scraping.ts:353',message:'scrape-all-posts returned error',data:{error:error?.message,errorStatus:(error as any)?.status,hasData:!!data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch(
+        "http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "scraping.ts:353",
+            message: "scrape-all-posts returned error",
+            data: {
+              error: error?.message,
+              errorStatus: (error as any)?.status,
+              hasData: !!data,
+            },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "run1",
+            hypothesisId: "A",
+          }),
+        }
+      ).catch(() => {});
       // #endregion
       return {
         data: null,
@@ -368,7 +430,27 @@ export async function scrapeAllPosts(
       const errorMessage = data.error || "Failed to scrape all posts";
       console.error("Scraping failed:", errorMessage);
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scraping.ts:361',message:'scrape-all-posts returned success=false',data:{errorMessage,errorCount:data.data?.error_count,successCount:data.data?.success_count,firstError:data.data?.errors?.[0]?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch(
+        "http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "scraping.ts:361",
+            message: "scrape-all-posts returned success=false",
+            data: {
+              errorMessage,
+              errorCount: data.data?.error_count,
+              successCount: data.data?.success_count,
+              firstError: data.data?.errors?.[0]?.message,
+            },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "run1",
+            hypothesisId: "A",
+          }),
+        }
+      ).catch(() => {});
       // #endregion
       return {
         data: null,
@@ -393,7 +475,9 @@ export async function scrapeAllPosts(
     // Provide more specific error messages for common issues
     let errorMessage = error.message || "Network error while scraping posts";
 
-    if (errorMessage.includes("Failed to send a request to the Edge Function")) {
+    if (
+      errorMessage.includes("Failed to send a request to the Edge Function")
+    ) {
       errorMessage =
         "Cannot reach the scraping service. Check that Edge Functions (scrape-post / scrape-all-posts) are deployed and your Supabase URL is correct.";
     } else if (
