@@ -58,10 +58,10 @@ export function ImportCreatorsDialog({ open, onClose }: ImportCreatorsDialogProp
   };
 
   const handleDownloadTemplate = () => {
-    const template = `handle,platform,Profile,Followers,Niche
-@johndoe,tiktok,https://www.tiktok.com/@realjadrolita?_t=ZM-8wltJogyXOa&_r=1,9000000,Lifestyle
-janesmith,instagram,
-@techguru,youtube`;
+    const template = `platform,handle,name,email,phone,niche,location,followers,base_rate
+tiktok,@johndoe,John Doe,john@example.com,+2348012345678,Lifestyle,Lagos Nigeria,250000,150000
+instagram,janesmith,Jane Smith,jane@example.com,,Fashion,Abuja,180000,
+youtube,@techguru,Tech Guru,,,+2348012345679,Tech,Lagos,500000,300000`;
     
     csvUtils.downloadCSV(template, 'creators_template.csv');
   };
@@ -100,8 +100,8 @@ janesmith,instagram,
                 <label htmlFor="creators-csv-upload" className="cursor-pointer">
                   <Upload className="w-12 h-12 mx-auto mb-3 text-slate-500" />
                   <p className="text-sm text-slate-300 mb-1">Upload CSV file</p>
-                  <p className="text-xs text-slate-500 mb-3">Required: handle</p>
-                  <p className="text-xs text-slate-400">Optional: platform (auto-detected if not provided)</p>
+                  <p className="text-xs text-slate-500 mb-3">Required: platform, handle</p>
+                  <p className="text-xs text-slate-400">Optional: name, email, phone, niche, location, followers, base_rate</p>
                 </label>
               </div>
               <button

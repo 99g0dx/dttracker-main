@@ -297,23 +297,36 @@ export function useAddPostWithScrape() {
         });
 
         if (scrapeResult.error) {
-          // Post was created but scraping failed - return post anyway
+          // Post was created but scraping failed - mark for retry by scheduler
           console.warn('Post created but scraping failed:', scrapeResult.error);
+          const errMsg = scrapeResult.error.message;
+          await postsApi.update(createdPost.id, {
+            initial_scrape_attempted: true,
+            initial_scrape_failed: true,
+            scrape_errors: [
+              {
+                timestamp: new Date().toISOString(),
+                error: errMsg,
+                type: 'initial_scrape',
+              },
+            ],
+          });
           return {
             post: createdPost,
             scraped: false,
-            scrapeError: scrapeResult.error.message,
+            scrapeError: errMsg,
             creatorMatch: null,
           };
         }
 
-        // Scraping succeeded - update post with metrics
+        // Scraping succeeded - update post with metrics and initial scrape flags
         if (scrapeResult.data?.metrics) {
           const metrics = scrapeResult.data.metrics;
           const ownerUsername =
             scrapeResult.data.post?.ownerUsername ??
             scrapeResult.data.metrics?.owner_username ??
             null;
+          const now = new Date().toISOString();
           await postsApi.update(createdPost.id, {
             views: metrics.views,
             likes: metrics.likes,
@@ -321,6 +334,10 @@ export function useAddPostWithScrape() {
             shares: metrics.shares,
             engagement_rate: metrics.engagement_rate,
             status: 'scraped',
+            initial_scrape_attempted: true,
+            initial_scrape_completed: true,
+            initial_scraped_at: now,
+            scrape_count: 1,
             ...(ownerUsername && { owner_username: ownerUsername }),
           });
         }
@@ -335,12 +352,25 @@ export function useAddPostWithScrape() {
           creatorMatch: scrapeResult.data?.creatorMatch || null,
         };
       } catch (scrapeError) {
-        // Post was created but scraping failed - return post anyway
+        // Post was created but scraping failed - mark for retry by scheduler
         console.warn('Post created but scraping failed:', scrapeError);
+        const errMsg =
+          scrapeError instanceof Error ? scrapeError.message : 'Unknown error';
+        await postsApi.update(createdPost.id, {
+          initial_scrape_attempted: true,
+          initial_scrape_failed: true,
+          scrape_errors: [
+            {
+              timestamp: new Date().toISOString(),
+              error: errMsg,
+              type: 'initial_scrape',
+            },
+          ],
+        });
         return {
           post: createdPost,
           scraped: false,
-          scrapeError: scrapeError instanceof Error ? scrapeError.message : 'Unknown error',
+          scrapeError: errMsg,
           ownerUsername: null,
           creatorMatch: null,
         };

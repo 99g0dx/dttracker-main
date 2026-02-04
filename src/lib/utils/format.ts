@@ -52,6 +52,22 @@ export function calculateDelta(current: number | null, previous: number | null):
 }
 
 /**
+ * Format a metric value with optional growth indicator (e.g., "125K (+5K)")
+ */
+export function formatWithGrowth(
+  value: number | null | undefined,
+  growth?: number | null
+): string {
+  if (value === null || value === undefined) return '-';
+  const base = value >= 1000 ? formatCompactNumber(value) : value.toLocaleString();
+  if (growth != null && growth !== 0) {
+    const sign = growth > 0 ? '+' : '';
+    return `${base} (${sign}${formatCompactNumber(growth)})`;
+  }
+  return base;
+}
+
+/**
  * Format a relative time (e.g., "2 hours ago")
  */
 export function formatRelativeTime(date: string | Date): string {

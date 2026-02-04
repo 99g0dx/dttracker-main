@@ -16,6 +16,7 @@ import {
   normalizePlatform,
   getPlatformLabel,
 } from "./ui/PlatformIcon";
+import { formatWithGrowth, formatRelativeTime } from "../../lib/utils/format";
 import { StatusBadge } from "./status-badge";
 import {
   DropdownMenu,
@@ -35,10 +36,10 @@ interface PostCardProps {
 export const PostCard = React.memo(
   ({ post, onScrape, onDelete, isScraping }: PostCardProps) => {
     const hasPostUrl = Boolean(post.post_url);
-    const viewsValue = post.views > 0 ? post.views.toLocaleString() : "-";
-    const likesValue = post.likes > 0 ? post.likes.toLocaleString() : "-";
-    const commentsValue =
-      post.comments > 0 ? post.comments.toLocaleString() : "-";
+    const postWithGrowth = post as { last_view_growth?: number | null; last_like_growth?: number | null; last_comment_growth?: number | null };
+    const viewsValue = formatWithGrowth(post.views, postWithGrowth.last_view_growth);
+    const likesValue = formatWithGrowth(post.likes, postWithGrowth.last_like_growth);
+    const commentsValue = formatWithGrowth(post.comments, postWithGrowth.last_comment_growth);
     const sharesValue = post.shares > 0 ? post.shares.toLocaleString() : "-";
     const rateValue =
       post.engagement_rate > 0 ? `${post.engagement_rate.toFixed(2)}%` : "-";
@@ -117,6 +118,11 @@ export const PostCard = React.memo(
               {rateValue}
             </span>
           </div>
+          {post.last_scraped_at && (
+            <div className="mt-1 text-[10px] text-slate-500">
+              Scraped {formatRelativeTime(post.last_scraped_at)}
+            </div>
+          )}
 
           <div className="mt-2 flex items-center gap-2">
             {hasPostUrl ? (

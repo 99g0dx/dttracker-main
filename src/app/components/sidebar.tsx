@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut, Crown, UserCog } from 'lucide-react';
+import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut, Crown, UserCog, Trophy, Wallet } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
@@ -19,10 +19,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: <LayoutDashboard className="w-5 h-5" /> },
+  { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
-  { name: 'Creator Library', href: '/creators', icon: <Users className="w-5 h-5" /> },
+  { name: 'Activations', href: '/activations', icon: <Trophy className="w-5 h-5" /> },
+  { name: 'Creators', href: '/creators', icon: <Users className="w-5 h-5" /> },
   { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
+  { name: 'Wallet', href: '/wallet', icon: <Wallet className="w-5 h-5" /> },
   { name: 'Admin', href: '/admin', icon: <Crown className="w-5 h-5" />, emphasis: true },
   { name: 'Admin Users', href: '/admin/users', icon: <UserCog className="w-5 h-5" />, emphasis: true },
 
@@ -101,7 +103,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
       return access.canManageTeam && canUseTeam;
     }
     if (item.name === 'Admin' || item.name === 'Admin Users') return isCompanyAdmin;
-    if (item.name === 'Creator Library' || item.name === 'Requests') {
+    if (item.name === 'Creators' || item.name === 'Requests' || item.name === 'Activations' || item.name === 'Wallet') {
       return access.canViewWorkspace;
     }
     if (item.name === 'Campaigns') return canSeeCampaigns;

@@ -2,6 +2,7 @@
 -- Operators can create/edit campaigns but not delete them.
 
 DROP POLICY IF EXISTS campaigns_delete_workspace_editor ON public.campaigns;
+DROP POLICY IF EXISTS campaigns_delete_owner_only ON public.campaigns;
 
 CREATE POLICY campaigns_delete_owner_only
   ON public.campaigns

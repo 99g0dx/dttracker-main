@@ -11,6 +11,11 @@ export const creatorsKeys = {
   lists: (workspaceId?: string | null) => [...creatorsKeys.all, 'list', workspaceId || 'default'] as const,
   list: (workspaceId?: string | null) => [...creatorsKeys.lists(workspaceId)] as const,
   byCampaign: (campaignId: string) => [...creatorsKeys.all, 'campaign', campaignId] as const,
+  myNetwork: (workspaceId: string | null) => [...creatorsKeys.all, 'myNetwork', workspaceId] as const,
+  discover: (workspaceId: string | null, filters?: object) =>
+    [...creatorsKeys.all, 'discover', workspaceId, filters ?? {}] as const,
+  favorites: () => [...creatorsKeys.all, 'favorites'] as const,
+  profile: (creatorId: string | null) => [...creatorsKeys.all, 'profile', creatorId] as const,
 };
 
 /**
@@ -387,5 +392,118 @@ export function useCampaignCreatorIds(campaignIds: string[]) {
     },
     enabled: campaignIds.length > 0,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Creators Page - My Network, Discover, Favorites
+export function useMyNetworkCreators(workspaceId: string | null) {
+  return useQuery({
+    queryKey: creatorsKeys.myNetwork(workspaceId),
+    queryFn: async () => {
+      const result = await creatorsApi.listMyNetwork(workspaceId);
+      if (result.error) throw result.error;
+      return result.data || [];
+    },
+    enabled: !!workspaceId,
+  });
+}
+
+export function useDiscoverCreators(
+  workspaceId: string | null,
+  filters?: creatorsApi.CreatorFilters,
+  options?: { enabled?: boolean }
+) {
+  return useQuery({
+    queryKey: creatorsKeys.discover(workspaceId, filters),
+    queryFn: async () => {
+      const result = await creatorsApi.listDiscover(workspaceId, filters);
+      if (result.error) throw result.error;
+      return result.data || [];
+    },
+    enabled: (options?.enabled ?? true) && !!workspaceId,
+  });
+}
+
+export function useFavoritesCreators() {
+  return useQuery({
+    queryKey: creatorsKeys.favorites(),
+    queryFn: async () => {
+      try {
+        const result = await creatorsApi.listFavorites();
+        if (result.error) throw result.error;
+        return result.data || [];
+      } catch {
+        // creator_favorites table may not exist yet (migration pending)
+        return [];
+      }
+    },
+  });
+}
+
+export function useToggleFavorite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: creatorsApi.toggleFavorite,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: creatorsKeys.favorites() });
+      queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
+      toast.success(data?.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Favorites unavailable. Run database migrations to enable.');
+    },
+  });
+}
+
+export function useCreatorProfile(creatorId: string | null) {
+  return useQuery({
+    queryKey: creatorsKeys.profile(creatorId),
+    queryFn: async () => {
+      if (!creatorId) return null;
+      const result = await creatorsApi.getCreatorProfile(creatorId);
+      if (result.error) throw result.error;
+      return result.data;
+    },
+    enabled: !!creatorId && !creatorId.startsWith('manual-'),
+  });
+}
+
+export function useAddCreatorManually() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      workspaceId,
+      data,
+    }: {
+      workspaceId: string;
+      data: Parameters<typeof creatorsApi.addCreatorManually>[1];
+    }) => creatorsApi.addCreatorManually(workspaceId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: creatorsKeys.myNetwork(variables.workspaceId) });
+      queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
+      toast.success('Creator added');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useSendOfferToActivation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      creatorId,
+      activationId,
+      amount,
+      message,
+    }: {
+      creatorId: string;
+      activationId: string;
+      amount: number;
+      message?: string;
+    }) => creatorsApi.sendOfferToActivation(creatorId, activationId, amount, message),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 }

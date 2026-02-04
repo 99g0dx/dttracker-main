@@ -36,7 +36,7 @@ export interface Profile {
 
 export interface Creator {
   id: string;
-  user_id: string;
+  user_id: string | null;
   name: string;
   handle: string;
   platform: Platform;
@@ -58,15 +58,64 @@ export interface Creator {
   whatsapp: string | null;
   created_at: string;
   updated_at: string;
+  dobble_tap_user_id?: string | null;
+  profile_photo?: string | null;
+  bio?: string | null;
+  status?: string | null;
+  last_active_at?: string | null;
+}
+
+export interface CreatorSocialAccount {
+  id: string;
+  creator_id: string;
+  platform: Platform;
+  handle: string;
+  followers: number;
+  verified_at: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+export interface CreatorStats {
+  creator_id: string;
+  avg_engagement_rate: number;
+  campaigns_completed: number;
+  total_reach: number;
+  avg_views_per_post: number | null;
+  updated_at: string;
+}
+
+export interface CreatorFavorite {
+  id: string;
+  user_id: string;
+  creator_id: string;
+  created_at: string;
 }
 
 export interface WorkspaceCreator {
   id: string;
   workspace_id: string;
-  creator_id: string;
+  creator_id: string | null;
   source: "scraper" | "csv" | "manual";
   notes: string | null;
   created_at: string;
+  manual_name?: string | null;
+  manual_email?: string | null;
+  manual_phone?: string | null;
+  manual_handle?: string | null;
+  manual_platform?: Platform | null;
+  manual_followers?: number | null;
+  manual_niche?: string | null;
+  manual_location?: string | null;
+  manual_base_rate?: number | null;
+  added_by?: string | null;
+}
+
+export interface CreatorWithSocialAndStats extends Creator {
+  creator_social_accounts?: CreatorSocialAccount[];
+  creator_stats?: CreatorStats | null;
+  is_favorite?: boolean;
+  in_my_network?: boolean;
 }
 
 export interface AgencyInventory {
@@ -122,6 +171,16 @@ export interface Post {
   external_id?: string | null;
   /** Username of the post owner as returned by the scraper */
   owner_username?: string | null;
+  /** Scraping logic - initial scrape flags */
+  initial_scrape_attempted?: boolean | null;
+  initial_scrape_completed?: boolean | null;
+  initial_scrape_failed?: boolean | null;
+  initial_scraped_at?: string | null;
+  scrape_count?: number | null;
+  scrape_errors?: unknown[] | null;
+  last_view_growth?: number | null;
+  last_like_growth?: number | null;
+  last_comment_growth?: number | null;
 }
 
 export interface PostMetric {
@@ -451,6 +510,15 @@ export interface PostUpdate {
   external_id?: string | null;
   owner_username?: string | null;
   creator_id?: string | null;
+  initial_scrape_attempted?: boolean;
+  initial_scrape_completed?: boolean;
+  initial_scrape_failed?: boolean;
+  initial_scraped_at?: string | null;
+  scrape_count?: number;
+  scrape_errors?: unknown[];
+  last_view_growth?: number;
+  last_like_growth?: number;
+  last_comment_growth?: number;
 }
 
 export interface CampaignMemberUpdate {
@@ -595,6 +663,149 @@ export interface CreatorRequestWithItems extends CreatorRequest {
     creator: Creator;
     created_at: string;
   }>;
+}
+
+// ============================================================
+// ACTIVATION TYPES
+// ============================================================
+
+export type ActivationType = 'contest' | 'sm_panel';
+export type ActivationStatus = 'draft' | 'live' | 'completed' | 'cancelled';
+export type ActivationTaskType = 'like' | 'share' | 'comment' | 'story' | 'repost';
+export type JudgingCriteria = 'performance' | 'manual';
+export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
+
+export interface Activation {
+  id: string;
+  workspace_id: string;
+  created_by: string | null;
+  type: ActivationType;
+  title: string;
+  brief: string | null;
+  status: ActivationStatus;
+  deadline: string;
+  finalized_at: string | null;
+  total_budget: number;
+  spent_amount: number;
+  prize_structure: Record<string, number> | null;
+  winner_count: number | null;
+  judging_criteria: JudgingCriteria | null;
+  task_type: ActivationTaskType | null;
+  target_url: string | null;
+  payment_per_action: number | null;
+  base_rate: number | null;
+  current_participants: number | null;
+  required_comment_text: string | null;
+  comment_guidelines: string | null;
+  max_participants: number | null;
+  max_posts_per_creator: number | null;
+  auto_approve: boolean;
+  platforms: string[] | null;
+  requirements: string[] | null;
+  instructions: string | null;
+  synced_to_dobble_tap: boolean;
+  dobble_tap_activation_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ActivationSubmission {
+  id: string;
+  activation_id: string;
+  creator_id: string | null;
+  creator_handle: string | null;
+  creator_platform: string | null;
+  content_url: string | null;
+  proof_url: string | null;
+  tier: string | null;
+  creator_followers: number | null;
+  proof_comment_text: string | null;
+  verification_method: string | null;
+  verified_at: string | null;
+  submitted_at: string;
+  status: SubmissionStatus;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  performance_metrics: Record<string, unknown> | null;
+  performance_score: number | null;
+  rank: number | null;
+  prize_amount: number | null;
+  payment_amount: number | null;
+  paid_at: string | null;
+  last_scraped_at?: string | null;
+  initial_scrape_completed?: boolean | null;
+  scrape_count?: number | null;
+  scrape_errors?: unknown[] | null;
+}
+
+export interface ActivationInsert {
+  workspace_id: string;
+  created_by?: string | null;
+  type: ActivationType;
+  title: string;
+  brief?: string | null;
+  status?: ActivationStatus;
+  deadline: string;
+  total_budget: number;
+  prize_structure?: Record<string, number> | null;
+  winner_count?: number | null;
+  judging_criteria?: JudgingCriteria | null;
+  task_type?: ActivationTaskType | null;
+  target_url?: string | null;
+  payment_per_action?: number | null;
+  base_rate?: number | null;
+  required_comment_text?: string | null;
+  comment_guidelines?: string | null;
+  max_participants?: number | null;
+  max_posts_per_creator?: number | null;
+  auto_approve?: boolean;
+  platforms?: string[] | null;
+  requirements?: string[] | null;
+  instructions?: string | null;
+}
+
+export interface LeaderboardEntry {
+  creator_id: string | null;
+  creator_handle: string | null;
+  creator_platform: string | null;
+  total_posts: number;
+  total_views: number;
+  total_likes: number;
+  total_comments: number;
+  cumulative_score: number;
+  current_rank: number;
+  prize_amount: number;
+  is_winner: boolean;
+  submissionIds: string[];
+  submissions: Array<{
+    id: string;
+    content_url: string | null;
+    performance_metrics: Record<string, unknown> | null;
+    performance_score: number | null;
+    submitted_at: string;
+  }>;
+}
+
+export interface ActivationUpdate {
+  title?: string;
+  brief?: string | null;
+  deadline?: string;
+  total_budget?: number;
+  prize_structure?: Record<string, number> | null;
+  winner_count?: number | null;
+  judging_criteria?: JudgingCriteria | null;
+  task_type?: ActivationTaskType | null;
+  target_url?: string | null;
+  payment_per_action?: number | null;
+  base_rate?: number | null;
+  required_comment_text?: string | null;
+  comment_guidelines?: string | null;
+  max_participants?: number | null;
+  max_posts_per_creator?: number | null;
+  auto_approve?: boolean;
+  platforms?: string[] | null;
+  requirements?: string[] | null;
+  instructions?: string | null;
 }
 
 // ============================================================

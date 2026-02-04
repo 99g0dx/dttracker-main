@@ -4,6 +4,8 @@ ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can insert posts in campaigns they own or edit"
   ON public.posts;
+DROP POLICY IF EXISTS "Users can insert posts in campaigns they have access to"
+  ON public.posts;
 
 CREATE POLICY "Users can insert posts in campaigns they have access to"
   ON public.posts FOR INSERT

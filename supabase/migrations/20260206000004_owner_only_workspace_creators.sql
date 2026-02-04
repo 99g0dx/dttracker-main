@@ -4,6 +4,8 @@ ALTER TABLE public.workspace_creators ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Workspace members can insert workspace creators" ON public.workspace_creators;
 DROP POLICY IF EXISTS "Workspace admins can delete workspace creators" ON public.workspace_creators;
+DROP POLICY IF EXISTS "Workspace owners can insert workspace creators" ON public.workspace_creators;
+DROP POLICY IF EXISTS "Workspace owners can delete workspace creators" ON public.workspace_creators;
 
 CREATE POLICY "Workspace owners can insert workspace creators"
   ON public.workspace_creators FOR INSERT

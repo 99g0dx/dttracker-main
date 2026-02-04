@@ -67,18 +67,29 @@ import {
   useCreateCreator,
   useUpdateCreator,
   useDeleteCreator,
+  useMyNetworkCreators,
+  useDiscoverCreators,
+  useFavoritesCreators,
+  useToggleFavorite,
+  useCreatorProfile,
+  useSendOfferToActivation,
+  useAddCreatorManually,
 } from "../../hooks/useCreators";
 import { CampaignCreatorSelector } from "./campaign-creator-selector";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { supabase } from "../../lib/supabase";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
-import type { CreatorWithStats, Platform } from "../../lib/types/database";
+import type { CreatorWithStats, CreatorWithSocialAndStats, Platform } from "../../lib/types/database";
+import { CreatorCard } from "./creators/creator-card";
+import { SendOfferModal } from "./creators/send-offer-modal";
+import { CreatorProfileModal } from "./creators/creator-profile-modal";
 import { useCart } from "../../contexts/CartContext";
 import { ReviewRequestModal } from "./review-request-modal";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
+import { formatNumber } from "../../lib/utils/format";
 
 interface CreatorsProps {
   onNavigate?: (path: string) => void;
@@ -134,14 +145,40 @@ export function Creators({ onNavigate }: CreatorsProps) {
     return count.toLocaleString();
   };
 
-  const [networkFilter, setNetworkFilter] = useState<"my_network" | "all">(
+  const [activeCreatorTab, setActiveCreatorTab] = useState<"my_network" | "discover" | "favorites">(
     "my_network"
   );
   const [shouldFetch, setShouldFetch] = useState(false);
-  const { data: creators = [], isLoading } = useCreatorsWithStats(
-    networkFilter,
+  // Use legacy list API until creators_page_schema migration is applied
+  const { data: myNetworkData = [], isLoading: myNetworkLoading } = useCreatorsWithStats(
+    "my_network",
     { enabled: shouldFetch }
   );
+  const { data: discoverData = [], isLoading: discoverLoading } = useCreatorsWithStats(
+    "all",
+    { enabled: shouldFetch && activeCreatorTab === "discover" }
+  );
+  const { data: favoritesData = [], isLoading: favoritesLoading } = useFavoritesCreators();
+  const favoriteIds = useMemo(
+    () => new Set((favoritesData || []).map((c) => c.id)),
+    [favoritesData]
+  );
+  const toggleFavorite = useToggleFavorite();
+  const sendOffer = useSendOfferToActivation();
+  const addCreatorManually = useAddCreatorManually();
+
+  const creators =
+    activeCreatorTab === "my_network"
+      ? myNetworkData
+      : activeCreatorTab === "discover"
+      ? discoverData
+      : favoritesData || [];
+  const isLoading =
+    activeCreatorTab === "my_network"
+      ? myNetworkLoading
+      : activeCreatorTab === "discover"
+      ? discoverLoading
+      : favoritesLoading;
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
@@ -188,52 +225,20 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [selectedCreator, setSelectedCreator] =
     useState<CreatorWithStats | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showSendOfferModal, setShowSendOfferModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedCreatorIds, setSelectedCreatorIds] = useState<Set<string>>(new Set());
   const isCreatorsLoading = !shouldFetch || isLoading;
 
-  if (!canViewCreators && !accessLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => onNavigate?.("/")}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
-              Creator Library
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Access restricted for your current role.
-            </p>
-          </div>
-        </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="w-12 h-12 rounded-lg bg-white/[0.06] flex items-center justify-center mb-4">
-              <Eye className="w-6 h-6 text-slate-400" />
-            </div>
-            <h3 className="text-base font-semibold text-white mb-1">
-              No access
-            </h3>
-            <p className="text-sm text-slate-400 mb-4 text-center max-w-md">
-              You need workspace access to view the creator library.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Sorting state
+  // All hooks must be called before any conditional return (Rules of Hooks)
   const [sortField, setSortField] = useState<
     "platform" | "follower_count" | "niche" | "location" | null
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 18;
+  const [activeTab, setActiveTab] = useState("library");
 
-  // Extract unique niches and locations for dropdown options
   const uniqueNiches = useMemo(() => {
     const niches = creators
       .map((c) => c.niche)
@@ -249,13 +254,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
       );
     return ["all", ...Array.from(new Set(locations)).sort()];
   }, [creators]);
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 18; // 15-20 per page, using 18
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState("library");
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -318,13 +316,16 @@ export function Creators({ onNavigate }: CreatorsProps) {
       });
     }
 
-    // Posts range filter
+    // Posts range filter (campaigns_completed from creator_stats)
     if (postsRange.min || postsRange.max) {
       filtered = filtered.filter((creator) => {
-        const posts = creator.totalPosts || 0;
+        const campaignsCount =
+          (creator as any).totalPosts ??
+          (creator as any).creator_stats?.campaigns_completed ??
+          0;
         const min = postsRange.min ? parseInt(postsRange.min) : 0;
         const max = postsRange.max ? parseInt(postsRange.max) : Infinity;
-        return posts >= min && posts <= max;
+        return campaignsCount >= min && campaignsCount <= max;
       });
     }
 
@@ -630,6 +631,43 @@ export function Creators({ onNavigate }: CreatorsProps) {
     toast.success("Creators exported successfully");
   };
 
+  if (!canViewCreators && !accessLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => onNavigate?.("/")}
+            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+              Creator Library
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              Access restricted for your current role.
+            </p>
+          </div>
+        </div>
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-12 h-12 rounded-lg bg-white/[0.06] flex items-center justify-center mb-4">
+              <Eye className="w-6 h-6 text-slate-400" />
+            </div>
+            <h3 className="text-base font-semibold text-white mb-1">
+              No access
+            </h3>
+            <p className="text-sm text-slate-400 mb-4 text-center max-w-md">
+              You need workspace access to view the creator library.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -690,10 +728,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   aria-label="Creator actions"
                 >
                   <MoreHorizontal className="w-4 h-4" />
-                  {networkFilter === "all" && totalItems > 0
+                  {activeCreatorTab === "discover" && totalItems > 0
                     ? "Requests"
                     : "Actions"}
-                  {networkFilter === "all" && totalItems > 0 && (
+                  {activeCreatorTab === "discover" && totalItems > 0 && (
                     <span className="ml-1 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-black text-xs font-semibold flex items-center justify-center">
                       {totalItems}
                     </span>
@@ -701,7 +739,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {networkFilter === "all" && totalItems > 0 && (
+                {activeCreatorTab === "discover" && totalItems > 0 && (
                   <>
                     <DropdownMenuItem
                       onSelect={() => setShowReviewRequestModal(true)}
@@ -725,7 +763,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   <Upload className="w-4 h-4" />
                   Import CSV
                 </DropdownMenuItem>
-                {networkFilter === "my_network" && (
+                {activeCreatorTab === "my_network" && (
                   <DropdownMenuItem
                     onSelect={handleExportCSV}
                     disabled={creators.length === 0 || isCreatorsLoading}
@@ -740,12 +778,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
         </div>
 
         <TabsContent value="library" className="space-y-4 mt-4">
-          {/* Network Filter Tabs */}
+          {/* Network Filter Tabs: My Network | Discover | Favorites */}
           <div className="flex gap-2">
             <button
-              onClick={() => setNetworkFilter("my_network")}
+              onClick={() => setActiveCreatorTab("my_network")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                networkFilter === "my_network"
+                activeCreatorTab === "my_network"
                   ? "bg-primary text-black"
                   : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
               }`}
@@ -753,14 +791,24 @@ export function Creators({ onNavigate }: CreatorsProps) {
               My Network
             </button>
             <button
-              onClick={() => setNetworkFilter("all")}
+              onClick={() => setActiveCreatorTab("discover")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                networkFilter === "all"
+                activeCreatorTab === "discover"
                   ? "bg-primary text-black"
                   : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
               }`}
             >
-              All Creators
+              Discover
+            </button>
+            <button
+              onClick={() => setActiveCreatorTab("favorites")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeCreatorTab === "favorites"
+                  ? "bg-primary text-black"
+                  : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+              }`}
+            >
+              Favorites
             </button>
           </div>
 
@@ -872,8 +920,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 {selectedLocation !== "all" && <span>{selectedLocation}</span>}
                 {(followerRange.min || followerRange.max) && (
                   <span>
-                    Followers: {followerRange.min || "0"}-
-                    {followerRange.max || "∞"}
+                    Followers:{" "}
+                    {formatNumber(parseInt(followerRange.min) || 0)}-
+                    {followerRange.max
+                      ? formatNumber(parseInt(followerRange.max))
+                      : "∞"}
                   </span>
                 )}
                 {(postsRange.min || postsRange.max) && (
@@ -901,6 +952,163 @@ export function Creators({ onNavigate }: CreatorsProps) {
             </Card>
           ) : filteredAndSortedCreators.length > 0 ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <CardContent className="p-4">
+                {selectedCreatorIds.size > 0 && (
+                  <div className="flex items-center justify-between gap-4 mb-4 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                    <span className="text-sm text-slate-400">
+                      {selectedCreatorIds.size} selected
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          clearCart();
+                          paginatedCreators
+                            .filter((c) => selectedCreatorIds.has(c.id))
+                            .forEach((c) => addCreator(c as CreatorWithStats));
+                          setSelectedCreatorIds(new Set());
+                          setShowChatbotModal(true);
+                        }}
+                        className="border-white/[0.08]"
+                      >
+                        Create Request
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (selectedCreatorIds.size > 0) {
+                            const first = Array.from(selectedCreatorIds)[0];
+                            const c = paginatedCreators.find((x) => x.id === first);
+                            if (c) {
+                              setSelectedCreator(c as CreatorWithStats);
+                              setShowSendOfferModal(true);
+                            }
+                          }
+                        }}
+                        className="border-white/[0.08]"
+                      >
+                        Add to Activation
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportCSV}
+                        className="border-white/[0.08]"
+                      >
+                        Export
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedCreatorIds(new Set())}
+                        className="border-white/[0.08]"
+                      >
+                        Deselect All
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 min-[430px]:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedCreators.map((creator) => (
+                    <CreatorCard
+                      key={creator.id}
+                      creator={creator as CreatorWithSocialAndStats}
+                      source={activeCreatorTab}
+                      isFavorite={favoriteIds.has(creator.id)}
+                      onToggleFavorite={(id) => {
+                        if (!id.startsWith("manual-")) toggleFavorite.mutate(id);
+                      }}
+                      onViewProfile={(c) => {
+                        setSelectedCreator(c as CreatorWithStats);
+                        setShowProfileModal(true);
+                      }}
+                      onRequest={(c) => {
+                        setRequestCreatorId(c.id);
+                        setShowSingleCreatorRequestModal(true);
+                      }}
+                      onAddToActivation={
+                        activeCreatorTab !== "favorites"
+                          ? (c) => {
+                              setSelectedCreator(c as CreatorWithStats);
+                              setShowSendOfferModal(true);
+                            }
+                          : undefined
+                      }
+                      isManual={creator.id.startsWith("manual-")}
+                      selectable={activeCreatorTab !== "favorites"}
+                      selected={selectedCreatorIds.has(creator.id)}
+                      onSelect={(id, checked) => {
+                        setSelectedCreatorIds((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(id);
+                          else next.delete(id);
+                          return next;
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-4 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const page = i + 1;
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <UsersIcon className="w-12 h-12 text-slate-600 mb-4" />
+                <p className="text-slate-400">
+                  {activeCreatorTab === "my_network"
+                    ? "No creators in your network yet"
+                    : activeCreatorTab === "discover"
+                    ? "No creators to discover"
+                    : "No favorites yet"}
+                </p>
+                {activeCreatorTab === "my_network" && (
+                  <Button
+                    onClick={handleOpenAddDialog}
+                    className="mt-4"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Creator
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {false && (filteredAndSortedCreators.length > 0 ? (
+            <Card className="hidden">
               <CardContent className="p-0">
                 <div className="lg:hidden p-4 grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
                   {paginatedCreators.map((creator) => (
@@ -958,7 +1166,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           </div>
                         </div>
                         <div className="flex flex-col gap-2">
-                          {networkFilter === "all" && (
+                          {activeCreatorTab === "discover" && (
                             <button
                               onClick={() => {
                                 setRequestCreatorId(creator.id);
@@ -979,7 +1187,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               <Eye className="w-4 h-4" />
                               View
                             </Button>
-                            {networkFilter === "my_network" && (
+                            {activeCreatorTab === "my_network" && (
                               <>
                                 <button
                                   onClick={() => openEditDialog(creator)}
@@ -1007,7 +1215,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                 </button>
                               </>
                             )}
-                            {networkFilter === "all" &&
+                            {activeCreatorTab === "discover" &&
                               (isInCart(creator.id) ? (
                                 <button
                                   onClick={() => removeCreator(creator.id)}
@@ -1036,7 +1244,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-white/[0.08] hover:bg-transparent">
-                        {networkFilter === "all" && (
+                        {activeCreatorTab === "discover" && (
                           <TableHead className="text-slate-400 font-medium w-12">
                             <input
                               type="checkbox"
@@ -1062,7 +1270,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         <TableHead className="text-slate-400 font-medium">
                           Creator
                         </TableHead>
-                        {networkFilter === "my_network" && (
+                        {activeCreatorTab === "my_network" && (
                           <TableHead className="text-slate-400 font-medium">
                             Contact
                           </TableHead>
@@ -1085,14 +1293,14 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         <TableHead className="text-slate-400 font-medium text-right">
                           Engagement
                         </TableHead>
-                        {networkFilter === "my_network" && (
+                        {activeCreatorTab === "my_network" && (
                           <TableHead className="text-slate-400 font-medium text-center">
                             Actions
                           </TableHead>
                         )}
-                        {networkFilter === "all" && (
-                          <>
-                            <TableHead className="text-slate-400 font-medium text-right">
+{activeCreatorTab === "discover" && (
+                            <>
+                              <TableHead className="text-slate-400 font-medium text-right">
                               Actions
                             </TableHead>
                             <TableHead className="text-slate-400 font-medium text-right w-20">
@@ -1108,7 +1316,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           key={creator.id}
                           className="border-white/[0.04] hover:bg-white/[0.02] transition-colors"
                         >
-                          {networkFilter === "all" && (
+                          {activeCreatorTab === "discover" && (
                             <TableCell>
                               <input
                                 type="checkbox"
@@ -1134,7 +1342,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               className="mt-0.5 block"
                             />
                           </TableCell>
-                          {networkFilter === "my_network" && (
+                          {activeCreatorTab === "my_network" && (
                             <TableCell>
                               <div className="space-y-1.5 min-w-[180px]">
                                 {creator.email && (
@@ -1193,7 +1401,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               {creator.avg_engagement}%
                             </span>
                           </TableCell>
-                          {networkFilter === "my_network" && (
+                          {activeCreatorTab === "my_network" && (
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-2">
                                 <button
@@ -1230,7 +1438,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               </div>
                             </TableCell>
                           )}
-                          {networkFilter === "all" && (
+                          {activeCreatorTab === "discover" && (
                             <>
                               <TableCell className="text-right">
                                 <button
@@ -1349,49 +1557,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </div>
               )}
             </Card>
-          ) : (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-                  <UsersIcon className="w-6 h-6 text-slate-600" />
-                </div>
-                <h3 className="text-base font-semibold text-white mb-1">
-                  No creators found
-                </h3>
-                <p className="text-sm text-slate-400 text-center mb-6 max-w-md">
-                  {searchQuery
-                    ? "Try adjusting your search query"
-                    : "Get started by adding your first creator"}
-                </p>
-                <div className="flex gap-3 flex-col sm:flex-row">
-                  <button
-                    onClick={() => onNavigate?.("/creators/scraper")}
-                    className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    AI Scraper
-                  </button>
-                  <button
-                    onClick={handleOpenAddDialog}
-                    className="h-9 px-4 bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    disabled={!canEditCreators}
-                    title={
-                      !canEditCreators
-                        ? "You don't have permission to add creators"
-                        : undefined
-                    }
-                    style={{
-                      backgroundClip: "unset",
-                      WebkitBackgroundClip: "unset",
-                    }}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Creator
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          ) : null)}
         </TabsContent>
 
         <TabsContent value="campaign" className="space-y-4 mt-4">
@@ -1464,29 +1630,37 @@ export function Creators({ onNavigate }: CreatorsProps) {
               <div className="flex flex-wrap gap-2">
                 <div className="flex-1 min-w-[120px]">
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Min"
-                    value={followerRange.min}
-                    onChange={(e) =>
-                      setFollowerRange({
-                        ...followerRange,
-                        min: e.target.value,
-                      })
+                    value={
+                      followerRange.min
+                        ? formatNumber(parseInt(followerRange.min) || 0)
+                        : ""
                     }
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, "");
+                      const val = raw === "" ? "" : String(parseInt(raw) || 0);
+                      setFollowerRange({ ...followerRange, min: val });
+                    }}
                     className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
                   />
                 </div>
                 <div className="flex-1 min-w-[120px]">
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Max"
-                    value={followerRange.max}
-                    onChange={(e) =>
-                      setFollowerRange({
-                        ...followerRange,
-                        max: e.target.value,
-                      })
+                    value={
+                      followerRange.max
+                        ? formatNumber(parseInt(followerRange.max) || 0)
+                        : ""
                     }
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, "");
+                      const val = raw === "" ? "" : String(parseInt(raw) || 0);
+                      setFollowerRange({ ...followerRange, max: val });
+                    }}
                     className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
                   />
                 </div>
@@ -1650,15 +1824,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     Followers
                   </label>
                   <Input
-                    type="number"
-                    placeholder="250000"
-                    value={formData.follower_count || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        follower_count: parseInt(e.target.value) || 0,
-                      })
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="250,000"
+                    value={
+                      formData.follower_count
+                        ? formatNumber(formData.follower_count)
+                        : ""
                     }
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, "");
+                      const num = parseInt(raw) || 0;
+                      setFormData({ ...formData, follower_count: num });
+                    }}
                     className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
                   />
                 </div>
@@ -1837,7 +2015,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       className="mt-1 inline-block text-sm"
                     />
                   </div>
-                  {networkFilter === "my_network" && (
+                  {activeCreatorTab === "my_network" && (
                     <>
                       {selectedCreator.email && (
                         <div>
@@ -1864,7 +2042,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </div>
 
                 {/* Request Creator CTA - Show for All Creators */}
-                {networkFilter === "all" && (
+                {activeCreatorTab === "discover" && (
                   <div className="mt-6 pt-6 border-t border-white/[0.08]">
                     <h4 className="text-base font-semibold text-white mb-2">
                       Want to work with this creator?
@@ -1912,6 +2090,41 @@ export function Creators({ onNavigate }: CreatorsProps) {
       <ImportCreatorsDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
+      />
+
+      {/* Creator Profile Modal */}
+      <CreatorProfileModal
+        open={showProfileModal}
+        onOpenChange={setShowProfileModal}
+        creator={selectedCreator as CreatorWithSocialAndStats | null}
+        isFavorite={selectedCreator ? favoriteIds.has(selectedCreator.id) : false}
+        onToggleFavorite={(id) => toggleFavorite.mutate(id)}
+        onRequest={(c) => {
+          setShowProfileModal(false);
+          setRequestCreatorId(c.id);
+          setShowSingleCreatorRequestModal(true);
+        }}
+        onAddToActivation={(c) => {
+          setShowProfileModal(false);
+          setSelectedCreator(c as CreatorWithStats);
+          setShowSendOfferModal(true);
+        }}
+        onEdit={(c) => {
+          setShowProfileModal(false);
+          openEditDialog(c as CreatorWithStats);
+        }}
+        onRemove={(c) => {
+          setShowProfileModal(false);
+          handleDeleteRequest(c as CreatorWithStats);
+        }}
+        inMyNetwork={!!(selectedCreator && (selectedCreator as any).in_my_network)}
+      />
+
+      {/* Send Offer Modal */}
+      <SendOfferModal
+        open={showSendOfferModal}
+        onOpenChange={setShowSendOfferModal}
+        creator={selectedCreator as CreatorWithSocialAndStats | null}
       />
 
       {/* Review Request Modal */}

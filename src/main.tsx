@@ -18,10 +18,11 @@ if (import.meta.env.PROD) {
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
     <BrowserRouter
-     future={{
+      future={{
         v7_startTransition: true,
-        v7_relativeSplatPath: true
-      }}>
+        v7_relativeSplatPath: true,
+      }}
+    >
       <AuthProvider>
         <WorkspaceProvider>
           <CartProvider>
@@ -29,8 +30,6 @@ createRoot(document.getElementById("root")!).render(
           </CartProvider>
         </WorkspaceProvider>
       </AuthProvider>
-      
     </BrowserRouter>
   </QueryClientProvider>
 );
-  

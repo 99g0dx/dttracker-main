@@ -506,7 +506,7 @@ export function AddPostDialog({
                 {(addPostMutation.isPending || isCreatingCreator) ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {isCreatingCreator ? 'Creating creator...' : 'Adding & Scraping...'}
+                    {isCreatingCreator ? 'Creating creator...' : 'Adding post & fetching metrics...'}
                   </>
                 ) : (
                   'Add & Scrape'

@@ -110,6 +110,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 
+DROP FUNCTION IF EXISTS public.get_company_admin_users_page(TEXT, TEXT, TEXT, INT, TIMESTAMPTZ, UUID);
+
 CREATE OR REPLACE FUNCTION public.get_company_admin_users_page(
   search TEXT DEFAULT NULL,
   status_filter TEXT DEFAULT NULL,

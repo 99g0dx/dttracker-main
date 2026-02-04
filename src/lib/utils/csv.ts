@@ -422,17 +422,29 @@ export async function parseCreatorHandlesCSV(
             }
           }
 
-          // Use handle as name initially (can be updated later)
-          const creatorName = normalizedHandle;
+          const creatorName =
+            getRowValue(row, "creator_name")?.toString().trim() ||
+            getRowValue(row, "name")?.toString().trim() ||
+            normalizedHandle;
 
-          // Create CreatorInsert object (user_id will be added by createMany)
+          const emailVal = getRowValue(row, "email")?.toString().trim();
+          const phoneVal = getRowValue(row, "phone")?.toString().trim();
+          const nicheVal = getRowValue(row, "niche")?.toString().trim();
+          const locationVal = getRowValue(row, "location")?.toString().trim();
+          const followersVal = getRowValue(row, "followers")?.toString().trim();
+          const baseRateVal = getRowValue(row, "base_rate")?.toString().trim();
+
           creators.push({
             user_id: "", // Will be set by createMany API
             name: creatorName,
             handle: normalizedHandle,
             platform: platform,
-            follower_count: 0,
+            follower_count: followersVal ? parseInt(followersVal, 10) || 0 : 0,
             avg_engagement: 0,
+            email: emailVal || null,
+            phone: phoneVal || null,
+            niche: nicheVal || null,
+            location: locationVal || null,
           });
         }
 
