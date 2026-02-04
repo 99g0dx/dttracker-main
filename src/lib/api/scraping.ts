@@ -328,6 +328,9 @@ export async function scrapeAllPosts(
     };
 
     console.log("Invoking edge function scrape-all-posts...");
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scraping.ts:330',message:'Calling scrape-all-posts',data:{userId:currentSession.user?.id,hasToken:!!currentSession.access_token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     let { data, error } = await invokeScrapeAll(currentSession.access_token);
 
     if (error) {
@@ -352,6 +355,9 @@ export async function scrapeAllPosts(
 
     if (error || !data) {
       console.error("Scraping failed:", error);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scraping.ts:353',message:'scrape-all-posts returned error',data:{error:error?.message,errorStatus:(error as any)?.status,hasData:!!data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       return {
         data: null,
         error: new Error(error?.message || "Failed to scrape all posts"),
@@ -361,6 +367,9 @@ export async function scrapeAllPosts(
     if (!data.success) {
       const errorMessage = data.error || "Failed to scrape all posts";
       console.error("Scraping failed:", errorMessage);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scraping.ts:361',message:'scrape-all-posts returned success=false',data:{errorMessage,errorCount:data.data?.error_count,successCount:data.data?.success_count,firstError:data.data?.errors?.[0]?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       return {
         data: null,
         error: new Error(errorMessage),
@@ -384,7 +393,10 @@ export async function scrapeAllPosts(
     // Provide more specific error messages for common issues
     let errorMessage = error.message || "Network error while scraping posts";
 
-    if (
+    if (errorMessage.includes("Failed to send a request to the Edge Function")) {
+      errorMessage =
+        "Cannot reach the scraping service. Check that Edge Functions (scrape-post / scrape-all-posts) are deployed and your Supabase URL is correct.";
+    } else if (
       errorMessage.includes("Failed to fetch") ||
       errorMessage.includes("NetworkError") ||
       errorMessage.includes("Network request failed")

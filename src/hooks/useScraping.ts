@@ -66,7 +66,10 @@ export function useScrapePost() {
       let errorMessage = error.message;
 
       // Provide more helpful error messages
-      if (errorMessage.includes("non-2xx") || errorMessage.includes("Edge Function returned")) {
+      if (errorMessage.includes("Failed to send a request to the Edge Function")) {
+        errorMessage =
+          "Cannot reach the scraping service. Check that Edge Functions (scrape-post / scrape-all-posts) are deployed and your Supabase URL is correct.";
+      } else if (errorMessage.includes("non-2xx") || errorMessage.includes("Edge Function returned")) {
         errorMessage = "Scraping service error. The post may be unavailable or the scraping service is temporarily down. Please try again in a moment.";
       } else if (errorMessage.includes("API error") || errorMessage.includes("RAPIDAPI_KEY") || errorMessage.includes("APIFY_TOKEN")) {
         errorMessage = "Scraping service not configured. Please check if API keys (RAPIDAPI_KEY, APIFY_TOKEN) are set in Supabase Edge Function secrets.";
@@ -192,7 +195,10 @@ export function useScrapeAllPosts() {
       let errorMessage = error.message;
 
       // Provide more helpful error messages
-      if (errorMessage.includes("API error")) {
+      if (errorMessage.includes("Failed to send a request to the Edge Function")) {
+        errorMessage =
+          "Cannot reach the scraping service. Check that Edge Functions (scrape-post / scrape-all-posts) are deployed and your Supabase URL is correct.";
+      } else if (errorMessage.includes("API error")) {
         errorMessage =
           "Scraping service error. Please check if API keys are configured.";
       } else if (errorMessage.includes("Unauthorized")) {

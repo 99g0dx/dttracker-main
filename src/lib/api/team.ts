@@ -520,37 +520,41 @@ export async function acceptTeamInvite(
 }
 
 /**
- * Get invite by token (for public invite acceptance page)
+ * Get invite by token (for public invite acceptance page).
+ * Uses RPC so the invite can be loaded without auth (invite links work before login).
  */
 export async function getTeamInviteByToken(
   token: string
 ): Promise<ApiResponse<TeamInviteWithInviter>> {
   try {
-    const { data: invite, error } = await supabase
-      .from("workspace_invites")
-      .select("*")
-      .eq("token", token)
-      .is("accepted_at", null)
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle();
+    const { data: rows, error } = await supabase.rpc("get_workspace_invite_by_token", {
+      p_token: token,
+    });
 
-    if (error || !invite) {
+    if (error) {
       return { data: null, error: new Error("Invalid or expired invite") };
     }
 
-    // Fetch inviter info
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", invite.invited_by)
-      .maybeSingle();
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (!row) {
+      return { data: null, error: new Error("Invalid or expired invite") };
+    }
 
-    // Note: We can't use admin API here, so we'll need to fetch from profiles
-    // For now, we'll just use the profile name
     const inviteWithInviter: TeamInviteWithInviter = {
-      ...invite,
-      inviter_name: profile?.full_name || null,
-      inviter_email: null, // Can't fetch email without admin API
+      id: row.id,
+      workspace_id: row.workspace_id,
+      email: row.email,
+      invited_by: row.invited_by,
+      role: row.role,
+      token: row.token,
+      status: row.status,
+      expires_at: row.expires_at,
+      accepted_at: row.accepted_at,
+      created_at: row.created_at,
+      scopes: row.scopes ?? null,
+      message: null,
+      inviter_name: row.inviter_name ?? null,
+      inviter_email: null,
     };
 
     return { data: inviteWithInviter, error: null };
