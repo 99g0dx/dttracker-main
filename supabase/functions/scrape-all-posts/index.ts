@@ -28,7 +28,9 @@ serve(async (req) => {
     const authHeader =
       req.headers.get("authorization") ?? req.headers.get("Authorization");
     if (!authHeader) {
-      console.warn("No authorization header provided; proceeding without user context");
+      console.warn(
+        "No authorization header provided; proceeding without user context"
+      );
     }
 
     // Parse request body
@@ -379,9 +381,12 @@ serve(async (req) => {
 
         // Call scrape-post function internally
         // Pass isAutoScrape flag to indicate this is a bulk operation.
+        // Always pass request_user_id in body so can_trigger_scrape can apply agency bypass.
         // When we have the user's JWT, pass it so scrape-post can set request_user_id and
         // can_trigger_scrape can apply the agency bypass (has_agency_role) for agency accounts.
-        console.log(`[DEBUG] scrape-all-posts: calling scrape-post for post ${post.id}, user.id=${user?.id}, hasAuthHeader=${!!authHeader}`);
+        console.log(
+          `[DEBUG] scrape-all-posts: calling scrape-post for post ${post.id}, user.id=${user?.id}, hasAuthHeader=${!!authHeader}`
+        );
         const scrapeResponse = await fetch(scrapePostUrl, {
           method: "POST",
           headers: {
@@ -400,12 +405,20 @@ serve(async (req) => {
 
         if (!scrapeResponse.ok) {
           const errorText = await scrapeResponse.text();
-          console.error(`[DEBUG] scrape-all-posts: scrape-post HTTP ${scrapeResponse.status}: ${errorText.substring(0, 200)}`);
+          console.error(
+            `[DEBUG] scrape-all-posts: scrape-post HTTP ${scrapeResponse.status}: ${errorText.substring(0, 200)}`
+          );
           throw new Error(`HTTP ${scrapeResponse.status}: ${errorText}`);
         }
 
         const scrapeResult = await scrapeResponse.json();
-        console.log(`[DEBUG] scrape-all-posts: scrape-post result for ${post.id}:`, JSON.stringify({ success: scrapeResult.success, error: scrapeResult.error }));
+        console.log(
+          `[DEBUG] scrape-all-posts: scrape-post result for ${post.id}:`,
+          JSON.stringify({
+            success: scrapeResult.success,
+            error: scrapeResult.error,
+          })
+        );
 
         if (scrapeResult.success) {
           result.success_count++;
@@ -413,7 +426,9 @@ serve(async (req) => {
         } else {
           result.error_count++;
           const errorMessage = scrapeResult.error || "Unknown scraping error";
-          console.error(`[DEBUG] scrape-all-posts: scrape failed for ${post.id}, error="${errorMessage}", user.id=${user?.id}`);
+          console.error(
+            `[DEBUG] scrape-all-posts: scrape failed for ${post.id}, error="${errorMessage}", user.id=${user?.id}`
+          );
           result.errors.push({
             postId: post.id,
             message: errorMessage,

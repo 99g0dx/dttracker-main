@@ -1,6 +1,7 @@
 -- When admin sets a user's plan via Admin Users, sync to Supabase so enforcement sees it:
 -- 1. profiles.agency_role: set to 'agency' when plan tier is agency, null otherwise (so has_agency_role() works).
 -- 2. workspace_subscriptions: upsert so can_trigger_scrape and other enforcement that read workspace_subscriptions see the plan/status.
+-- RPC convention: use v_ prefix for local variables to avoid ambiguous column references with table columns.
 
 CREATE OR REPLACE FUNCTION public.company_admin_set_user_subscription(
   target_user_id UUID,

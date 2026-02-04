@@ -1157,7 +1157,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                         {openMenuKey === rowKey && (
                           <div
                             data-admin-user-menu="open"
-                            className="absolute right-0 mt-2 w-52 rounded-lg border border-white/[0.1] bg-[#0A0A0A] shadow-xl z-10"
+                            className="absolute right-0 mt-2 mb-2 w-60 min-h-[261px] rounded-lg border border-white/[0.1] bg-[#0A0A0A] shadow-xl z-10 p-0"
                           >
                             <button
                               onClick={() => {

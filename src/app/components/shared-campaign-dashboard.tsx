@@ -4,10 +4,10 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
-  Eye,
   Share2,
   Lock,
 } from "lucide-react";
+import logoImage from "../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png";
 import * as sharingApi from "../../lib/api/campaign-sharing-v2";
 import { toast } from "sonner";
 import type { SubcampaignSummary, PostWithRankings, Platform } from "../../lib/types/database";
@@ -485,16 +485,13 @@ export function SharedCampaignDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
-      {/* View Only Header Banner */}
+      {/* Header with logo */}
       <div className="border-b border-white/[0.08] bg-[#0D0D0D]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <img src={logoImage} alt="DTTracker" className="w-6 h-6 object-contain" />
               <h1 className="text-xl font-semibold text-white">DTTracker</h1>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <Eye className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-medium text-amber-400">View Only</span>
-              </div>
             </div>
           </div>
         </div>
