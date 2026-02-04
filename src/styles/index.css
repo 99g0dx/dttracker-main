@@ -1,7 +1,7 @@
-@import './fonts.css';
-@import './tailwind.css';
-@import './theme.css';
-@import './landing.css';
+@import "./fonts.css";
+@import "./tailwind.css";
+@import "./theme.css";
+@import "./landing.css";
 
 html,
 body {
@@ -27,13 +27,22 @@ textarea {
   font-size: 16px !important;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-display);
 }
 
 :root {
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-body:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", sans-serif;
+  --font-display:
+    "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    sans-serif;
 }
 
 html {
@@ -42,7 +51,9 @@ html {
 
 @media (max-width: 640px) {
   :root {
-    --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+    --font-display:
+      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+      "Oxygen", "Ubuntu", sans-serif;
   }
 }
 
@@ -87,7 +98,7 @@ html {
 
 /* Add subtle gradient noise texture */
 body::before {
-  content: '';
+  content: "";
   position: fixed;
   top: 0;
   left: 0;
@@ -129,7 +140,7 @@ body::before {
 }
 /* Prevents browser autofill from breaking your dark theme */
 input:-webkit-autofill,
-input:-webkit-autofill:hover, 
+input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
   -webkit-text-fill-color: white;
   -webkit-box-shadow: 0 0 0px 1000px #121212 inset;

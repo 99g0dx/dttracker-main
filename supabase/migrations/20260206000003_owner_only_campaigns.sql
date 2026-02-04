@@ -16,13 +16,11 @@ end;
 $$;
 
 drop policy if exists "Users can insert their own campaigns" on public.campaigns;
+drop policy if exists "Owners can create campaigns" on public.campaigns;
 create policy "Owners can create campaigns"
   on public.campaigns for insert
   with check (
     user_id = auth.uid()
     and public.is_workspace_owner(campaigns.workspace_id, auth.uid())
-    and exists (
-      select 1 from public.can_create_campaign(campaigns.workspace_id) as c
-      where c.allowed = true
-    )
+    and (public.can_create_campaign(campaigns.workspace_id)->>'allowed')::boolean = true
   );

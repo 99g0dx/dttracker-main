@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
-import { LayoutDashboard, Megaphone, Users, Settings, Plus, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Megaphone, Users, Settings, Plus, RefreshCw, Trophy, Wallet } from 'lucide-react';
 
 interface CommandPaletteProps {
   onNavigate: (path: string) => void;
@@ -51,7 +51,7 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
           
           <CommandGroup heading="Navigation">
             <CommandItem
-              onSelect={() => handleSelect(() => onNavigate('/'))}
+              onSelect={() => handleSelect(() => onNavigate('/dashboard'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
             >
               <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-cyan-400/20">
@@ -79,6 +79,18 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
             </CommandItem>
             
             <CommandItem
+              onSelect={() => handleSelect(() => onNavigate('/activations'))}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
+            >
+              <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20">
+                <Trophy className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">Activations</div>
+                <div className="text-xs text-muted-foreground">Contests and SM panels</div>
+              </div>
+            </CommandItem>
+            <CommandItem
               onSelect={() => handleSelect(() => onNavigate('/creators'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
             >
@@ -86,10 +98,22 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
                 <Users className="w-4 h-4 text-purple-400" />
               </div>
               <div className="flex-1">
-                <div className="font-medium">Creator Library</div>
+                <div className="font-medium">Creators</div>
                 <div className="text-xs text-muted-foreground">View creator network</div>
               </div>
               <kbd className="px-2 py-1 text-xs rounded bg-secondary/50 border border-border/50">⌘U</kbd>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => handleSelect(() => onNavigate('/wallet'))}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
+            >
+              <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-cyan-500/20">
+                <Wallet className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">Wallet</div>
+                <div className="text-xs text-muted-foreground">Balance and funding</div>
+              </div>
             </CommandItem>
             
             <CommandItem
@@ -108,6 +132,18 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
           </CommandGroup>
           
           <CommandGroup heading="Actions">
+            <CommandItem
+              onSelect={() => handleSelect(() => onNavigate('/activations/create'))}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
+            >
+              <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20">
+                <Trophy className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">Create Activation</div>
+                <div className="text-xs text-muted-foreground">Contest or SM panel</div>
+              </div>
+            </CommandItem>
             <CommandItem
               onSelect={() => handleSelect(() => onNavigate('/campaigns/new'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"

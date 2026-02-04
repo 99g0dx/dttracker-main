@@ -75,6 +75,7 @@ import {
   useRemoveCreatorFromCampaign,
 } from "../../hooks/useCreators";
 import * as csvUtils from "../../lib/utils/csv";
+import { formatWithGrowth } from "../../lib/utils/format";
 import type { CSVImportResult } from "../../lib/types/database";
 import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
@@ -2991,19 +2992,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 </div>
                               </td>
                               <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.views && post.views > 0
-                                  ? post.views.toLocaleString()
-                                  : "-"}
+                                {formatWithGrowth(post.views, (post as { last_view_growth?: number }).last_view_growth)}
                               </td>
                               <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {post.likes && post.likes > 0
-                                  ? post.likes.toLocaleString()
-                                  : "-"}
+                                {formatWithGrowth(post.likes, (post as { last_like_growth?: number }).last_like_growth)}
                               </td>
                               <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
-                                {post.comments && post.comments > 0
-                                  ? post.comments.toLocaleString()
-                                  : "-"}
+                                {formatWithGrowth(post.comments, (post as { last_comment_growth?: number }).last_comment_growth)}
                               </td>
                               <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                                 {post.engagement_rate &&
@@ -3155,19 +3150,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.views && post.views > 0
-                              ? post.views.toLocaleString()
-                              : "-"}
+                            {formatWithGrowth(post.views, (post as { last_view_growth?: number }).last_view_growth)}
                           </td>
                           <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {post.likes && post.likes > 0
-                              ? post.likes.toLocaleString()
-                              : "-"}
+                            {formatWithGrowth(post.likes, (post as { last_like_growth?: number }).last_like_growth)}
                           </td>
                           <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
-                            {post.comments && post.comments > 0
-                              ? post.comments.toLocaleString()
-                              : "-"}
+                            {formatWithGrowth(post.comments, (post as { last_comment_growth?: number }).last_comment_growth)}
                           </td>
                           <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                             {post.engagement_rate &&

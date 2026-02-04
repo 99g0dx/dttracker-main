@@ -6,6 +6,10 @@ DROP POLICY IF EXISTS "Users can insert campaign_creators for campaigns they own
   ON public.campaign_creators;
 DROP POLICY IF EXISTS "Users can delete campaign_creators for campaigns they own or edit"
   ON public.campaign_creators;
+DROP POLICY IF EXISTS "Workspace owners can add campaign creators"
+  ON public.campaign_creators;
+DROP POLICY IF EXISTS "Workspace owners can remove campaign creators"
+  ON public.campaign_creators;
 
 CREATE POLICY "Workspace owners can add campaign creators"
   ON public.campaign_creators FOR INSERT

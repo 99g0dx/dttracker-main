@@ -1,5 +1,7 @@
 -- Add creators count to company admin time series
 
+DROP FUNCTION IF EXISTS public.get_company_admin_timeseries();
+
 CREATE OR REPLACE FUNCTION public.get_company_admin_timeseries()
 RETURNS TABLE (
   day DATE,

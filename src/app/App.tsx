@@ -153,6 +153,26 @@ const BillingCancel = React.lazy(() =>
     default: module.BillingCancel,
   }))
 );
+const Activations = React.lazy(() =>
+  import("./components/activations").then((module) => ({
+    default: module.Activations,
+  }))
+);
+const ActivationCreate = React.lazy(() =>
+  import("./components/activations/activation-create").then((module) => ({
+    default: module.ActivationCreate,
+  }))
+);
+const ActivationDetail = React.lazy(() =>
+  import("./components/activations/activation-detail").then((module) => ({
+    default: module.ActivationDetail,
+  }))
+);
+const Wallet = React.lazy(() =>
+  import("./components/wallet").then((module) => ({
+    default: module.Wallet,
+  }))
+);
 
 function AppRoutes() {
   const location = useLocation();
@@ -173,7 +193,7 @@ function AppRoutes() {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setCommandPaletteOpen((open ) => !open);
+        setCommandPaletteOpen((open) => !open);
       }
     };
 
@@ -258,10 +278,7 @@ function AppRoutes() {
                 />
 
                 {/* Public routes */}
-                <Route
-                  path="/"
-                  element={landingElement}
-                />
+                <Route path="/" element={landingElement} />
                 <Route path="/home" element={<Navigate to="/" replace />} />
                 <Route
                   path="/login"
@@ -273,7 +290,9 @@ function AppRoutes() {
                 />
                 <Route
                   path="/verification"
-                  element={<Verification onNavigate={(path) => navigate(path)} />}
+                  element={
+                    <Verification onNavigate={(path) => navigate(path)} />
+                  }
                 />
                 <Route
                   path="/onboarding"
@@ -350,6 +369,44 @@ function AppRoutes() {
                       <ErrorBoundary>
                         <CampaignDetail onNavigate={(path) => navigate(path)} />
                       </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/activations"
+                  element={
+                    <ProtectedRoute>
+                      <ErrorBoundary>
+                        <Activations onNavigate={(path) => navigate(path)} />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/activations/create"
+                  element={
+                    <ProtectedRoute>
+                      <ErrorBoundary>
+                        <ActivationCreate onNavigate={(path) => navigate(path)} />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/activations/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ErrorBoundary>
+                        <ActivationDetail onNavigate={(path) => navigate(path)} />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/wallet"
+                  element={
+                    <ProtectedRoute>
+                      <Wallet onNavigate={(path) => navigate(path)} />
                     </ProtectedRoute>
                   }
                 />

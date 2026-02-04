@@ -4,11 +4,26 @@ import type {
   CreatorInsert,
   CreatorUpdate,
   CreatorWithStats,
+  CreatorWithSocialAndStats,
+  CreatorSocialAccount,
+  CreatorStats,
   CampaignCreator,
   Platform,
   ApiResponse,
   ApiListResponse,
 } from "../types/database";
+
+export interface CreatorFilters {
+  platforms?: Platform[];
+  niches?: string[];
+  followerMin?: number;
+  followerMax?: number;
+  followerTier?: string;
+  location?: string;
+  engagementMin?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+}
 
 type WorkspaceCreatorKeys = {
   workspaceId: string;
@@ -1364,6 +1379,386 @@ export async function addCreatorsToMultipleCampaigns(
     }
 
     return { data: inserted || [], error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+// ========== Creators Page API (My Network, Discover, Favorites) ==========
+
+/**
+ * List My Network creators - workspace_creators with creators, social accounts, stats
+ */
+export async function listMyNetwork(
+  workspaceId: string | null
+): Promise<ApiListResponse<CreatorWithSocialAndStats[]>> {
+  try {
+    const { workspaceId: targetId, error: wsError } = await resolveWorkspaceId(workspaceId);
+    if (wsError || !targetId) return { data: null, error: wsError || new Error("Workspace required") };
+
+    const keys = await getWorkspaceCreatorKeys(targetId);
+    const { data: wcRows, error } = await supabase
+      .from("workspace_creators")
+      .select(`
+        id,
+        creator_id,
+        manual_name,
+        manual_email,
+        manual_phone,
+        manual_handle,
+        manual_platform,
+        manual_followers,
+        manual_niche,
+        manual_location,
+        manual_base_rate,
+        source,
+        creators:creator_id (
+          id,
+          name,
+          handle,
+          platform,
+          follower_count,
+          avg_engagement,
+          email,
+          phone,
+          niche,
+          location,
+          profile_photo,
+          bio,
+          status,
+          creator_social_accounts (*),
+          creator_stats (*)
+        )
+      `)
+      .or(`workspace_id.eq.${keys.workspaceId},workspace_id.eq.${keys.ownerUserId || keys.workspaceId}`);
+
+    if (error) return { data: null, error };
+
+    const result: CreatorWithSocialAndStats[] = (wcRows || []).map((wc: any) => {
+      if (wc.creator_id && wc.creators) {
+        const c = Array.isArray(wc.creators) ? wc.creators[0] : wc.creators;
+        return { ...c, in_my_network: true };
+      }
+      return {
+        id: `manual-${wc.id}`,
+        user_id: null,
+        name: wc.manual_name || wc.manual_handle || "Unknown",
+        handle: wc.manual_handle || "",
+        platform: (wc.manual_platform || "tiktok") as Platform,
+        follower_count: wc.manual_followers || 0,
+        avg_engagement: 0,
+        email: wc.manual_email || null,
+        phone: wc.manual_phone || null,
+        niche: wc.manual_niche || null,
+        location: wc.manual_location || null,
+        profile_url: null,
+        display_name: null,
+        country: null,
+        state: null,
+        city: null,
+        contact_email: wc.manual_email || null,
+        whatsapp: wc.manual_phone || null,
+        created_at: "",
+        updated_at: "",
+        source_type: "manual",
+        imported_by_user_id: null,
+        created_by_workspace_id: null,
+        in_my_network: true,
+        _workspace_creator_id: wc.id,
+      } as CreatorWithSocialAndStats;
+    });
+
+    return { data: result, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * List Discover creators - all platform creators not in workspace
+ */
+export async function listDiscover(
+  workspaceId: string | null,
+  filters?: CreatorFilters
+): Promise<ApiListResponse<CreatorWithSocialAndStats[]>> {
+  try {
+    let query = supabase
+      .from("creators")
+      .select(`
+        *,
+        creator_social_accounts (*),
+        creator_stats (*)
+      `)
+      .eq("status", "active")
+      .order("name", { ascending: true });
+
+    if (filters?.platforms?.length) {
+      query = query.in("platform", filters.platforms);
+    }
+    if (filters?.followerMin != null) {
+      query = query.gte("follower_count", filters.followerMin);
+    }
+    if (filters?.followerMax != null) {
+      query = query.lte("follower_count", filters.followerMax);
+    }
+    if (filters?.location) {
+      query = query.ilike("location", `%${filters.location}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) return { data: null, error };
+
+    let list = (data || []) as CreatorWithSocialAndStats[];
+    if (workspaceId) {
+      const { data: myWc } = await supabase
+        .from("workspace_creators")
+        .select("creator_id")
+        .eq("workspace_id", workspaceId)
+        .not("creator_id", "is", null);
+      const myIds = new Set((myWc || []).map((r: any) => r.creator_id));
+      list = list.filter((c) => !myIds.has(c.id));
+    }
+
+    return { data: list, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * List Favorites for current user
+ */
+export async function listFavorites(): Promise<ApiListResponse<CreatorWithSocialAndStats[]>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("Not authenticated") };
+
+    const { data, error } = await supabase
+      .from("creator_favorites")
+      .select(`
+        creator_id,
+        creators:creator_id (
+          *,
+          creator_social_accounts (*),
+          creator_stats (*)
+        )
+      `)
+      .eq("user_id", user.id);
+
+    if (error) return { data: null, error };
+
+    const list = (data || [])
+      .map((f: any) => (Array.isArray(f.creators) ? f.creators[0] : f.creators))
+      .filter(Boolean)
+      .map((c: any) => ({ ...c, is_favorite: true }));
+
+    return { data: list, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Toggle favorite for a creator
+ */
+export async function toggleFavorite(
+  creatorId: string
+): Promise<ApiResponse<{ is_favorite: boolean }>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("Not authenticated") };
+
+    const { data: existing } = await supabase
+      .from("creator_favorites")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("creator_id", creatorId)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("creator_favorites")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("creator_id", creatorId);
+      return { data: { is_favorite: false }, error: null };
+    }
+
+    await supabase.from("creator_favorites").insert({
+      user_id: user.id,
+      creator_id: creatorId,
+    });
+    return { data: { is_favorite: true }, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Add creator manually (workspace_creators with manual_* or linked creator)
+ */
+export async function addCreatorManually(
+  workspaceId: string,
+  data: {
+    platform: Platform;
+    handle: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    niche?: string;
+    location?: string;
+    follower_count?: number;
+    base_rate?: number;
+    createLinkedCreator?: boolean;
+  }
+): Promise<ApiResponse<CreatorWithSocialAndStats>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("Not authenticated") };
+
+    const handleNorm = data.handle.replace(/^@/, "");
+    const keys = await getWorkspaceCreatorKeys(workspaceId);
+
+    if (data.createLinkedCreator) {
+      const existing = await getOrCreate(
+        data.name || handleNorm,
+        handleNorm,
+        data.platform,
+        data.follower_count,
+        data.email || null,
+        data.phone || null,
+        data.niche || null,
+        data.location || null,
+        "manual",
+        workspaceId
+      );
+      if (existing.error) return { data: null, error: existing.error };
+      const list = await listMyNetwork(workspaceId);
+      const found = list.data?.find((c) => c.id === existing.data!.id);
+      return { data: found || (existing.data as CreatorWithSocialAndStats), error: null };
+    }
+
+    const { data: inserted, error } = await supabase
+      .from("workspace_creators")
+      .insert({
+        workspace_id: keys.workspaceId,
+        creator_id: null,
+        manual_handle: handleNorm.startsWith("@") ? handleNorm : `@${handleNorm}`,
+        manual_platform: data.platform,
+        manual_name: data.name || handleNorm,
+        manual_email: data.email || null,
+        manual_phone: data.phone || null,
+        manual_niche: data.niche || null,
+        manual_location: data.location || null,
+        manual_followers: data.follower_count || null,
+        manual_base_rate: data.base_rate || null,
+        source: "manual",
+        added_by: user.id,
+      })
+      .select()
+      .single();
+
+    if (error) return { data: null, error };
+
+    const synthetic: CreatorWithSocialAndStats = {
+      id: `manual-${inserted.id}`,
+      user_id: null,
+      name: inserted.manual_name || inserted.manual_handle || "Unknown",
+      handle: inserted.manual_handle || "",
+      platform: inserted.manual_platform as Platform,
+      follower_count: inserted.manual_followers || 0,
+      avg_engagement: 0,
+      email: inserted.manual_email || null,
+      phone: inserted.manual_phone || null,
+      niche: inserted.manual_niche || null,
+      location: inserted.manual_location || null,
+      profile_url: null,
+      display_name: null,
+      country: null,
+      state: null,
+      city: null,
+      contact_email: inserted.manual_email || null,
+      whatsapp: inserted.manual_phone || null,
+      created_at: inserted.created_at,
+      updated_at: inserted.created_at,
+      source_type: "manual",
+      imported_by_user_id: null,
+      created_by_workspace_id: null,
+      in_my_network: true,
+    };
+    return { data: synthetic, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Get full creator profile
+ */
+export async function getCreatorProfile(
+  creatorId: string
+): Promise<ApiResponse<CreatorWithSocialAndStats>> {
+  try {
+    if (creatorId.startsWith("manual-")) {
+      return { data: null, error: new Error("Manual creators do not have full profiles") };
+    }
+
+    const { data, error } = await supabase
+      .from("creators")
+      .select(`
+        *,
+        creator_social_accounts (*),
+        creator_stats (*)
+      `)
+      .eq("id", creatorId)
+      .single();
+
+    if (error || !data) return { data: null, error: error || new Error("Creator not found") };
+
+    const { data: fav } = await supabase
+      .from("creator_favorites")
+      .select("id")
+      .eq("creator_id", creatorId)
+      .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+      .maybeSingle();
+
+    return { data: { ...data, is_favorite: !!fav }, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Send offer to activation (deduct wallet, create offer record)
+ */
+export async function sendOfferToActivation(
+  creatorId: string,
+  activationId: string,
+  amount: number,
+  message?: string
+): Promise<ApiResponse<{ success: boolean }>> {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!supabaseUrl) return { data: null, error: new Error("Missing Supabase URL") };
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-offer-to-activation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : "",
+        ...(import.meta.env.VITE_SUPABASE_ANON_KEY && {
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        }),
+      },
+      body: JSON.stringify({ creatorId, activationId, amount, message }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: new Error(json?.error || "Failed to send offer") };
+    return { data: { success: true }, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }

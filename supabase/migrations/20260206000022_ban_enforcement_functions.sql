@@ -121,7 +121,9 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.is_workspace_admin(p_workspace_id uuid)
+-- Replace 1-arg is_workspace_admin in place (do not drop - RLS policies depend on it)
+-- Parameter name must stay ws_id to match existing function signature
+CREATE OR REPLACE FUNCTION public.is_workspace_admin(ws_id uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -132,11 +134,11 @@ AS $$
     AND (
       EXISTS (
         SELECT 1 FROM public.team_members tm
-        WHERE tm.workspace_id = p_workspace_id
+        WHERE tm.workspace_id = ws_id
           AND tm.user_id = auth.uid()
           AND tm.role IN ('brand_owner','agency_admin')
       )
-      OR p_workspace_id = auth.uid()
+      OR ws_id = auth.uid()
     );
 $$;
 

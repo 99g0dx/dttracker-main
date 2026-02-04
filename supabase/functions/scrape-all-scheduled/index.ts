@@ -7,22 +7,60 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Age-based scraping schedule
+const HOURS_IN_MS = 1000 * 60 * 60;
+const INTERVAL_0_48H = 6;
+const INTERVAL_2_7D = 12;
+const INTERVAL_7_30D = 24;
+const INTERVAL_30D_PLUS = 168; // 7 days
+
+type PostOrSubmission = {
+  last_scraped_at?: string | null;
+  submitted_at?: string | null;
+  posted_date?: string | null;
+  created_at?: string | null;
+};
+
+function shouldScrapeByAge(item: PostOrSubmission, now: Date): boolean {
+  const referenceDate = item.submitted_at
+    ? new Date(item.submitted_at)
+    : item.posted_date
+    ? new Date(item.posted_date)
+    : item.created_at
+    ? new Date(item.created_at)
+    : now;
+  const refTime = referenceDate.getTime();
+  if (Number.isNaN(refTime)) return true;
+
+  const lastScraped = item.last_scraped_at
+    ? new Date(item.last_scraped_at).getTime()
+    : null;
+  const hoursSinceLastScrape =
+    lastScraped != null ? (now.getTime() - lastScraped) / HOURS_IN_MS : Infinity;
+  const hoursSincePosted = (now.getTime() - refTime) / HOURS_IN_MS;
+
+  let minInterval: number;
+  if (hoursSincePosted <= 48) {
+    minInterval = INTERVAL_0_48H;
+  } else if (hoursSincePosted <= 168) {
+    // 7 days
+    minInterval = INTERVAL_2_7D;
+  } else if (hoursSincePosted <= 720) {
+    // 30 days
+    minInterval = INTERVAL_7_30D;
+  } else {
+    minInterval = INTERVAL_30D_PLUS;
+  }
+
+  return hoursSinceLastScrape >= minInterval;
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const HOURS_IN_MS = 1000 * 60 * 60;
-    const RECENT_WINDOW_HOURS = 72;
-    const MID_WINDOW_DAYS = 14;
-    const RECENT_INTERVAL_HOURS = 12;
-    const MID_INTERVAL_HOURS = 24;
-    const LATE_INTERVAL_HOURS = 24 * 7;
-    const MAX_BATCH_SIZE = 30;
-
-    // Get environment variables
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const triggerToken = Deno.env.get("SCRAPE_TRIGGER_TOKEN") ?? "";
@@ -40,10 +78,7 @@ serve(async (req) => {
 
       if (!isAuthorized) {
         return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Unauthorized",
-          }),
+          JSON.stringify({ success: false, error: "Unauthorized" }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 401,
@@ -52,201 +87,216 @@ serve(async (req) => {
       }
     }
 
-    // Create service role client (bypasses RLS)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const now = new Date();
 
     console.log("=== Scheduled Auto-Scraping Started ===");
-    console.log("Timestamp:", new Date().toISOString());
+    console.log("Timestamp:", now.toISOString());
 
-    // Fetch all active posts from active campaigns
-    const { data: posts, error: fetchError } = await supabase
-      .from("posts")
-      .select(`
-        id,
-        post_url,
-        platform,
-        campaign_id,
-        posted_date,
-        last_scraped_at,
-        created_at,
-        campaigns!inner(status)
-      `)
-      .eq("campaigns.status", "active")
-      .not("post_url", "is", null)
-      .in("status", ["pending", "scraped", "failed", "manual"]); // Skip posts currently being scraped
-
-    if (fetchError) {
-      console.error("Error fetching posts:", fetchError);
-      throw fetchError;
-    }
-
-    if (!posts || posts.length === 0) {
-      console.log("No posts to scrape");
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "No posts to scrape",
-          scraped_count: 0,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        }
-      );
-    }
-
-    const now = new Date();
-    const isPostDue = (post: typeof posts[number]) => {
-      const postedDate = post.posted_date ? new Date(post.posted_date) : null;
-      const createdDate = post.created_at ? new Date(post.created_at) : null;
-      const baseDate = postedDate && !Number.isNaN(postedDate.getTime())
-        ? postedDate
-        : createdDate && !Number.isNaN(createdDate.getTime())
-          ? createdDate
-          : now;
-      const ageHours = (now.getTime() - baseDate.getTime()) / HOURS_IN_MS;
-      const minIntervalHours =
-        ageHours <= RECENT_WINDOW_HOURS
-          ? RECENT_INTERVAL_HOURS
-          : ageHours <= MID_WINDOW_DAYS * 24
-            ? MID_INTERVAL_HOURS
-            : LATE_INTERVAL_HOURS;
-      if (!post.last_scraped_at) {
-        return true;
-      }
-      const lastScraped = new Date(post.last_scraped_at);
-      if (Number.isNaN(lastScraped.getTime())) {
-        return true;
-      }
-      const hoursSinceLast = (now.getTime() - lastScraped.getTime()) / HOURS_IN_MS;
-      return hoursSinceLast >= minIntervalHours;
-    };
-
-    const duePosts = posts.filter(isPostDue);
-    if (duePosts.length === 0) {
-      console.log("No posts are due for scraping");
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "No posts are due for scraping",
-          scraped_count: 0,
-          total_posts: posts.length,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        }
-      );
-    }
-
-    const sortedDuePosts = duePosts.sort((a, b) => {
-      const aTime = new Date(a.last_scraped_at ?? a.created_at).getTime();
-      const bTime = new Date(b.last_scraped_at ?? b.created_at).getTime();
-      return aTime - bTime;
-    });
-    const postsToScrape = sortedDuePosts.slice(0, MAX_BATCH_SIZE);
-
-    console.log(
-      `Found ${posts.length} posts; ${duePosts.length} due; scraping ${postsToScrape.length}`
-    );
-
-    // Get RapidAPI key
-    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
-    if (!rapidApiKey) {
-      throw new Error("RAPIDAPI_KEY not configured");
-    }
-
-    // Call the scrape-post function internally
     const scrapePostUrl = `${supabaseUrl}/functions/v1/scrape-post`;
+    const scrapeSubmissionUrl = `${supabaseUrl}/functions/v1/scrape-activation-submission`;
     const serviceRoleHeaders = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${supabaseServiceKey}`,
       apikey: supabaseServiceKey,
     };
 
-    let successCount = 0;
-    let errorCount = 0;
-    const errors: Array<{ postId: string; message: string }> = [];
+    const MAX_POSTS = 15;
+    const MAX_SUBMISSIONS = 15;
+    let trackingSuccess = 0;
+    let trackingErrors = 0;
+    let contestSuccess = 0;
+    let contestErrors = 0;
+    const errors: Array<{ id: string; type: string; message: string }> = [];
 
-    // Scrape each post with rate limiting
-    for (let i = 0; i < postsToScrape.length; i++) {
-      const post = postsToScrape[i];
-      
-      try {
-        console.log(`[${i + 1}/${postsToScrape.length}] Scraping post ${post.id} (${post.platform})`);
+    // ========== Part 1: Campaign Tracking Posts ==========
+    const { data: campaigns } = await supabase
+      .from("campaigns")
+      .select("id")
+      .eq("status", "active");
 
-        // Mark as scraping
-        await supabase
-          .from("posts")
-          .update({ status: "scraping" })
-          .eq("id", post.id);
+    const campaignIds = campaigns?.map((c) => c.id) ?? [];
+    if (campaignIds.length > 0) {
+      const { data: posts, error: fetchError } = await supabase
+        .from("posts")
+        .select(
+          `id, post_url, platform, campaign_id, posted_date, last_scraped_at, created_at, status,
+           initial_scrape_completed, initial_scrape_attempted, initial_scrape_failed`
+        )
+        .in("campaign_id", campaignIds)
+        .not("post_url", "is", null)
+        .in("status", ["pending", "scraped", "failed", "manual"]);
 
-        // Call scrape-post function
-        const scrapeResponse = await fetch(scrapePostUrl, {
-          method: "POST",
-          headers: serviceRoleHeaders,
-          body: JSON.stringify({
-            postId: post.id,
-            postUrl: post.post_url,
-            platform: post.platform,
-            isAutoScrape: true, // Flag to indicate auto-scraping
-          }),
-        });
+      if (fetchError) {
+        console.error("Error fetching posts:", fetchError);
+      } else if (posts && posts.length > 0) {
+        const eligiblePosts = posts.filter(
+          (p: Record<string, unknown>) =>
+            p.initial_scrape_completed === true ||
+            (p.initial_scrape_attempted === true &&
+              p.initial_scrape_failed === true) ||
+            (p.initial_scrape_completed == null &&
+              p.initial_scrape_attempted == null &&
+              (p.status === "scraped" || p.status === "manual"))
+        );
 
-        if (!scrapeResponse.ok) {
-          const errorText = await scrapeResponse.text();
-          throw new Error(`HTTP ${scrapeResponse.status}: ${errorText}`);
+        const duePosts = eligiblePosts.filter((p) =>
+          shouldScrapeByAge(p, now)
+        );
+        const sortedDue = duePosts.sort(
+          (a, b) =>
+            new Date(a.last_scraped_at ?? a.created_at).getTime() -
+            new Date(b.last_scraped_at ?? b.created_at).getTime()
+        );
+        const postsToScrape = sortedDue.slice(0, MAX_POSTS);
+
+        console.log(
+          `Campaign posts: ${posts.length} total, ${duePosts.length} due, scraping ${postsToScrape.length}`
+        );
+
+        for (let i = 0; i < postsToScrape.length; i++) {
+          const post = postsToScrape[i];
+          try {
+            await supabase
+              .from("posts")
+              .update({ status: "scraping" })
+              .eq("id", post.id);
+
+            const scrapeResponse = await fetch(scrapePostUrl, {
+              method: "POST",
+              headers: serviceRoleHeaders,
+              body: JSON.stringify({
+                postId: post.id,
+                postUrl: post.post_url,
+                platform: post.platform,
+                isAutoScrape: true,
+              }),
+            });
+
+            if (!scrapeResponse.ok) {
+              const errText = await scrapeResponse.text();
+              throw new Error(`HTTP ${scrapeResponse.status}: ${errText}`);
+            }
+
+            const result = await scrapeResponse.json();
+            if (result.success) {
+              trackingSuccess++;
+            } else {
+              trackingErrors++;
+              errors.push({
+                id: post.id,
+                type: "post",
+                message: result.error || "Unknown error",
+              });
+              await supabase
+                .from("posts")
+                .update({ status: "failed" })
+                .eq("id", post.id);
+            }
+          } catch (err) {
+            trackingErrors++;
+            const msg = err instanceof Error ? err.message : String(err);
+            errors.push({ id: post.id, type: "post", message: msg });
+            await supabase
+              .from("posts")
+              .update({ status: "failed" })
+              .eq("id", post.id);
+          }
+
+          if (i < postsToScrape.length - 1) {
+            await new Promise((r) => setTimeout(r, 2000));
+          }
         }
-
-        const scrapeResult = await scrapeResponse.json();
-        
-        if (scrapeResult.success) {
-          successCount++;
-          console.log(`✅ Post ${post.id} scraped successfully`);
-        } else {
-          errorCount++;
-          errors.push({
-            postId: post.id,
-            message: scrapeResult.error || "Unknown error",
-          });
-          // Mark as failed
-          await supabase
-            .from("posts")
-            .update({ status: "failed" })
-            .eq("id", post.id);
-        }
-      } catch (error) {
-        errorCount++;
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        errors.push({
-          postId: post.id,
-          message: errorMessage,
-        });
-        console.error(`❌ Failed to scrape post ${post.id}:`, errorMessage);
-        
-        // Mark as failed
-        await supabase
-          .from("posts")
-          .update({ status: "failed" })
-          .eq("id", post.id);
-      }
-
-      // Rate limiting: wait 2 seconds between requests (except for the last one)
-      if (i < posts.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
-    console.log(`=== Auto-Scraping Complete ===`);
-    console.log(`Success: ${successCount}, Errors: ${errorCount}`);
+    // ========== Part 2: Contest Activation Submissions ==========
+    const { data: activeContests } = await supabase
+      .from("activations")
+      .select("id")
+      .eq("type", "contest")
+      .eq("status", "live")
+      .gte("deadline", now.toISOString());
+
+    const contestIds = activeContests?.map((c) => c.id) ?? [];
+    if (contestIds.length > 0) {
+      const { data: submissions, error: subError } = await supabase
+        .from("activation_submissions")
+        .select("id, content_url, submitted_at, last_scraped_at")
+        .in("activation_id", contestIds)
+        .eq("status", "approved")
+        .not("content_url", "is", null);
+
+      if (subError) {
+        console.error("Error fetching contest submissions:", subError);
+      } else if (submissions && submissions.length > 0) {
+        const dueSubmissions = submissions.filter((s) =>
+          shouldScrapeByAge(s, now)
+        );
+        const sortedSub = dueSubmissions.sort(
+          (a, b) =>
+            new Date(a.last_scraped_at ?? a.submitted_at ?? 0).getTime() -
+            new Date(b.last_scraped_at ?? b.submitted_at ?? 0).getTime()
+        );
+        const toScrape = sortedSub.slice(0, MAX_SUBMISSIONS);
+
+        console.log(
+          `Contest submissions: ${submissions.length} total, ${dueSubmissions.length} due, scraping ${toScrape.length}`
+        );
+
+        for (let i = 0; i < toScrape.length; i++) {
+          const sub = toScrape[i];
+          try {
+            const resp = await fetch(scrapeSubmissionUrl, {
+              method: "POST",
+              headers: serviceRoleHeaders,
+              body: JSON.stringify({ submissionId: sub.id }),
+            });
+
+            if (!resp.ok) {
+              const errText = await resp.text();
+              throw new Error(`HTTP ${resp.status}: ${errText}`);
+            }
+
+            const result = await resp.json();
+            if (result.success !== false && !result.error) {
+              contestSuccess++;
+            } else {
+              contestErrors++;
+              errors.push({
+                id: sub.id,
+                type: "submission",
+                message: result.error || "Unknown error",
+              });
+            }
+          } catch (err) {
+            contestErrors++;
+            const msg = err instanceof Error ? err.message : String(err);
+            errors.push({ id: sub.id, type: "submission", message: msg });
+          }
+
+          if (i < toScrape.length - 1) {
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        }
+      }
+    }
+
+    const totalSuccess = trackingSuccess + contestSuccess;
+    const totalErrors = trackingErrors + contestErrors;
+
+    console.log(
+      `=== Auto-Scraping Complete === Tracking: ${trackingSuccess} ok, ${trackingErrors} err. Contest: ${contestSuccess} ok, ${contestErrors} err`
+    );
 
     return new Response(
       JSON.stringify({
         success: true,
-        scraped_count: successCount,
-        error_count: errorCount,
-        total_posts: postsToScrape.length,
-        errors: errors.slice(0, 10), // Limit error details
+        scraped_count: totalSuccess,
+        error_count: totalErrors,
+        tracking_posts_scraped: trackingSuccess,
+        contest_submissions_scraped: contestSuccess,
+        errors: errors.slice(0, 10),
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -267,5 +317,3 @@ serve(async (req) => {
     );
   }
 });
-
-

@@ -36,6 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_cps_campaign_platform ON campaign_platform_scrape
 ALTER TABLE campaign_platform_scrapes ENABLE ROW LEVEL SECURITY;
 
 -- Users can view scrape info for their own campaigns
+DROP POLICY IF EXISTS "Users can view own campaign scrapes" ON campaign_platform_scrapes;
 CREATE POLICY "Users can view own campaign scrapes"
   ON campaign_platform_scrapes FOR SELECT
   USING (
@@ -103,7 +104,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Enforcement RPC Functions
 -- Function: can_create_campaign
 -- Checks if workspace can create a new campaign based on plan limits
-DROP FUNCTION IF EXISTS can_create_campaign(uuid);
 CREATE OR REPLACE FUNCTION can_create_campaign(p_workspace_id UUID)
 RETURNS JSONB AS $$
 DECLARE
@@ -194,7 +194,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function: can_add_creator
 -- Checks if a creator can be added to a campaign based on plan limits
-DROP FUNCTION IF EXISTS can_add_creator(uuid, uuid);
 CREATE OR REPLACE FUNCTION can_add_creator(
   p_workspace_id UUID,
   p_campaign_id UUID
@@ -283,11 +282,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function: can_trigger_scrape
 -- Checks if a scrape can be triggered based on plan scrape interval
-DROP FUNCTION IF EXISTS can_trigger_scrape(uuid, uuid, text);
+-- Parameter names must match RPC call: target_workspace_id, target_campaign_id, target_platform
 CREATE OR REPLACE FUNCTION can_trigger_scrape(
-  p_workspace_id UUID,
-  p_campaign_id UUID,
-  p_platform TEXT
+  target_workspace_id UUID,
+  target_campaign_id UUID,
+  target_platform TEXT
 )
 RETURNS JSONB AS $$
 DECLARE
@@ -308,7 +307,7 @@ BEGIN
   INTO v_tier, v_status, v_trial_end, v_limits
   FROM workspace_subscriptions ws
   LEFT JOIN plan_catalog pc ON ws.plan_slug = pc.slug
-  WHERE ws.workspace_id = p_workspace_id;
+  WHERE ws.workspace_id = target_workspace_id;
 
   -- Check for expired trial
   IF v_status = 'trialing' AND v_trial_end < now() THEN
@@ -332,12 +331,12 @@ BEGIN
 
   -- Check if platform is allowed
   v_platforms := v_limits->'platforms';
-  IF v_platforms IS NOT NULL AND NOT v_platforms ? p_platform THEN
+  IF v_platforms IS NOT NULL AND NOT v_platforms ? target_platform THEN
     RETURN jsonb_build_object(
       'allowed', false,
       'wait_minutes', 0,
       'tier', v_tier,
-      'message', format('Platform %s is not available on your plan. Upgrade to access more platforms.', p_platform)
+      'message', format('Platform %s is not available on your plan. Upgrade to access more platforms.', target_platform)
     );
   END IF;
 
@@ -346,7 +345,7 @@ BEGIN
 
   -- Check if scrape is allowed based on interval
   SELECT * INTO v_scrape_result
-  FROM can_scrape_platform(p_campaign_id, p_platform, v_interval_minutes);
+  FROM can_scrape_platform(target_campaign_id, target_platform, v_interval_minutes);
 
   IF v_scrape_result.allowed THEN
     RETURN jsonb_build_object(
@@ -371,7 +370,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function: can_add_team_member
 -- Checks if a team member can be added based on seat limits
-DROP FUNCTION IF EXISTS can_add_team_member(uuid);
 CREATE OR REPLACE FUNCTION can_add_team_member(p_workspace_id UUID)
 RETURNS JSONB AS $$
 DECLARE
@@ -441,7 +439,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function: get_workspace_usage
 -- Returns complete usage and limits for a workspace
-DROP FUNCTION IF EXISTS get_workspace_usage(uuid);
 CREATE OR REPLACE FUNCTION get_workspace_usage(p_workspace_id UUID)
 RETURNS JSONB AS $$
 DECLARE

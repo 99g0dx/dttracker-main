@@ -16,11 +16,14 @@ import {
   MoreVertical,
   ArrowUpRight,
   Search,
-  Filter
+  Filter,
+  Trophy,
+  Megaphone,
 } from 'lucide-react';
 import { NotificationsCenter } from './notifications-center';
 import { StatusBadge } from './status-badge';
 import { useCampaigns } from '../../hooks/useCampaigns';
+import { useActivations } from '../../hooks/useActivations';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
@@ -217,6 +220,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Fetch real campaign data
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
+  const { data: liveActivations = [] } = useActivations(
+    activeWorkspaceId,
+    { status: 'live' },
+    { enabled: !!activeWorkspaceId }
+  );
+  const activeActivationsCount = liveActivations.length;
   const isCampaignsLoading = campaignsLoading || (!!activeWorkspaceId && accessLoading);
 
   const dateRangeOptions = [
@@ -848,6 +857,22 @@ useEffect(() => {
           </div>
           
           <button
+            onClick={() => onNavigate('/activations/create')}
+            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-amber-500/30"
+            aria-label="Create activation"
+          >
+            <Trophy className="w-4 h-4" />
+            <span className="hidden sm:inline">Create Activation</span>
+          </button>
+          <button
+            onClick={() => onNavigate('/campaigns/new')}
+            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            aria-label="Track new campaign"
+          >
+            <Megaphone className="w-4 h-4" />
+            <span className="hidden sm:inline">Track Campaign</span>
+          </button>
+          <button
             onClick={handleExportCSV}
             className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             aria-label="Export analytics"
@@ -925,6 +950,26 @@ useEffect(() => {
               {kpiMetrics.totalPosts}
             </div>
             <p className="text-sm text-slate-400">Total Posts</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer"
+          onClick={() => onNavigate('/activations')}
+        >
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+                <Trophy className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <span className="font-medium">Live</span>
+              </div>
+            </div>
+            <div className="text-2xl font-semibold text-white mb-1">
+              {activeActivationsCount}
+            </div>
+            <p className="text-sm text-slate-400">Active Activations</p>
           </CardContent>
         </Card>
       </div>

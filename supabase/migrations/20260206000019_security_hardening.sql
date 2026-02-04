@@ -38,6 +38,7 @@ CREATE POLICY "Campaign owners can view share links"
 
 -- Workspace invites: restrict delete to admins/owners
 DROP POLICY IF EXISTS "workspace_invites_delete_member" ON public.workspace_invites;
+DROP POLICY IF EXISTS "workspace_invites_delete_admin" ON public.workspace_invites;
 CREATE POLICY "workspace_invites_delete_admin"
   ON public.workspace_invites FOR DELETE
   USING (is_workspace_admin(workspace_id, auth.uid()));

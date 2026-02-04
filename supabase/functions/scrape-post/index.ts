@@ -98,51 +98,94 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       );
     }
 
-    const items = await response.json().catch(() => {
+    const rawResponse = await response.json().catch(() => {
       throw new Error("Invalid JSON response from Apify TikTok scraper");
     });
 
-    console.log("[scrapeTikTok] Apify returned items:", Array.isArray(items) ? items.length : typeof items);
+    // Apify may return array directly or wrapped in { items }, { data }, or { data: { items } }
+    const items = Array.isArray(rawResponse)
+      ? rawResponse
+      : rawResponse?.items
+      ?? (Array.isArray(rawResponse?.data) ? rawResponse.data : rawResponse?.data?.items)
+      ?? rawResponse?.results ?? [];
 
+    console.log("[scrapeTikTok] Apify returned items:", Array.isArray(items) ? items.length : typeof items);
     if (!Array.isArray(items) || items.length === 0) {
+      console.error("[scrapeTikTok] Unexpected response shape. Top-level keys:", Object.keys(rawResponse || {}));
       throw new Error("Apify TikTok scraper returned no results for this URL.");
     }
 
     const item = items[0];
+    // Resolve nested video object (some Apify outputs wrap video in .video)
+    const video = item?.video ?? item;
+    const stats = video.stats ?? video.statistics ?? item.stats ?? item.statistics ?? {};
     console.log("[scrapeTikTok] Item keys:", Object.keys(item).slice(0, 25));
-    console.log("[scrapeTikTok] Item preview:", JSON.stringify(item).substring(0, 800));
+    console.log("[scrapeTikTok] Video keys:", Object.keys(video).slice(0, 25));
+    console.log("[scrapeTikTok] Item preview:", JSON.stringify(item).substring(0, 1200));
+
+    /** Parse number from value - handles "1.2K", "10.5M", numeric strings */
+    const parseNum = (v: unknown): number => {
+      if (v == null || v === "") return 0;
+      if (typeof v === "number" && !isNaN(v) && v > 0) return v;
+      const s = String(v).trim().replace(/,/g, "");
+      const n = Number(s);
+      if (!isNaN(n) && n > 0) return n;
+      const match = s.match(/^([\d.]+)\s*([KkMmBb])?$/);
+      if (match) {
+        let val = parseFloat(match[1]);
+        const suffix = (match[2] || "").toUpperCase();
+        if (suffix === "K") val *= 1e3;
+        else if (suffix === "M") val *= 1e6;
+        else if (suffix === "B") val *= 1e9;
+        if (val > 0) return Math.round(val);
+      }
+      return 0;
+    };
 
     const num = (...vals: unknown[]) => {
       for (const v of vals) {
-        const n = Number(v);
+        const n = parseNum(v);
         if (n > 0) return n;
       }
       return 0;
     };
 
     const views = num(
+      video.playCount, video.play_count, video.viewCount, video.views,
+      stats.playCount, stats.play_count, stats.viewCount, stats.views,
       item.playCount, item.play_count, item.viewCount, item.views,
-      item.videoMeta?.playCount, item.stats?.playCount,
+      item.videoMeta?.playCount, video.videoMeta?.playCount,
     );
     const likes = num(
+      video.diggCount, video.digg_count, video.likeCount, video.likes,
+      stats.diggCount, stats.digg_count, stats.likeCount, stats.likes,
       item.diggCount, item.digg_count, item.likeCount, item.likes,
-      item.videoMeta?.diggCount, item.stats?.diggCount,
+      item.videoMeta?.diggCount, video.videoMeta?.diggCount,
     );
     const comments = num(
+      video.commentCount, video.comment_count, video.comments,
+      stats.commentCount, stats.comment_count, stats.comments,
       item.commentCount, item.comment_count, item.comments,
-      item.videoMeta?.commentCount, item.stats?.commentCount,
+      item.videoMeta?.commentCount, video.videoMeta?.commentCount,
     );
     const shares = num(
+      video.shareCount, video.share_count, video.shares,
+      stats.shareCount, stats.share_count, stats.shares,
       item.shareCount, item.share_count, item.shares,
-      item.videoMeta?.shareCount, item.stats?.shareCount,
+      item.videoMeta?.shareCount, video.videoMeta?.shareCount,
     );
 
     const ownerUsername =
       item.authorMeta?.name ??
       item.authorMeta?.nickName ??
+      video.authorMeta?.name ??
+      video.authorMeta?.nickName ??
       item.author?.nickname ??
       item.author?.uniqueId ??
+      video.author?.nickname ??
+      video.author?.uniqueId ??
       item.authorName ??
+      video.authorName ??
       null;
 
     const totalMetrics = views + likes + comments + shares;
@@ -152,9 +195,12 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
     });
 
     if (!totalMetrics) {
-      console.error("[scrapeTikTok] Zero metrics. Full item:", JSON.stringify(item, null, 2).substring(0, 2000));
+      const itemPreview = JSON.stringify(item, null, 2).substring(0, 2500);
+      console.error("[scrapeTikTok] Zero metrics. Full item:", itemPreview);
       throw new Error(
-        "Apify TikTok scraper returned zero metrics. The response structure may have changed. Check logs for details."
+        "Apify TikTok scraper returned zero metrics. The response structure may have changed. " +
+        "Check Supabase Edge Function logs (scrape-post) for the full response. " +
+        "TikTok may also be blocking the scraper—try again later or use a different post."
       );
     }
 
@@ -879,7 +925,7 @@ serve(async (req) => {
     // Check if post is currently being scraped (conflict prevention)
     const { data: post, error: postError } = await supabase
       .from("posts")
-      .select("status, updated_at, campaign_id, creator_id")
+      .select("status, updated_at, campaign_id, creator_id, views, likes, comments, scrape_count")
       .eq("id", postId)
       .single();
 
@@ -940,6 +986,7 @@ serve(async (req) => {
     const gate = Array.isArray(scrapeGate) ? scrapeGate[0] : scrapeGate;
     if (!gate?.allowed) {
       const reason = gate?.reason || "not_allowed";
+      const dbMessage = typeof gate?.message === "string" ? gate.message : null;
       const message =
         reason === "platform_not_allowed"
           ? "Platform not available on your current plan."
@@ -947,7 +994,7 @@ serve(async (req) => {
           ? "Scrape interval not met. Please wait before scraping again."
           : reason === "subscription_past_due"
           ? "Subscription past due. Update payment to resume scraping."
-          : "Scraping not allowed at this time.";
+          : dbMessage || "Scraping not allowed at this time.";
 
       return new Response(
         JSON.stringify({
@@ -1059,6 +1106,14 @@ serve(async (req) => {
       engagement_rate: Number(engagementRate.toFixed(2)),
     };
 
+    // Compute growth since last scrape
+    const prevViews = (post as { views?: number }).views ?? 0;
+    const prevLikes = (post as { likes?: number }).likes ?? 0;
+    const prevComments = (post as { comments?: number }).comments ?? 0;
+    const lastViewGrowth = scrapedMetrics.views - prevViews;
+    const lastLikeGrowth = scrapedMetrics.likes - prevLikes;
+    const lastCommentGrowth = scrapedMetrics.comments - prevComments;
+
     // Update post in database
     const updatePayload: Record<string, unknown> = {
       views: scrapedMetrics.views,
@@ -1070,6 +1125,10 @@ serve(async (req) => {
       last_scraped_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       canonical_url: postUrl, // Save the URL used for scraping
+      last_view_growth: lastViewGrowth,
+      last_like_growth: lastLikeGrowth,
+      last_comment_growth: lastCommentGrowth,
+      scrape_count: ((post as { scrape_count?: number }).scrape_count ?? 0) + 1,
     };
 
     // Add owner_username if available (especially useful for Instagram posts)
