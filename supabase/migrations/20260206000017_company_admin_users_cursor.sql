@@ -268,9 +268,9 @@ RETURNS VOID AS $$
 DECLARE
   ws_id UUID;
   plan_record RECORD;
-  effective_tier TEXT;
-  effective_cycle TEXT;
-  included_seats INT;
+  v_tier TEXT;
+  v_cycle TEXT;
+  v_included_seats INT;
 BEGIN
   IF NOT public.is_company_admin() THEN
     RAISE EXCEPTION 'not authorized';
@@ -293,18 +293,18 @@ BEGIN
     LIMIT 1;
   END IF;
 
-  effective_tier := COALESCE(plan_record.tier, NULL);
-  effective_cycle := COALESCE(plan_record.billing_cycle, NULL);
-  included_seats := COALESCE(plan_record.included_seats, 1);
+  v_tier := plan_record.tier;
+  v_cycle := plan_record.billing_cycle;
+  v_included_seats := COALESCE(plan_record.included_seats, 1);
 
   IF EXISTS (SELECT 1 FROM public.subscriptions WHERE workspace_id = ws_id) THEN
     UPDATE public.subscriptions
     SET
-      tier = COALESCE(effective_tier, public.subscriptions.tier),
-      billing_cycle = COALESCE(effective_cycle, public.subscriptions.billing_cycle),
+      tier = COALESCE(v_tier, public.subscriptions.tier),
+      billing_cycle = COALESCE(v_cycle, public.subscriptions.billing_cycle),
       status = COALESCE(p_status, public.subscriptions.status),
       total_seats = COALESCE(p_total_seats, public.subscriptions.total_seats),
-      included_seats = COALESCE(included_seats, public.subscriptions.included_seats),
+      included_seats = COALESCE(v_included_seats, public.subscriptions.included_seats),
       updated_at = now()
     WHERE workspace_id = ws_id;
   ELSE
@@ -319,12 +319,12 @@ BEGIN
     )
     VALUES (
       ws_id,
-      COALESCE(effective_tier, 'free'),
-      COALESCE(effective_cycle, 'monthly'),
+      COALESCE(v_tier, 'free'),
+      COALESCE(v_cycle, 'monthly'),
       COALESCE(p_status, 'active'),
-      included_seats,
+      v_included_seats,
       0,
-      COALESCE(p_total_seats, included_seats)
+      COALESCE(p_total_seats, v_included_seats)
     );
   END IF;
 
