@@ -21,7 +21,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         ...props.toastOptions,
         classNames: {
-          toast: "text-sm px-3 py-3 max-w-xs",
+          toast: "text-sm px-3 py-3 max-w-xs md:max-w-md",
           title: "text-sm",
           description: "text-sm",
           closeButton: "h-4 w-4 rounded-full flex items-center justify-center",
@@ -33,7 +33,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--width": "min(92vw, 20rem)",
+          "--width": "auto",
         } as React.CSSProperties
       }
     />
