@@ -10,22 +10,22 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
-      position="top-center"
       closeButton
       closeButtonAriaLabel="Dismiss notification"
-      offset={{ top: "calc(env(safe-area-inset-top) + 8px)" }}
+      {...props}
+      offset={{ top: "calc(env(safe-area-inset-top) + 60px)" }}
       mobileOffset={{
-        top: "calc(env(safe-area-inset-top) + 8px)",
-        left: "4vw",
+        top: "calc(env(safe-area-inset-top) + 60px)",
         right: "4vw",
       }}
       toastOptions={{
+        ...props.toastOptions,
         classNames: {
-          toast: "text-sm px-4 py-3 max-w-sm",
+          toast: "text-sm px-3 py-3 max-w-xs",
           title: "text-sm",
           description: "text-sm",
-          closeButton:
-            "h-5 w-5 rounded-[20px] flex items-center justify-center",
+          closeButton: "h-4 w-4 rounded-full flex items-center justify-center",
+          ...props.toastOptions?.classNames,
         },
       }}
       style={
@@ -33,10 +33,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--width": "min(92vw, 24rem)",
+          "--width": "min(92vw, 20rem)",
         } as React.CSSProperties
       }
-      {...props}
     />
   );
 };
