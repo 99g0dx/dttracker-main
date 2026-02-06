@@ -378,46 +378,58 @@ serve(async (req) => {
             `| Elapsed: ${elapsedSeconds}s | Avg: ${avgTimePerPost}s/post | Est. remaining: ${estimatedRemaining}s`
         );
 
-        // Call scrape-post function internally
-        // Pass isAutoScrape flag to indicate this is a bulk operation.
-        // When we have the user's JWT, pass it so scrape-post can set request_user_id and
-        // can_trigger_scrape can apply the agency bypass (has_agency_role) for agency accounts.
-        const scrapeResponse = await fetch(scrapePostUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authHeader ?? `Bearer ${supabaseServiceKey}`,
-            apikey: supabaseServiceKey,
-          },
-          body: JSON.stringify({
-            postId: post.id,
-            postUrl: post.post_url,
-            platform: post.platform,
-            isAutoScrape: true,
-            request_user_id: user?.id ?? null,
-          }),
-        });
+        const POST_SCRAPE_RETRIES = 3; // initial + 2 retries
+        let lastError: string = "";
+        let succeeded = false;
 
-        if (!scrapeResponse.ok) {
-          const errorText = await scrapeResponse.text();
-          throw new Error(`HTTP ${scrapeResponse.status}: ${errorText}`);
+        for (let attempt = 0; attempt < POST_SCRAPE_RETRIES && !succeeded; attempt++) {
+          if (attempt > 0) {
+            const retryDelayMs = 2000 * attempt;
+            console.log(`Retrying post ${post.id} in ${retryDelayMs}ms (attempt ${attempt + 1}/${POST_SCRAPE_RETRIES})...`);
+            await new Promise((r) => setTimeout(r, retryDelayMs));
+          }
+
+          try {
+            // Call scrape-post function internally
+            const scrapeResponse = await fetch(scrapePostUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: authHeader ?? `Bearer ${supabaseServiceKey}`,
+                apikey: supabaseServiceKey,
+              },
+              body: JSON.stringify({
+                postId: post.id,
+                postUrl: post.post_url,
+                platform: post.platform,
+                isAutoScrape: true,
+                request_user_id: user?.id ?? null,
+              }),
+            });
+
+            if (!scrapeResponse.ok) {
+              const errorText = await scrapeResponse.text();
+              lastError = `HTTP ${scrapeResponse.status}: ${errorText}`;
+              continue;
+            }
+
+            const scrapeResult = await scrapeResponse.json();
+            if (scrapeResult.success) {
+              result.success_count++;
+              console.log(`✅ Post ${post.id} scraped successfully`);
+              succeeded = true;
+            } else {
+              lastError = scrapeResult.error || "Unknown scraping error";
+            }
+          } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+          }
         }
 
-        const scrapeResult = await scrapeResponse.json();
-
-        if (scrapeResult.success) {
-          result.success_count++;
-          console.log(`✅ Post ${post.id} scraped successfully`);
-        } else {
+        if (!succeeded) {
           result.error_count++;
-          const errorMessage = scrapeResult.error || "Unknown scraping error";
-          result.errors.push({
-            postId: post.id,
-            message: errorMessage,
-          });
-          console.error(`❌ Failed to scrape post ${post.id}:`, errorMessage);
-
-          // Mark post as failed
+          result.errors.push({ postId: post.id, message: lastError });
+          console.error(`❌ Failed to scrape post ${post.id} after ${POST_SCRAPE_RETRIES} attempts:`, lastError);
           await supabase
             .from("posts")
             .update({ status: "failed" })
@@ -433,7 +445,6 @@ serve(async (req) => {
         });
         console.error(`❌ Failed to scrape post ${post.id}:`, errorMessage);
 
-        // Mark post as failed
         await supabase
           .from("posts")
           .update({ status: "failed" })

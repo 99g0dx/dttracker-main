@@ -154,6 +154,8 @@ serve(async (req) => {
           `Campaign posts: ${posts.length} total, ${duePosts.length} due, scraping ${postsToScrape.length}`
         );
 
+        const POST_SCRAPE_RETRIES = 3; // initial + 2 retries per post
+
         for (let i = 0; i < postsToScrape.length; i++) {
           const post = postsToScrape[i];
           try {
@@ -162,32 +164,49 @@ serve(async (req) => {
               .update({ status: "scraping" })
               .eq("id", post.id);
 
-            const scrapeResponse = await fetch(scrapePostUrl, {
-              method: "POST",
-              headers: serviceRoleHeaders,
-              body: JSON.stringify({
-                postId: post.id,
-                postUrl: post.post_url,
-                platform: post.platform,
-                isAutoScrape: true,
-              }),
-            });
+            let lastError = "";
+            let succeeded = false;
 
-            if (!scrapeResponse.ok) {
-              const errText = await scrapeResponse.text();
-              throw new Error(`HTTP ${scrapeResponse.status}: ${errText}`);
+            for (let attempt = 0; attempt < POST_SCRAPE_RETRIES && !succeeded; attempt++) {
+              if (attempt > 0) {
+                const retryDelayMs = 2000 * attempt;
+                console.log(`Retrying post ${post.id} in ${retryDelayMs}ms (attempt ${attempt + 1}/${POST_SCRAPE_RETRIES})...`);
+                await new Promise((r) => setTimeout(r, retryDelayMs));
+              }
+
+              try {
+                const scrapeResponse = await fetch(scrapePostUrl, {
+                  method: "POST",
+                  headers: serviceRoleHeaders,
+                  body: JSON.stringify({
+                    postId: post.id,
+                    postUrl: post.post_url,
+                    platform: post.platform,
+                    isAutoScrape: true,
+                  }),
+                });
+
+                if (!scrapeResponse.ok) {
+                  const errText = await scrapeResponse.text();
+                  lastError = `HTTP ${scrapeResponse.status}: ${errText}`;
+                  continue;
+                }
+
+                const result = await scrapeResponse.json();
+                if (result.success) {
+                  trackingSuccess++;
+                  succeeded = true;
+                } else {
+                  lastError = result.error || "Unknown error";
+                }
+              } catch (err) {
+                lastError = err instanceof Error ? err.message : String(err);
+              }
             }
 
-            const result = await scrapeResponse.json();
-            if (result.success) {
-              trackingSuccess++;
-            } else {
+            if (!succeeded) {
               trackingErrors++;
-              errors.push({
-                id: post.id,
-                type: "post",
-                message: result.error || "Unknown error",
-              });
+              errors.push({ id: post.id, type: "post", message: lastError });
               await supabase
                 .from("posts")
                 .update({ status: "failed" })

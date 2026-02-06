@@ -46,3 +46,18 @@ entrypoint = "./functions/wallet-fund-initialize/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/wallet-fund/index.ts"
+
+[functions.creator-sync-from-dobbletap]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/creator-sync-from-dobbletap/index.ts"
+
+[functions.creator-stats-sync-from-dobbletap]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/creator-stats-sync-from-dobbletap/index.ts"
+
+[functions.activation-submission-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/activation-submission-webhook/index.ts"

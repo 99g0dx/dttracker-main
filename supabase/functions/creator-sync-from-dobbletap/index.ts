@@ -70,6 +70,7 @@ serve(async (req) => {
     const primary = social_accounts[0];
     const platform = primary.platform || 'tiktok';
     const handle = primary.handle?.replace(/^@/, '') || 'unknown';
+    const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
     const name = handle;
 
     let { data: creator, error: creatorError } = await supabase
@@ -91,35 +92,69 @@ serve(async (req) => {
     const now = new Date().toISOString();
 
     if (!creator) {
-      const { data: newCreator, error: insertError } = await supabase
+      const { data: existingByHandle, error: lookupError } = await supabase
         .from('creators')
-        .insert({
-          user_id: null,
-          dobble_tap_user_id: dobbleTapCreatorId,
-          name,
-          handle: `@${handle}`,
-          platform,
-          follower_count: primary.followers || 0,
-          avg_engagement: 0,
-          profile_photo: profile_photo || null,
-          bio: bio || null,
-          location: location || null,
-          status: 'active',
-          last_active_at: now,
-        })
         .select('id')
-        .single();
+        .eq('platform', platform)
+        .eq('handle', handleWithAt)
+        .maybeSingle();
 
-      if (insertError) {
+      if (lookupError) {
         return new Response(
-          JSON.stringify({ error: insertError.message }),
+          JSON.stringify({ error: lookupError.message }),
           {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         );
       }
-      creator = newCreator;
+
+      if (existingByHandle) {
+        creator = existingByHandle;
+        await supabase
+          .from('creators')
+          .update({
+            dobble_tap_user_id: dobbleTapCreatorId,
+            profile_photo: profile_photo || null,
+            bio: bio || null,
+            location: location || null,
+            status: 'active',
+            last_active_at: now,
+            updated_at: now,
+            follower_count: primary.followers ?? 0,
+          })
+          .eq('id', creator.id);
+      } else {
+        const { data: newCreator, error: insertError } = await supabase
+          .from('creators')
+          .insert({
+            user_id: null,
+            dobble_tap_user_id: dobbleTapCreatorId,
+            name,
+            handle: handleWithAt,
+            platform,
+            follower_count: primary.followers || 0,
+            avg_engagement: 0,
+            profile_photo: profile_photo || null,
+            bio: bio || null,
+            location: location || null,
+            status: 'active',
+            last_active_at: now,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          return new Response(
+            JSON.stringify({ error: insertError.message }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+        creator = newCreator;
+      }
     } else {
       await supabase
         .from('creators')

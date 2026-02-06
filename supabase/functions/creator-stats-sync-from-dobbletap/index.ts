@@ -59,20 +59,40 @@ serve(async (req) => {
       );
     }
 
-    const { data: existing } = await supabase
+    const creatorId = String(creator_id).trim();
+    if (!creatorId) {
+      return new Response(
+        JSON.stringify({ error: 'creator_id required' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const { data: existing, error: selectError } = await supabase
       .from('creator_stats')
-      .select('*')
-      .eq('creator_id', creator_id)
+      .select('total_reach, campaigns_completed, avg_engagement_rate, avg_views_per_post')
+      .eq('creator_id', creatorId)
       .maybeSingle();
 
-    const totalViews = Number(views) || 0;
-    const totalEngagements = Number(likes) || 0 + Number(comments) || 0 + Number(shares) || 0;
-    const engRate = Number(engagement_rate) || 0;
+    if (selectError) {
+      return new Response(
+        JSON.stringify({ error: selectError.message }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
-    const prevReach = existing?.total_reach ? Number(existing.total_reach) : 0;
-    const prevCompleted = existing?.campaigns_completed ? Number(existing.campaigns_completed) : 0;
-    const prevAvgEng = existing?.avg_engagement_rate ? Number(existing.avg_engagement_rate) : 0;
-    const prevAvgViews = existing?.avg_views_per_post;
+    const totalViews = Math.max(0, Number(views) || 0);
+    const engRate = Math.max(0, Number(engagement_rate) || 0);
+
+    const prevReach = Math.max(0, Number((existing as { total_reach?: number } | null)?.total_reach) || 0);
+    const prevCompleted = Math.max(0, Number((existing as { campaigns_completed?: number } | null)?.campaigns_completed) || 0);
+    const prevAvgEng = Math.max(0, Number((existing as { avg_engagement_rate?: number } | null)?.avg_engagement_rate) || 0);
+    const prevAvgViews = (existing as { avg_views_per_post?: number | null } | null)?.avg_views_per_post;
     const prevTotalReach = prevReach + totalViews;
 
     const newCampaignsCompleted = prevCompleted + 1;
@@ -81,7 +101,7 @@ serve(async (req) => {
         ? engRate
         : (prevAvgEng * prevCompleted + engRate) / newCampaignsCompleted;
     const newAvgViewsPerPost =
-      prevAvgViews != null
+      prevAvgViews != null && prevAvgViews !== undefined
         ? Math.round((prevAvgViews * prevCompleted + totalViews) / newCampaignsCompleted)
         : totalViews > 0 ? totalViews : null;
 
@@ -89,7 +109,7 @@ serve(async (req) => {
       .from('creator_stats')
       .upsert(
         {
-          creator_id,
+          creator_id: creatorId,
           avg_engagement_rate: Math.round(newAvgEngagement * 100) / 100,
           campaigns_completed: newCampaignsCompleted,
           total_reach: prevTotalReach,

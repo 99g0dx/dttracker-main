@@ -29,6 +29,47 @@ const TWITTER_API_HOST = "twitter241.p.rapidapi.com";
 const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
 // ============================================================
 
+const MAX_SCRAPE_ATTEMPTS = 3;
+const RETRY_BACKOFF_BASE_MS = 1500;
+
+/** Retry fetch on 429 (rate limit) and 5xx (server/gateway errors). */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  label: string
+): Promise<Response> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < MAX_SCRAPE_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      const retryable =
+        response.status === 429 || (response.status >= 500 && response.status < 600);
+      if (!retryable) return response;
+      if (attempt < MAX_SCRAPE_ATTEMPTS - 1) {
+        const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
+        console.warn(
+          `${label} ${response.status}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_SCRAPE_ATTEMPTS})...`
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+        continue;
+      }
+      return response;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < MAX_SCRAPE_ATTEMPTS - 1) {
+        const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
+        console.warn(
+          `${label} network error: ${lastError.message}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_SCRAPE_ATTEMPTS})...`
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+      } else {
+        throw lastError;
+      }
+    }
+  }
+  throw lastError ?? new Error(`${label} failed after ${MAX_SCRAPE_ATTEMPTS} attempts`);
+}
+
 interface ScrapeRequest {
   postId: string;
   postUrl: string;
@@ -89,11 +130,15 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
 
     console.log("[scrapeTikTok] Calling Apify actor:", actorId);
 
-    const response = await fetch(apifyUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
+    const response = await fetchWithRetry(
+      apifyUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+      "[scrapeTikTok] Apify"
+    );
 
     console.log(`[scrapeTikTok] Apify response status: ${response.status}`);
 
@@ -764,12 +809,12 @@ async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
         body: JSON.stringify(input),
       });
 
-      if (response.status === 429 && attempt < 3) {
-        const backoffMs = 1500 * Math.pow(2, attempt);
+      const retryable =
+        response.status === 429 || (response.status >= 500 && response.status < 600);
+      if (retryable && attempt < MAX_SCRAPE_ATTEMPTS - 1) {
+        const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
         console.warn(
-          `Apify Instagram API rate limited (429). Retrying in ${backoffMs}ms (attempt ${
-            attempt + 1
-          }/3)...`
+          `Apify Instagram API ${response.status}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_SCRAPE_ATTEMPTS})...`
         );
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
         return fetchWithRetry(attempt + 1);
@@ -893,11 +938,15 @@ async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
     console.log("[scrapeYouTube] Calling Apify actor:", actorId);
     console.log("[scrapeYouTube] Post URL:", normalizedUrl);
 
-    const response = await fetch(apifyUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
+    const response = await fetchWithRetry(
+      apifyUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+      "[scrapeYouTube] Apify"
+    );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
@@ -1035,13 +1084,17 @@ async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
     console.log("Twitter API URL:", twitterApiUrl);
     console.log("Extracted tweet ID (pid):", tweetId);
 
-    const response = await fetch(twitterApiUrl, {
-      method: "GET",
-      headers: {
-        "X-RapidAPI-Key": rapidApiKey,
-        "X-RapidAPI-Host": TWITTER_API_HOST,
+    const response = await fetchWithRetry(
+      twitterApiUrl,
+      {
+        method: "GET",
+        headers: {
+          "X-RapidAPI-Key": rapidApiKey,
+          "X-RapidAPI-Host": TWITTER_API_HOST,
+        },
       },
-    });
+      "[scrapeTwitter] RapidAPI"
+    );
 
     console.log(
       "Twitter API Response Status:",
