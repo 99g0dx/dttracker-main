@@ -987,9 +987,15 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     }
 
     if (postStatusFilter !== "all") {
+      const statusDisplayMap: Record<string, string> = {
+        pending: "Pending",
+        scraping: "Scraping",
+        complete: "Complete",
+        failed: "Update delayed",
+      };
       filters.push({
         key: "status",
-        label: `Status: ${formatLabel(postStatusFilter)}`,
+        label: `Status: ${statusDisplayMap[postStatusFilter] ?? formatLabel(postStatusFilter)}`,
         onClear: () => setPostStatusFilter("all"),
       });
     }
@@ -3539,7 +3545,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
                       }`}
                     >
-                      {status === "all" ? "All" : status}
+                      {status === "all"
+                        ? "All"
+                        : status === "failed"
+                          ? "Update delayed"
+                          : status}
                     </button>
                   )
                 )}

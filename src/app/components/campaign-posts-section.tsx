@@ -1382,7 +1382,11 @@ export function CampaignPostsSection({
                           : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
                       }`}
                     >
-                      {status === "all" ? "All" : status}
+                      {status === "all"
+                        ? "All"
+                        : status === "failed"
+                          ? "Update delayed"
+                          : status}
                     </button>
                   )
                 )}

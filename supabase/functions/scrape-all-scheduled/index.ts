@@ -93,7 +93,6 @@ serve(async (req) => {
     console.log("=== Scheduled Auto-Scraping Started ===");
     console.log("Timestamp:", now.toISOString());
 
-    const scrapePostUrl = `${supabaseUrl}/functions/v1/scrape-post`;
     const scrapeSubmissionUrl = `${supabaseUrl}/functions/v1/scrape-activation-submission`;
     const serviceRoleHeaders = {
       "Content-Type": "application/json",
@@ -103,8 +102,7 @@ serve(async (req) => {
 
     const MAX_POSTS = 15;
     const MAX_SUBMISSIONS = 15;
-    let trackingSuccess = 0;
-    let trackingErrors = 0;
+    let jobsEnqueued = 0;
     let contestSuccess = 0;
     let contestErrors = 0;
     const errors: Array<{ id: string; type: string; message: string }> = [];
@@ -151,79 +149,47 @@ serve(async (req) => {
         const postsToScrape = sortedDue.slice(0, MAX_POSTS);
 
         console.log(
-          `Campaign posts: ${posts.length} total, ${duePosts.length} due, scraping ${postsToScrape.length}`
+          `Campaign posts: ${posts.length} total, ${duePosts.length} due, enqueueing ${postsToScrape.length}`
         );
 
-        const POST_SCRAPE_RETRIES = 3; // initial + 2 retries per post
+        const nowIso = now.toISOString();
+        for (const post of postsToScrape) {
+          const jobRow = {
+            platform: post.platform,
+            job_type: "post",
+            reference_type: "post",
+            reference_id: post.id,
+            input: {
+              postId: post.id,
+              postUrl: post.post_url,
+              platform: post.platform,
+            },
+            priority: 0,
+            scheduled_for: nowIso,
+            status: "queued",
+          };
+          const { error: insertErr } = await supabase
+            .from("scrape_jobs")
+            .insert(jobRow);
 
-        for (let i = 0; i < postsToScrape.length; i++) {
-          const post = postsToScrape[i];
-          try {
-            await supabase
-              .from("posts")
-              .update({ status: "scraping" })
-              .eq("id", post.id);
-
-            let lastError = "";
-            let succeeded = false;
-
-            for (let attempt = 0; attempt < POST_SCRAPE_RETRIES && !succeeded; attempt++) {
-              if (attempt > 0) {
-                const retryDelayMs = 2000 * attempt;
-                console.log(`Retrying post ${post.id} in ${retryDelayMs}ms (attempt ${attempt + 1}/${POST_SCRAPE_RETRIES})...`);
-                await new Promise((r) => setTimeout(r, retryDelayMs));
-              }
-
-              try {
-                const scrapeResponse = await fetch(scrapePostUrl, {
-                  method: "POST",
-                  headers: serviceRoleHeaders,
-                  body: JSON.stringify({
-                    postId: post.id,
-                    postUrl: post.post_url,
-                    platform: post.platform,
-                    isAutoScrape: true,
-                  }),
-                });
-
-                if (!scrapeResponse.ok) {
-                  const errText = await scrapeResponse.text();
-                  lastError = `HTTP ${scrapeResponse.status}: ${errText}`;
-                  continue;
-                }
-
-                const result = await scrapeResponse.json();
-                if (result.success) {
-                  trackingSuccess++;
-                  succeeded = true;
-                } else {
-                  lastError = result.error || "Unknown error";
-                }
-              } catch (err) {
-                lastError = err instanceof Error ? err.message : String(err);
-              }
+          if (insertErr) {
+            if (insertErr.code === "23505") {
+              const { error: updateErr } = await supabase
+                .from("scrape_jobs")
+                .update({
+                  status: "queued",
+                  attempts: 0,
+                  scheduled_for: nowIso,
+                  next_retry_at: null,
+                  updated_at: nowIso,
+                })
+                .eq("reference_type", "post")
+                .eq("reference_id", post.id)
+                .in("status", ["failed", "cooldown"]);
+              if (!updateErr) jobsEnqueued++;
             }
-
-            if (!succeeded) {
-              trackingErrors++;
-              errors.push({ id: post.id, type: "post", message: lastError });
-              await supabase
-                .from("posts")
-                .update({ status: "failed" })
-                .eq("id", post.id);
-            }
-          } catch (err) {
-            trackingErrors++;
-            const msg = err instanceof Error ? err.message : String(err);
-            errors.push({ id: post.id, type: "post", message: msg });
-            await supabase
-              .from("posts")
-              .update({ status: "failed" })
-              .eq("id", post.id);
-          }
-
-          if (i < postsToScrape.length - 1) {
-            await new Promise((r) => setTimeout(r, 2000));
+          } else {
+            jobsEnqueued++;
           }
         }
       }
@@ -301,19 +267,19 @@ serve(async (req) => {
       }
     }
 
-    const totalSuccess = trackingSuccess + contestSuccess;
-    const totalErrors = trackingErrors + contestErrors;
+    const totalSuccess = contestSuccess;
+    const totalErrors = contestErrors;
 
     console.log(
-      `=== Auto-Scraping Complete === Tracking: ${trackingSuccess} ok, ${trackingErrors} err. Contest: ${contestSuccess} ok, ${contestErrors} err`
+      `=== Auto-Scraping Complete === Jobs enqueued: ${jobsEnqueued}. Contest: ${contestSuccess} ok, ${contestErrors} err`
     );
 
     return new Response(
       JSON.stringify({
         success: true,
+        jobs_enqueued: jobsEnqueued,
         scraped_count: totalSuccess,
         error_count: totalErrors,
-        tracking_posts_scraped: trackingSuccess,
         contest_submissions_scraped: contestSuccess,
         errors: errors.slice(0, 10),
       }),

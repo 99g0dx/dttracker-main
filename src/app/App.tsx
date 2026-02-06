@@ -138,6 +138,11 @@ const AdminUsers = React.lazy(() =>
     default: module.AdminUsers,
   }))
 );
+const ScrapeOps = React.lazy(() =>
+  import("./components/scrape-ops").then((module) => ({
+    default: module.ScrapeOps,
+  }))
+);
 const SoundTrackNew = React.lazy(() =>
   import("./components/sound-track-new").then((module) => ({
     default: module.SoundTrackNew,
@@ -339,6 +344,16 @@ function AppRoutes() {
                     <ProtectedRoute>
                       <CompanyAdminRoute>
                         <AdminUsers onNavigate={(path) => navigate(path)} />
+                      </CompanyAdminRoute>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/scrape-ops"
+                  element={
+                    <ProtectedRoute>
+                      <CompanyAdminRoute>
+                        <ScrapeOps onNavigate={(path) => navigate(path)} />
                       </CompanyAdminRoute>
                     </ProtectedRoute>
                   }

@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
   { name: 'Wallet', href: '/wallet', icon: <WalletIcon className="w-5 h-5" /> },
   { name: 'Admin', href: '/admin', icon: <CrownIcon className="w-5 h-5" />, emphasis: true },
   { name: 'Admin Users', href: '/admin/users', icon: <AdminIcon className="w-5 h-5" />, emphasis: true },
+  { name: 'Scrape Ops', href: '/admin/scrape-ops', icon: <AdminIcon className="w-5 h-5" />, emphasis: true },
 
   {
     name: 'Team', 
@@ -114,7 +115,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
       const canUseTeam = tier === 'pro' || tier === 'agency' || billing?.agency_role != null;
       return access.canManageTeam && canUseTeam;
     }
-    if (item.name === 'Admin' || item.name === 'Admin Users') return isCompanyAdmin;
+    if (item.name === 'Admin' || item.name === 'Admin Users' || item.name === 'Scrape Ops') return isCompanyAdmin;
     if (item.name === 'Creators' || item.name === 'Requests' || item.name === 'Activations' || item.name === 'Wallet') {
       return access.canViewWorkspace;
     }
