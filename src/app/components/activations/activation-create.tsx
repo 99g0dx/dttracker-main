@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -14,6 +15,8 @@ import { useWorkspace } from "../../../contexts/WorkspaceContext";
 import {
   useCreateActivation,
   usePublishActivation,
+  useActivation,
+  useUpdateActivation,
 } from "../../../hooks/useActivations";
 import { useWalletBalance } from "../../../hooks/useWallet";
 import type {
@@ -34,6 +37,8 @@ import { formatNumber } from "../../../lib/utils/format";
 import type { TaskType } from "../../../lib/sm-panel/constants";
 import { PricingTable } from "./sm-panel/PricingTable";
 import { ParticipationEstimate } from "./sm-panel/ParticipationEstimate";
+import { ServiceFeeDisplay } from "../ui/service-fee-display";
+import { useCommunityFans } from "../../../hooks/useCommunityFans";
 
 interface ActivationCreateProps {
   onNavigate: (path: string) => void;
@@ -71,32 +76,84 @@ const INITIAL_FORM_STATE = {
   instructions: "",
   required_comment_text: "",
   comment_guidelines: "",
+  visibility: "public" as "public" | "community",
+  community_fan_ids: [] as string[],
 };
 
 export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
+  const { id } = useParams<{ id?: string }>();
   const { activeWorkspaceId } = useWorkspace();
   const createActivation = useCreateActivation();
   const publishActivation = usePublishActivation();
+  const updateActivation = useUpdateActivation();
   const { data: wallet } = useWalletBalance(activeWorkspaceId);
+  const { data: communityFans = [], error: communityFansError } = useCommunityFans();
+  const { data: existingActivation, isLoading: isLoadingActivation } = useActivation(id ?? null);
+  
+  const isEditMode = !!id;
+  
+  // Log errors but don't crash - tables might not exist yet
+  if (communityFansError && import.meta.env.DEV) {
+    console.warn('Community fans query error (table may not exist yet):', communityFansError);
+  }
 
   const [step, setStep] = useState<Step>("type");
   const [activationType, setActivationType] = useState<ActivationType | null>(
     null
   );
-  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(id || null);
 
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
-  // Reset form when activation type changes
+  // Load existing activation data when in edit mode
   useEffect(() => {
-    if (activationType) {
+    if (isEditMode && existingActivation) {
+      if (existingActivation.status !== 'draft') {
+        toast.error('Only draft activations can be edited');
+        onNavigate('/activations');
+        return;
+      }
+      
+      setActivationType(existingActivation.type);
+      setStep('form');
+      
+      // Parse deadline date
+      const deadlineDate = existingActivation.deadline ? format(parseISO(existingActivation.deadline), 'yyyy-MM-dd') : '';
+      
+      setForm({
+        title: existingActivation.title || '',
+        brief: existingActivation.brief || '',
+        deadline: deadlineDate,
+        total_budget: Number(existingActivation.total_budget) || 0,
+        task_type: (existingActivation.task_type as TaskType) || 'like',
+        target_url: existingActivation.target_url || '',
+        base_rate: Number(existingActivation.base_rate) || 200,
+        max_participants: existingActivation.max_participants || 500,
+        auto_approve: existingActivation.auto_approve ?? true,
+        platforms: existingActivation.platforms || [],
+        requirements: existingActivation.requirements || [],
+        instructions: existingActivation.instructions || '',
+        required_comment_text: existingActivation.required_comment_text || '',
+        comment_guidelines: existingActivation.comment_guidelines || '',
+        visibility: existingActivation.visibility || 'public',
+        community_fan_ids: Array.isArray(existingActivation.community_fan_ids) ? existingActivation.community_fan_ids : [],
+      });
+    }
+  }, [isEditMode, existingActivation, onNavigate]);
+
+  // Reset form when activation type changes (only in create mode)
+  useEffect(() => {
+    if (activationType && !isEditMode) {
       setForm(INITIAL_FORM_STATE);
     }
-  }, [activationType]);
+  }, [activationType, isEditMode]);
 
   const availableBalance = wallet?.balance ?? 0;
+  const serviceFeeRate = 0.10;
+  const serviceFee = Math.round(form.total_budget * serviceFeeRate * 100) / 100;
+  const totalCost = form.total_budget + serviceFee;
   const canPublish =
-    availableBalance >= form.total_budget && form.total_budget > 0;
+    availableBalance >= totalCost && form.total_budget > 0;
 
   const handleCreate = async (asDraft: boolean) => {
     if (!activeWorkspaceId) return;
@@ -119,6 +176,55 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       return;
     }
 
+    // If editing, use update instead of create
+    if (isEditMode && id) {
+      const updates = {
+        title: form.title,
+        brief: form.brief || null,
+        deadline: form.deadline
+          ? endOfDay(parseISO(form.deadline)).toISOString()
+          : new Date().toISOString(),
+        total_budget: form.total_budget,
+        prize_structure:
+          activationType === "contest"
+            ? buildPrizeStructure(form.total_budget)
+            : null,
+        winner_count: activationType === "contest" ? CONTEST_WINNER_COUNT : null,
+        max_posts_per_creator: activationType === "contest" ? 5 : null,
+        judging_criteria: activationType === "contest" ? "performance" : null,
+        task_type: activationType === "sm_panel" ? form.task_type : null,
+        target_url:
+          activationType === "sm_panel" ? form.target_url || null : null,
+        ...(activationType === "sm_panel" && { base_rate: form.base_rate }),
+        ...(activationType === "sm_panel" &&
+          form.task_type === "comment" && {
+            required_comment_text: form.required_comment_text || null,
+            comment_guidelines: form.comment_guidelines || null,
+          }),
+        max_participants:
+          activationType === "sm_panel" ? form.max_participants : null,
+        auto_approve: activationType === "sm_panel" ? form.auto_approve : false,
+        platforms: form.platforms.length ? form.platforms : null,
+        requirements: form.requirements.length ? form.requirements : null,
+        instructions: form.instructions || null,
+        ...(form.visibility !== "public" && { visibility: form.visibility }),
+        ...(form.visibility === "community" && form.community_fan_ids.length > 0 && {
+          community_fan_ids: form.community_fan_ids,
+        }),
+      };
+
+      try {
+        const data = await updateActivation.mutateAsync({ id, updates });
+        if (data) {
+          onNavigate(`/activations/${id}`);
+        }
+      } catch {
+        // Toast handled by mutation
+      }
+      return;
+    }
+
+    // Create new activation
     const insert: ActivationInsert = {
       workspace_id: activeWorkspaceId,
       type: activationType!,
@@ -150,6 +256,11 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       platforms: form.platforms.length ? form.platforms : null,
       requirements: form.requirements.length ? form.requirements : null,
       instructions: form.instructions || null,
+      // Only include visibility fields if they differ from defaults (for backward compatibility)
+      ...(form.visibility !== "public" && { visibility: form.visibility }),
+      ...(form.visibility === "community" && form.community_fan_ids.length > 0 && {
+        community_fan_ids: form.community_fan_ids,
+      }),
     };
 
     try {
@@ -178,11 +289,29 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   };
 
   const handleBackToTypeSelection = () => {
-    setStep("type");
-    setActivationType(null);
-    setForm(INITIAL_FORM_STATE);
-    setCreatedId(null);
+    if (isEditMode) {
+      onNavigate(`/activations/${id}`);
+    } else {
+      setStep("type");
+      setActivationType(null);
+      setForm(INITIAL_FORM_STATE);
+      setCreatedId(null);
+    }
   };
+
+  // Show loading state when editing and activation is loading
+  if (isEditMode && isLoadingActivation) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Redirect if activation not found or not draft
+  if (isEditMode && existingActivation && existingActivation.status !== 'draft') {
+    return null; // useEffect will handle navigation
+  }
 
   if (step === "type") {
     return (
@@ -199,10 +328,10 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           </button>
           <div>
             <h1 className="text-xl font-semibold text-white">
-              Create Activation
+              {isEditMode ? 'Edit Activation' : 'Create Activation'}
             </h1>
             <p className="text-sm text-slate-400">
-              Choose the type of activation
+              {isEditMode ? 'Update activation details' : 'Choose the type of activation'}
             </p>
           </div>
         </div>
@@ -421,14 +550,23 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   <p className="text-xs text-slate-500 mt-1">
                     Minimum: ₦{formatNumber(CONTEST_MIN_PRIZE_POOL)}
                   </p>
-                  {form.total_budget > availableBalance && (
+                  {totalCost > availableBalance && (
                     <div className="flex items-center gap-2 mt-2 text-amber-400 text-sm">
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       <span>
                         Insufficient balance. Need{" "}
-                        {formatAmount(form.total_budget - availableBalance)}{" "}
-                        more.
+                        {formatAmount(totalCost - availableBalance)}{" "}
+                        more (including service fee).
                       </span>
+                    </div>
+                  )}
+                  {form.total_budget > 0 && (
+                    <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                      <ServiceFeeDisplay
+                        baseAmount={form.total_budget}
+                        serviceFeeRate={serviceFeeRate}
+                        showBreakdown={true}
+                      />
                     </div>
                   )}
                 </div>
@@ -531,14 +669,23 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     placeholder="100,000"
                     className="bg-white/[0.04] border-white/[0.08]"
                   />
-                  {form.total_budget > availableBalance && (
+                  {totalCost > availableBalance && (
                     <div className="flex items-center gap-2 mt-2 text-amber-400 text-sm">
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       <span>
                         Insufficient balance. Need{" "}
-                        {formatAmount(form.total_budget - availableBalance)}{" "}
-                        more.
+                        {formatAmount(totalCost - availableBalance)}{" "}
+                        more (including service fee).
                       </span>
+                    </div>
+                  )}
+                  {form.total_budget > 0 && (
+                    <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                      <ServiceFeeDisplay
+                        baseAmount={form.total_budget}
+                        serviceFeeRate={serviceFeeRate}
+                        showBreakdown={true}
+                      />
                     </div>
                   )}
                 </div>
@@ -639,6 +786,89 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               </>
             )}
 
+            {/* Visibility Selector */}
+            <div>
+              <label className="text-sm font-medium text-slate-300 block mb-2">
+                Visibility
+              </label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, visibility: "public", community_fan_ids: [] }))}
+                  className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
+                    form.visibility === "public"
+                      ? "bg-white/[0.06] border-white/[0.2] text-white"
+                      : "bg-white/[0.02] border-white/[0.08] text-slate-300 hover:border-white/[0.12]"
+                  }`}
+                >
+                  <div className="text-sm font-medium mb-1">Public</div>
+                  <div className="text-xs text-slate-400">Visible to all creators</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, visibility: "community" }))}
+                  className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
+                    form.visibility === "community"
+                      ? "bg-white/[0.06] border-white/[0.2] text-white"
+                      : "bg-white/[0.02] border-white/[0.08] text-slate-300 hover:border-white/[0.12]"
+                  }`}
+                >
+                  <div className="text-sm font-medium mb-1">Community</div>
+                  <div className="text-xs text-slate-400">Only imported fans</div>
+                </button>
+              </div>
+              {form.visibility === "community" && communityFans.length > 0 && (
+                <div className="mt-3">
+                  <label className="text-sm font-medium text-slate-300 block mb-2">
+                    Select Fans (optional - leave empty for all imported fans)
+                  </label>
+                  <div className="max-h-40 overflow-y-auto border border-white/[0.08] rounded-lg p-2 space-y-2">
+                    {communityFans.map((fan) => (
+                      <label
+                        key={fan.id}
+                        className="flex items-center gap-2 p-2 rounded hover:bg-white/[0.03] cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.community_fan_ids.includes(fan.id)}
+                          onChange={(e) => {
+                            setForm((f) => {
+                              const ids = new Set(f.community_fan_ids);
+                              if (e.target.checked) {
+                                ids.add(fan.id);
+                              } else {
+                                ids.delete(fan.id);
+                              }
+                              return { ...f, community_fan_ids: Array.from(ids) };
+                            });
+                          }}
+                          className="rounded"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-slate-300">
+                            {fan.name || fan.handle}
+                          </div>
+                          <div className="text-xs text-slate-500">@{fan.handle} • {fan.platform}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    {form.community_fan_ids.length === 0
+                      ? "All imported fans will see this activation"
+                      : `${form.community_fan_ids.length} fan${form.community_fan_ids.length !== 1 ? "s" : ""} selected`}
+                  </p>
+                </div>
+              )}
+              {form.visibility === "community" && communityFans.length === 0 && (
+                <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-sm text-amber-400">
+                    No fans imported yet. Import fans from the Creator Library to create community-only activations.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
@@ -647,8 +877,30 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               >
                 Back
               </Button>
+              {!isEditMode && (
+                <Button
+                  onClick={() => handleCreate(true)}
+                  disabled={
+                    !form.title ||
+                    !form.deadline ||
+                    form.total_budget <= 0 ||
+                    (isContest && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
+                    (!isContest &&
+                      (form.base_rate <= 0 ||
+                        form.total_budget < form.base_rate)) ||
+                    totalCost > availableBalance ||
+                    createActivation.isPending
+                  }
+                  variant="outline"
+                >
+                  {createActivation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
+                  Save Draft
+                </Button>
+              )}
               <Button
-                onClick={() => handleCreate(true)}
+                onClick={() => handleCreate(isEditMode)}
                 disabled={
                   !form.title ||
                   !form.deadline ||
@@ -657,25 +909,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   (!isContest &&
                     (form.base_rate <= 0 ||
                       form.total_budget < form.base_rate)) ||
-                  createActivation.isPending
-                }
-                variant="outline"
-              >
-                {createActivation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : null}
-                Save Draft
-              </Button>
-              <Button
-                onClick={() => handleCreate(false)}
-                disabled={
-                  !form.title ||
-                  !form.deadline ||
-                  form.total_budget <= 0 ||
-                  (isContest && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
-                  (!isContest &&
-                    (form.base_rate <= 0 ||
-                      form.total_budget < form.base_rate)) ||
+                  totalCost > availableBalance ||
                   createActivation.isPending
                 }
                 className="bg-primary text-black hover:bg-primary/90"
@@ -729,9 +963,26 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
             </div>
             <div>
               <p className="text-sm text-slate-400">Budget</p>
-              <p className="font-medium text-white">
-                {formatAmount(form.total_budget)}
+              <div className="mt-2">
+                <ServiceFeeDisplay
+                  baseAmount={form.total_budget}
+                  serviceFeeRate={serviceFeeRate}
+                  showBreakdown={true}
+                />
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-slate-400">Visibility</p>
+              <p className="font-medium text-white capitalize">
+                {form.visibility === "community" ? "Community Only" : "Public"}
               </p>
+              {form.visibility === "community" && (
+                <p className="text-xs text-slate-500 mt-1">
+                  {form.community_fan_ids.length === 0
+                    ? "All imported fans"
+                    : `${form.community_fan_ids.length} selected fan${form.community_fan_ids.length !== 1 ? "s" : ""}`}
+                </p>
+              )}
             </div>
             {form.deadline && (
               <div>

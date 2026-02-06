@@ -15,7 +15,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           borderRadius: "12px",
           boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
           color: "rgba(255, 255, 255, 1)",
-          width: "216px",
+          width: "auto",
+          maxWidth: "min(92vw, 20rem)",
         },
       }}
       />

@@ -18,6 +18,7 @@ export function useActivations(
   filters?: {
     type?: "contest" | "sm_panel" | "creator_request";
     status?: string;
+    visibility?: "public" | "community" | "all";
   },
   options?: { enabled?: boolean }
 ) {
@@ -121,6 +122,24 @@ export function useUpdateActivation() {
     },
     onError: (error: Error) => {
       toast.error(`Failed to update: ${error.message}`);
+    },
+  });
+}
+
+export function useDeleteActivation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const result = await activationsApi.deleteActivation(id);
+      if (result.error) throw result.error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: activationsKeys.all });
+      toast.success("Activation deleted");
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete: ${error.message}`);
     },
   });
 }

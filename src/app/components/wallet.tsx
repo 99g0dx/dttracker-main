@@ -81,6 +81,7 @@ function getTransactionIcon(type: WalletTransaction["type"]) {
     case "refund":
       return <ArrowDownLeft className="w-4 h-4 text-cyan-400" />;
     case "fee":
+    case "service_fee":
       return <WalletIcon className="w-4 h-4 text-amber-400" />;
     default:
       return <WalletIcon className="w-4 h-4 text-slate-400" />;
@@ -100,7 +101,8 @@ function getTransactionLabel(type: WalletTransaction["type"]): string {
     case "refund":
       return "Refund";
     case "fee":
-      return "Fee";
+    case "service_fee":
+      return "Service Fee";
     default:
       return type;
   }
@@ -113,6 +115,7 @@ const TX_TYPES: WalletTransactionType[] = [
   "payout",
   "refund",
   "fee",
+  "service_fee",
 ];
 
 function transactionsToCsv(
@@ -852,7 +855,7 @@ export function Wallet({ onNavigate }: WalletProps) {
               {initializeFund.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
-              Continue to Paystack
+              Continue
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -18,7 +18,7 @@ import { normalizeHandle, detectPlatformFromHandle } from "./urlParser";
 /**
  * Normalize column names to handle variations
  */
-function normalizeColumnName(name: string): string {
+export function normalizeColumnName(name: string): string {
   return name
     .toLowerCase()
     .trim()
@@ -40,7 +40,7 @@ function normalizeColumnName(name: string): string {
 /**
  * Get value from row using normalized column name
  */
-function getRowValue(row: any, normalizedName: string): string | undefined {
+export function getRowValue(row: any, normalizedName: string): string | undefined {
   // Try exact match first
   if (row[normalizedName]) return row[normalizedName];
 

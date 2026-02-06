@@ -769,6 +769,8 @@ export interface Activation {
   instructions: string | null;
   synced_to_dobble_tap: boolean;
   dobble_tap_activation_id: string | null;
+  visibility?: "public" | "community";
+  community_fan_ids?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -826,6 +828,8 @@ export interface ActivationInsert {
   platforms?: string[] | null;
   requirements?: string[] | null;
   instructions?: string | null;
+  visibility?: "public" | "community";
+  community_fan_ids?: string[];
 }
 
 export interface LeaderboardEntry {

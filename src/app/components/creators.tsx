@@ -75,9 +75,11 @@ import {
   useAddCreatorManually,
 } from "../../hooks/useCreators";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
+import { ImportFansDialog } from "./import-fans-dialog";
 import { supabase } from "../../lib/supabase";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
+import { useCommunityFans, useFanStats } from "../../hooks/useCommunityFans";
 import type {
   CreatorWithStats,
   CreatorWithSocialAndStats,
@@ -150,9 +152,14 @@ export function Creators({ onNavigate }: CreatorsProps) {
   };
 
   const [activeCreatorTab, setActiveCreatorTab] = useState<
-    "my_network" | "discover" | "favorites"
+    "my_network" | "discover" | "favorites" | "community"
   >("my_network");
   const [shouldFetch, setShouldFetch] = useState(false);
+  
+  // Community fans hooks - MUST be called before they're used in isLoading calculation
+  const { data: communityFansData = [], isLoading: communityFansLoading, error: communityFansError } = useCommunityFans();
+  const { data: fanStats, error: fanStatsError } = useFanStats();
+  
   // Use legacy list API until creators_page_schema migration is applied
   const { data: myNetworkData = [], isLoading: myNetworkLoading } =
     useCreatorsWithStats("my_network", { enabled: shouldFetch });
@@ -175,13 +182,18 @@ export function Creators({ onNavigate }: CreatorsProps) {
       ? myNetworkData
       : activeCreatorTab === "discover"
         ? discoverData
-        : favoritesData || [];
+        : activeCreatorTab === "favorites"
+          ? favoritesData || []
+          : []; // Community tab shows fans, not creators
+  
   const isLoading =
     activeCreatorTab === "my_network"
       ? myNetworkLoading
       : activeCreatorTab === "discover"
         ? discoverLoading
-        : favoritesLoading;
+        : activeCreatorTab === "favorites"
+          ? favoritesLoading
+          : communityFansLoading;
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
@@ -192,6 +204,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
     canViewWorkspace,
     canManageCreators,
   } = useWorkspaceAccess();
+  
   const canViewCreators = accessLoading || canViewWorkspace;
   const canEditCreators = accessLoading || canManageCreators;
 
@@ -229,8 +242,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [selectedCreator, setSelectedCreator] =
     useState<CreatorWithStats | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showImportFansDialog, setShowImportFansDialog] = useState(false);
   const [showSendOfferModal, setShowSendOfferModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  
+  // Log errors but don't crash - tables might not exist yet
+  useEffect(() => {
+    if (communityFansError && import.meta.env.DEV) {
+      console.warn('Community fans query error (table may not exist yet):', communityFansError);
+    }
+    if (fanStatsError && import.meta.env.DEV) {
+      console.warn('Fan stats query error (table may not exist yet):', fanStatsError);
+    }
+  }, [communityFansError, fanStatsError]);
   const [selectedCreatorIds, setSelectedCreatorIds] = useState<Set<string>>(
     new Set()
   );
@@ -703,19 +727,35 @@ export function Creators({ onNavigate }: CreatorsProps) {
       <div className="w-full">
         <div className="flex flex-col gap-2.5 sm:gap-4 sm:flex-row sm:items-center sm:justify-end sm:justify-between">
           <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-            <button
-              onClick={handleOpenAddDialog}
-              className="h-11 min-h-[44px] px-4 sm:px-5 bg-white hover:bg-white/95 active:bg-white/90 text-black text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!canEditCreators}
-              title={
-                !canEditCreators
-                  ? "You don't have permission to add creators"
-                  : undefined
-              }
-            >
-              <Plus className="w-4 h-4" />
-              Add Creator
-            </button>
+            {activeCreatorTab === "community" ? (
+              <button
+                onClick={() => setShowImportFansDialog(true)}
+                className="h-11 min-h-[44px] px-4 sm:px-5 bg-white hover:bg-white/95 active:bg-white/90 text-black text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!canEditCreators}
+                title={
+                  !canEditCreators
+                    ? "You don't have permission to import fans"
+                    : undefined
+                }
+              >
+                <Upload className="w-4 h-4" />
+                Import Fans
+              </button>
+            ) : (
+              <button
+                onClick={handleOpenAddDialog}
+                className="h-11 min-h-[44px] px-4 sm:px-5 bg-white hover:bg-white/95 active:bg-white/90 text-black text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!canEditCreators}
+                title={
+                  !canEditCreators
+                    ? "You don't have permission to add creators"
+                    : undefined
+                }
+              >
+                <Plus className="w-4 h-4" />
+                Add Creator
+              </button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -806,6 +846,16 @@ export function Creators({ onNavigate }: CreatorsProps) {
             >
               Favorites
             </button>
+            <button
+              onClick={() => setActiveCreatorTab("community")}
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
+                activeCreatorTab === "community"
+                  ? "bg-white text-black shadow-sm"
+                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
+              }`}
+            >
+              Community
+            </button>
           </div>
 
           {/* Stats */}
@@ -819,10 +869,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   className="text-2xl sm:text-4xl font-semibold text-white tracking-tight"
                   style={{ letterSpacing: "var(--letter-spacing-tight)" }}
                 >
-                  {creators.length}
+                  {activeCreatorTab === "community" 
+                    ? (fanStats?.total_fans || 0)
+                    : creators.length}
                 </div>
                 <p className="text-[11px] sm:text-sm text-slate-400 mt-1 sm:mt-2 font-medium">
-                  Total Creators
+                  {activeCreatorTab === "community" ? "Total Fans" : "Total Creators"}
                 </p>
               </CardContent>
             </Card>
@@ -836,10 +888,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   className="text-2xl sm:text-4xl font-semibold text-purple-400 tracking-tight"
                   style={{ letterSpacing: "var(--letter-spacing-tight)" }}
                 >
-                  {creators.reduce((sum, c) => sum + c.totalPosts, 0)}
+                  {activeCreatorTab === "community"
+                    ? (fanStats?.total_followers ? formatFollowers(fanStats.total_followers) : "0")
+                    : creators.reduce((sum, c) => sum + c.totalPosts, 0)}
                 </div>
                 <p className="text-[11px] sm:text-sm text-slate-400 mt-1 sm:mt-2 font-medium">
-                  Total Posts
+                  {activeCreatorTab === "community" ? "Total Followers" : "Total Posts"}
                 </p>
               </CardContent>
             </Card>
@@ -954,7 +1008,81 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </div>
             )}
           </div>
-          {isCreatorsLoading ? (
+          {activeCreatorTab === "community" ? (
+            // Community Fans Display
+            communityFansLoading ? (
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
+                    <UsersIcon className="w-6 h-6 text-slate-600 animate-pulse" />
+                  </div>
+                  <p className="text-sm text-slate-400">Loading fans...</p>
+                </CardContent>
+              </Card>
+            ) : communityFansData.length > 0 ? (
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="p-3 sm:p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {communityFansData.map((fan) => (
+                      <Card
+                        key={fan.id}
+                        className="bg-white/[0.02] border-white/[0.08] hover:border-white/[0.12] transition-colors"
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <PlatformIcon platform={fan.platform} size="sm" />
+                                <h3 className="text-sm font-semibold text-white truncate">
+                                  {fan.name || fan.handle}
+                                </h3>
+                              </div>
+                              <p className="text-xs text-slate-400 mb-2">@{fan.handle}</p>
+                              {fan.follower_count && (
+                                <p className="text-xs text-slate-500">
+                                  {formatFollowers(fan.follower_count)} followers
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from('community_fans')
+                                  .delete()
+                                  .eq('id', fan.id);
+                                if (error) {
+                                  toast.error('Failed to delete fan');
+                                } else {
+                                  toast.success('Fan removed');
+                                }
+                              }}
+                              className="w-8 h-8 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors flex-shrink-0"
+                            >
+                              <X className="w-4 h-4 text-slate-400" />
+                            </button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <UsersIcon className="w-12 h-12 text-slate-600 mb-4" />
+                  <p className="text-slate-400">No fans imported yet</p>
+                  <Button
+                    onClick={() => setShowImportFansDialog(true)}
+                    className="mt-4"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import Fans
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          ) : isCreatorsLoading ? (
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
@@ -1130,12 +1258,20 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     ? "No creators in your network yet"
                     : activeCreatorTab === "discover"
                       ? "No creators to discover"
-                      : "No favorites yet"}
+                      : activeCreatorTab === "favorites"
+                        ? "No favorites yet"
+                        : "No fans imported yet"}
                 </p>
                 {activeCreatorTab === "my_network" && (
                   <Button onClick={handleOpenAddDialog} className="mt-4">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Creator
+                  </Button>
+                )}
+                {activeCreatorTab === "community" && (
+                  <Button onClick={() => setShowImportFansDialog(true)} className="mt-4">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import Fans
                   </Button>
                 )}
               </CardContent>
@@ -2116,6 +2252,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
       <ImportCreatorsDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
+      />
+
+      {/* Import Fans Dialog */}
+      <ImportFansDialog
+        open={showImportFansDialog}
+        onClose={() => setShowImportFansDialog(false)}
       />
 
       {/* Creator Profile Modal */}

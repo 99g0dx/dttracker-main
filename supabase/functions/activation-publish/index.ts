@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { syncToDobbleTap } from '../_shared/dobble-tap-sync.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,8 +17,6 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const dobbleTapApi = Deno.env.get('DOBBLE_TAP_API') ?? '';
-    const syncApiKey = Deno.env.get('SYNC_API_KEY') ?? '';
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
@@ -100,6 +99,11 @@ serve(async (req) => {
       );
     }
 
+    // Calculate service fee (10% of total budget)
+    const serviceFeeRate = 0.10;
+    const serviceFee = Math.round(totalBudget * serviceFeeRate * 100) / 100; // Round to 2 decimal places
+    const totalCost = totalBudget + serviceFee;
+
     let { data: wallet } = await supabase
       .from('workspace_wallets')
       .select('*')
@@ -137,10 +141,11 @@ serve(async (req) => {
     const today = new Date().toISOString().slice(0, 10);
     const spentToday = lastReset === today ? Number(wallet.daily_spent_today) || 0 : 0;
 
-    if (availableBalance < totalBudget) {
+    // Check balance for total cost (budget + service fee)
+    if (availableBalance < totalCost) {
       return new Response(
         JSON.stringify({
-          error: `Insufficient balance. Available: ${availableBalance}, Required: ${totalBudget}`,
+          error: `Insufficient balance. Available: ${availableBalance}, Required: ${totalCost} (Budget: ${totalBudget} + Service Fee: ${serviceFee})`,
         }),
         {
           status: 400,
@@ -149,10 +154,10 @@ serve(async (req) => {
       );
     }
 
-    if (dailySpendLimit != null && spentToday + totalBudget > dailySpendLimit) {
+    if (dailySpendLimit != null && spentToday + totalCost > dailySpendLimit) {
       return new Response(
         JSON.stringify({
-          error: `Daily spending limit exceeded. Limit: ${dailySpendLimit}, already spent today: ${spentToday}, requested: ${totalBudget}`,
+          error: `Daily spending limit exceeded. Limit: ${dailySpendLimit}, already spent today: ${spentToday}, requested: ${totalCost} (Budget: ${totalBudget} + Service Fee: ${serviceFee})`,
         }),
         {
           status: 400,
@@ -161,9 +166,9 @@ serve(async (req) => {
       );
     }
 
-    const newAvailable = availableBalance - totalBudget;
+    const newAvailable = availableBalance - totalCost;
     const newLocked = lockedBalance + totalBudget;
-    const newSpentToday = spentToday + totalBudget;
+    const newSpentToday = spentToday + totalCost;
 
     const { error: updateWalletError } = await supabase
       .from('workspace_wallets')
@@ -186,6 +191,7 @@ serve(async (req) => {
       );
     }
 
+    // Create transaction for activation budget lock
     await supabase.from('wallet_transactions').insert({
       workspace_id: workspaceId,
       type: 'lock',
@@ -200,72 +206,84 @@ serve(async (req) => {
       metadata: { activation_title: activation.title },
     });
 
-    let syncedToDobbleTap = false;
+    // Create transaction for service fee
+    await supabase.from('wallet_transactions').insert({
+      workspace_id: workspaceId,
+      type: 'service_fee',
+      amount: serviceFee,
+      service_fee_amount: serviceFee,
+      balance_after: newAvailable,
+      locked_balance_after: newLocked,
+      reference_type: 'activation',
+      reference_id: activationId,
+      description: `Service fee (10%) for activation: ${activation.title}`,
+      status: 'completed',
+      processed_at: new Date().toISOString(),
+      metadata: { 
+        activation_title: activation.title,
+        service_fee_rate: serviceFeeRate,
+        base_amount: totalBudget,
+      },
+    });
 
-    if (dobbleTapApi && syncApiKey) {
-      try {
-        const syncRes = await fetch(`${dobbleTapApi}/api/sync/activation`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${syncApiKey}`,
-          },
-          body: JSON.stringify({
-            activation_id: activation.id,
-            dttracker_workspace_id: workspaceId,
-            type: activation.type,
-            title: activation.title,
-            brief: activation.brief,
-            deadline: activation.deadline,
-            total_budget: activation.total_budget,
-            prize_structure: activation.prize_structure,
-            winner_count:
-              activation.type === 'contest'
-                ? activation.winner_count ?? 20
-                : activation.winner_count,
-            max_posts_per_creator:
-              activation.type === 'contest'
-                ? activation.max_posts_per_creator ?? 5
-                : null,
-            scoring_method:
-              activation.type === 'contest' ? 'cumulative' : null,
-            performance_weights:
-              activation.type === 'contest'
-                ? { views: 1, likes: 2, comments: 3 }
-                : null,
-            task_type: activation.task_type,
-            target_url: activation.target_url,
-            payment_per_action: activation.payment_per_action,
-            base_rate: activation.base_rate,
-            required_comment_text: activation.required_comment_text,
-            comment_guidelines: activation.comment_guidelines,
-            max_participants: activation.max_participants,
-            platforms: activation.platforms,
-            requirements: activation.requirements,
-            instructions: activation.instructions,
-          }),
-        });
+    // Sync to Dobble Tap using shared utility
+    const syncPayload = {
+      activation_id: activation.id,
+      dttracker_workspace_id: workspaceId,
+      type: activation.type,
+      title: activation.title,
+      brief: activation.brief,
+      deadline: activation.deadline,
+      total_budget: activation.total_budget,
+      prize_structure: activation.prize_structure,
+      winner_count:
+        activation.type === 'contest'
+          ? activation.winner_count ?? 20
+          : activation.winner_count,
+      max_posts_per_creator:
+        activation.type === 'contest'
+          ? activation.max_posts_per_creator ?? 5
+          : null,
+      scoring_method:
+        activation.type === 'contest' ? 'cumulative' : null,
+      performance_weights:
+        activation.type === 'contest'
+          ? { views: 1, likes: 2, comments: 3 }
+          : null,
+      task_type: activation.task_type,
+      target_url: activation.target_url,
+      payment_per_action: activation.payment_per_action,
+      base_rate: activation.base_rate,
+      required_comment_text: activation.required_comment_text,
+      comment_guidelines: activation.comment_guidelines,
+      max_participants: activation.max_participants,
+      platforms: activation.platforms,
+      requirements: activation.requirements,
+      instructions: activation.instructions,
+    };
 
-        if (syncRes.ok) {
-          syncedToDobbleTap = true;
-        } else {
-          console.warn('Dobble Tap sync failed:', await syncRes.text());
-        }
-      } catch (syncErr) {
-        console.warn('Dobble Tap sync error:', syncErr);
-      }
-    } else {
-      console.log('Dobble Tap sync skipped (DOBBLE_TAP_API or SYNC_API_KEY not set)');
+    const syncResult = await syncToDobbleTap(
+      supabase,
+      'activation',
+      '/api/sync/activation',
+      syncPayload,
+      activation.id
+    );
+
+    const updateData: any = {
+      status: 'live',
+      synced_to_dobble_tap: syncResult.synced,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (syncResult.dobbleTapId) {
+      updateData.dobble_tap_activation_id = syncResult.dobbleTapId;
     }
 
     const { data: updatedActivation, error: updateActivationError } =
       await supabase
         .from('activations')
-        .update({
-          status: 'live',
-          synced_to_dobble_tap: syncedToDobbleTap,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', activationId)
         .select()
         .single();
