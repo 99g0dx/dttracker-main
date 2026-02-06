@@ -1,0 +1,2 @@
+# Dobble Tap integration - auth via SYNC_API_KEY (Bearer), not Supabase JWT
+verify_jwt = false

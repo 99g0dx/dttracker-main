@@ -1105,7 +1105,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <span className="text-sm text-slate-400 font-medium">
                       {selectedCreatorIds.size} selected
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         variant="outline"
                         size="sm"
