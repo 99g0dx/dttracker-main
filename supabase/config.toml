@@ -31,3 +31,18 @@ entrypoint = "./functions/checkEmail/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/scrape-all-scheduled/index.ts"
+
+[functions.paystack-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/paystack-webhook/index.ts"
+
+[functions.wallet-fund-initialize]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/wallet-fund-initialize/index.ts"
+
+[functions.wallet-fund]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/wallet-fund/index.ts"

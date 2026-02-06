@@ -244,20 +244,20 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate("/")}
-            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">
               Campaigns
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">
               Manage your marketing campaigns
             </p>
           </div>
@@ -291,13 +291,14 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
 
       {/* Campaigns Grid */}
       {filteredCampaigns.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
           {filteredCampaigns.map((campaign) => {
             const canEditThisCampaign = canEditCampaign(campaign.id);
             return (
               <Card
                 key={campaign.id}
-                className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer group relative overflow-hidden"
+                className="bg-[#0D0D0D] border-white/[0.08] active:border-white/[0.12] rounded-xl transition-all cursor-pointer group relative overflow-hidden"
+                style={{ boxShadow: 'var(--shadow-card)' }}
                 onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
               >
                 <CardContent className="p-0">
@@ -378,15 +379,15 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                   </div>
 
                   {/* Content Section */}
-                  <div className="p-3">
+                  <div className="p-3 min-[400px]:p-3.5 sm:p-4">
                     {/* Header Row: Title, Brand, Status */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-semibold text-white group-hover:text-primary transition-colors leading-snug break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] min-h-[40px]">
+                        <h3 className="text-sm min-[400px]:text-base font-semibold text-white group-hover:text-primary transition-colors leading-snug break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] min-h-[36px] sm:min-h-[40px]">
                           {campaign.name}
                         </h3>
                         {campaign.brand_name && (
-                          <p className="text-sm text-slate-400 mt-0.5 break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
+                          <p className="text-xs min-[400px]:text-sm text-slate-400 mt-0.5 break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
                             {campaign.brand_name}
                           </p>
                         )}
@@ -405,32 +406,32 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                     </div>
 
                     {/* Metrics Row */}
-                    <div className="grid grid-cols-3 gap-0.5">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
                       <div className="text-center min-w-0">
-                        <div className="text-sm font-semibold text-white leading-tight">
+                        <div className="text-xs min-[400px]:text-sm font-semibold text-white leading-tight">
                           {campaign.posts_count}
                         </div>
-                        <p className="text-[9px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 mt-0.5 truncate">
                           Posts
                         </p>
                       </div>
                       <div className="text-center min-w-0">
-                        <div className="text-sm font-semibold text-white leading-tight">
+                        <div className="text-xs min-[400px]:text-sm font-semibold text-white leading-tight">
                           {campaign.total_views >= 1000000
                             ? `${(campaign.total_views / 1000000).toFixed(1)}M`
                             : campaign.total_views >= 1000
                               ? `${(campaign.total_views / 1000).toFixed(1)}K`
                               : campaign.total_views}
                         </div>
-                        <p className="text-[9px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 mt-0.5 truncate">
                           Reach
                         </p>
                       </div>
                       <div className="text-center min-w-0">
-                        <div className="text-sm font-semibold text-emerald-400 leading-tight">
+                        <div className="text-xs min-[400px]:text-sm font-semibold text-emerald-400 leading-tight">
                           {campaign.avg_engagement_rate.toFixed(1)}%
                         </div>
-                        <p className="text-[9px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 mt-0.5 truncate">
                           Engagement
                         </p>
                       </div>
@@ -453,7 +454,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
           })}
         </div>
       ) : (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
               <Search className="w-6 h-6 text-slate-600" />

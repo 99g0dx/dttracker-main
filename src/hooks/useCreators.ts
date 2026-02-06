@@ -1,21 +1,26 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as creatorsApi from '../lib/api/creators';
-import type { CreatorInsert, CreatorUpdate } from '../lib/types/database';
-import { toast } from 'sonner';
-import * as csvUtils from '../lib/utils/csv';
-import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as creatorsApi from "../lib/api/creators";
+import type { CreatorInsert, CreatorUpdate } from "../lib/types/database";
+import { toast } from "sonner";
+import * as csvUtils from "../lib/utils/csv";
+import { useWorkspace } from "../contexts/WorkspaceContext";
 
 // Query keys
 export const creatorsKeys = {
-  all: ['creators'] as const,
-  lists: (workspaceId?: string | null) => [...creatorsKeys.all, 'list', workspaceId || 'default'] as const,
-  list: (workspaceId?: string | null) => [...creatorsKeys.lists(workspaceId)] as const,
-  byCampaign: (campaignId: string) => [...creatorsKeys.all, 'campaign', campaignId] as const,
-  myNetwork: (workspaceId: string | null) => [...creatorsKeys.all, 'myNetwork', workspaceId] as const,
+  all: ["creators"] as const,
+  lists: (workspaceId?: string | null) =>
+    [...creatorsKeys.all, "list", workspaceId || "default"] as const,
+  list: (workspaceId?: string | null) =>
+    [...creatorsKeys.lists(workspaceId)] as const,
+  byCampaign: (campaignId: string) =>
+    [...creatorsKeys.all, "campaign", campaignId] as const,
+  myNetwork: (workspaceId: string | null) =>
+    [...creatorsKeys.all, "myNetwork", workspaceId] as const,
   discover: (workspaceId: string | null, filters?: object) =>
-    [...creatorsKeys.all, 'discover', workspaceId, filters ?? {}] as const,
-  favorites: () => [...creatorsKeys.all, 'favorites'] as const,
-  profile: (creatorId: string | null) => [...creatorsKeys.all, 'profile', creatorId] as const,
+    [...creatorsKeys.all, "discover", workspaceId, filters ?? {}] as const,
+  favorites: () => [...creatorsKeys.all, "favorites"] as const,
+  profile: (creatorId: string | null) =>
+    [...creatorsKeys.all, "profile", creatorId] as const,
 };
 
 /**
@@ -47,7 +52,10 @@ export function useCreatorsByCampaign(campaignId: string) {
   return useQuery({
     queryKey: creatorsKeys.byCampaign(campaignId),
     queryFn: async () => {
-      const result = await creatorsApi.getByCampaign(campaignId, activeWorkspaceId);
+      const result = await creatorsApi.getByCampaign(
+        campaignId,
+        activeWorkspaceId
+      );
       if (result.error) {
         throw result.error;
       }
@@ -72,9 +80,9 @@ export function useImportCreators() {
     mutationFn: async (file: File) => {
       // Parse CSV
       const parseResult = await csvUtils.parseCreatorHandlesCSV(file);
-      
+
       if (parseResult.creators.length === 0) {
-        throw new Error('No valid creators found in CSV file');
+        throw new Error("No valid creators found in CSV file");
       }
 
       // Create creators in bulk
@@ -82,7 +90,7 @@ export function useImportCreators() {
         parseResult.creators,
         activeWorkspaceId
       );
-      
+
       if (createResult.error) {
         throw createResult.error;
       }
@@ -96,25 +104,30 @@ export function useImportCreators() {
       // Invalidate and refetch all creators queries (including network-filtered ones)
       // This ensures both 'my_network' and 'all' filters get updated
       await queryClient.invalidateQueries({
-        queryKey: creatorsKeys.all
+        queryKey: creatorsKeys.all,
         // Removed refetchType to invalidate ALL queries, not just active ones
       });
 
       // Explicitly refetch the creators list to ensure immediate UI update
       await queryClient.refetchQueries({
-        queryKey: [...creatorsKeys.list(activeWorkspaceId), 'withStats']
+        queryKey: [...creatorsKeys.list(activeWorkspaceId), "withStats"],
       });
 
       const successCount = data.createResult.success_count;
-      const errorCount = data.createResult.error_count + data.parseResult.error_count;
-      
+      const errorCount =
+        data.createResult.error_count + data.parseResult.error_count;
+
       if (errorCount === 0) {
-        toast.success(`Successfully imported ${successCount} creator${successCount !== 1 ? 's' : ''}`);
+        toast.success(
+          `Successfully imported ${successCount} creator${successCount !== 1 ? "s" : ""}`
+        );
       } else if (successCount === 0) {
-        toast.error(`Failed to import creators. ${errorCount} error${errorCount !== 1 ? 's' : ''}`);
+        toast.error(
+          `Failed to import creators. ${errorCount} error${errorCount !== 1 ? "s" : ""}`
+        );
       } else {
         toast.warning(
-          `Imported ${successCount} creator${successCount !== 1 ? 's' : ''}, ${errorCount} error${errorCount !== 1 ? 's' : ''}`
+          `Imported ${successCount} creator${successCount !== 1 ? "s" : ""}, ${errorCount} error${errorCount !== 1 ? "s" : ""}`
         );
       }
     },
@@ -132,7 +145,7 @@ export function useCreateCreator() {
   const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
-    mutationFn: async (creator: Omit<CreatorInsert, 'user_id'>) => {
+    mutationFn: async (creator: Omit<CreatorInsert, "user_id">) => {
       // Use getOrCreate which handles the creation
       const result = await creatorsApi.getOrCreate(
         creator.name || null,
@@ -143,26 +156,28 @@ export function useCreateCreator() {
         creator.phone,
         creator.niche,
         creator.location,
-        creator.source_type || 'manual',
+        creator.source_type || "manual",
         activeWorkspaceId
       );
-      
+
       if (result.error) {
         throw result.error;
       }
-      
+
       return result.data!;
     },
     onMutate: async (creator) => {
-      await queryClient.cancelQueries({ queryKey: creatorsKeys.list(activeWorkspaceId) });
+      await queryClient.cancelQueries({
+        queryKey: creatorsKeys.list(activeWorkspaceId),
+      });
       const tempId =
-        typeof crypto !== 'undefined' && crypto.randomUUID
+        typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
           : `temp_${Math.random().toString(36).slice(2)}`;
       const nowIso = new Date().toISOString();
       const optimisticCreator = {
         id: tempId,
-        user_id: 'pending',
+        user_id: "pending",
         name: creator.name || creator.handle,
         handle: creator.handle,
         platform: creator.platform,
@@ -172,8 +187,8 @@ export function useCreateCreator() {
         phone: creator.phone || null,
         niche: creator.niche || null,
         location: creator.location || null,
-        source_type: creator.source_type || 'manual',
-        imported_by_user_id: 'pending',
+        source_type: creator.source_type || "manual",
+        imported_by_user_id: "pending",
         created_by_workspace_id: activeWorkspaceId || null,
         profile_url: null,
         display_name: creator.name || creator.handle,
@@ -190,8 +205,13 @@ export function useCreateCreator() {
       const previous = queryClient.getQueryData<any[]>(key) || [];
       queryClient.setQueryData<any[]>(key, [optimisticCreator, ...previous]);
 
-      const withStatsKey = [...creatorsKeys.list(activeWorkspaceId), 'withStats', 'my_network'];
-      const previousWithStats = queryClient.getQueryData<any[]>(withStatsKey) || [];
+      const withStatsKey = [
+        ...creatorsKeys.list(activeWorkspaceId),
+        "withStats",
+        "my_network",
+      ];
+      const previousWithStats =
+        queryClient.getQueryData<any[]>(withStatsKey) || [];
       queryClient.setQueryData<any[]>(withStatsKey, [
         { ...optimisticCreator, campaigns: 0, totalPosts: 0 },
         ...previousWithStats,
@@ -202,14 +222,17 @@ export function useCreateCreator() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
       await queryClient.refetchQueries({ queryKey: creatorsKeys.all });
-      toast.success('Creator created successfully');
+      toast.success("Creator created successfully");
     },
     onError: (error: Error, _creator, context) => {
       if (context?.key) {
         queryClient.setQueryData(context.key, context.previous || []);
       }
       if (context?.withStatsKey) {
-        queryClient.setQueryData(context.withStatsKey, context.previousWithStats || []);
+        queryClient.setQueryData(
+          context.withStatsKey,
+          context.previousWithStats || []
+        );
       }
       toast.error(`Failed to create creator: ${error.message}`);
     },
@@ -220,18 +243,21 @@ export function useCreateCreator() {
  * Hook to fetch all creators with stats (campaigns count, total posts)
  */
 export function useCreatorsWithStats(
-  networkFilter?: 'my_network' | 'all',
+  networkFilter?: "my_network" | "all",
   options?: { enabled?: boolean }
 ) {
   const { activeWorkspaceId } = useWorkspace();
   return useQuery({
     queryKey: [
       ...creatorsKeys.list(activeWorkspaceId),
-      'withStats',
-      networkFilter || 'my_network'
+      "withStats",
+      networkFilter || "my_network",
     ],
     queryFn: async () => {
-      const result = await creatorsApi.listWithStats(networkFilter, activeWorkspaceId);
+      const result = await creatorsApi.listWithStats(
+        networkFilter,
+        activeWorkspaceId
+      );
       if (result.error) {
         throw result.error;
       }
@@ -253,7 +279,13 @@ export function useUpdateCreator() {
   const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: CreatorUpdate }) => {
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: CreatorUpdate;
+    }) => {
       const result = await creatorsApi.update(id, updates, activeWorkspaceId);
       if (result.error) {
         throw result.error;
@@ -263,7 +295,7 @@ export function useUpdateCreator() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
       await queryClient.refetchQueries({ queryKey: creatorsKeys.all });
-      toast.success('Creator updated successfully');
+      toast.success("Creator updated successfully");
     },
     onError: (error: Error) => {
       toast.error(`Failed to update creator: ${error.message}`);
@@ -288,7 +320,7 @@ export function useDeleteCreator() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
       await queryClient.refetchQueries({ queryKey: creatorsKeys.all });
-      toast.success('Creator deleted successfully');
+      toast.success("Creator deleted successfully");
     },
     onError: (error: Error) => {
       toast.error(`Failed to delete creator: ${error.message}`);
@@ -304,7 +336,13 @@ export function useAddCreatorsToCampaign() {
   const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
-    mutationFn: async ({ campaignId, creatorIds }: { campaignId: string; creatorIds: string[] }) => {
+    mutationFn: async ({
+      campaignId,
+      creatorIds,
+    }: {
+      campaignId: string;
+      creatorIds: string[];
+    }) => {
       const result = await creatorsApi.addCreatorsToCampaign(
         campaignId,
         creatorIds,
@@ -318,8 +356,12 @@ export function useAddCreatorsToCampaign() {
     onSuccess: async (data, variables) => {
       await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
       await queryClient.refetchQueries({ queryKey: creatorsKeys.all });
-      await queryClient.invalidateQueries({ queryKey: creatorsKeys.byCampaign(variables.campaignId) });
-      toast.success(`Added ${data.length} creator${data.length !== 1 ? 's' : ''} to campaign`);
+      await queryClient.invalidateQueries({
+        queryKey: creatorsKeys.byCampaign(variables.campaignId),
+      });
+      toast.success(
+        `Added ${data.length} creator${data.length !== 1 ? "s" : ""} to campaign`
+      );
     },
     onError: (error: Error) => {
       toast.error(`Failed to add creators to campaign: ${error.message}`);
@@ -335,7 +377,13 @@ export function useRemoveCreatorFromCampaign() {
   const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
-    mutationFn: async ({ campaignId, creatorId }: { campaignId: string; creatorId: string }) => {
+    mutationFn: async ({
+      campaignId,
+      creatorId,
+    }: {
+      campaignId: string;
+      creatorId: string;
+    }) => {
       const result = await creatorsApi.removeCreatorFromCampaign(
         campaignId,
         creatorId,
@@ -348,8 +396,10 @@ export function useRemoveCreatorFromCampaign() {
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
       await queryClient.refetchQueries({ queryKey: creatorsKeys.all });
-      await queryClient.invalidateQueries({ queryKey: creatorsKeys.byCampaign(variables.campaignId) });
-      toast.success('Creator removed from campaign');
+      await queryClient.invalidateQueries({
+        queryKey: creatorsKeys.byCampaign(variables.campaignId),
+      });
+      toast.success("Creator removed from campaign");
     },
     onError: (error: Error) => {
       toast.error(`Failed to remove creator from campaign: ${error.message}`);
@@ -363,9 +413,12 @@ export function useRemoveCreatorFromCampaign() {
 export function useCampaignCreators(campaignId: string) {
   const { activeWorkspaceId } = useWorkspace();
   return useQuery({
-    queryKey: [...creatorsKeys.byCampaign(campaignId), 'campaign-creators'],
+    queryKey: [...creatorsKeys.byCampaign(campaignId), "campaign-creators"],
     queryFn: async () => {
-      const result = await creatorsApi.getCampaignCreators(campaignId, activeWorkspaceId);
+      const result = await creatorsApi.getCampaignCreators(
+        campaignId,
+        activeWorkspaceId
+      );
       if (result.error) {
         throw result.error;
       }
@@ -380,9 +433,9 @@ export function useCampaignCreators(campaignId: string) {
  * Hook to fetch creator IDs for multiple campaigns
  */
 export function useCampaignCreatorIds(campaignIds: string[]) {
-  const campaignKey = campaignIds.slice().sort().join(',');
+  const campaignKey = campaignIds.slice().sort().join(",");
   return useQuery({
-    queryKey: [...creatorsKeys.all, 'campaign-creator-ids', campaignKey],
+    queryKey: [...creatorsKeys.all, "campaign-creator-ids", campaignKey],
     queryFn: async () => {
       const result = await creatorsApi.getCampaignCreatorIds(campaignIds);
       if (result.error) {
@@ -447,10 +500,17 @@ export function useToggleFavorite() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: creatorsKeys.favorites() });
       queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
-      toast.success(data?.data?.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+      toast.success(
+        data?.data?.is_favorite
+          ? "Added to favorites"
+          : "Removed from favorites"
+      );
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Favorites unavailable. Run database migrations to enable.');
+      toast.error(
+        err.message ||
+          "Favorites unavailable. Run database migrations to enable."
+      );
     },
   });
 }
@@ -464,7 +524,7 @@ export function useCreatorProfile(creatorId: string | null) {
       if (result.error) throw result.error;
       return result.data;
     },
-    enabled: !!creatorId && !creatorId.startsWith('manual-'),
+    enabled: !!creatorId && !creatorId.startsWith("manual-"),
   });
 }
 
@@ -479,9 +539,11 @@ export function useAddCreatorManually() {
       data: Parameters<typeof creatorsApi.addCreatorManually>[1];
     }) => creatorsApi.addCreatorManually(workspaceId, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: creatorsKeys.myNetwork(variables.workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: creatorsKeys.myNetwork(variables.workspaceId),
+      });
       queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
-      toast.success('Creator added');
+      toast.success("Creator added");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -500,7 +562,13 @@ export function useSendOfferToActivation() {
       activationId: string;
       amount: number;
       message?: string;
-    }) => creatorsApi.sendOfferToActivation(creatorId, activationId, amount, message),
+    }) =>
+      creatorsApi.sendOfferToActivation(
+        creatorId,
+        activationId,
+        amount,
+        message
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: creatorsKeys.all });
     },

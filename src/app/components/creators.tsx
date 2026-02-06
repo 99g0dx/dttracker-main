@@ -45,7 +45,6 @@ import {
   TableHeader,
   TableRow,
 } from "./ui/table";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import {
   Pagination,
   PaginationContent,
@@ -75,20 +74,25 @@ import {
   useSendOfferToActivation,
   useAddCreatorManually,
 } from "../../hooks/useCreators";
-import { CampaignCreatorSelector } from "./campaign-creator-selector";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { supabase } from "../../lib/supabase";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
-import type { CreatorWithStats, CreatorWithSocialAndStats, Platform } from "../../lib/types/database";
+import type {
+  CreatorWithStats,
+  CreatorWithSocialAndStats,
+  Platform,
+} from "../../lib/types/database";
 import { CreatorCard } from "./creators/creator-card";
 import { SendOfferModal } from "./creators/send-offer-modal";
 import { CreatorProfileModal } from "./creators/creator-profile-modal";
 import { useCart } from "../../contexts/CartContext";
 import { ReviewRequestModal } from "./review-request-modal";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
+import { CreatorRequestForm } from "./activations/creator-request-form";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
+import { useWalletBalance } from "../../hooks/useWallet";
 import { formatNumber } from "../../lib/utils/format";
 
 interface CreatorsProps {
@@ -145,20 +149,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
     return count.toLocaleString();
   };
 
-  const [activeCreatorTab, setActiveCreatorTab] = useState<"my_network" | "discover" | "favorites">(
-    "my_network"
-  );
+  const [activeCreatorTab, setActiveCreatorTab] = useState<
+    "my_network" | "discover" | "favorites"
+  >("my_network");
   const [shouldFetch, setShouldFetch] = useState(false);
   // Use legacy list API until creators_page_schema migration is applied
-  const { data: myNetworkData = [], isLoading: myNetworkLoading } = useCreatorsWithStats(
-    "my_network",
-    { enabled: shouldFetch }
-  );
-  const { data: discoverData = [], isLoading: discoverLoading } = useCreatorsWithStats(
-    "all",
-    { enabled: shouldFetch && activeCreatorTab === "discover" }
-  );
-  const { data: favoritesData = [], isLoading: favoritesLoading } = useFavoritesCreators();
+  const { data: myNetworkData = [], isLoading: myNetworkLoading } =
+    useCreatorsWithStats("my_network", { enabled: shouldFetch });
+  const { data: discoverData = [], isLoading: discoverLoading } =
+    useCreatorsWithStats("all", {
+      enabled: shouldFetch && activeCreatorTab === "discover",
+    });
+  const { data: favoritesData = [], isLoading: favoritesLoading } =
+    useFavoritesCreators();
   const favoriteIds = useMemo(
     () => new Set((favoritesData || []).map((c) => c.id)),
     [favoritesData]
@@ -171,18 +174,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
     activeCreatorTab === "my_network"
       ? myNetworkData
       : activeCreatorTab === "discover"
-      ? discoverData
-      : favoritesData || [];
+        ? discoverData
+        : favoritesData || [];
   const isLoading =
     activeCreatorTab === "my_network"
       ? myNetworkLoading
       : activeCreatorTab === "discover"
-      ? discoverLoading
-      : favoritesLoading;
+        ? discoverLoading
+        : favoritesLoading;
   const createCreatorMutation = useCreateCreator();
   const updateCreatorMutation = useUpdateCreator();
   const deleteCreatorMutation = useDeleteCreator();
   const { activeWorkspaceId } = useWorkspace();
+  const { data: wallet } = useWalletBalance(activeWorkspaceId);
   const {
     loading: accessLoading,
     canViewWorkspace,
@@ -227,7 +231,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showSendOfferModal, setShowSendOfferModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [selectedCreatorIds, setSelectedCreatorIds] = useState<Set<string>>(new Set());
+  const [selectedCreatorIds, setSelectedCreatorIds] = useState<Set<string>>(
+    new Set()
+  );
   const isCreatorsLoading = !shouldFetch || isLoading;
 
   // All hooks must be called before any conditional return (Rules of Hooks)
@@ -237,7 +243,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 18;
-  const [activeTab, setActiveTab] = useState("library");
 
   const uniqueNiches = useMemo(() => {
     const niches = creators
@@ -562,7 +567,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
     }
     setSelectedCreator(creator);
     setDeleteConfirm(creator.id);
-    console.log("[Delete State Updated]", { deleteConfirm: creator.id });
   };
 
   const openEditDialog = (creator: CreatorWithStats) => {
@@ -669,47 +673,39 @@ export function Creators({ onNavigate }: CreatorsProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 sm:gap-4">
+    <div className="space-y-6 sm:space-y-8 pb-6 sm:pb-8">
+      <div className="flex flex-col gap-3 sm:gap-6">
+        <div className="flex items-center gap-2.5 sm:gap-5">
           <button
             onClick={() => onNavigate?.("/")}
-            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-10 h-10 sm:w-11 sm:h-11 min-h-[44px] min-w-[44px] flex-shrink-0 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-all duration-150"
+            style={{ boxShadow: "var(--shadow-card)" }}
             aria-label="Back to dashboard"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-white" />
           </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
-              Creator Library
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Manage your creator network and contacts
-            </p>
+          <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 rounded-xl bg-white/[0.06] flex items-center justify-center">
+              <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight leading-tight">
+                Creator Library
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1 line-clamp-1">
+                Manage your creator network and contacts
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ">
-          <TabsList className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-1 w-fit">
-            <TabsTrigger
-              value="library"
-              className="data-[state=active]:bg-white/[0.06] data-[state=active]:text-white text-slate-400"
-            >
-              Creator Library
-            </TabsTrigger>
-            <TabsTrigger
-              value="campaign"
-              className="data-[state=active]:bg-white/[0.06] data-[state=active]:text-white text-slate-400"
-            >
-              Add to Campaign
-            </TabsTrigger>
-          </TabsList>
+      <div className="w-full">
+        <div className="flex flex-col gap-2.5 sm:gap-4 sm:flex-row sm:items-center sm:justify-end sm:justify-between">
           <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-end sm:gap-3">
             <button
               onClick={handleOpenAddDialog}
-              className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-sm font-semibold flex items-center justify-center gap-2 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
+              className="h-11 min-h-[44px] px-4 sm:px-5 bg-white hover:bg-white/95 active:bg-white/90 text-black text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!canEditCreators}
               title={
                 !canEditCreators
@@ -724,7 +720,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="relative h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                  className="relative h-11 min-h-[44px] px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
                   aria-label="Creator actions"
                 >
                   <MoreHorizontal className="w-4 h-4" />
@@ -732,7 +728,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     ? "Requests"
                     : "Actions"}
                   {activeCreatorTab === "discover" && totalItems > 0 && (
-                    <span className="ml-1 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-black text-xs font-semibold flex items-center justify-center">
+                    <span className="ml-1 min-w-[20px] h-5 px-1.5 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center">
                       {totalItems}
                     </span>
                   )}
@@ -777,35 +773,35 @@ export function Creators({ onNavigate }: CreatorsProps) {
           </div>
         </div>
 
-        <TabsContent value="library" className="space-y-4 mt-4">
+        <div className="space-y-3 sm:space-y-5 mt-3 sm:mt-5">
           {/* Network Filter Tabs: My Network | Discover | Favorites */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             <button
               onClick={() => setActiveCreatorTab("my_network")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "my_network"
-                  ? "bg-primary text-black"
-                  : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                  ? "bg-white text-black shadow-sm"
+                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
               }`}
             >
               My Network
             </button>
             <button
               onClick={() => setActiveCreatorTab("discover")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "discover"
-                  ? "bg-primary text-black"
-                  : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                  ? "bg-white text-black shadow-sm"
+                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
               }`}
             >
               Discover
             </button>
             <button
               onClick={() => setActiveCreatorTab("favorites")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "favorites"
-                  ? "bg-primary text-black"
-                  : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                  ? "bg-white text-black shadow-sm"
+                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
               }`}
             >
               Favorites
@@ -813,52 +809,68 @@ export function Creators({ onNavigate }: CreatorsProps) {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-4">
-                <div className="text-2xl font-semibold text-white">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5">
+            <Card
+              className="bg-[#0D0D0D] border-white/[0.08] transition-all duration-150 active:border-white/[0.12]"
+              style={{ boxShadow: "var(--shadow-stat)" }}
+            >
+              <CardContent className="p-3.5 sm:p-6">
+                <div
+                  className="text-2xl sm:text-4xl font-semibold text-white tracking-tight"
+                  style={{ letterSpacing: "var(--letter-spacing-tight)" }}
+                >
                   {creators.length}
                 </div>
-                <p className="text-sm text-slate-400 mt-1">Total Creators</p>
+                <p className="text-[11px] sm:text-sm text-slate-400 mt-1 sm:mt-2 font-medium">
+                  Total Creators
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-4">
-                <div className="text-2xl font-semibold text-purple-400">
+            <Card
+              className="bg-[#0D0D0D] border-white/[0.08] transition-all duration-150 active:border-white/[0.12]"
+              style={{ boxShadow: "var(--shadow-stat)" }}
+            >
+              <CardContent className="p-3.5 sm:p-6">
+                <div
+                  className="text-2xl sm:text-4xl font-semibold text-purple-400 tracking-tight"
+                  style={{ letterSpacing: "var(--letter-spacing-tight)" }}
+                >
                   {creators.reduce((sum, c) => sum + c.totalPosts, 0)}
                 </div>
-                <p className="text-sm text-slate-400 mt-1">Total Posts</p>
+                <p className="text-[11px] sm:text-sm text-slate-400 mt-1 sm:mt-2 font-medium">
+                  Total Posts
+                </p>
               </CardContent>
             </Card>
           </div>
 
           {/* Search, Filters, and Sort */}
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                 <Input
                   type="search"
                   placeholder="Search creators by name, handle, email, or location..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+                  className="h-11 sm:h-12 pl-11 pr-4"
                 />
               </div>
               <button
                 onClick={() => setFiltersOpen(true)}
-                className="h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                className="h-11 sm:h-12 min-h-[44px] px-4 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.1] text-sm text-slate-300 flex items-center justify-center gap-2 transition-all duration-150 w-full sm:w-auto"
               >
                 <Filter className="w-4 h-4" />
-                Filters
+                <span className="hidden xs:inline">Filters</span>
                 {activeCreatorFilterCount > 0 && (
-                  <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
+                  <span className="w-5 h-5 rounded-full bg-white text-black text-xs flex items-center justify-center font-semibold">
                     {activeCreatorFilterCount}
                   </span>
                 )}
               </button>
-              <div className="flex w-full sm:w-auto items-center gap-2">
+              <div className="flex w-full sm:w-auto items-center gap-2 sm:gap-3">
                 <select
                   value={sortField ?? "none"}
                   onChange={(e) => {
@@ -878,7 +890,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         | "location"
                     );
                   }}
-                  className="h-11 w-full sm:w-[200px] px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                  className="h-11 sm:h-12 w-full sm:w-[220px] px-3 sm:px-4 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] active:bg-white/[0.08] focus:bg-white/[0.06] focus:border-primary/50 transition-all duration-150"
+                  style={{ boxShadow: "var(--shadow-card)" }}
                 >
                   <option value="none">Sort: Default</option>
                   <option value="platform">Sort: Platform</option>
@@ -891,7 +904,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     setSortDirection(sortDirection === "asc" ? "desc" : "asc")
                   }
                   disabled={!sortField}
-                  className="h-11 w-11 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-11 sm:h-12 w-11 sm:w-12 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ boxShadow: "var(--shadow-card)" }}
                   aria-label="Toggle sort direction"
                 >
                   <ArrowUpDown className="w-4 h-4" />
@@ -920,8 +934,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 {selectedLocation !== "all" && <span>{selectedLocation}</span>}
                 {(followerRange.min || followerRange.max) && (
                   <span>
-                    Followers:{" "}
-                    {formatNumber(parseInt(followerRange.min) || 0)}-
+                    Followers: {formatNumber(parseInt(followerRange.min) || 0)}-
                     {followerRange.max
                       ? formatNumber(parseInt(followerRange.max))
                       : "∞"}
@@ -951,11 +964,17 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </CardContent>
             </Card>
           ) : filteredAndSortedCreators.length > 0 ? (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-4">
+            <Card
+              className="bg-[#0D0D0D] border-white/[0.08]"
+              style={{ boxShadow: "var(--shadow-card)" }}
+            >
+              <CardContent className="p-3 sm:p-5">
                 {selectedCreatorIds.size > 0 && (
-                  <div className="flex items-center justify-between gap-4 mb-4 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
-                    <span className="text-sm text-slate-400">
+                  <div
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5 p-3 sm:p-4 rounded-lg bg-white/[0.03] border border-white/[0.08]"
+                    style={{ boxShadow: "var(--shadow-card)" }}
+                  >
+                    <span className="text-sm text-slate-400 font-medium">
                       {selectedCreatorIds.size} selected
                     </span>
                     <div className="flex gap-2">
@@ -980,7 +999,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         onClick={() => {
                           if (selectedCreatorIds.size > 0) {
                             const first = Array.from(selectedCreatorIds)[0];
-                            const c = paginatedCreators.find((x) => x.id === first);
+                            const c = paginatedCreators.find(
+                              (x) => x.id === first
+                            );
                             if (c) {
                               setSelectedCreator(c as CreatorWithStats);
                               setShowSendOfferModal(true);
@@ -1010,7 +1031,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-1 min-[430px]:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
                   {paginatedCreators.map((creator) => (
                     <CreatorCard
                       key={creator.id}
@@ -1018,7 +1039,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       source={activeCreatorTab}
                       isFavorite={favoriteIds.has(creator.id)}
                       onToggleFavorite={(id) => {
-                        if (!id.startsWith("manual-")) toggleFavorite.mutate(id);
+                        if (!id.startsWith("manual-"))
+                          toggleFavorite.mutate(id);
                       }}
                       onViewProfile={(c) => {
                         setSelectedCreator(c as CreatorWithStats);
@@ -1055,28 +1077,43 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <PaginationContent>
                       <PaginationItem>
                         <PaginationPrevious
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                          }
+                          className={
+                            currentPage <= 1
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
                         />
                       </PaginationItem>
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const page = i + 1;
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(page)}
-                              isActive={currentPage === page}
-                              className="cursor-pointer"
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
+                      {Array.from(
+                        { length: Math.min(5, totalPages) },
+                        (_, i) => {
+                          const page = i + 1;
+                          return (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(page)}
+                                isActive={currentPage === page}
+                                className="cursor-pointer"
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                      )}
                       <PaginationItem>
                         <PaginationNext
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                          className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                          }
+                          className={
+                            currentPage >= totalPages
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
                         />
                       </PaginationItem>
                     </PaginationContent>
@@ -1092,14 +1129,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   {activeCreatorTab === "my_network"
                     ? "No creators in your network yet"
                     : activeCreatorTab === "discover"
-                    ? "No creators to discover"
-                    : "No favorites yet"}
+                      ? "No creators to discover"
+                      : "No favorites yet"}
                 </p>
                 {activeCreatorTab === "my_network" && (
-                  <Button
-                    onClick={handleOpenAddDialog}
-                    className="mt-4"
-                  >
+                  <Button onClick={handleOpenAddDialog} className="mt-4">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Creator
                   </Button>
@@ -1107,263 +1141,33 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </CardContent>
             </Card>
           )}
-          {false && (filteredAndSortedCreators.length > 0 ? (
-            <Card className="hidden">
-              <CardContent className="p-0">
-                <div className="lg:hidden p-4 grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
-                  {paginatedCreators.map((creator) => (
-                    <Card
-                      key={creator.id}
-                      className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors"
-                    >
-                      <CardContent className="p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-cyan-400/20 border border-primary/30 flex items-center justify-center text-xs font-semibold text-primary">
-                              {creator.name?.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-white truncate">
-                                {creator.name}
-                              </p>
-                              <CreatorHandleLink
-                                handle={creator.handle}
-                                platform={creator.platform}
-                                className="truncate block"
-                              />
-                            </div>
-                          </div>
-                          {(() => {
-                            const platformIcon = normalizePlatform(
-                              creator.platform
-                            );
-                            if (!platformIcon) return null;
-                            return (
-                              <PlatformIcon
-                                platform={platformIcon}
-                                size="sm"
-                                aria-label={`${getPlatformLabel(platformIcon)} creator`}
-                              />
-                            );
-                          })()}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
-                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Followers
-                            </p>
-                            <p className="text-sm text-white mt-0.5">
-                              {formatFollowers(creator.follower_count)}
-                            </p>
-                          </div>
-                          <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
-                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Engagement
-                            </p>
-                            <p className="text-sm text-emerald-400 mt-0.5">
-                              {creator.avg_engagement}%
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          {activeCreatorTab === "discover" && (
-                            <button
-                              onClick={() => {
-                                setRequestCreatorId(creator.id);
-                                setShowSingleCreatorRequestModal(true);
-                              }}
-                              className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
-                            >
-                              Request Creator
-                            </button>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openViewDialog(creator)}
-                              className="min-h-[44px] flex-1 border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
-                            >
-                              <Eye className="w-4 h-4" />
-                              View
-                            </Button>
-                            {activeCreatorTab === "my_network" && (
-                              <>
-                                <button
-                                  onClick={() => openEditDialog(creator)}
-                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
-                                  aria-label="Edit creator"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    console.log(
-                                      "[Mobile Delete Button Clicked]",
-                                      creator.id
-                                    );
-                                    handleDeleteRequest(creator);
-                                  }}
-                                  disabled={false}
-                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 flex items-center justify-center transition-colors"
-                                  aria-label="Delete creator"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                            {activeCreatorTab === "discover" &&
-                              (isInCart(creator.id) ? (
-                                <button
-                                  onClick={() => removeCreator(creator.id)}
-                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary flex items-center justify-center transition-colors"
-                                  aria-label="Remove creator"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => addCreator(creator)}
-                                  className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
-                                  aria-label="Add creator"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                </button>
-                              ))}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <div className="hidden lg:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-white/[0.08] hover:bg-transparent">
-                        {activeCreatorTab === "discover" && (
-                          <TableHead className="text-slate-400 font-medium w-12">
-                            <input
-                              type="checkbox"
-                              checked={
-                                paginatedCreators.length > 0 &&
-                                paginatedCreators.every((c) => isInCart(c.id))
-                              }
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  paginatedCreators.forEach((creator) =>
-                                    addCreator(creator)
-                                  );
-                                } else {
-                                  paginatedCreators.forEach((creator) =>
-                                    removeCreator(creator.id)
-                                  );
-                                }
-                              }}
-                              className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
-                            />
-                          </TableHead>
-                        )}
-                        <TableHead className="text-slate-400 font-medium">
-                          Creator
-                        </TableHead>
-                        {activeCreatorTab === "my_network" && (
-                          <TableHead className="text-slate-400 font-medium">
-                            Contact
-                          </TableHead>
-                        )}
-                        <TableHead className="text-slate-400 font-medium">
-                          Platform
-                        </TableHead>
-                        <TableHead className="text-slate-400 font-medium">
-                          Niche
-                        </TableHead>
-                        <TableHead className="text-slate-400 font-medium text-right">
-                          Followers
-                        </TableHead>
-                        <TableHead className="text-slate-400 font-medium text-right">
-                          Campaigns
-                        </TableHead>
-                        <TableHead className="text-slate-400 font-medium text-right">
-                          Posts
-                        </TableHead>
-                        <TableHead className="text-slate-400 font-medium text-right">
-                          Engagement
-                        </TableHead>
-                        {activeCreatorTab === "my_network" && (
-                          <TableHead className="text-slate-400 font-medium text-center">
-                            Actions
-                          </TableHead>
-                        )}
-{activeCreatorTab === "discover" && (
-                            <>
-                              <TableHead className="text-slate-400 font-medium text-right">
-                              Actions
-                            </TableHead>
-                            <TableHead className="text-slate-400 font-medium text-right w-20">
-                              Add
-                            </TableHead>
-                          </>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedCreators.map((creator) => (
-                        <TableRow
-                          key={creator.id}
-                          className="border-white/[0.04] hover:bg-white/[0.02] transition-colors"
-                        >
-                          {activeCreatorTab === "discover" && (
-                            <TableCell>
-                              <input
-                                type="checkbox"
-                                checked={isInCart(creator.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    addCreator(creator);
-                                  } else {
-                                    removeCreator(creator.id);
-                                  }
-                                }}
-                                className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
-                              />
-                            </TableCell>
-                          )}
-                          <TableCell>
-                            <div className="font-medium text-white text-sm">
-                              {creator.name}
-                            </div>
-                            <CreatorHandleLink
-                              handle={creator.handle}
-                              platform={creator.platform}
-                              className="mt-0.5 block"
-                            />
-                          </TableCell>
-                          {activeCreatorTab === "my_network" && (
-                            <TableCell>
-                              <div className="space-y-1.5 min-w-[180px]">
-                                {creator.email && (
-                                  <div className="text-sm text-white">
-                                    {creator.email}
-                                  </div>
-                                )}
-                                {creator.phone && (
-                                  <div className="text-sm text-white">
-                                    {creator.phone}
-                                  </div>
-                                )}
-                                {!creator.email && !creator.phone && (
-                                  <span className="text-xs text-slate-500">
-                                    No contact info
-                                  </span>
-                                )}
+          {false &&
+            (filteredAndSortedCreators.length > 0 ? (
+              <Card className="hidden">
+                <CardContent className="p-0">
+                  <div className="lg:hidden p-4 grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
+                    {paginatedCreators.map((creator) => (
+                      <Card
+                        key={creator.id}
+                        className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors"
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-cyan-400/20 border border-primary/30 flex items-center justify-center text-xs font-semibold text-primary">
+                                {creator.name?.charAt(0).toUpperCase()}
                               </div>
-                            </TableCell>
-                          )}
-                          <TableCell>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-white truncate">
+                                  {creator.name}
+                                </p>
+                                <CreatorHandleLink
+                                  handle={creator.handle}
+                                  platform={creator.platform}
+                                  className="truncate block"
+                                />
+                              </div>
+                            </div>
                             {(() => {
                               const platformIcon = normalizePlatform(
                                 creator.platform
@@ -1372,139 +1176,366 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               return (
                                 <PlatformIcon
                                   platform={platformIcon}
-                                  size="md"
+                                  size="sm"
                                   aria-label={`${getPlatformLabel(platformIcon)} creator`}
                                 />
                               );
                             })()}
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm text-slate-300">
-                              {creator.niche || "-"}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-white font-medium text-sm">
-                              {formatFollowers(creator.follower_count)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right text-slate-300">
-                            <span className="text-sm">{creator.campaigns}</span>
-                          </TableCell>
-                          <TableCell className="text-right text-slate-300">
-                            <span className="text-sm">
-                              {creator.totalPosts}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-emerald-400 font-medium text-sm">
-                              {creator.avg_engagement}%
-                            </span>
-                          </TableCell>
-                          {activeCreatorTab === "my_network" && (
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={() => openViewDialog(creator)}
-                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-                                  aria-label="View creator"
-                                >
-                                  <Eye className="w-5 h-5 text-slate-400" />
-                                </button>
-                                <button
-                                  onClick={() => openEditDialog(creator)}
-                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-                                  aria-label="Edit creator"
-                                >
-                                  <Edit2 className="w-5 h-5 text-slate-400" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    console.log(
-                                      "[Desktop Delete Button Clicked]",
-                                      creator.id
-                                    );
-                                    handleDeleteRequest(creator);
-                                  }}
-                                  disabled={false}
-                                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 flex items-center justify-center transition-colors"
-                                  aria-label="Delete creator"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </div>
-                            </TableCell>
-                          )}
-                          {activeCreatorTab === "discover" && (
-                            <>
-                              <TableCell className="text-right">
-                                <button
-                                  onClick={() => {
-                                    setRequestCreatorId(creator.id);
-                                    setShowSingleCreatorRequestModal(true);
-                                  }}
-                                  className="h-7 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
-                                >
-                                  Request Creator
-                                </button>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {isInCart(creator.id) ? (
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Followers
+                              </p>
+                              <p className="text-sm text-white mt-0.5">
+                                {formatFollowers(creator.follower_count)}
+                              </p>
+                            </div>
+                            <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Engagement
+                              </p>
+                              <p className="text-sm text-emerald-400 mt-0.5">
+                                {creator.avg_engagement}%
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            {activeCreatorTab === "discover" && (
+                              <button
+                                onClick={() => {
+                                  setRequestCreatorId(creator.id);
+                                  setShowSingleCreatorRequestModal(true);
+                                }}
+                                className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
+                              >
+                                Request Creator
+                              </button>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openViewDialog(creator)}
+                                className="min-h-[44px] flex-1 border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+                              >
+                                <Eye className="w-4 h-4" />
+                                View
+                              </Button>
+                              {activeCreatorTab === "my_network" && (
+                                <>
+                                  <button
+                                    onClick={() => openEditDialog(creator)}
+                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
+                                    aria-label="Edit creator"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleDeleteRequest(creator);
+                                    }}
+                                    disabled={false}
+                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 flex items-center justify-center transition-colors"
+                                    aria-label="Delete creator"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                              {activeCreatorTab === "discover" &&
+                                (isInCart(creator.id) ? (
                                   <button
                                     onClick={() => removeCreator(creator.id)}
-                                    className="h-7 px-3 rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary text-xs font-medium flex items-center gap-1.5 transition-colors"
+                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary flex items-center justify-center transition-colors"
+                                    aria-label="Remove creator"
                                   >
-                                    <Check className="w-3 h-3" />
-                                    Added
+                                    <Check className="w-4 h-4" />
                                   </button>
                                 ) : (
                                   <button
                                     onClick={() => addCreator(creator)}
-                                    className="h-7 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 text-xs font-medium transition-colors"
+                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
+                                    aria-label="Add creator"
                                   >
-                                    Add
+                                    <Plus className="w-4 h-4" />
                                   </button>
-                                )}
-                              </TableCell>
+                                ))}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="hidden lg:block overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/[0.08] hover:bg-transparent">
+                          {activeCreatorTab === "discover" && (
+                            <TableHead className="text-slate-400 font-medium w-12">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  paginatedCreators.length > 0 &&
+                                  paginatedCreators.every((c) => isInCart(c.id))
+                                }
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    paginatedCreators.forEach((creator) =>
+                                      addCreator(creator)
+                                    );
+                                  } else {
+                                    paginatedCreators.forEach((creator) =>
+                                      removeCreator(creator.id)
+                                    );
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
+                              />
+                            </TableHead>
+                          )}
+                          <TableHead className="text-slate-400 font-medium">
+                            Creator
+                          </TableHead>
+                          {activeCreatorTab === "my_network" && (
+                            <TableHead className="text-slate-400 font-medium">
+                              Contact
+                            </TableHead>
+                          )}
+                          <TableHead className="text-slate-400 font-medium">
+                            Platform
+                          </TableHead>
+                          <TableHead className="text-slate-400 font-medium">
+                            Niche
+                          </TableHead>
+                          <TableHead className="text-slate-400 font-medium text-right">
+                            Followers
+                          </TableHead>
+                          <TableHead className="text-slate-400 font-medium text-right">
+                            Campaigns
+                          </TableHead>
+                          <TableHead className="text-slate-400 font-medium text-right">
+                            Posts
+                          </TableHead>
+                          <TableHead className="text-slate-400 font-medium text-right">
+                            Engagement
+                          </TableHead>
+                          {activeCreatorTab === "my_network" && (
+                            <TableHead className="text-slate-400 font-medium text-center">
+                              Actions
+                            </TableHead>
+                          )}
+                          {activeCreatorTab === "discover" && (
+                            <>
+                              <TableHead className="text-slate-400 font-medium text-right">
+                                Actions
+                              </TableHead>
+                              <TableHead className="text-slate-400 font-medium text-right w-20">
+                                Add
+                              </TableHead>
                             </>
                           )}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="p-4 border-t border-white/[0.08]">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-slate-400">
-                      Showing {startIndex + 1}-
-                      {Math.min(endIndex, filteredAndSortedCreators.length)} of{" "}
-                      {filteredAndSortedCreators.length} creators
-                    </p>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedCreators.map((creator) => (
+                          <TableRow
+                            key={creator.id}
+                            className="border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+                          >
+                            {activeCreatorTab === "discover" && (
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  checked={isInCart(creator.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      addCreator(creator);
+                                    } else {
+                                      removeCreator(creator.id);
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
+                                />
+                              </TableCell>
+                            )}
+                            <TableCell>
+                              <div className="font-medium text-white text-sm">
+                                {creator.name}
+                              </div>
+                              <CreatorHandleLink
+                                handle={creator.handle}
+                                platform={creator.platform}
+                                className="mt-0.5 block"
+                              />
+                            </TableCell>
+                            {activeCreatorTab === "my_network" && (
+                              <TableCell>
+                                <div className="space-y-1.5 min-w-[180px]">
+                                  {creator.email && (
+                                    <div className="text-sm text-white">
+                                      {creator.email}
+                                    </div>
+                                  )}
+                                  {creator.phone && (
+                                    <div className="text-sm text-white">
+                                      {creator.phone}
+                                    </div>
+                                  )}
+                                  {!creator.email && !creator.phone && (
+                                    <span className="text-xs text-slate-500">
+                                      No contact info
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            )}
+                            <TableCell>
+                              {(() => {
+                                const platformIcon = normalizePlatform(
+                                  creator.platform
+                                );
+                                if (!platformIcon) return null;
+                                return (
+                                  <PlatformIcon
+                                    platform={platformIcon}
+                                    size="md"
+                                    aria-label={`${getPlatformLabel(platformIcon)} creator`}
+                                  />
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-slate-300">
+                                {creator.niche || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-white font-medium text-sm">
+                                {formatFollowers(creator.follower_count)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right text-slate-300">
+                              <span className="text-sm">
+                                {creator.campaigns}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right text-slate-300">
+                              <span className="text-sm">
+                                {creator.totalPosts}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-emerald-400 font-medium text-sm">
+                                {creator.avg_engagement}%
+                              </span>
+                            </TableCell>
+                            {activeCreatorTab === "my_network" && (
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => openViewDialog(creator)}
+                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                    aria-label="View creator"
+                                  >
+                                    <Eye className="w-5 h-5 text-slate-400" />
+                                  </button>
+                                  <button
+                                    onClick={() => openEditDialog(creator)}
+                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                    aria-label="Edit creator"
+                                  >
+                                    <Edit2 className="w-5 h-5 text-slate-400" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleDeleteRequest(creator);
+                                    }}
+                                    disabled={false}
+                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 flex items-center justify-center transition-colors"
+                                    aria-label="Delete creator"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              </TableCell>
+                            )}
+                            {activeCreatorTab === "discover" && (
+                              <>
+                                <TableCell className="text-right">
+                                  <button
+                                    onClick={() => {
+                                      setRequestCreatorId(creator.id);
+                                      setShowSingleCreatorRequestModal(true);
+                                    }}
+                                    className="h-7 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
+                                  >
+                                    Request Creator
+                                  </button>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {isInCart(creator.id) ? (
+                                    <button
+                                      onClick={() => removeCreator(creator.id)}
+                                      className="h-7 px-3 rounded-md bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary text-xs font-medium flex items-center gap-1.5 transition-colors"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      Added
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => addCreator(creator)}
+                                      className="h-7 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 text-xs font-medium transition-colors"
+                                    >
+                                      Add
+                                    </button>
+                                  )}
+                                </TableCell>
+                              </>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setCurrentPage((p) => Math.max(1, p - 1));
-                          }}
-                          className={
-                            currentPage === 1
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (page) => {
+                </CardContent>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="p-4 border-t border-white/[0.08]">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-slate-400">
+                        Showing {startIndex + 1}-
+                        {Math.min(endIndex, filteredAndSortedCreators.length)}{" "}
+                        of {filteredAndSortedCreators.length} creators
+                      </p>
+                    </div>
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage((p) => Math.max(1, p - 1));
+                            }}
+                            className={
+                              currentPage === 1
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1
+                        ).map((page) => {
                           if (
                             page === 1 ||
                             page === totalPages ||
@@ -1536,34 +1567,31 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             );
                           }
                           return null;
-                        }
-                      )}
-                      <PaginationItem>
-                        <PaginationNext
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setCurrentPage((p) => Math.min(totalPages, p + 1));
-                          }}
-                          className={
-                            currentPage === totalPages
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </Card>
-          ) : null)}
-        </TabsContent>
-
-        <TabsContent value="campaign" className="space-y-4 mt-4">
-          <CampaignCreatorSelector onNavigate={onNavigate} />
-        </TabsContent>
-      </Tabs>
+                        })}
+                        <PaginationItem>
+                          <PaginationNext
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage((p) =>
+                                Math.min(totalPages, p + 1)
+                              );
+                            }}
+                            className={
+                              currentPage === totalPages
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </Card>
+            ) : null)}
+        </div>
+      </div>
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent className="bg-[#0D0D0D] border-white/[0.08] w-[92vw] max-w-md p-4 sm:p-6">
@@ -2073,7 +2101,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
       <ResponsiveConfirmDialog
         open={Boolean(deleteConfirm)}
         onOpenChange={(open) => {
-          console.log("[Delete Dialog]", { open, deleteConfirm });
           if (!open) setDeleteConfirm(null);
         }}
         title="Delete creator?"
@@ -2081,7 +2108,6 @@ export function Creators({ onNavigate }: CreatorsProps) {
         confirmLabel="Delete creator"
         confirmLoading={Boolean(deletingCreatorId)}
         onConfirm={() => {
-          console.log("[Delete Confirmed]", deleteConfirm);
           deleteConfirm && handleDelete(deleteConfirm);
         }}
       />
@@ -2097,7 +2123,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
         open={showProfileModal}
         onOpenChange={setShowProfileModal}
         creator={selectedCreator as CreatorWithSocialAndStats | null}
-        isFavorite={selectedCreator ? favoriteIds.has(selectedCreator.id) : false}
+        isFavorite={
+          selectedCreator ? favoriteIds.has(selectedCreator.id) : false
+        }
         onToggleFavorite={(id) => toggleFavorite.mutate(id)}
         onRequest={(c) => {
           setShowProfileModal(false);
@@ -2117,7 +2145,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
           setShowProfileModal(false);
           handleDeleteRequest(c as CreatorWithStats);
         }}
-        inMyNetwork={!!(selectedCreator && (selectedCreator as any).in_my_network)}
+        inMyNetwork={
+          !!(selectedCreator && (selectedCreator as any).in_my_network)
+        }
       />
 
       {/* Send Offer Modal */}
@@ -2146,20 +2176,72 @@ export function Creators({ onNavigate }: CreatorsProps) {
         }}
       />
 
-      {/* Single Creator Request Modal */}
-      <CreatorRequestChatbot
+      {/* Creator Request (activation) Modal – wallet structure + form */}
+      <Dialog
         open={showSingleCreatorRequestModal}
         onOpenChange={(open) => {
           setShowSingleCreatorRequestModal(open);
-          if (!open) {
-            setRequestCreatorId(null);
-          }
+          if (!open) setRequestCreatorId(null);
         }}
-        onComplete={() => {
-          setRequestCreatorId(null);
-        }}
-        initialCreatorIds={requestCreatorId ? [requestCreatorId] : undefined}
-      />
+      >
+        <DialogContent className="bg-[#0D0D0D] border-white/[0.08] max-w-2xl max-h-[90vh] overflow-y-auto text-base">
+          <DialogHeader>
+            <DialogTitle className="text-white text-base font-semibold">
+              Creator Request
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Request creators at quoted rates. Funds lock when they accept.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-3">
+            <Card className="bg-white/[0.04] border-white/[0.08]">
+              <CardContent className="p-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-slate-400">Available balance</p>
+                  <p className="text-base font-semibold text-white">
+                    {new Intl.NumberFormat("en-NG", {
+                      style: "currency",
+                      currency: "NGN",
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    }).format(wallet?.balance ?? 0)}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowSingleCreatorRequestModal(false);
+                    onNavigate?.("/wallet");
+                  }}
+                  className="border-white/[0.08] text-xs"
+                >
+                  Fund Wallet
+                </Button>
+              </CardContent>
+            </Card>
+            <CreatorRequestForm
+              workspaceId={activeWorkspaceId}
+              onSuccess={(activationId) => {
+                setShowSingleCreatorRequestModal(false);
+                setRequestCreatorId(null);
+                onNavigate?.(`/activations/${activationId}`);
+              }}
+              onNavigate={(path) => {
+                setShowSingleCreatorRequestModal(false);
+                onNavigate?.(path);
+              }}
+              onBack={() => {
+                setShowSingleCreatorRequestModal(false);
+                setRequestCreatorId(null);
+              }}
+              initialCreatorIds={
+                requestCreatorId ? [requestCreatorId] : undefined
+              }
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

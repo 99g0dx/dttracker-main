@@ -2,24 +2,26 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import {
-  Calendar,
-  Download,
   ChevronDown,
   TrendingUp,
   TrendingDown,
-  Eye,
   Heart,
-  Users,
-  FileText,
   MessageCircle,
   Share2,
   MoreVertical,
   ArrowUpRight,
-  Search,
-  Filter,
-  Trophy,
-  Megaphone,
 } from 'lucide-react';
+import {
+  CalendarIcon,
+  DownloadIcon,
+  EyeIcon,
+  PeopleIcon,
+  DocumentIcon,
+  FilterIcon,
+  SearchIcon,
+  TrophyIcon,
+  CampaignIcon,
+} from './ui/custom-icons';
 import { NotificationsCenter } from './notifications-center';
 import { StatusBadge } from './status-badge';
 import { useCampaigns } from '../../hooks/useCampaigns';
@@ -566,10 +568,10 @@ useEffect(() => {
       //   'Platform Posts Match': Math.abs(totalPosts - kpiMetrics.totalPosts) < 1 ? '✓ Aligned' : '⚠ Mismatch',
       // });
       
-      if (!percentageValid) {
+      if (!percentageValid && import.meta.env.DEV) {
         console.warn('[Platform Breakdown Warning]', 'Percentages do not sum to 100%. This may indicate a calculation error.');
       }
-      if (Math.abs(totalPosts - kpiMetrics.totalPosts) >= 1) {
+      if (Math.abs(totalPosts - kpiMetrics.totalPosts) >= 1 && import.meta.env.DEV) {
         console.warn('[Platform Breakdown Warning]', 'Platform breakdown post count does not match KPI total posts.');
       }
     }
@@ -742,42 +744,13 @@ useEffect(() => {
 
   // Log verification in development
   useEffect(() => {
-    if (chartTotalReach > 0 && kpiMetrics.totalReachValue > 0) {
+    if (import.meta.env.DEV && chartTotalReach > 0 && kpiMetrics.totalReachValue > 0) {
       if (chartTotalReach !== kpiMetrics.totalReachValue) {
         console.warn(
           '[Dashboard Data Mismatch]',
           `Chart total reach (${chartTotalReach}) does not match KPI total reach (${kpiMetrics.totalReachValue})`
         );
-      } else {
-        console.log(
-          '[Dashboard Data Verified]',
-          `Chart and KPI match: ${chartTotalReach} total reach`
-        );
       }
-      // Log chart data points for debugging
-      console.log('[Performance Overview Chart Data]', {
-        dataPoints: timeSeriesData.length,
-        firstPoint: timeSeriesData[0],
-        lastPoint: timeSeriesData[timeSeriesData.length - 1],
-        sampleData: timeSeriesData.slice(0, 3),
-        totalReach: chartTotalReach,
-        kpiReach: kpiMetrics.totalReachValue
-      });
-    }
-    if (process.env.NODE_ENV === 'development' && postsInRangeWithDates.length > 0) {
-      const campaignBreakdown = postsInRangeWithDates.reduce(
-        (acc: Record<string, { posts: number; reach: number }>, post: any) => {
-          const campaignId = post.campaign_id || 'unknown';
-          if (!acc[campaignId]) {
-            acc[campaignId] = { posts: 0, reach: 0 };
-          }
-          acc[campaignId].posts += 1;
-          acc[campaignId].reach += Number(post.views || 0);
-          return acc;
-        },
-        {}
-      );
-      console.log('[Dashboard Campaign Reach Breakdown]', campaignBreakdown);
     }
   }, [chartTotalReach, kpiMetrics.totalReachValue, timeSeriesData, postsInRangeWithDates]);
 
@@ -805,10 +778,10 @@ useEffect(() => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-1">Track your campaign performance</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">Dashboard</h1>
+          <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">Track your campaign performance</p>
         </div>
         
           <div className="flex flex-wrap items-center gap-3">
@@ -818,7 +791,7 @@ useEffect(() => {
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
               className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
             >
-              <Calendar className="w-4 h-4" />
+              <CalendarIcon className="w-4 h-4" />
               <span className="hidden sm:inline">{formatDateRange(dateRange)}</span>
               <span className="sm:hidden">{format(dateRange.start, 'MMM d')}</span>
               <ChevronDown className="w-4 h-4" />
@@ -861,7 +834,7 @@ useEffect(() => {
             className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-amber-500/30"
             aria-label="Create activation"
           >
-            <Trophy className="w-4 h-4" />
+            <TrophyIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Create Activation</span>
           </button>
           <button
@@ -869,7 +842,7 @@ useEffect(() => {
             className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             aria-label="Track new campaign"
           >
-            <Megaphone className="w-4 h-4" />
+            <CampaignIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Track Campaign</span>
           </button>
           <button
@@ -877,108 +850,94 @@ useEffect(() => {
             className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             aria-label="Export analytics"
           >
-            <Download className="w-4 h-4" />
+            <DownloadIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-[#0ea5e9]/10 flex items-center justify-center">
-                <Eye className="w-4 h-4 text-[#0ea5e9]" />
-              </div>
-              <div className="flex items-center gap-1 text-xs text-slate-500">
-                <span className="font-medium">{formatDateRange(dateRange)}</span>
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <CardContent className="p-4 sm:p-5 lg:p-6">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/[0.08] flex items-center justify-center">
+                <EyeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
               {kpiMetrics.totalReach}
             </div>
-            <p className="text-sm text-slate-400">Total Reach</p>
+            <p className="text-xs sm:text-sm text-slate-400">Total Reach</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
-                <Heart className="w-4 h-4 text-purple-400" />
-              </div>
-              <div className="flex items-center gap-1 text-xs text-slate-500">
-                <span className="font-medium">Average</span>
+        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <CardContent className="p-4 sm:p-5 lg:p-6">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
               {kpiMetrics.engagementRate}%
             </div>
-            <p className="text-sm text-slate-400">Engagement Rate</p>
+            <p className="text-xs sm:text-sm text-slate-400">Engagement Rate</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
-                <Users className="w-4 h-4 text-cyan-400" />
-              </div>
-              <div className="flex items-center gap-1 text-xs text-slate-500">
-                <span className="font-medium">Total</span>
+        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <CardContent className="p-4 sm:p-5 lg:p-6">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                <PeopleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
               {kpiMetrics.activeCreators}
             </div>
-            <p className="text-sm text-slate-400">Active Creators</p>
+            <p className="text-xs sm:text-sm text-slate-400">Active Creators</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
-                <FileText className="w-4 h-4 text-amber-400" />
-              </div>
-              <div className="flex items-center gap-1 text-xs text-slate-500">
-                <span className="font-medium">All campaigns</span>
+        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <CardContent className="p-4 sm:p-5 lg:p-6">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <DocumentIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
               {kpiMetrics.totalPosts}
             </div>
-            <p className="text-sm text-slate-400">Total Posts</p>
+            <p className="text-xs sm:text-sm text-slate-400">Total Posts</p>
           </CardContent>
         </Card>
 
         <Card
-          className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer"
+          className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden cursor-pointer active:border-white/[0.12] transition-all duration-150"
+          style={{ boxShadow: 'var(--shadow-card)' }}
           onClick={() => onNavigate('/activations')}
         >
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
-                <Trophy className="w-4 h-4 text-amber-400" />
-              </div>
-              <div className="flex items-center gap-1 text-xs text-slate-500">
-                <span className="font-medium">Live</span>
+          <CardContent className="p-4 sm:p-5 lg:p-6">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <TrophyIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-white mb-1">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
               {activeActivationsCount}
             </div>
-            <p className="text-sm text-slate-400">Active Activations</p>
+            <p className="text-xs sm:text-sm text-slate-400">Active Activations</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 animate-in fade-in duration-700">
         {/* Performance Chart */}
-        <Card className="lg:col-span-2 bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300">
-          <CardContent className="p-4 sm:p-6">
+        <Card className="lg:col-span-2 bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <CardContent className="p-5 sm:p-6 lg:p-7">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
               <div>
                 <h3 className="text-base font-semibold text-white">Performance Overview</h3>
@@ -1065,8 +1024,8 @@ useEffect(() => {
         </Card>
 
         {/* Platform Breakdown */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all duration-300">
-          <CardContent className="p-4 sm:p-6">
+        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <CardContent className="p-5 sm:p-6 lg:p-7">
             <h3 className="text-base font-semibold text-white mb-1">Platform Split</h3>
             <p className="text-sm text-slate-400 mb-6">Content distribution</p>
             
@@ -1119,9 +1078,9 @@ useEffect(() => {
       </div>
 
       {/* Campaigns Table */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08] animate-in fade-in duration-500">
+      <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden animate-in fade-in duration-500" style={{ boxShadow: 'var(--shadow-card)' }}>
         <CardContent className="p-0">
-          <div className="p-4 sm:p-6 border-b border-white/[0.08]">
+          <div className="p-5 sm:p-6 lg:p-7 border-b border-white/[0.08]">
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -1137,10 +1096,10 @@ useEffect(() => {
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex flex-wrap items-center gap-2 transition-colors w-fit"
               >
-                <Filter className="w-4 h-4" />
+                <FilterIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
                 {activeFilterCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-[#0ea5e9] text-white text-xs flex items-center justify-center font-medium">
+                  <span className="w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-medium">
                     {activeFilterCount}
                   </span>
                 )}
@@ -1148,7 +1107,7 @@ useEffect(() => {
 
               {/* Search Input */}
               <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="search"
                   placeholder="Search campaigns..."
@@ -1164,7 +1123,7 @@ useEffect(() => {
             
           </div>
 
-          <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {isCampaignsLoading ? (
               <div className="text-sm text-slate-400 col-span-full">Loading campaigns...</div>
             ) : filteredCampaigns.length === 0 ? (
@@ -1180,10 +1139,11 @@ useEffect(() => {
                 return (
                   <Card
                     key={campaign.id}
-                    className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer"
+                    className="bg-[#0D0D0D] border-white/[0.08] active:border-white/[0.12] rounded-xl overflow-hidden transition-all cursor-pointer"
+                    style={{ boxShadow: 'var(--shadow-card)' }}
                     onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
                   >
-                    <CardContent className="p-3 space-y-2">
+                    <CardContent className="p-3 min-[400px]:p-3.5 sm:p-4 space-y-2">
                       {campaign.cover_image_url ? (
                         <div className="h-24 sm:h-28 rounded-md overflow-hidden border border-white/[0.06] bg-white/[0.02]">
                           <img
@@ -1198,37 +1158,37 @@ useEffect(() => {
                       )}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm sm:text-base font-semibold text-white truncate">
+                          <p className="text-xs min-[400px]:text-sm sm:text-base font-semibold text-white truncate">
                             {campaign.name}
                           </p>
-                          <p className="text-xs text-slate-400 mt-1 truncate">
+                          <p className="text-[10px] min-[400px]:text-xs text-slate-400 mt-0.5 sm:mt-1 truncate">
                             {campaign.brand_name || 'Active campaign'}
                           </p>
                         </div>
                         <StatusBadge status={campaign.status} />
                       </div>
-                      <div className="grid grid-cols-3 gap-0.5">
+                      <div className="grid grid-cols-3 gap-1 sm:gap-2">
                         <div className="min-w-0">
-                          <p className="text-[9px] text-slate-500 truncate">
+                          <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 truncate">
                             Posts
                           </p>
-                          <p className="text-sm text-white mt-1">
+                          <p className="text-xs min-[400px]:text-sm text-white mt-1">
                             {campaign.posts_count || 0}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[9px] text-slate-500 truncate">
+                          <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 truncate">
                             Reach
                           </p>
-                          <p className="text-sm text-white mt-1">
+                          <p className="text-xs min-[400px]:text-sm text-white mt-1">
                             {formattedViews}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[9px] text-slate-500 truncate">
+                          <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 truncate">
                             Engagement
                           </p>
-                          <p className="text-sm text-emerald-400 mt-1">
+                          <p className="text-xs min-[400px]:text-sm text-emerald-400 mt-1">
                             {campaign.avg_engagement_rate?.toFixed(1) || "0.0"}%
                           </p>
                         </div>

@@ -1,5 +1,6 @@
 import { supabase } from "../supabase";
 import type { ApiResponse } from "../types/database";
+import { formatError, createError, isNetworkError, isAuthError } from "../utils/errorMessages";
 
 interface ScrapePostRequest {
   postId: string;
@@ -49,12 +50,8 @@ export async function scrapePost(
   request: ScrapePostRequest
 ): Promise<ApiResponse<ScrapePostResponse>> {
   try {
-    console.log("=== Starting scrape request ===");
-    console.log("Request:", request);
-
     // Always refresh the session to ensure we have a valid token
     // This is critical because getSession() returns cached data that may be stale
-    console.log("Refreshing session to ensure fresh token...");
     const {
       data: { session: refreshedSession },
       error: refreshError,
@@ -65,10 +62,12 @@ export async function scrapePost(
     let currentSession = refreshedSession;
 
     if (refreshError || !refreshedSession) {
-      console.warn(
-        "Session refresh failed, falling back to current session:",
-        refreshError
-      );
+      if (import.meta.env.DEV) {
+        console.warn(
+          "Session refresh failed, falling back to current session:",
+          refreshError
+        );
+      }
       // Fall back to getting current session if refresh fails
       const {
         data: { session: fallbackSession },
@@ -76,7 +75,9 @@ export async function scrapePost(
       } = await supabase.auth.getSession();
 
       if (sessionError || !fallbackSession) {
-        console.error("Session error:", sessionError);
+        if (import.meta.env.DEV) {
+          console.error("Session error:", sessionError);
+        }
         return {
           data: null,
           error: new Error("Session expired. Please log in again."),
@@ -86,7 +87,9 @@ export async function scrapePost(
     }
 
     if (!currentSession) {
-      console.error("No session found");
+      if (import.meta.env.DEV) {
+        console.error("No session found");
+      }
       return { data: null, error: new Error("Not authenticated") };
     }
 
@@ -95,28 +98,23 @@ export async function scrapePost(
       const expiresIn =
         currentSession.expires_at - Math.floor(Date.now() / 1000);
       if (expiresIn <= 0) {
-        console.error("Token has expired");
+        if (import.meta.env.DEV) {
+          console.error("Token has expired");
+        }
         return {
           data: null,
           error: new Error("Session expired. Please log in again."),
         };
       }
-      console.log(`Token expires in ${expiresIn} seconds`);
     }
-
-    console.log("Session found, user:", currentSession.user?.id);
-    console.log(
-      "Access token length:",
-      currentSession.access_token?.length || 0
-    );
 
     // Use direct fetch to get better error details
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!supabaseUrl) {
-      return {
-        data: null,
-        error: new Error("Missing Supabase URL configuration"),
-      };
+    return {
+      data: null,
+      error: createError("Missing Supabase URL configuration", { operation: "scrape post" }),
+    };
     }
 
     const invokeScrape = async (accessToken?: string) => {
@@ -172,7 +170,6 @@ export async function scrapePost(
       };
     };
 
-    console.log("Invoking edge function scrape-post...");
     let result = await invokeScrape(currentSession.access_token);
     let { data, error } = result as any;
 
@@ -185,9 +182,11 @@ export async function scrapePost(
         errorMessage.includes("Unauthorized");
 
       if (isAuthError) {
-        console.warn(
-          "Scrape-post auth error, refreshing session and retrying..."
-        );
+        if (import.meta.env.DEV) {
+          console.warn(
+            "Scrape-post auth error, refreshing session and retrying..."
+          );
+        }
         const { error: refreshError } = await supabase.auth.refreshSession();
         if (!refreshError) {
           const {
@@ -202,12 +201,14 @@ export async function scrapePost(
     }
 
     if (error || !data) {
-      console.error("Scraping failed:", error, result);
+      if (import.meta.env.DEV) {
+        console.error("Scraping failed:", error, result);
+      }
       const errorMessage =
         error?.message || result?.responseText || "Failed to scrape post";
       return {
         data: null,
-        error: new Error(errorMessage),
+        error: createError(errorMessage, { operation: "scrape post", resource: "post" }),
       };
     }
 
@@ -218,52 +219,37 @@ export async function scrapePost(
           ? (data.error as any).message || JSON.stringify(data.error)
           : "Failed to scrape post");
 
-      console.error("Scraping failed:", errorMessage);
-      console.error("Full error response:", data);
+      if (import.meta.env.DEV) {
+        console.error("Scraping failed:", errorMessage);
+        console.error("Full error response:", data);
+      }
       return {
         data: null,
-        error: new Error(errorMessage),
+        error: createError(errorMessage, { operation: "scrape post", resource: "post" }),
       };
     }
 
-    console.log("✅ Scraping successful!");
-    console.log("Scraped metrics:", data.metrics);
     return { data, error: null };
   } catch (err) {
     const error = err as Error;
-    console.error("Scraping request error:", error);
+    if (import.meta.env.DEV) {
+      console.error("Scraping request error:", error);
+    }
 
-    // Provide more specific error messages for common issues
-    let errorMessage = error.message || "Network error while scraping post";
-
-    // Check if it's a non-2xx status code error
-    if (
-      errorMessage.includes("non-2xx") ||
-      errorMessage.includes("Edge Function returned")
-    ) {
-      errorMessage =
-        "Scraping service error. The post may be unavailable or the scraping service is temporarily down. Please try again in a moment.";
-    } else if (
-      errorMessage.includes("Failed to fetch") ||
-      errorMessage.includes("NetworkError") ||
-      errorMessage.includes("Network request failed")
-    ) {
-      errorMessage =
-        'Cannot reach scraping service. The Edge Function "scrape-post" may not be deployed. Please check:\n' +
+    // Use standardized error formatting
+    let errorMessage = formatError(error, { operation: "scrape post", resource: "post" });
+    
+    // Add specific hints for network errors
+    if (isNetworkError(error)) {
+      errorMessage = 'Cannot reach scraping service. The Edge Function "scrape-post" may not be deployed. Please check:\n' +
         "1. The Edge Function is deployed in Supabase (Edge Functions → Functions)\n" +
         "2. Your Supabase URL is correct in .env file\n" +
         "3. Your internet connection is working";
-    } else if (errorMessage.includes("CORS")) {
-      errorMessage =
-        "CORS error. The Edge Function may not be properly configured.";
-    } else if (errorMessage.includes("timeout")) {
-      errorMessage =
-        "Request timed out. The scraping service may be slow or unavailable.";
     }
 
     return {
       data: null,
-      error: new Error(errorMessage),
+      error: createError(errorMessage, { operation: "scrape post", resource: "post" }),
     };
   }
 }
@@ -276,12 +262,8 @@ export async function scrapeAllPosts(
   campaignId: string
 ): Promise<ApiResponse<ScrapeAllResult>> {
   try {
-    console.log("=== Starting scrape all posts request ===");
-    console.log("Campaign ID:", campaignId);
-
     // Always refresh the session to ensure we have a valid token
     // This is critical because getSession() returns cached data that may be stale
-    console.log("Refreshing session to ensure fresh token...");
     const {
       data: { session: refreshedSession },
       error: refreshError,
@@ -292,10 +274,12 @@ export async function scrapeAllPosts(
     let currentSession = refreshedSession;
 
     if (refreshError || !refreshedSession) {
-      console.warn(
-        "Session refresh failed, falling back to current session:",
-        refreshError
-      );
+      if (import.meta.env.DEV) {
+        console.warn(
+          "Session refresh failed, falling back to current session:",
+          refreshError
+        );
+      }
       // Fall back to getting current session if refresh fails
       const {
         data: { session: fallbackSession },
@@ -303,7 +287,9 @@ export async function scrapeAllPosts(
       } = await supabase.auth.getSession();
 
       if (sessionError || !fallbackSession) {
-        console.error("Session error:", sessionError);
+        if (import.meta.env.DEV) {
+          console.error("Session error:", sessionError);
+        }
         return {
           data: null,
           error: new Error("Session expired. Please log in again."),
@@ -313,7 +299,9 @@ export async function scrapeAllPosts(
     }
 
     if (!currentSession) {
-      console.error("No session found");
+      if (import.meta.env.DEV) {
+        console.error("No session found");
+      }
       return { data: null, error: new Error("Not authenticated") };
     }
 
@@ -322,16 +310,15 @@ export async function scrapeAllPosts(
       const expiresIn =
         currentSession.expires_at - Math.floor(Date.now() / 1000);
       if (expiresIn <= 0) {
-        console.error("Token has expired");
+        if (import.meta.env.DEV) {
+          console.error("Token has expired");
+        }
         return {
           data: null,
           error: new Error("Session expired. Please log in again."),
         };
       }
-      console.log(`Token expires in ${expiresIn} seconds`);
     }
-
-    console.log("Session found, user:", currentSession.user?.id);
 
     const invokeScrapeAll = async (accessToken?: string) => {
       const headers: Record<string, string> = {};
@@ -348,25 +335,6 @@ export async function scrapeAllPosts(
       });
     };
 
-    console.log("Invoking edge function scrape-all-posts...");
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "scraping.ts:330",
-        message: "Calling scrape-all-posts",
-        data: {
-          userId: currentSession.user?.id,
-          hasToken: !!currentSession.access_token,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "C",
-      }),
-    }).catch(() => {});
-    // #endregion
     let { data, error } = await invokeScrapeAll(currentSession.access_token);
 
     if (error) {
@@ -379,9 +347,11 @@ export async function scrapeAllPosts(
         errorMessage.includes("Unauthorized");
 
       if (isAuthError) {
-        console.warn(
-          "Scrape-all-posts auth error, refreshing session and retrying..."
-        );
+        if (import.meta.env.DEV) {
+          console.warn(
+            "Scrape-all-posts auth error, refreshing session and retrying..."
+          );
+        }
         const { error: refreshError } = await supabase.auth.refreshSession();
         if (!refreshError) {
           const {
@@ -397,29 +367,9 @@ export async function scrapeAllPosts(
     }
 
     if (error || !data) {
-      console.error("Scraping failed:", error);
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "scraping.ts:353",
-            message: "scrape-all-posts returned error",
-            data: {
-              error: error?.message,
-              errorStatus: (error as any)?.status,
-              hasData: !!data,
-            },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "run1",
-            hypothesisId: "A",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
+      if (import.meta.env.DEV) {
+        console.error("Scraping failed:", error);
+      }
       return {
         data: null,
         error: new Error(error?.message || "Failed to scrape all posts"),
@@ -428,30 +378,9 @@ export async function scrapeAllPosts(
 
     if (!data.success) {
       const errorMessage = data.error || "Failed to scrape all posts";
-      console.error("Scraping failed:", errorMessage);
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "scraping.ts:361",
-            message: "scrape-all-posts returned success=false",
-            data: {
-              errorMessage,
-              errorCount: data.data?.error_count,
-              successCount: data.data?.success_count,
-              firstError: data.data?.errors?.[0]?.message,
-            },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "run1",
-            hypothesisId: "A",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
+      if (import.meta.env.DEV) {
+        console.error("Scraping failed:", errorMessage);
+      }
       return {
         data: null,
         error: new Error(errorMessage),
@@ -465,12 +394,12 @@ export async function scrapeAllPosts(
       };
     }
 
-    console.log("✅ Scrape all posts successful!");
-    console.log("Results:", data.data);
     return { data: data.data, error: null };
   } catch (err) {
     const error = err as Error;
-    console.error("Scrape all posts request error:", error);
+    if (import.meta.env.DEV) {
+      console.error("Scrape all posts request error:", error);
+    }
 
     // Provide more specific error messages for common issues
     let errorMessage = error.message || "Network error while scraping posts";

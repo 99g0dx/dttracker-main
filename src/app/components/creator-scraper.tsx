@@ -217,7 +217,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
         setConfidence(null);
       } catch (error) {
         toast.error("Failed to process image");
-        console.error("Compression error:", error);
+        if (import.meta.env.DEV) {
+          console.error("Compression error:", error);
+        }
       }
     };
     reader.onerror = () => {
@@ -282,7 +284,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
             }
             resolve();
           } catch (error) {
-            console.error("Error processing file:", error);
+            if (import.meta.env.DEV) {
+              console.error("Error processing file:", error);
+            }
             reject(error);
           }
         };
@@ -451,7 +455,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
 
         setProcessingStats((prev) => ({ ...prev, success: prev.success + 1 }));
       } catch (error: any) {
-        console.error("Processing error:", error);
+        if (import.meta.env.DEV) {
+          console.error("Processing error:", error);
+        }
         setUploadedImages((prev) =>
           prev.map((img, idx) =>
             idx === i
@@ -577,7 +583,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
 
         savedCount++;
       } catch (error: any) {
-        console.error("Failed to save creator:", error);
+        if (import.meta.env.DEV) {
+          console.error("Failed to save creator:", error);
+        }
         failedCount++;
       }
     }
@@ -685,7 +693,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
         toast.success("Creator info extracted successfully!");
       }
     } catch (error: any) {
-      console.error("Extraction error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Extraction error:", error);
+      }
       setExtractionError(error.message);
       toast.error(error.message || "Failed to extract creator info");
     } finally {
@@ -739,7 +749,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
       );
 
       if (error) {
-        console.error("Failed to save creator:", error);
+        if (import.meta.env.DEV) {
+          console.error("Failed to save creator:", error);
+        }
         toast.error(error.message || "Failed to save creator");
         return;
       }
@@ -755,7 +767,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
         toast.error("Failed to save creator");
       }
     } catch (error: any) {
-      console.error("Save error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Save error:", error);
+      }
       toast.error(error.message || "Failed to save creator");
     }
   };

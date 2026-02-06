@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Switch } from './ui/switch';
 import { X, Edit2, Trash2, MessageSquare, Clock, Link2, Users, CheckCircle2 } from 'lucide-react';
 import {
   PlatformIcon,
@@ -334,15 +335,10 @@ export function ActivityDetailDrawer({
               <div className="text-xs text-slate-500">Automatically update from campaign posts</div>
             </div>
             {isEditing ? (
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={formData.autoTracking !== false}
-                  onChange={(e) => setFormData({ ...formData, autoTracking: e.target.checked })}
-                />
-                <div className="w-11 h-6 bg-white/[0.08] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ color: 'rgba(76, 72, 72, 1)', backgroundColor: 'var(--color-slate-800)' }}></div>
-              </label>
+              <Switch
+                checked={formData.autoTracking !== false}
+                onCheckedChange={(checked) => setFormData({ ...formData, autoTracking: checked })}
+              />
             ) : (
               <div className={`text-sm font-medium ${activity.autoTracking ? 'text-emerald-400' : 'text-slate-500'}`}>
                 {activity.autoTracking ? 'Enabled' : 'Disabled'}

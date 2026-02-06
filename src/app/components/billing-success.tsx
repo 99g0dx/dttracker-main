@@ -13,6 +13,7 @@ export function BillingSuccess({ onNavigate }: BillingSuccessProps) {
   const [searchParams] = useSearchParams();
   const reference = searchParams.get('reference');
   const trxref = searchParams.get('trxref');
+  const paymentType = searchParams.get('type'); // 'wallet' or null
 
   const [pollCount, setPollCount] = useState(0);
   const [isVerified, setIsVerified] = useState(false);
@@ -20,9 +21,18 @@ export function BillingSuccess({ onNavigate }: BillingSuccessProps) {
 
   const { data: billing, refetch, isLoading } = useBillingSummary();
 
+  // Handle wallet funding - redirect to wallet page
+  useEffect(() => {
+    if (paymentType === 'wallet') {
+      // Redirect to wallet page with fund=success to trigger balance refresh
+      onNavigate('/wallet?fund=success');
+      return;
+    }
+  }, [paymentType, onNavigate]);
+
   // Poll for subscription update (webhook might take a moment)
   useEffect(() => {
-    if (isVerified || hasError) return;
+    if (isVerified || hasError || paymentType === 'wallet') return;
 
     const pollInterval = setInterval(async () => {
       setPollCount(prev => prev + 1);

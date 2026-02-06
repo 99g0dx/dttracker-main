@@ -1,43 +1,56 @@
-import React, { useState } from 'react';
-import { Card, CardContent } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { ArrowLeft, Trophy, ThumbsUp, Loader2, Calendar as CalendarIcon } from 'lucide-react';
-import { useWorkspace } from '../../../contexts/WorkspaceContext';
-import { useCreateActivation, usePublishActivation } from '../../../hooks/useActivations';
-import { useWalletBalance } from '../../../hooks/useWallet';
-import type { ActivationInsert, ActivationType } from '../../lib/types/database';
+import React, { useState } from "react";
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import {
+  ArrowLeft,
+  Trophy,
+  ThumbsUp,
+  Loader2,
+  Calendar as CalendarIcon,
+  AlertTriangle,
+} from "lucide-react";
+import { useWorkspace } from "../../../contexts/WorkspaceContext";
+import {
+  useCreateActivation,
+  usePublishActivation,
+} from "../../../hooks/useActivations";
+import { useWalletBalance } from "../../../hooks/useWallet";
+import type {
+  ActivationInsert,
+  ActivationType,
+} from "../../lib/types/database";
 import {
   buildPrizeStructure,
   CONTEST_MIN_PRIZE_POOL,
   CONTEST_WINNER_COUNT,
-} from '../../../lib/utils/contest-prizes';
-import { format, parseISO, endOfDay, startOfDay } from 'date-fns';
-import { toast } from 'sonner';
-import { Calendar } from '../ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { PlatformIcon } from '../ui/PlatformIcon';
-import { formatNumber } from '../../../lib/utils/format';
-import type { TaskType } from '../../../lib/sm-panel/constants';
-import { PricingTable } from './sm-panel/PricingTable';
-import { ParticipationEstimate } from './sm-panel/ParticipationEstimate';
+} from "../../../lib/utils/contest-prizes";
+import { format, parseISO, endOfDay, startOfDay } from "date-fns";
+import { toast } from "sonner";
+import { Calendar } from "../ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { PlatformIcon } from "../ui/PlatformIcon";
+import { formatNumber } from "../../../lib/utils/format";
+import type { TaskType } from "../../../lib/sm-panel/constants";
+import { PricingTable } from "./sm-panel/PricingTable";
+import { ParticipationEstimate } from "./sm-panel/ParticipationEstimate";
 
 interface ActivationCreateProps {
   onNavigate: (path: string) => void;
 }
 
-type Step = 'type' | 'form' | 'confirm';
+type Step = "type" | "form" | "confirm";
 
 const PLATFORMS = [
-  { id: 'tiktok', label: 'TikTok' },
-  { id: 'instagram', label: 'Instagram' },
-  { id: 'youtube', label: 'YouTube' },
+  { id: "tiktok", label: "TikTok" },
+  { id: "instagram", label: "Instagram" },
+  { id: "youtube", label: "YouTube" },
 ];
 
 function formatAmount(amount: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
@@ -49,46 +62,51 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   const publishActivation = usePublishActivation();
   const { data: wallet } = useWalletBalance(activeWorkspaceId);
 
-  const [step, setStep] = useState<Step>('type');
-  const [activationType, setActivationType] = useState<ActivationType | null>(null);
+  const [step, setStep] = useState<Step>("type");
+  const [activationType, setActivationType] = useState<ActivationType | null>(
+    null
+  );
   const [createdId, setCreatedId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    title: '',
-    brief: '',
-    deadline: '',
+    title: "",
+    brief: "",
+    deadline: "",
     total_budget: 0,
-    task_type: 'like' as TaskType,
-    target_url: '',
+    task_type: "like" as TaskType,
+    target_url: "",
     base_rate: 200,
     max_participants: 500,
     auto_approve: true,
     platforms: [] as string[],
     requirements: [] as string[],
-    instructions: '',
-    required_comment_text: '',
-    comment_guidelines: '',
+    instructions: "",
+    required_comment_text: "",
+    comment_guidelines: "",
   });
 
   const availableBalance = wallet?.balance ?? 0;
-  const canPublish = availableBalance >= form.total_budget && form.total_budget > 0;
+  const canPublish =
+    availableBalance >= form.total_budget && form.total_budget > 0;
 
   const handleCreate = async (asDraft: boolean) => {
     if (!activeWorkspaceId) return;
 
     if (
-      activationType === 'contest' &&
+      activationType === "contest" &&
       form.total_budget < CONTEST_MIN_PRIZE_POOL
     ) {
-      toast.error(`Minimum prize pool is ₦${CONTEST_MIN_PRIZE_POOL.toLocaleString()}`);
+      toast.error(
+        `Minimum prize pool is ₦${CONTEST_MIN_PRIZE_POOL.toLocaleString()}`
+      );
       return;
     }
 
     if (
-      activationType === 'sm_panel' &&
+      activationType === "sm_panel" &&
       (form.base_rate <= 0 || form.total_budget < form.base_rate)
     ) {
-      toast.error('Total budget must be at least the base rate');
+      toast.error("Total budget must be at least the base rate");
       return;
     }
 
@@ -102,23 +120,24 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
         : new Date().toISOString(),
       total_budget: form.total_budget,
       prize_structure:
-        activationType === 'contest'
+        activationType === "contest"
           ? buildPrizeStructure(form.total_budget)
           : null,
-      winner_count: activationType === 'contest' ? CONTEST_WINNER_COUNT : null,
-      max_posts_per_creator: activationType === 'contest' ? 5 : null,
-      judging_criteria: activationType === 'contest' ? 'performance' : null,
-      task_type: activationType === 'sm_panel' ? form.task_type : null,
-      target_url: activationType === 'sm_panel' ? form.target_url || null : null,
-      ...(activationType === 'sm_panel' && { base_rate: form.base_rate }),
-      ...(activationType === 'sm_panel' &&
-        form.task_type === 'comment' && {
+      winner_count: activationType === "contest" ? CONTEST_WINNER_COUNT : null,
+      max_posts_per_creator: activationType === "contest" ? 5 : null,
+      judging_criteria: activationType === "contest" ? "performance" : null,
+      task_type: activationType === "sm_panel" ? form.task_type : null,
+      target_url:
+        activationType === "sm_panel" ? form.target_url || null : null,
+      ...(activationType === "sm_panel" && { base_rate: form.base_rate }),
+      ...(activationType === "sm_panel" &&
+        form.task_type === "comment" && {
           required_comment_text: form.required_comment_text || null,
           comment_guidelines: form.comment_guidelines || null,
         }),
       max_participants:
-        activationType === 'sm_panel' ? form.max_participants : null,
-      auto_approve: activationType === 'sm_panel' ? form.auto_approve : false,
+        activationType === "sm_panel" ? form.max_participants : null,
+      auto_approve: activationType === "sm_panel" ? form.auto_approve : false,
       platforms: form.platforms.length ? form.platforms : null,
       requirements: form.requirements.length ? form.requirements : null,
       instructions: form.instructions || null,
@@ -131,7 +150,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
         if (asDraft) {
           onNavigate(`/activations/${data.id}`);
         } else {
-          setStep('confirm');
+          setStep("confirm");
         }
       }
     } catch {
@@ -149,12 +168,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
     }
   };
 
-  if (step === 'type') {
+  if (step === "type") {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => onNavigate('/activations')}
+            onClick={() => onNavigate("/activations")}
             className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -173,8 +192,8 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           <Card
             className="bg-[#0D0D0D] border-white/[0.08] hover:border-primary/50 cursor-pointer transition-colors"
             onClick={() => {
-              setActivationType('contest');
-              setStep('form');
+              setActivationType("contest");
+              setStep("form");
             }}
           >
             <CardContent className="p-6">
@@ -193,8 +212,8 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           <Card
             className="bg-[#0D0D0D] border-white/[0.08] hover:border-primary/50 cursor-pointer transition-colors"
             onClick={() => {
-              setActivationType('sm_panel');
-              setStep('form');
+              setActivationType("sm_panel");
+              setStep("form");
             }}
           >
             <CardContent className="p-6">
@@ -203,8 +222,8 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                 SM Panel
               </h3>
               <p className="text-sm text-slate-400">
-                Micro-task campaigns for likes, shares, comments. Pay per
-                action with a total budget.
+                Micro-task campaigns for likes, shares, comments. Pay per action
+                with a total budget.
               </p>
               <Button className="mt-4 w-full" variant="outline">
                 Select
@@ -216,27 +235,46 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
     );
   }
 
-  if (step === 'form') {
-    const isContest = activationType === 'contest';
+  if (step === "form") {
+    const isContest = activationType === "contest";
 
     return (
       <div className="space-y-6 max-w-2xl">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => (step === 'form' ? setStep('type') : setStep('form'))}
+            onClick={() =>
+              step === "form" ? setStep("type") : setStep("form")
+            }
             className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h1 className="text-xl font-semibold text-white">
-              Create {isContest ? 'Contest' : 'SM Panel'}
+              Create {isContest ? "Contest" : "SM Panel"}
             </h1>
-            <p className="text-sm text-slate-400">
-              Fill in the details
-            </p>
+            <p className="text-sm text-slate-400">Fill in the details</p>
           </div>
         </div>
+
+        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-400">Available balance</p>
+              <p className="text-lg font-semibold text-white">
+                {formatAmount(availableBalance)}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate("/wallet")}
+              className="border-white/[0.08]"
+            >
+              Fund Wallet
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card className="bg-[#0D0D0D] border-white/[0.08]">
           <CardContent className="p-6 space-y-4">
@@ -246,7 +284,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               </label>
               <Input
                 value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, title: e.target.value }))
+                }
                 placeholder="e.g. Lipstick Video Challenge"
                 className="bg-white/[0.04] border-white/[0.08]"
               />
@@ -258,7 +298,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               </label>
               <textarea
                 value={form.brief}
-                onChange={(e) => setForm((f) => ({ ...f, brief: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, brief: e.target.value }))
+                }
                 placeholder="Describe the activation..."
                 rows={4}
                 className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-slate-500"
@@ -289,7 +331,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       className="rounded"
                     />
                     <PlatformIcon
-                      platform={p.id as 'tiktok' | 'instagram' | 'youtube'}
+                      platform={p.id as "tiktok" | "instagram" | "youtube"}
                       size="sm"
                     />
                     <span className="text-sm text-slate-300">{p.label}</span>
@@ -308,10 +350,14 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     type="button"
                     className="h-11 w-full rounded-md bg-white/[0.04] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-between px-3 transition-colors text-left"
                   >
-                    <span className={form.deadline ? 'text-white' : 'text-slate-500'}>
+                    <span
+                      className={
+                        form.deadline ? "text-white" : "text-slate-500"
+                      }
+                    >
                       {form.deadline
-                        ? format(parseISO(form.deadline), 'MMM d, yyyy')
-                        : 'Select date'}
+                        ? format(parseISO(form.deadline), "MMM d, yyyy")
+                        : "Select date"}
                     </span>
                     <CalendarIcon className="w-4 h-4 text-slate-500 flex-shrink-0" />
                   </button>
@@ -319,11 +365,13 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={form.deadline ? parseISO(form.deadline) : undefined}
+                    selected={
+                      form.deadline ? parseISO(form.deadline) : undefined
+                    }
                     onSelect={(date) =>
                       setForm((f) => ({
                         ...f,
-                        deadline: date ? format(date, 'yyyy-MM-dd') : '',
+                        deadline: date ? format(date, "yyyy-MM-dd") : "",
                       }))
                     }
                     disabled={{ before: startOfDay(new Date()) }}
@@ -342,9 +390,11 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   <Input
                     type="text"
                     inputMode="numeric"
-                    value={form.total_budget ? formatNumber(form.total_budget) : ''}
+                    value={
+                      form.total_budget ? formatNumber(form.total_budget) : ""
+                    }
                     onChange={(e) => {
-                      const raw = e.target.value.replace(/,/g, '');
+                      const raw = e.target.value.replace(/,/g, "");
                       const num = parseFloat(raw) || 0;
                       setForm((f) => ({ ...f, total_budget: num }));
                     }}
@@ -354,6 +404,16 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   <p className="text-xs text-slate-500 mt-1">
                     Minimum: ₦{formatNumber(CONTEST_MIN_PRIZE_POOL)}
                   </p>
+                  {form.total_budget > availableBalance && (
+                    <div className="flex items-center gap-2 mt-2 text-amber-400 text-sm">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>
+                        Insufficient balance. Need{" "}
+                        {formatAmount(form.total_budget - availableBalance)}{" "}
+                        more.
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-slate-400">
                   Number of Winners: {CONTEST_WINNER_COUNT} (fixed)
@@ -443,15 +503,27 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   <Input
                     type="text"
                     inputMode="numeric"
-                    value={form.total_budget ? formatNumber(form.total_budget) : ''}
+                    value={
+                      form.total_budget ? formatNumber(form.total_budget) : ""
+                    }
                     onChange={(e) => {
-                      const raw = e.target.value.replace(/,/g, '');
+                      const raw = e.target.value.replace(/,/g, "");
                       const num = parseFloat(raw) || 0;
                       setForm((f) => ({ ...f, total_budget: num }));
                     }}
                     placeholder="100,000"
                     className="bg-white/[0.04] border-white/[0.08]"
                   />
+                  {form.total_budget > availableBalance && (
+                    <div className="flex items-center gap-2 mt-2 text-amber-400 text-sm">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>
+                        Insufficient balance. Need{" "}
+                        {formatAmount(form.total_budget - availableBalance)}{" "}
+                        more.
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-300 block mb-2">
@@ -460,11 +532,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   <Input
                     type="text"
                     inputMode="numeric"
-                    value={
-                      form.base_rate ? formatNumber(form.base_rate) : ''
-                    }
+                    value={form.base_rate ? formatNumber(form.base_rate) : ""}
                     onChange={(e) => {
-                      const raw = e.target.value.replace(/,/g, '');
+                      const raw = e.target.value.replace(/,/g, "");
                       const num = parseFloat(raw) || 0;
                       setForm((f) => ({ ...f, base_rate: num }));
                     }}
@@ -472,21 +542,25 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     className="bg-white/[0.04] border-white/[0.08]"
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    Nano tier base. Larger creators earn more (tiered multipliers).
+                    Nano tier base. Larger creators earn more (tiered
+                    multipliers).
                   </p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-slate-300 mb-2">
                     Pricing Structure (task: {form.task_type})
                   </h3>
-                  <PricingTable baseRate={form.base_rate} taskType={form.task_type} />
+                  <PricingTable
+                    baseRate={form.base_rate}
+                    taskType={form.task_type}
+                  />
                 </div>
                 <ParticipationEstimate
                   totalBudget={form.total_budget}
                   baseRate={form.base_rate}
                   taskType={form.task_type}
                 />
-                {form.task_type === 'comment' && (
+                {form.task_type === "comment" && (
                   <>
                     <div>
                       <label className="text-sm font-medium text-slate-300 block mb-2">
@@ -551,7 +625,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
-                onClick={() => setStep('type')}
+                onClick={() => setStep("type")}
                 className="border-white/[0.08]"
               >
                 Back
@@ -563,7 +637,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   !form.deadline ||
                   form.total_budget <= 0 ||
                   (isContest && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
-                  (!isContest && (form.base_rate <= 0 || form.total_budget < form.base_rate)) ||
+                  (!isContest &&
+                    (form.base_rate <= 0 ||
+                      form.total_budget < form.base_rate)) ||
                   createActivation.isPending
                 }
                 variant="outline"
@@ -580,7 +656,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   !form.deadline ||
                   form.total_budget <= 0 ||
                   (isContest && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
-                  (!isContest && (form.base_rate <= 0 || form.total_budget < form.base_rate)) ||
+                  (!isContest &&
+                    (form.base_rate <= 0 ||
+                      form.total_budget < form.base_rate)) ||
                   createActivation.isPending
                 }
                 className="bg-primary text-black hover:bg-primary/90"
@@ -597,12 +675,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
     );
   }
 
-  if (step === 'confirm' && createdId) {
+  if (step === "confirm" && createdId) {
     return (
       <div className="space-y-6 max-w-xl">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setStep('form')}
+            onClick={() => setStep("form")}
             className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -626,7 +704,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
             <div>
               <p className="text-sm text-slate-400">Type</p>
               <p className="font-medium text-white capitalize">
-                {activationType === 'sm_panel' ? 'SM Panel' : activationType}
+                {activationType === "sm_panel" ? "SM Panel" : activationType}
               </p>
             </div>
             <div>
@@ -639,7 +717,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               <div>
                 <p className="text-sm text-slate-400">Deadline</p>
                 <p className="font-medium text-white">
-                  {format(new Date(form.deadline), 'PPpp')}
+                  {format(new Date(form.deadline), "PPpp")}
                 </p>
               </div>
             )}

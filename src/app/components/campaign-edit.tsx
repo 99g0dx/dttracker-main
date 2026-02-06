@@ -156,7 +156,9 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
       await updateCampaignMutation.mutateAsync({ id, updates: campaignData });
       onNavigate(`/campaigns/${id}`);
     } catch (error) {
-      console.error("Failed to update campaign:", error);
+      if (import.meta.env.DEV) {
+        console.error("Failed to update campaign:", error);
+      }
     } finally {
       setIsUploading(false);
     }

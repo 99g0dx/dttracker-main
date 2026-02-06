@@ -1,21 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as activationsApi from '../lib/api/activations';
-import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as activationsApi from "../lib/api/activations";
+import { toast } from "sonner";
 
 export const activationsKeys = {
-  all: ['activations'] as const,
+  all: ["activations"] as const,
   lists: (workspaceId: string | null, filters?: object) =>
-    [...activationsKeys.all, 'list', workspaceId, filters ?? {}] as const,
-  detail: (id: string) => [...activationsKeys.all, 'detail', id] as const,
+    [...activationsKeys.all, "list", workspaceId, filters ?? {}] as const,
+  detail: (id: string) => [...activationsKeys.all, "detail", id] as const,
   submissions: (activationId: string) =>
-    [...activationsKeys.all, 'submissions', activationId] as const,
+    [...activationsKeys.all, "submissions", activationId] as const,
   leaderboard: (activationId: string) =>
-    [...activationsKeys.all, 'leaderboard', activationId] as const,
+    [...activationsKeys.all, "leaderboard", activationId] as const,
 };
 
 export function useActivations(
   workspaceId: string | null,
-  filters?: { type?: 'contest' | 'sm_panel'; status?: string },
+  filters?: {
+    type?: "contest" | "sm_panel" | "creator_request";
+    status?: string;
+  },
   options?: { enabled?: boolean }
 ) {
   return useQuery({
@@ -31,7 +34,7 @@ export function useActivations(
 
 export function useActivation(id: string | null) {
   return useQuery({
-    queryKey: activationsKeys.detail(id ?? ''),
+    queryKey: activationsKeys.detail(id ?? ""),
     queryFn: async () => {
       if (!id) return null;
       const result = await activationsApi.getActivation(id);
@@ -44,7 +47,7 @@ export function useActivation(id: string | null) {
 
 export function useContestLeaderboard(activationId: string | null) {
   return useQuery({
-    queryKey: activationsKeys.leaderboard(activationId ?? ''),
+    queryKey: activationsKeys.leaderboard(activationId ?? ""),
     queryFn: async () => {
       if (!activationId) return null;
       const result = await activationsApi.getContestLeaderboard(activationId);
@@ -57,10 +60,11 @@ export function useContestLeaderboard(activationId: string | null) {
 
 export function useActivationSubmissions(activationId: string | null) {
   return useQuery({
-    queryKey: activationsKeys.submissions(activationId ?? ''),
+    queryKey: activationsKeys.submissions(activationId ?? ""),
     queryFn: async () => {
       if (!activationId) return [];
-      const result = await activationsApi.getActivationSubmissions(activationId);
+      const result =
+        await activationsApi.getActivationSubmissions(activationId);
       if (result.error) throw result.error;
       return result.data ?? [];
     },
@@ -72,7 +76,9 @@ export function useCreateActivation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (activation: Parameters<typeof activationsApi.createActivation>[0]) => {
+    mutationFn: async (
+      activation: Parameters<typeof activationsApi.createActivation>[0]
+    ) => {
       const result = await activationsApi.createActivation(activation);
       if (result.error) throw result.error;
       return result.data;
@@ -81,7 +87,7 @@ export function useCreateActivation() {
       queryClient.invalidateQueries({
         queryKey: activationsKeys.lists(variables.workspace_id),
       });
-      toast.success('Activation created');
+      toast.success("Activation created");
     },
     onError: (error: Error) => {
       toast.error(`Failed to create: ${error.message}`);
@@ -106,10 +112,12 @@ export function useUpdateActivation() {
     },
     onSuccess: (data) => {
       if (data) {
-        queryClient.invalidateQueries({ queryKey: activationsKeys.detail(data.id) });
+        queryClient.invalidateQueries({
+          queryKey: activationsKeys.detail(data.id),
+        });
         queryClient.invalidateQueries({ queryKey: activationsKeys.all });
       }
-      toast.success('Activation updated');
+      toast.success("Activation updated");
     },
     onError: (error: Error) => {
       toast.error(`Failed to update: ${error.message}`);
@@ -128,10 +136,12 @@ export function usePublishActivation() {
     },
     onSuccess: (data) => {
       if (data) {
-        queryClient.invalidateQueries({ queryKey: activationsKeys.detail(data.id) });
+        queryClient.invalidateQueries({
+          queryKey: activationsKeys.detail(data.id),
+        });
         queryClient.invalidateQueries({ queryKey: activationsKeys.all });
       }
-      toast.success('Activation published');
+      toast.success("Activation published");
     },
     onError: (error: Error) => {
       toast.error(`Failed to publish: ${error.message}`);
@@ -164,7 +174,7 @@ export function useApproveSubmission() {
         });
         queryClient.invalidateQueries({ queryKey: activationsKeys.all });
       }
-      toast.success('Submission approved');
+      toast.success("Submission approved");
     },
     onError: (error: Error) => {
       toast.error(`Failed to approve: ${error.message}`);
@@ -188,7 +198,7 @@ export function useRejectSubmission() {
         });
         queryClient.invalidateQueries({ queryKey: activationsKeys.all });
       }
-      toast.success('Submission rejected');
+      toast.success("Submission rejected");
     },
     onError: (error: Error) => {
       toast.error(`Failed to reject: ${error.message}`);
@@ -215,7 +225,7 @@ export function useScrapeSubmission(activationId?: string | null) {
         });
       }
       queryClient.invalidateQueries({ queryKey: activationsKeys.all });
-      toast.success('Metrics updated');
+      toast.success("Metrics updated");
     },
     onError: (error: Error) => {
       toast.error(`Scrape failed: ${error.message}`);
@@ -252,7 +262,7 @@ export function useFinalizeWinners() {
         queryKey: activationsKeys.submissions(variables.activationId),
       });
       queryClient.invalidateQueries({ queryKey: activationsKeys.all });
-      toast.success('Winners finalized');
+      toast.success("Winners finalized");
     },
     onError: (error: Error) => {
       toast.error(`Failed to finalize: ${error.message}`);

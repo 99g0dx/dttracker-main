@@ -124,6 +124,44 @@ function FormSkeleton() {
   );
 }
 
+// Chart skeleton
+function ChartSkeleton({ height = 300 }: { height?: number }) {
+  return (
+    <div className="w-full" style={{ height }}>
+      <div className="flex items-end justify-between h-full gap-2">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <Skeleton
+            key={i}
+            className="flex-1"
+            style={{
+              height: `${Math.random() * 60 + 20}%`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Card grid skeleton
+function CardGridSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4 space-y-3">
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+          <div className="flex gap-2 mt-4">
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-8 w-20" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Dashboard KPI skeleton
 function DashboardKpiSkeleton() {
   return (
@@ -217,6 +255,8 @@ export {
   FormSkeleton,
   DashboardKpiSkeleton,
   ChartPanelSkeleton,
+  ChartSkeleton,
+  CardGridSkeleton,
   TableRowSkeleton,
   CreatorCardSkeleton,
   RequestRowSkeleton,

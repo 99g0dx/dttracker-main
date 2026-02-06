@@ -1,8 +1,9 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
-import { useActivation } from '../../../hooks/useActivations';
-import { ActivationDetailContest } from './activation-detail-contest';
-import { ActivationDetailSMPanel } from './activation-detail-sm-panel';
+import React from "react";
+import { useParams } from "react-router-dom";
+import { useActivation } from "../../../hooks/useActivations";
+import { ActivationDetailContest } from "./activation-detail-contest";
+import { ActivationDetailSMPanel } from "./activation-detail-sm-panel";
+import { ActivationDetailCreatorRequest } from "./activation-detail-creator-request";
 
 interface ActivationDetailProps {
   onNavigate: (path: string) => void;
@@ -32,9 +33,11 @@ export function ActivationDetail({ onNavigate }: ActivationDetailProps) {
   if (error || !activation) {
     return (
       <div className="p-6">
-        <p className="text-red-400">{error?.message ?? 'Activation not found'}</p>
+        <p className="text-red-400">
+          {error?.message ?? "Activation not found"}
+        </p>
         <button
-          onClick={() => onNavigate('/activations')}
+          onClick={() => onNavigate("/activations")}
           className="mt-4 text-primary hover:underline"
         >
           Back to Activations
@@ -43,7 +46,7 @@ export function ActivationDetail({ onNavigate }: ActivationDetailProps) {
     );
   }
 
-  if (activation.type === 'contest') {
+  if (activation.type === "contest") {
     return (
       <ActivationDetailContest
         activation={activation}
@@ -52,9 +55,18 @@ export function ActivationDetail({ onNavigate }: ActivationDetailProps) {
     );
   }
 
-  if (activation.type === 'sm_panel') {
+  if (activation.type === "sm_panel") {
     return (
       <ActivationDetailSMPanel
+        activation={activation}
+        onNavigate={onNavigate}
+      />
+    );
+  }
+
+  if (activation.type === "creator_request") {
+    return (
+      <ActivationDetailCreatorRequest
         activation={activation}
         onNavigate={onNavigate}
       />

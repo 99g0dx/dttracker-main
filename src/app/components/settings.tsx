@@ -3,6 +3,7 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Skeleton } from './ui/skeleton';
+import { Switch } from './ui/switch';
 import {
   Select,
   SelectTrigger,
@@ -10,7 +11,7 @@ import {
   SelectContent,
   SelectItem,
 } from './ui/select';
-import { User, Lock, Users, Mail, Crown, ArrowRight, Bell, CreditCard, ArrowLeft } from 'lucide-react';
+import { User, Lock, Users, Mail, Crown, ArrowRight, Bell, CreditCard, ArrowLeft, Palette } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -639,19 +640,19 @@ export function Settings({ onNavigate }: SettingsProps) {
       <div className="flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => onNavigate('/')}
-          className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Settings</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">Manage your account and preferences</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">Settings</h1>
+          <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">Manage your account and preferences</p>
         </div>
       </div>
 
       {/* Subscription Card */}
-      <Card className="bg-gradient-to-br from-primary/10 to-[#0D0D0D] border-primary/20 relative overflow-hidden">
-        <CardContent className="p-6">
+      <Card className="bg-gradient-to-br from-primary/10 to-[#0D0D0D] border-primary/20 rounded-xl relative overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <CardContent className="p-5 sm:p-6 lg:p-7">
           <div className="flex items-start justify-between flex-col sm:flex-row gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -677,22 +678,22 @@ export function Settings({ onNavigate }: SettingsProps) {
           <div className="mt-4 p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-semibold text-white">
+              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
                   {billingLoading ? '--' : formatLimit(campaignLimitValue)}
                 </div>
-                <div className="text-xs text-slate-500">Campaign Limit</div>
+                <div className="text-xs sm:text-sm text-slate-500">Campaign Limit</div>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-white">
+                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
                   {billingLoading ? '--' : formatLimit(creatorLimitValue)}
                 </div>
-                <div className="text-xs text-slate-500">Creators per Campaign</div>
+                <div className="text-xs sm:text-sm text-slate-500">Creators per Campaign</div>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-slate-400">
+                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-400">
                   {billingLoading ? '--' : analyticsLabel}
                 </div>
-                <div className="text-xs text-slate-500">Analytics</div>
+                <div className="text-xs sm:text-sm text-slate-500">Analytics</div>
               </div>
             </div>
           </div>
@@ -700,8 +701,8 @@ export function Settings({ onNavigate }: SettingsProps) {
       </Card>
 
       {/* Profile Settings */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
-        <CardContent className="p-6">
+      <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <CardContent className="p-5 sm:p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <User className="w-5 h-5 text-primary" />
@@ -732,39 +733,38 @@ export function Settings({ onNavigate }: SettingsProps) {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">First Name</label>
+                  <label className="block text-sm font-normal text-slate-300 mb-2">First Name</label>
                   <Input
                     value={profileForm.firstName}
                     onChange={(e) =>
                       setProfileForm({ ...profileForm, firstName: e.target.value })
                     }
-                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                    placeholder="Enter first name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Last Name</label>
+                  <label className="block text-sm font-normal text-slate-300 mb-2">Last Name</label>
                   <Input
                     value={profileForm.lastName}
                     onChange={(e) =>
                       setProfileForm({ ...profileForm, lastName: e.target.value })
                     }
-                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                    placeholder="Enter last name"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Email</label>
+                  <label className="block text-sm font-normal text-slate-300 mb-2">Email</label>
                   <Input
                     type="email"
                     value={profileForm.email}
                     readOnly
                     aria-readonly="true"
-                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white/80"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Phone</label>
+                  <label className="block text-sm font-normal text-slate-300 mb-2">Phone</label>
                   <Input
                     type="tel"
                     inputMode="tel"
@@ -772,23 +772,23 @@ export function Settings({ onNavigate }: SettingsProps) {
                     onChange={(e) =>
                       setProfileForm({ ...profileForm, phone: e.target.value })
                     }
-                    className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                    placeholder="Enter phone number"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Company</label>
+                <label className="block text-sm font-normal text-slate-300 mb-2">Company</label>
                 <Input
                   value={profileForm.company}
                   onChange={(e) =>
                     setProfileForm({ ...profileForm, company: e.target.value })
                   }
-                  className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                  placeholder="Enter company name"
                 />
               </div>
               <Button
                 onClick={handleSaveProfile}
-                className="min-h-[44px] h-11 bg-primary hover:bg-primary/90 text-black"
+                className="min-h-[44px] h-11 bg-white hover:bg-white/95 text-black font-medium"
                 disabled={profileSaving}
               >
                 {profileSaving ? 'Saving...' : 'Save Changes'}
@@ -833,12 +833,12 @@ export function Settings({ onNavigate }: SettingsProps) {
             </div>
 
             <div className="mt-4">
-              <label className="block text-xs text-slate-400 mb-2">6-digit code</label>
+              <label className="block text-sm font-normal text-slate-300 mb-2">6-digit code</label>
               <Input
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value)}
                 placeholder="123456"
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                className="h-10"
               />
             </div>
 
@@ -867,35 +867,35 @@ export function Settings({ onNavigate }: SettingsProps) {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Current Password</label>
+              <label className="block text-sm font-normal text-slate-300 mb-2">Current Password</label>
               <Input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                placeholder="Enter current password"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-2">New Password</label>
+              <label className="block text-sm font-normal text-slate-300 mb-2">New Password</label>
               <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                placeholder="Enter new password"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Confirm New Password</label>
+              <label className="block text-sm font-normal text-slate-300 mb-2">Confirm New Password</label>
               <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="h-11 bg-white/[0.03] border-white/[0.08] text-base text-white"
+                placeholder="Confirm new password"
               />
             </div>
             <Button
               onClick={handleUpdatePassword}
-              className="min-h-[44px] h-11 bg-purple-500 hover:bg-purple-500/90 text-white"
+              className="min-h-[44px] h-11 bg-white hover:bg-white/95 text-black font-medium"
               disabled={passwordSaving}
             >
               {passwordSaving ? 'Updating...' : 'Update Password'}
@@ -974,15 +974,10 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <div className="font-medium text-white mb-1">Campaign Updates</div>
                 <div className="text-sm text-slate-400">Get notified when campaigns are created or updated</div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={notificationSettings.campaignUpdates}
-                  onChange={() => toggleNotification('campaignUpdates')}
-                />
-                <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ color: 'rgba(76, 72, 72, 1)', backgroundColor: 'var(--color-slate-800)' }}></div>
-              </label>
+              <Switch
+                checked={notificationSettings.campaignUpdates}
+                onCheckedChange={() => toggleNotification('campaignUpdates')}
+              />
             </div>
 
             <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
@@ -990,15 +985,10 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <div className="font-medium text-white mb-1">Performance Alerts</div>
                 <div className="text-sm text-slate-400">Receive alerts when performance metrics change significantly</div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={notificationSettings.performanceAlerts}
-                  onChange={() => toggleNotification('performanceAlerts')}
-                />
-                <div className="w-11 h-6 bg-white/[0.08] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ color: 'rgba(76, 72, 72, 1)', backgroundColor: 'var(--color-slate-800)' }}></div>
-              </label>
+              <Switch
+                checked={notificationSettings.performanceAlerts}
+                onCheckedChange={() => toggleNotification('performanceAlerts')}
+              />
             </div>
 
             <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
@@ -1006,15 +996,10 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <div className="font-medium text-white mb-1">Team Mentions</div>
                 <div className="text-sm text-slate-400">Get notified when team members mention you</div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={notificationSettings.teamMentions}
-                  onChange={() => toggleNotification('teamMentions')}
-                />
-                <div className="w-11 h-6 bg-[rgba(67,66,66,1)] peer-focus:outline-none rounded-[40px] peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ backgroundColor: 'var(--color-slate-800)' }}></div>
-              </label>
+              <Switch
+                checked={notificationSettings.teamMentions}
+                onCheckedChange={() => toggleNotification('teamMentions')}
+              />
             </div>
 
             <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
@@ -1022,15 +1007,10 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <div className="font-medium text-white mb-1">Weekly Reports</div>
                 <div className="text-sm text-slate-400">Receive weekly summary of campaign performance</div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={notificationSettings.weeklyReports}
-                  onChange={() => toggleNotification('weeklyReports')}
-                />
-                <div className="w-11 h-6 bg-white/[0.08] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" style={{ color: 'rgba(76, 72, 72, 1)', backgroundColor: 'var(--color-slate-800)' }}></div>
-              </label>
+              <Switch
+                checked={notificationSettings.weeklyReports}
+                onCheckedChange={() => toggleNotification('weeklyReports')}
+              />
             </div>
           </div>
         </CardContent>

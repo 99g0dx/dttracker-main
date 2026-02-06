@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
+import React, { useState, useMemo, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Card, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import {
   Eye,
   Heart,
@@ -12,22 +12,22 @@ import {
   ArrowUpDown,
   Lock,
   LineChart as LineChartIcon,
-} from 'lucide-react';
-import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
+} from "lucide-react";
+import logoImage from "../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png";
 import {
   PlatformIcon,
   normalizePlatform,
   getPlatformLabel,
-} from './ui/PlatformIcon';
-import * as sharingApi from '../../lib/api/campaign-sharing-v2';
-import type { SubcampaignSummary } from '../../lib/types/database';
+} from "./ui/PlatformIcon";
+import * as sharingApi from "../../lib/api/campaign-sharing-v2";
+import type { SubcampaignSummary } from "../../lib/types/database";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from "./ui/select";
 import {
   LineChart,
   Line,
@@ -37,9 +37,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from 'recharts';
+} from "recharts";
 
-type SortBy = 'views' | 'platform' | 'likes' | 'comments' | 'top-performer';
+type SortBy = "views" | "platform" | "likes" | "comments" | "top-performer";
 
 interface SharedCampaignData {
   campaign: {
@@ -88,7 +88,7 @@ interface SharedCampaignData {
   };
 }
 
-const kpiPlatforms = new Set(['tiktok', 'instagram']);
+const kpiPlatforms = new Set(["tiktok", "instagram"]);
 
 function buildSeriesFromPosts(
   posts: Array<{
@@ -99,18 +99,21 @@ function buildSeriesFromPosts(
     shares: number;
     postedDate: string | null;
     createdAt: string;
-  }>
+  }>,
+  /** When filtering chart by platform, allow this platform even if not in kpiPlatforms */
+  allowedPlatforms?: Set<string>
 ) {
   const metricsByDate = new Map<
     string,
     { views: number; likes: number; comments: number; shares: number }
   >();
+  const platformSet = allowedPlatforms ?? kpiPlatforms;
 
   posts.forEach((post) => {
-    if (!kpiPlatforms.has(post.platform)) return;
+    if (!platformSet.has(post.platform?.toLowerCase() ?? "")) return;
     const rawDate = post.postedDate || post.createdAt;
     if (!rawDate) return;
-    const dateStr = rawDate.split('T')[0];
+    const dateStr = rawDate.split("T")[0];
 
     if (!metricsByDate.has(dateStr)) {
       metricsByDate.set(dateStr, {
@@ -153,20 +156,21 @@ function buildSeriesFromPosts(
 export function CampaignShareView() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SharedCampaignData | null>(null);
-  const [sortBy, setSortBy] = useState<SortBy>('views');
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortBy>("views");
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const [chartPlatformFilter, setChartPlatformFilter] = useState<string>("all");
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   // Check if password is required
   React.useEffect(() => {
     if (!token) {
-      setError('Invalid share link');
+      setError("Invalid share link");
       setIsLoading(false);
       return;
     }
@@ -183,19 +187,28 @@ export function CampaignShareView() {
     setPasswordError(null);
 
     try {
-      const result = await sharingApi.fetchSharedCampaignData(token, passwordValue);
+      const result = await sharingApi.fetchSharedCampaignData(
+        token,
+        passwordValue
+      );
 
       if (result.error) {
-        const errorMessage = result.error.message?.toLowerCase() || '';
-        if (errorMessage.includes('password') || errorMessage.includes('required')) {
+        const errorMessage = result.error.message?.toLowerCase() || "";
+        if (
+          errorMessage.includes("password") ||
+          errorMessage.includes("required")
+        ) {
           setIsAuthenticated(false);
           setPasswordError(null);
           setIsLoading(false);
           return;
         }
-        if (errorMessage.includes('incorrect') || errorMessage.includes('wrong')) {
+        if (
+          errorMessage.includes("incorrect") ||
+          errorMessage.includes("wrong")
+        ) {
           setIsAuthenticated(false);
-          setPasswordError('Incorrect password. Please try again.');
+          setPasswordError("Incorrect password. Please try again.");
           setIsLoading(false);
           return;
         }
@@ -211,7 +224,7 @@ export function CampaignShareView() {
         setIsLoading(false);
       }
     } catch (err) {
-      setError('Failed to load campaign');
+      setError("Failed to load campaign");
       setIsLoading(false);
     }
   };
@@ -219,7 +232,7 @@ export function CampaignShareView() {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
-      setPasswordError('Please enter a password');
+      setPasswordError("Please enter a password");
       return;
     }
 
@@ -231,31 +244,38 @@ export function CampaignShareView() {
 
   React.useEffect(() => {
     if (!data) return;
-    if (!data.is_parent || !data.subcampaigns || data.subcampaigns.length === 0) {
-      if (activeTab !== 'all') {
-        setActiveTab('all');
+    if (
+      !data.is_parent ||
+      !data.subcampaigns ||
+      data.subcampaigns.length === 0
+    ) {
+      if (activeTab !== "all") {
+        setActiveTab("all");
       }
       return;
     }
 
     const tabExists =
-      activeTab === 'all' ||
+      activeTab === "all" ||
       data.subcampaigns.some((subcampaign) => subcampaign.id === activeTab);
     if (!tabExists) {
-      setActiveTab('all');
+      setActiveTab("all");
     }
   }, [data, activeTab]);
 
   const subcampaignTabs = data?.subcampaigns || [];
-  const hasSubcampaigns = Boolean(data?.is_parent && subcampaignTabs.length > 0);
+  const hasSubcampaigns = Boolean(
+    data?.is_parent && subcampaignTabs.length > 0
+  );
   const selectedSubcampaign =
-    activeTab === 'all'
+    activeTab === "all"
       ? null
-      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) || null;
+      : subcampaignTabs.find((subcampaign) => subcampaign.id === activeTab) ||
+        null;
 
   const filteredPosts = useMemo(() => {
     if (!data?.posts) return [];
-    if (activeTab === 'all') return data.posts;
+    if (activeTab === "all") return data.posts;
     return data.posts.filter((post) => post.campaignId === activeTab);
   }, [data?.posts, activeTab]);
 
@@ -273,9 +293,18 @@ export function CampaignShareView() {
 
   const seriesData = useMemo(() => {
     if (!data) return null;
-    if (activeTab === 'all') return data.series;
+    if (chartPlatformFilter !== "all") {
+      const byPlatform = filteredPosts.filter(
+        (p) => p.platform?.toLowerCase() === chartPlatformFilter.toLowerCase()
+      );
+      return buildSeriesFromPosts(
+        byPlatform,
+        new Set([chartPlatformFilter.toLowerCase()])
+      );
+    }
+    if (activeTab === "all") return data.series;
     return buildSeriesFromPosts(filteredPosts);
-  }, [data, activeTab, filteredPosts]);
+  }, [data, activeTab, filteredPosts, chartPlatformFilter]);
 
   const formattedChartData = useMemo(() => {
     if (!seriesData?.views) return [];
@@ -293,12 +322,12 @@ export function CampaignShareView() {
         seriesData.likes[i]?.date ||
         seriesData.comments[i]?.date ||
         seriesData.shares[i]?.date ||
-        '';
+        "";
 
       return {
-        date: new Date(date).toLocaleDateString('en-US', {
-          month: 'numeric',
-          day: 'numeric',
+        date: new Date(date).toLocaleDateString("en-US", {
+          month: "numeric",
+          day: "numeric",
         }),
         views: seriesData.views[i]?.value || 0,
         likes: seriesData.likes[i]?.value || 0,
@@ -325,36 +354,39 @@ export function CampaignShareView() {
     return numericValue.toString();
   }, []);
 
-  const chartTooltipFormatter = useCallback(
-    (value: number | string) => {
-      const numericValue = Number(value);
-      if (Number.isNaN(numericValue)) {
-        return value;
-      }
-      return numericValue.toLocaleString();
-    },
-    []
-  );
+  const chartTooltipFormatter = useCallback((value: number | string) => {
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) {
+      return value;
+    }
+    return numericValue.toLocaleString();
+  }, []);
 
   // Sort posts
   const sortedPosts = useMemo(() => {
     const sorted = [...filteredPosts];
 
     switch (sortBy) {
-      case 'views':
+      case "views":
         return sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
-      case 'likes':
+      case "likes":
         return sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0));
-      case 'comments':
+      case "comments":
         return sorted.sort((a, b) => (b.comments || 0) - (a.comments || 0));
-      case 'platform':
+      case "platform":
         return sorted.sort((a, b) => a.platform.localeCompare(b.platform));
-      case 'top-performer':
+      case "top-performer":
         return sorted.sort((a, b) => {
           const aEngagement =
-            (a.views || 0) + (a.likes || 0) + (a.comments || 0) + (a.shares || 0);
+            (a.views || 0) +
+            (a.likes || 0) +
+            (a.comments || 0) +
+            (a.shares || 0);
           const bEngagement =
-            (b.views || 0) + (b.likes || 0) + (b.comments || 0) + (b.shares || 0);
+            (b.views || 0) +
+            (b.likes || 0) +
+            (b.comments || 0) +
+            (b.shares || 0);
           return bEngagement - aEngagement;
         });
       default:
@@ -381,10 +413,12 @@ export function CampaignShareView() {
             <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-6 h-6 text-red-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">Access Denied</h2>
+            <h2 className="text-xl font-semibold text-white mb-2">
+              Access Denied
+            </h2>
             <p className="text-slate-400 mb-6">{error}</p>
             <Button
-              onClick={() => navigate('/home')}
+              onClick={() => navigate("/home")}
               className="bg-primary hover:bg-primary/90 text-black"
             >
               Go to Home
@@ -405,8 +439,12 @@ export function CampaignShareView() {
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-6 h-6 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-white mb-2">Password Protected</h2>
-              <p className="text-slate-400">This campaign requires a password to view</p>
+              <h2 className="text-xl font-semibold text-white mb-2">
+                Password Protected
+              </h2>
+              <p className="text-slate-400">
+                This campaign requires a password to view
+              </p>
             </div>
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <Input
@@ -428,7 +466,7 @@ export function CampaignShareView() {
                 disabled={isSubmittingPassword}
                 className="w-full h-11 bg-primary hover:bg-primary/90 text-black font-medium"
               >
-                {isSubmittingPassword ? 'Verifying...' : 'Access Campaign'}
+                {isSubmittingPassword ? "Verifying..." : "Access Campaign"}
               </Button>
             </form>
           </CardContent>
@@ -448,7 +486,11 @@ export function CampaignShareView() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={logoImage} alt="DTTracker" className="w-6 h-6 object-contain" />
+              <img
+                src={logoImage}
+                alt="DTTracker"
+                className="w-6 h-6 object-contain"
+              />
               <div>
                 <h1 className="text-xl font-semibold text-white">DTTracker</h1>
                 <p className="text-sm text-slate-400 mt-0.5">Campaign Share</p>
@@ -463,9 +505,13 @@ export function CampaignShareView() {
         <div className="space-y-6">
           {/* Campaign Header */}
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">{data.campaign.name}</h2>
+            <h2 className="text-3xl font-bold text-white mb-2">
+              {data.campaign.name}
+            </h2>
             {data.campaign.brand_name && (
-              <p className="text-lg text-slate-300">{data.campaign.brand_name}</p>
+              <p className="text-lg text-slate-300">
+                {data.campaign.brand_name}
+              </p>
             )}
           </div>
 
@@ -473,11 +519,11 @@ export function CampaignShareView() {
           {hasSubcampaigns && (
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setActiveTab('all')}
+                onClick={() => setActiveTab("all")}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  activeTab === 'all'
-                    ? 'bg-primary text-black border-primary'
-                    : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]'
+                  activeTab === "all"
+                    ? "bg-primary text-black border-primary"
+                    : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
                 }`}
               >
                 All Campaigns
@@ -488,8 +534,8 @@ export function CampaignShareView() {
                   onClick={() => setActiveTab(subcampaign.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                     activeTab === subcampaign.id
-                      ? 'bg-primary text-black border-primary'
-                      : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]'
+                      ? "bg-primary text-black border-primary"
+                      : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
                   }`}
                 >
                   {subcampaign.name}
@@ -564,94 +610,131 @@ export function CampaignShareView() {
           </div>
 
           {/* Charts Section */}
-          {formattedChartData.length > 0 ? (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Performance Over Time</h3>
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={formattedChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      stroke="#94a3b8"
-                      style={{ fontSize: '12px' }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      stroke="#94a3b8"
-                      style={{ fontSize: '12px' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={formatChartTick}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(13, 13, 13, 0.95)',
-                        border: '1px solid rgba(148, 163, 184, 0.1)',
-                        borderRadius: '12px',
-                        backdropFilter: 'blur(12px)',
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                      }}
-                      labelStyle={{ color: '#f1f5f9', fontWeight: 500 }}
-                      formatter={chartTooltipFormatter}
-                    />
-                    <Legend
-                      wrapperStyle={{ paddingTop: '20px' }}
-                      iconType="circle"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="views"
-                      stroke="#0ea5e9"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Views"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="likes"
-                      stroke="#ec4899"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Likes"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="comments"
-                      stroke="#06b6d4"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Comments"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="shares"
-                      stroke="#8b5cf6"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Shares"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
-              <CardContent className="p-6">
-                <div className="text-center py-12">
-                  <div className="w-12 h-12 rounded-full bg-slate-500/10 flex items-center justify-center mx-auto mb-4">
-                    <LineChartIcon className="w-6 h-6 text-slate-400" />
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Platform
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: "all", label: "All" },
+                  { value: "tiktok", label: "TikTok" },
+                  { value: "instagram", label: "Instagram" },
+                  { value: "youtube", label: "YouTube" },
+                ].map((platform) => (
+                  <button
+                    key={platform.value}
+                    onClick={() => setChartPlatformFilter(platform.value)}
+                    aria-pressed={chartPlatformFilter === platform.value}
+                    className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
+                      chartPlatformFilter === platform.value
+                        ? "bg-primary text-black border-primary"
+                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {platform.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {formattedChartData.length > 0 ? (
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Performance Over Time
+                  </h3>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <LineChart data={formattedChartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(148, 163, 184, 0.08)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#94a3b8"
+                        style={{ fontSize: "12px" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        stroke="#94a3b8"
+                        style={{ fontSize: "12px" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={formatChartTick}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(13, 13, 13, 0.95)",
+                          border: "1px solid rgba(148, 163, 184, 0.1)",
+                          borderRadius: "12px",
+                          backdropFilter: "blur(12px)",
+                          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+                        }}
+                        labelStyle={{ color: "#f1f5f9", fontWeight: 500 }}
+                        formatter={chartTooltipFormatter}
+                      />
+                      <Legend
+                        wrapperStyle={{ paddingTop: "20px" }}
+                        iconType="circle"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="views"
+                        stroke="#0ea5e9"
+                        strokeWidth={2}
+                        dot={false}
+                        name="Views"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="likes"
+                        stroke="#ec4899"
+                        strokeWidth={2}
+                        dot={false}
+                        name="Likes"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="comments"
+                        stroke="#06b6d4"
+                        strokeWidth={2}
+                        dot={false}
+                        name="Comments"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="shares"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        dot={false}
+                        name="Shares"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+                <CardContent className="p-6">
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 rounded-full bg-slate-500/10 flex items-center justify-center mx-auto mb-4">
+                      <LineChartIcon className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white mb-2">
+                      No Historical Data
+                    </h3>
+                    <p className="text-sm text-slate-400 max-w-md mx-auto">
+                      Chart data will appear here once metrics have been tracked
+                      over time. Check browser console for detailed error
+                      information if you expect data to be available.
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">No Historical Data</h3>
-                  <p className="text-sm text-slate-400 max-w-md mx-auto">
-                    Chart data will appear here once metrics have been tracked over time.
-                    Check browser console for detailed error information if you expect data to be available.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {/* Posts Section */}
           <Card className="bg-[#0D0D0D] border-white/[0.08]">
@@ -660,10 +743,14 @@ export function CampaignShareView() {
                 <div>
                   <h3 className="text-lg font-semibold text-white">Posts</h3>
                   <p className="text-sm text-slate-400 mt-0.5">
-                    {sortedPosts.length} post{sortedPosts.length !== 1 ? 's' : ''}
+                    {sortedPosts.length} post
+                    {sortedPosts.length !== 1 ? "s" : ""}
                   </p>
                 </div>
-                <Select value={sortBy} onValueChange={(value: SortBy) => setSortBy(value)}>
+                <Select
+                  value={sortBy}
+                  onValueChange={(value: SortBy) => setSortBy(value)}
+                >
                   <SelectTrigger className="h-9 w-[180px] bg-white/[0.03] border-white/[0.08] text-slate-300 text-sm">
                     <ArrowUpDown className="w-4 h-4 mr-2" />
                     <SelectValue placeholder="Sort by" />
@@ -673,7 +760,9 @@ export function CampaignShareView() {
                     <SelectItem value="likes">Sort by: Likes</SelectItem>
                     <SelectItem value="comments">Sort by: Comments</SelectItem>
                     <SelectItem value="platform">Sort by: Platform</SelectItem>
-                    <SelectItem value="top-performer">Sort by: Top Performer</SelectItem>
+                    <SelectItem value="top-performer">
+                      Sort by: Top Performer
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -693,7 +782,9 @@ export function CampaignShareView() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-2">
                             {(() => {
-                              const platformIcon = normalizePlatform(post.platform);
+                              const platformIcon = normalizePlatform(
+                                post.platform
+                              );
                               if (!platformIcon) return null;
                               return (
                                 <>
@@ -743,7 +834,9 @@ export function CampaignShareView() {
                               </div>
                             </div>
                             <div>
-                              <div className="text-slate-400 mb-1">Comments</div>
+                              <div className="text-slate-400 mb-1">
+                                Comments
+                              </div>
                               <div className="text-white font-medium">
                                 {(post.comments || 0).toLocaleString()}
                               </div>

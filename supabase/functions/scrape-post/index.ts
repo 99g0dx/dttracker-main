@@ -17,9 +17,10 @@ const corsHeaders = {
 // ============================================================
 // API CONFIGURATION
 // ============================================================
-// Primary: Apify actors (TikTok + Instagram) + RapidAPI (Twitter)
-// - APIFY_TOKEN: Your Apify API token
-// - Actors: clockworks~tiktok-scraper, apify~instagram-scraper
+// Primary: Apify actors (TikTok, Instagram, YouTube) + RapidAPI (Twitter)
+// - APIFY_TOKEN: Your Apify API token (TikTok, Instagram, YouTube)
+// - APIFY_YOUTUBE_TOKEN: Optional; if set, used only for YouTube (else APIFY_TOKEN)
+// - Actors: clockworks~tiktok-scraper, apify~instagram-scraper, streamers~youtube-scraper
 // - RAPIDAPI_KEY: Used for Twitter scraping
 
 // Twitter (RapidAPI)
@@ -854,74 +855,143 @@ async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
 }
 
 /**
- * Scrape YouTube video metrics using YouTube Data API v3
- * This is Google's official API (free tier: 10k requests/day)
+ * Scrape YouTube video metrics using Apify (streamers/youtube-scraper).
+ * Token (in order): APIFY_YOUTUBE_TOKEN, APIFY_TOKEN, APIFY_API_TOKEN.
  */
 async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
   try {
-    const youtubeApiKey = Deno.env.get("YOUTUBE_API_KEY");
+    const apifyToken =
+      Deno.env.get("APIFY_YOUTUBE_TOKEN") ??
+      Deno.env.get("APIFY_TOKEN") ??
+      Deno.env.get("APIFY_API_TOKEN");
 
-    if (!youtubeApiKey) {
+    if (!apifyToken) {
       throw new Error(
-        "YOUTUBE_API_KEY not configured. Please set the YOUTUBE_API_KEY secret in Supabase Edge Functions."
+        "APIFY_TOKEN (or APIFY_YOUTUBE_TOKEN or APIFY_API_TOKEN) not configured. Set one of these secrets in Supabase Edge Functions for YouTube scraping."
       );
     }
 
-    // Extract video ID from URL
-    const videoIdMatch = postUrl.match(
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/
-    );
-
-    if (!videoIdMatch) {
-      throw new Error("Invalid YouTube URL");
+    let normalizedUrl = postUrl.trim();
+    if (
+      !normalizedUrl.startsWith("http://") &&
+      !normalizedUrl.startsWith("https://")
+    ) {
+      normalizedUrl = "https://" + normalizedUrl;
     }
 
-    const videoId = videoIdMatch[1];
+    const actorId = "streamers~youtube-scraper";
+    const apifyUrl =
+      "https://api.apify.com/v2/acts/" +
+      encodeURIComponent(actorId) +
+      "/run-sync-get-dataset-items?token=" +
+      encodeURIComponent(apifyToken);
 
-    // YouTube Data API v3
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoId}&key=${youtubeApiKey}`
-    );
+    const input = {
+      startUrls: [{ url: normalizedUrl }],
+    };
+
+    console.log("[scrapeYouTube] Calling Apify actor:", actorId);
+    console.log("[scrapeYouTube] Post URL:", normalizedUrl);
+
+    const response = await fetch(apifyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      console.error("YouTube API error:", response.status, errorText);
-
-      // Handle temporary errors - throw proper errors instead of fake data
-      if (
-        response.status === 503 ||
-        response.status === 429 ||
-        response.status === 502 ||
-        response.status === 504
-      ) {
-        throw new Error(
-          `YouTube API temporarily unavailable (${response.status}). Please try again later.`
-        );
-      }
-
+      console.error("Apify YouTube API error:", response.status, errorText);
       throw new Error(
-        `YouTube API error: ${response.status} ${errorText.substring(0, 200)}`
+        `Apify YouTube API error (${response.status}): ${errorText.substring(0, 200)}`
       );
     }
 
-    const data = await response.json();
+    const rawResponse = await response.json().catch(() => {
+      throw new Error("Invalid JSON response from Apify YouTube scraper");
+    });
 
-    if (!data.items || data.items.length === 0) {
-      throw new Error("Video not found");
+    if (
+      rawResponse?.error ||
+      rawResponse?.status === "ERROR" ||
+      rawResponse?.status === "FAILED"
+    ) {
+      throw new Error(
+        `Apify YouTube scraper error: ${JSON.stringify(rawResponse.error ?? rawResponse)}`
+      );
     }
 
-    const stats = data.items[0].statistics;
+    let items: any[] = [];
+    if (Array.isArray(rawResponse)) {
+      items = rawResponse;
+    } else if (rawResponse?.items && Array.isArray(rawResponse.items)) {
+      items = rawResponse.items;
+    } else if (rawResponse?.data) {
+      if (Array.isArray(rawResponse.data)) {
+        items = rawResponse.data;
+      } else if (
+        rawResponse.data?.items &&
+        Array.isArray(rawResponse.data.items)
+      ) {
+        items = rawResponse.data.items;
+      }
+    } else if (rawResponse?.results && Array.isArray(rawResponse.results)) {
+      items = rawResponse.results;
+    } else if (
+      rawResponse?.datasetItems &&
+      Array.isArray(rawResponse.datasetItems)
+    ) {
+      items = rawResponse.datasetItems;
+    }
+
+    if (!items.length) {
+      throw new Error(
+        "Apify YouTube scraper returned no results for this URL. Invalid post URL or format."
+      );
+    }
+
+    const item = items[0];
+    const parseNum = (v: unknown): number => {
+      if (v == null) return 0;
+      if (typeof v === "number" && !Number.isNaN(v)) return Math.floor(v);
+      const n = parseInt(String(v).replace(/[^0-9]/g, ""), 10);
+      return Number.isNaN(n) ? 0 : n;
+    };
+
+    const views = parseNum(
+      item.viewCount ??
+        item.views ??
+        item.statistics?.viewCount ??
+        item.statistics?.views
+    );
+    const likes = parseNum(
+      item.likeCount ??
+        item.likes ??
+        item.statistics?.likeCount ??
+        item.statistics?.likes
+    );
+    const comments = parseNum(
+      item.commentCount ??
+        item.comments ??
+        item.statistics?.commentCount ??
+        item.statistics?.comments
+    );
+    const shares = parseNum(item.shareCount ?? item.shares ?? 0);
+    const totalEngagements = likes + comments + shares;
+    const engagement_rate = views > 0 ? (totalEngagements / views) * 100 : 0;
 
     return {
-      views: parseInt(stats.viewCount) || 0,
-      likes: parseInt(stats.likeCount) || 0,
-      comments: parseInt(stats.commentCount) || 0,
-      shares: 0, // YouTube API doesn't provide share count
-      engagement_rate: 0, // Will be calculated later
+      views,
+      likes,
+      comments,
+      shares,
+      engagement_rate,
     };
   } catch (error) {
     console.error("YouTube scraping error:", error);
-    throw new Error(`Failed to scrape YouTube: ${error.message}`);
+    throw new Error(
+      `Failed to scrape YouTube: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 

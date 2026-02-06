@@ -7,18 +7,48 @@
 // ENUM TYPES
 // ============================================================
 
-export type Platform = "tiktok" | "instagram" | "youtube" | "twitter" | "facebook";
+export type Platform =
+  | "tiktok"
+  | "instagram"
+  | "youtube"
+  | "twitter"
+  | "facebook";
 export type CampaignStatus = "active" | "paused" | "completed" | "archived";
-export type PostStatus = "pending" | "scraped" | "failed" | "manual" | "scraping";
+export type PostStatus =
+  | "pending"
+  | "scraped"
+  | "failed"
+  | "manual"
+  | "scraping";
 export type MemberRole = "owner" | "editor" | "viewer";
 export type TeamRole = "owner" | "admin" | "editor" | "viewer";
 export type MemberStatus = "active" | "pending";
 export type ScopeType = "workspace" | "campaign" | "calendar";
-export type CreatorRequestStatus = "submitted" | "reviewing" | "quoted" | "approved" | "in_fulfillment" | "delivered";
-export type CampaignType = "music_promotion" | "brand_promotion" | "product_launch" | "event_activation" | "other";
-export type UsageRights = "creator_page_only" | "repost_brand_pages" | "run_ads" | "all_above";
+export type CreatorRequestStatus =
+  | "submitted"
+  | "reviewing"
+  | "quoted"
+  | "approved"
+  | "in_fulfillment"
+  | "delivered";
+export type CampaignType =
+  | "music_promotion"
+  | "brand_promotion"
+  | "product_launch"
+  | "event_activation"
+  | "other";
+export type UsageRights =
+  | "creator_page_only"
+  | "repost_brand_pages"
+  | "run_ads"
+  | "all_above";
 export type Urgency = "normal" | "fast_turnaround" | "asap";
-export type Deliverable = "tiktok_post" | "instagram_reel" | "instagram_story" | "youtube_short" | "other";
+export type Deliverable =
+  | "tiktok_post"
+  | "instagram_reel"
+  | "instagram_story"
+  | "youtube_short"
+  | "other";
 
 // ============================================================
 // DATABASE TABLES
@@ -669,11 +699,45 @@ export interface CreatorRequestWithItems extends CreatorRequest {
 // ACTIVATION TYPES
 // ============================================================
 
-export type ActivationType = 'contest' | 'sm_panel';
-export type ActivationStatus = 'draft' | 'live' | 'completed' | 'cancelled';
-export type ActivationTaskType = 'like' | 'share' | 'comment' | 'story' | 'repost';
-export type JudgingCriteria = 'performance' | 'manual';
-export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
+export type ActivationType = "contest" | "sm_panel" | "creator_request";
+export type ActivationStatus = "draft" | "live" | "completed" | "cancelled";
+export type ActivationTaskType =
+  | "like"
+  | "share"
+  | "comment"
+  | "story"
+  | "repost";
+
+export type CreatorRequestInvitationStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "completed"
+  | "cancelled";
+
+export interface CreatorRequestInvitation {
+  id: string;
+  activation_id: string;
+  creator_id: string;
+  quoted_rate: number;
+  currency: string | null;
+  status: CreatorRequestInvitationStatus;
+  wallet_locked: boolean;
+  wallet_transaction_id: string | null;
+  invited_at: string;
+  responded_at: string | null;
+  fulfilled_at: string | null;
+  paid_at: string | null;
+  submission_id: string | null;
+  brand_notes: string | null;
+  creator_notes: string | null;
+  deliverable_description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export type JudgingCriteria = "performance" | "manual";
+export type SubmissionStatus = "pending" | "approved" | "rejected";
 
 export interface Activation {
   id: string;
@@ -867,11 +931,6 @@ export interface BulkScrapeResult {
   results: ScrapeResult[];
 }
 
+export interface CampaignHierarchyMetrics {}
 
-export interface CampaignHierarchyMetrics{
-
-}
-  
-export interface SubcampaignSummary{
-  
-}
+export interface SubcampaignSummary {}

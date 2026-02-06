@@ -132,6 +132,10 @@ serve(async (req) => {
 
     const availableBalance = Number(wallet.balance) || 0;
     const lockedBalance = Number(wallet.locked_balance) || 0;
+    const dailySpendLimit = wallet.daily_spend_limit != null ? Number(wallet.daily_spend_limit) : null;
+    const lastReset = wallet.last_spend_reset_date ? String(wallet.last_spend_reset_date).slice(0, 10) : null;
+    const today = new Date().toISOString().slice(0, 10);
+    const spentToday = lastReset === today ? Number(wallet.daily_spent_today) || 0 : 0;
 
     if (availableBalance < totalBudget) {
       return new Response(
@@ -145,14 +149,29 @@ serve(async (req) => {
       );
     }
 
+    if (dailySpendLimit != null && spentToday + totalBudget > dailySpendLimit) {
+      return new Response(
+        JSON.stringify({
+          error: `Daily spending limit exceeded. Limit: ${dailySpendLimit}, already spent today: ${spentToday}, requested: ${totalBudget}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     const newAvailable = availableBalance - totalBudget;
     const newLocked = lockedBalance + totalBudget;
+    const newSpentToday = spentToday + totalBudget;
 
     const { error: updateWalletError } = await supabase
       .from('workspace_wallets')
       .update({
         balance: newAvailable,
         locked_balance: newLocked,
+        daily_spent_today: newSpentToday,
+        last_spend_reset_date: today,
         updated_at: new Date().toISOString(),
       })
       .eq('id', wallet.id);
@@ -172,8 +191,12 @@ serve(async (req) => {
       type: 'lock',
       amount: totalBudget,
       balance_after: newAvailable,
+      locked_balance_after: newLocked,
       reference_type: 'activation',
       reference_id: activationId,
+      description: `Budget locked for activation: ${activation.title}`,
+      status: 'completed',
+      processed_at: new Date().toISOString(),
       metadata: { activation_title: activation.title },
     });
 

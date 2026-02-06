@@ -53,18 +53,39 @@ export function calculateDelta(current: number | null, previous: number | null):
 
 /**
  * Format a metric value with optional growth indicator (e.g., "125K (+5K)")
+ * Returns an object with separate value and growth parts for styling
  */
 export function formatWithGrowth(
   value: number | null | undefined,
   growth?: number | null
-): string {
-  if (value === null || value === undefined) return '-';
+): { value: string; growth: string | null } {
+  if (value === null || value === undefined) {
+    return { value: '-', growth: null };
+  }
   const base = value >= 1000 ? formatCompactNumber(value) : value.toLocaleString();
   if (growth != null && growth !== 0) {
     const sign = growth > 0 ? '+' : '';
-    return `${base} (${sign}${formatCompactNumber(growth)})`;
+    return {
+      value: base,
+      growth: `${sign}${formatCompactNumber(growth)}`,
+    };
   }
-  return base;
+  return { value: base, growth: null };
+}
+
+/**
+ * Format a metric value with optional growth indicator as a string (legacy format)
+ * @deprecated Use formatWithGrowth and render parts separately for better styling
+ */
+export function formatWithGrowthString(
+  value: number | null | undefined,
+  growth?: number | null
+): string {
+  const formatted = formatWithGrowth(value, growth);
+  if (formatted.growth) {
+    return `${formatted.value} (${formatted.growth})`;
+  }
+  return formatted.value;
 }
 
 /**

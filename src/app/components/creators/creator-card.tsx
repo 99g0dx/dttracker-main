@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Heart, ExternalLink } from 'lucide-react';
 import { PlatformIcon, getPlatformLabel } from '../ui/PlatformIcon';
 import { CreatorHandleLink } from '../ui/creator-handle-link';
+import { FollowersIcon, LocationIcon, EngagementIcon } from '../ui/platform-custom-icons';
 import type { CreatorWithSocialAndStats } from '../../../lib/types/database';
 
 interface CreatorCardProps {
@@ -57,18 +58,19 @@ export function CreatorCard({
 
   return (
     <Card
-      className={`bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors overflow-hidden ${
+      className={`bg-[#0D0D0D] border-white/[0.08] active:border-white/[0.12] transition-all duration-150 overflow-hidden rounded-xl ${
         selected ? 'ring-2 ring-primary' : ''
       }`}
+      style={{ boxShadow: 'var(--shadow-card)' }}
       onClick={
         selectable && onSelect
           ? () => onSelect(creator.id, !selected)
           : undefined
       }
     >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
+      <CardContent className="p-3 min-[400px]:p-3.5 sm:p-4 lg:p-5">
+        <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-2.5 sm:mb-3 lg:mb-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             {selectable && onSelect && (
               <input
                 type="checkbox"
@@ -78,10 +80,10 @@ export function CreatorCard({
                   onSelect(creator.id, e.target.checked);
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03]"
+                className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border-white/[0.2] bg-white/[0.03] flex-shrink-0"
               />
             )}
-            <span className="text-xs text-slate-500 capitalize">
+            <span className="text-[9px] min-[400px]:text-[10px] sm:text-xs text-slate-500 capitalize truncate">
               {source === 'my_network' ? 'My Network' : source}
             </span>
           </div>
@@ -103,8 +105,8 @@ export function CreatorCard({
           )}
         </div>
 
-        <div className="flex gap-4 mb-4">
-          <div className="w-16 h-16 rounded-full bg-white/[0.06] flex-shrink-0 overflow-hidden">
+        <div className="flex gap-2.5 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-5">
+          <div className="w-12 h-12 min-[400px]:w-14 min-[400px]:h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-white/[0.08] to-white/[0.04] flex-shrink-0 overflow-hidden border border-white/[0.06]">
             {photo ? (
               <img
                 src={photo}
@@ -112,7 +114,7 @@ export function CreatorCard({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-slate-500">
+              <div className="w-full h-full flex items-center justify-center text-lg min-[400px]:text-xl sm:text-2xl font-bold text-slate-400">
                 {(creator.name || handle || '?').charAt(0).toUpperCase()}
               </div>
             )}
@@ -121,51 +123,56 @@ export function CreatorCard({
             <CreatorHandleLink
               handle={handle || creator.handle}
               platform={creator.platform}
-              className="font-semibold text-white truncate block hover:underline text-sm"
+              className="font-semibold text-white truncate block hover:underline text-xs min-[400px]:text-sm mb-0.5"
             />
-            <p className="text-sm text-slate-400 truncate">
+            <p className="text-[10px] min-[400px]:text-xs sm:text-sm text-slate-400 truncate">
               {creator.name || creator.display_name || 'Creator'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-[9px] min-[400px]:text-[10px] sm:text-xs text-slate-400 mb-2 sm:mb-2.5 lg:mb-3">
           <PlatformIcon platform={creator.platform} size="sm" />
-          <span>{getPlatformLabel(creator.platform)}</span>
+          <span className="font-medium truncate">{getPlatformLabel(creator.platform)}</span>
           {creator.niche && (
             <>
-              <span>•</span>
-              <span>{creator.niche}</span>
+              <span className="hidden lg:inline">•</span>
+              <span className="hidden lg:inline truncate">{creator.niche}</span>
             </>
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
-          <span>👥 {formatFollowers(followers)} followers</span>
+        <div className="space-y-1 sm:space-y-1.5 lg:space-y-2 mb-2.5 sm:mb-3 lg:mb-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] min-[400px]:text-xs sm:text-sm text-slate-300">
+            <FollowersIcon className="w-3 h-3 min-[400px]:w-3.5 min-[400px]:h-3.5 sm:w-4 sm:h-4 text-slate-500 flex-shrink-0" />
+            <span className="font-medium">{formatFollowers(followers)}</span>
+            <span className="text-slate-500 text-[9px] min-[400px]:text-[10px] sm:text-xs">followers</span>
+          </div>
           {creator.location && (
-            <>
-              <span>•</span>
-              <span>📍 {creator.location}</span>
-            </>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] min-[400px]:text-xs sm:text-sm text-slate-400">
+              <LocationIcon className="w-3 h-3 min-[400px]:w-3.5 min-[400px]:h-3.5 sm:w-4 sm:h-4 text-slate-500 flex-shrink-0" />
+              <span className="truncate">{creator.location}</span>
+            </div>
+          )}
+          {(campaignsCompleted > 0 || avgEngagement > 0) && (
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] min-[400px]:text-xs sm:text-sm text-slate-400">
+              <EngagementIcon className="w-3 h-3 min-[400px]:w-3.5 min-[400px]:h-3.5 sm:w-4 sm:h-4 text-slate-500 flex-shrink-0" />
+              <span className="truncate">
+                {avgEngagement > 0 ? `${avgEngagement}%` : ''}
+                {campaignsCompleted > 0 && avgEngagement > 0 ? ' • ' : ''}
+                {campaignsCompleted > 0 ? `${campaignsCompleted} campaigns` : ''}
+              </span>
+            </div>
           )}
         </div>
 
-        {(campaignsCompleted > 0 || avgEngagement > 0) && (
-          <p className="text-xs text-slate-500 mb-3">
-            📊 {avgEngagement > 0 ? `${avgEngagement}% avg engagement` : ''}
-            {campaignsCompleted > 0
-              ? ` • ${campaignsCompleted} campaigns completed`
-              : ''}
-          </p>
-        )}
-
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 lg:pt-3 border-t border-white/[0.06]">
           {onViewProfile && !isManual && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => onViewProfile(creator)}
-              className="border-white/[0.08] text-xs"
+              className="border-white/[0.08] text-[10px] min-[400px]:text-xs h-9 sm:h-8 hover:bg-white/[0.06] active:bg-white/[0.08] transition-all duration-150"
             >
               View Profile
             </Button>
@@ -175,7 +182,7 @@ export function CreatorCard({
               variant="outline"
               size="sm"
               onClick={() => onRequest(creator)}
-              className="border-white/[0.08] text-xs"
+              className="border-white/[0.08] text-[10px] min-[400px]:text-xs h-9 sm:h-8 hover:bg-white/[0.06] active:bg-white/[0.08] transition-all duration-150"
             >
               Request
             </Button>
@@ -185,7 +192,7 @@ export function CreatorCard({
               variant="outline"
               size="sm"
               onClick={() => onAddToActivation(creator)}
-              className="border-white/[0.08] text-xs"
+              className="border-white/[0.08] text-[10px] min-[400px]:text-xs h-9 sm:h-8 hover:bg-white/[0.06] active:bg-white/[0.08] transition-all duration-150"
             >
               Add to Activation
             </Button>
