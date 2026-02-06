@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -56,6 +56,23 @@ function formatAmount(amount: number): string {
   }).format(amount);
 }
 
+const INITIAL_FORM_STATE = {
+  title: "",
+  brief: "",
+  deadline: "",
+  total_budget: 0,
+  task_type: "like" as TaskType,
+  target_url: "",
+  base_rate: 200,
+  max_participants: 500,
+  auto_approve: true,
+  platforms: [] as string[],
+  requirements: [] as string[],
+  instructions: "",
+  required_comment_text: "",
+  comment_guidelines: "",
+};
+
 export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   const { activeWorkspaceId } = useWorkspace();
   const createActivation = useCreateActivation();
@@ -68,22 +85,14 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   );
   const [createdId, setCreatedId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    title: "",
-    brief: "",
-    deadline: "",
-    total_budget: 0,
-    task_type: "like" as TaskType,
-    target_url: "",
-    base_rate: 200,
-    max_participants: 500,
-    auto_approve: true,
-    platforms: [] as string[],
-    requirements: [] as string[],
-    instructions: "",
-    required_comment_text: "",
-    comment_guidelines: "",
-  });
+  const [form, setForm] = useState(INITIAL_FORM_STATE);
+
+  // Reset form when activation type changes
+  useEffect(() => {
+    if (activationType) {
+      setForm(INITIAL_FORM_STATE);
+    }
+  }, [activationType]);
 
   const availableBalance = wallet?.balance ?? 0;
   const canPublish =
@@ -168,12 +177,22 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
     }
   };
 
+  const handleBackToTypeSelection = () => {
+    setStep("type");
+    setActivationType(null);
+    setForm(INITIAL_FORM_STATE);
+    setCreatedId(null);
+  };
+
   if (step === "type") {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => onNavigate("/activations")}
+            onClick={() => {
+              handleBackToTypeSelection();
+              onNavigate("/activations");
+            }}
             className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -242,9 +261,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       <div className="space-y-6 max-w-2xl">
         <div className="flex items-center gap-4">
           <button
-            onClick={() =>
-              step === "form" ? setStep("type") : setStep("form")
-            }
+            onClick={handleBackToTypeSelection}
             className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -625,7 +642,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
-                onClick={() => setStep("type")}
+                onClick={handleBackToTypeSelection}
                 className="border-white/[0.08]"
               >
                 Back
@@ -680,7 +697,10 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       <div className="space-y-6 max-w-xl">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setStep("form")}
+            onClick={() => {
+              setStep("form");
+              // Don't reset form here as user might want to review before publishing
+            }}
             className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
