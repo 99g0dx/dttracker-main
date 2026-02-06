@@ -103,22 +103,44 @@ echo "Checking configured secrets..."
 supabase secrets list --project-ref "$PROJECT_REF" || true
 echo ""
 
-# Step 5: Deploy Edge Function
-echo "Step 5: Deploy Edge Function"
-echo "---------------------------"
-read -p "Ready to deploy the scrape-post Edge Function? (y/n): " DEPLOY_CONFIRM
+# Step 5: Deploy Edge Functions
+echo "Step 5: Deploy Edge Functions"
+echo "----------------------------"
 
-if [ "$DEPLOY_CONFIRM" = "y" ] || [ "$DEPLOY_CONFIRM" = "Y" ]; then
-    echo "Deploying Edge Function..."
-    if supabase functions deploy scrape-post --no-verify-jwt --project-ref "$PROJECT_REF"; then
-        echo -e "${GREEN}✓ Edge Function deployed successfully${NC}"
-    else
-        echo -e "${RED}❌ Failed to deploy Edge Function${NC}"
-        exit 1
-    fi
-else
-    echo -e "${YELLOW}⚠ Skipping Edge Function deployment${NC}"
+# 5a. Scraper Functions
+read -p "Deploy Scraper functions (scrape-post, scrape-all-posts)? (y/n): " DEPLOY_SCRAPER
+if [ "$DEPLOY_SCRAPER" = "y" ] || [ "$DEPLOY_SCRAPER" = "Y" ]; then
+    echo "Deploying scrape-post..."
+    supabase functions deploy scrape-post --no-verify-jwt --project-ref "$PROJECT_REF"
+    echo "Deploying scrape-all-posts..."
+    supabase functions deploy scrape-all-posts --no-verify-jwt --project-ref "$PROJECT_REF"
+    echo -e "${GREEN}✓ Scraper functions deployed${NC}"
 fi
+echo ""
+
+# 5b. Wallet Functions
+read -p "Deploy Wallet/Paystack functions? (y/n): " DEPLOY_WALLET
+if [ "$DEPLOY_WALLET" = "y" ] || [ "$DEPLOY_WALLET" = "Y" ]; then
+    read -p "Enter your Paystack Secret Key (sk_live_...): " PAYSTACK_KEY
+    
+    if [ -n "$PAYSTACK_KEY" ]; then
+        echo "Setting Paystack secret..."
+        supabase secrets set PAYSTACK_SECRET_KEY="$PAYSTACK_KEY" --project-ref "$PROJECT_REF"
+    else
+        echo -e "${YELLOW}⚠ Skipping Paystack key (ensure you set PAYSTACK_SECRET_KEY manually)${NC}"
+    fi
+
+    echo "Deploying wallet-fund-initialize..."
+    supabase functions deploy wallet-fund-initialize --no-verify-jwt --project-ref "$PROJECT_REF"
+    
+    echo "Deploying paystack-webhook..."
+    supabase functions deploy paystack-webhook --no-verify-jwt --project-ref "$PROJECT_REF"
+    
+    echo -e "${GREEN}✓ Wallet functions deployed${NC}"
+    echo -e "${YELLOW}👉 ACTION REQUIRED: Go to Paystack Dashboard -> Settings -> Webhooks${NC}"
+    echo -e "${YELLOW}   Set URL to: https://$PROJECT_REF.supabase.co/functions/v1/paystack-webhook${NC}"
+fi
+
 
 echo ""
 echo -e "${GREEN}=====================================${NC}"

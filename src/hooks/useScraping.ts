@@ -182,7 +182,7 @@ export function useScrapeAllPosts() {
         });
       } else if (success_count === 0) {
         const errorDetails =
-          data.errors.length > 0
+          data.errors && data.errors.length > 0
             ? `\nFirst error: ${data.errors[0].message}`
             : "";
         toast.error(
@@ -193,7 +193,7 @@ export function useScrapeAllPosts() {
         );
       } else {
         const errorDetails =
-          data.errors.length > 0
+          data.errors && data.errors.length > 0
             ? `\n${data.errors.length} failed. See console for details.`
             : "";
         toast.warning(
@@ -212,8 +212,12 @@ export function useScrapeAllPosts() {
           } in "${campaignName}". ${error_count} failed.`,
         });
 
-        // Log detailed errors to console for debugging
-        if (data.errors.length > 0) {
+        // Log detailed errors to console for debugging (dev mode only)
+        const isDev =
+          typeof window !== "undefined" &&
+          (window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1");
+        if (isDev && data.errors && data.errors.length > 0) {
           console.group("Scraping Errors:");
           data.errors.forEach((err, index) => {
             console.error(`Post ${index + 1} (${err.postId}):`, err.message);

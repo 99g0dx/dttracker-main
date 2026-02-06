@@ -48,6 +48,11 @@ const Creators = React.lazy(() =>
     default: module.Creators,
   }))
 );
+const RequestInvitations = React.lazy(() =>
+  import("./components/creators/request-invitations").then((module) => ({
+    default: module.RequestInvitations,
+  }))
+);
 const CreatorScraper = React.lazy(() =>
   import("./components/creator-scraper").then((module) => ({
     default: module.CreatorScraper,
@@ -237,7 +242,7 @@ function AppRoutes() {
   return (
     <ToastProvider>
       <RouteProgress isActive={routeProgress || isSwitching} />
-      <div className="dark min-h-[100dvh] w-full overflow-hidden bg-[#0A0A0A] text-foreground flex flex-col">
+      <div className="dark h-[100dvh] w-full overflow-hidden bg-[#0A0A0A] text-foreground flex flex-col">
         {!isPublicRoute && (
           <>
             <Sidebar
@@ -253,9 +258,9 @@ function AppRoutes() {
 
         <main
           className={cn(
-            "flex-1 min-h-0 overflow-x-hidden",
+            "flex-1 overflow-x-hidden",
             isPublicRoute
-              ? "px-0 py-0 overflow-y-visible"
+              ? "px-0 py-0 overflow-y-auto"
               : "lg:ml-64 px-4 sm:px-5 lg:px-8 pt-[max(5rem,env(safe-area-inset-top,5rem))] lg:pt-8 pb-8 overflow-y-auto"
           )}
         >
@@ -387,7 +392,9 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute>
                       <ErrorBoundary>
-                        <ActivationCreate onNavigate={(path) => navigate(path)} />
+                        <ActivationCreate
+                          onNavigate={(path) => navigate(path)}
+                        />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   }
@@ -397,7 +404,9 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute>
                       <ErrorBoundary>
-                        <ActivationDetail onNavigate={(path) => navigate(path)} />
+                        <ActivationDetail
+                          onNavigate={(path) => navigate(path)}
+                        />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   }
@@ -415,6 +424,16 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute>
                       <Creators onNavigate={(path) => navigate(path)} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/creators/invitations"
+                  element={
+                    <ProtectedRoute>
+                      <RequestInvitations
+                        onNavigate={(path) => navigate(path)}
+                      />
                     </ProtectedRoute>
                   }
                 />

@@ -28,6 +28,7 @@ interface ResponsiveConfirmDialogProps {
   cancelLabel?: string;
   confirmDisabled?: boolean;
   confirmLoading?: boolean;
+  confirmVariant?: "destructive" | "default";
   onConfirm: () => void;
   className?: string;
 }
@@ -41,6 +42,7 @@ export function ResponsiveConfirmDialog({
   cancelLabel = "Cancel",
   confirmDisabled = false,
   confirmLoading = false,
+  confirmVariant = "destructive",
   onConfirm,
   className,
 }: ResponsiveConfirmDialogProps) {
@@ -83,12 +85,13 @@ export function ResponsiveConfirmDialog({
         )}
       >
         <Button
-          variant="destructive"
+          variant={confirmVariant}
           onClick={handleConfirm}
           disabled={confirmDisabled || confirmLoading}
           className={cn(
             "min-h-[44px] w-full flex items-center justify-center gap-2",
-            !isMobile && "w-auto"
+            !isMobile && "w-auto",
+            confirmVariant === "default" && "bg-white text-black hover:bg-white/90"
           )}
         >
           {confirmLoading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -131,7 +134,7 @@ export function ResponsiveConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-[92vw] max-w-md bg-[#0D0D0D] border-white/[0.08] p-4 sm:p-6",
+          "w-[92vw] max-w-[345px] sm:max-w-[345px] left-[50%] -translate-x-1/2 bg-[#0D0D0D] border-white/[0.08] p-4",
           className
         )}
       >

@@ -123,7 +123,7 @@ export function Activations({ onNavigate }: ActivationsProps) {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as ActivationType | 'all')}
-          className="h-9 px-3 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white"
+          className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm rounded-lg bg-white/[0.04] border border-white/[0.08] text-white"
         >
           <option value="all">All Types</option>
           <option value="contest">Contest</option>
@@ -132,7 +132,7 @@ export function Activations({ onNavigate }: ActivationsProps) {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as ActivationStatus | 'all')}
-          className="h-9 px-3 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white"
+          className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm rounded-lg bg-white/[0.04] border border-white/[0.08] text-white"
         >
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
@@ -146,7 +146,7 @@ export function Activations({ onNavigate }: ActivationsProps) {
             placeholder="Search activations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-white/[0.04] border-white/[0.08]"
+            className="h-8 sm:h-9 w-full pl-8 sm:pl-9 text-xs sm:text-sm bg-white/[0.04] border-white/[0.08]"
           />
         </div>
       </div>

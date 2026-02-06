@@ -81,7 +81,6 @@ AS $$
   kpi_posts AS (
     SELECT *
     FROM posts_union
-    WHERE platform IN ('tiktok', 'instagram')
   ),
   metrics AS (
     SELECT

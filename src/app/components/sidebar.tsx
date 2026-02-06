@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Megaphone, Users, Settings, Menu, X, Shield, LogOut, Crown, UserCog, Trophy, Wallet } from 'lucide-react';
+import { Menu, X, LogOut } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
@@ -9,6 +9,18 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
 import { useBillingSummary } from '../../hooks/useBilling';
 import { useCompanyAdmin } from '../../hooks/useCompanyAdmin';
+import {
+  DashboardIcon,
+  CampaignIcon,
+  TrophyIcon,
+  PeopleIcon,
+  DocumentIcon,
+  WalletIcon,
+  CrownIcon,
+  AdminIcon,
+  ShieldIcon,
+  SettingsIcon,
+} from './ui/custom-icons';
 
 interface NavItem {
   name: string;
@@ -19,21 +31,21 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { name: 'Campaigns', href: '/campaigns', icon: <Megaphone className="w-5 h-5" /> },
-  { name: 'Activations', href: '/activations', icon: <Trophy className="w-5 h-5" /> },
-  { name: 'Creators', href: '/creators', icon: <Users className="w-5 h-5" /> },
-  { name: 'Requests', href: '/requests', icon: <FileText className="w-5 h-5" /> },
-  { name: 'Wallet', href: '/wallet', icon: <Wallet className="w-5 h-5" /> },
-  { name: 'Admin', href: '/admin', icon: <Crown className="w-5 h-5" />, emphasis: true },
-  { name: 'Admin Users', href: '/admin/users', icon: <UserCog className="w-5 h-5" />, emphasis: true },
+  { name: 'Dashboard', href: '/dashboard', icon: <DashboardIcon className="w-5 h-5" /> },
+  { name: 'Campaigns', href: '/campaigns', icon: <CampaignIcon className="w-5 h-5" /> },
+  { name: 'Activations', href: '/activations', icon: <TrophyIcon className="w-5 h-5" /> },
+  { name: 'Creators', href: '/creators', icon: <PeopleIcon className="w-5 h-5" /> },
+  { name: 'Requests', href: '/requests', icon: <DocumentIcon className="w-5 h-5" /> },
+  { name: 'Wallet', href: '/wallet', icon: <WalletIcon className="w-5 h-5" /> },
+  { name: 'Admin', href: '/admin', icon: <CrownIcon className="w-5 h-5" />, emphasis: true },
+  { name: 'Admin Users', href: '/admin/users', icon: <AdminIcon className="w-5 h-5" />, emphasis: true },
 
   {
     name: 'Team', 
     href: '/team', 
-    icon: <Shield className="w-5 h-5" />
+    icon: <ShieldIcon className="w-5 h-5" />
   },
-  { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
+  { name: 'Settings', href: '/settings', icon: <SettingsIcon className="w-5 h-5" /> },
 
 ];
 
@@ -229,12 +241,12 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   return (
     <>
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-[#0A0A0A] border-b border-white/[0.08] flex items-center px-4 z-40">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0A0A0A] border-b border-white/[0.08] flex items-center px-3 z-40">
         <div className="grid grid-cols-[auto_1fr_auto] items-center w-full gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+              className="w-11 h-11 min-h-[44px] rounded-lg bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-all duration-150"
               aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
             >
               {sidebarOpen ? (
@@ -245,17 +257,17 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             </button>
             <button
               onClick={handleLogoClick}
-              className="h-11 min-h-[44px] flex items-center gap-2 rounded-md px-2 text-white hover:bg-white/[0.04] transition-colors"
+              className="h-11 min-h-[44px] flex items-center gap-2 rounded-lg px-2 text-white hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150"
               aria-label="Go to dashboard"
             >
               <img src={logoImage} alt="DTTracker" className="w-6 h-6 object-contain" />
-              <span className="text-[13px] font-semibold tracking-tight truncate max-w-[96px]">
+              <span className="text-sm font-semibold tracking-tight truncate max-w-[96px]">
                 DTTracker
               </span>
             </button>
           </div>
           <div className="flex items-center justify-end">
-            <div className="w-11 h-11 flex items-center justify-center">
+            <div className="w-11 h-11 min-h-[44px] flex items-center justify-center">
               <NotificationsCenter />
             </div>
           </div>
@@ -361,7 +373,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             </>
           )}
 
-          <ul className="space-y-0.5">
+          <ul className="space-y-1">
             {primaryNavItems.map((item) => {
               const isActive = currentPath === item.href;
               return (
@@ -369,16 +381,16 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                   <button
                     onClick={() => handleNavigate(item.href)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 h-9 rounded-md transition-all text-[13px] font-medium',
+                      'w-full flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 text-sm font-medium',
                       isActive
-                        ? 'bg-white/[0.08] text-white'
+                        ? 'bg-white/[0.08] text-white shadow-sm'
                         : item.emphasis
-                        ? 'text-amber-200 hover:text-amber-100 hover:bg-amber-500/10'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                        ? 'text-amber-200 hover:text-amber-100 active:bg-amber-500/10'
+                        : 'text-slate-400 hover:text-slate-200 active:bg-white/[0.04]'
                     )}
                   >
                     <span className={cn(
-                      'transition-colors',
+                      'transition-colors duration-150',
                       isActive ? 'text-primary' : item.emphasis ? 'text-amber-400' : 'text-slate-500'
                     )}>
                       {item.icon}
@@ -398,11 +410,11 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
           </ul>
 
           {adminNavItems.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-6">
               <div className="px-3 text-[10px] uppercase tracking-[0.2em] text-amber-300/70 mb-2">
                 Company
               </div>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {adminNavItems.map((item) => {
                   const isActive = currentPath === item.href;
                   return (
@@ -410,14 +422,14 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                       <button
                         onClick={() => handleNavigate(item.href)}
                         className={cn(
-                          'w-full flex items-center gap-3 px-3 h-9 rounded-md transition-all text-[13px] font-medium',
+                          'w-full flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 text-sm font-medium',
                           isActive
-                            ? 'bg-amber-500/20 text-white'
-                            : 'text-amber-200 hover:text-amber-100 hover:bg-amber-500/10'
+                            ? 'bg-amber-500/20 text-white shadow-sm'
+                            : 'text-amber-200 hover:text-amber-100 active:bg-amber-500/10'
                         )}
                       >
                         <span className={cn(
-                          'transition-colors',
+                          'transition-colors duration-150',
                           isActive ? 'text-amber-300' : 'text-amber-400'
                         )}>
                           {item.icon}
@@ -439,7 +451,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
         <div className="p-3 border-t border-white/[0.08]">
           <div 
             onClick={() => handleNavigate('/subscription')}
-            className="flex items-center gap-3 px-3 h-11 rounded-md hover:bg-white/[0.04] transition-colors cursor-pointer mb-1"
+            className="flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150 cursor-pointer mb-1"
           >
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white text-[13px] font-medium">
               {userInitial}
@@ -457,10 +469,10 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
           </div>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 h-9 rounded-md hover:bg-white/[0.04] transition-colors text-slate-400 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150 text-slate-400 hover:text-white"
           >
             <LogOut className="w-4 h-4" />
-            <span className="text-[13px]">Sign out</span>
+            <span className="text-sm">Sign out</span>
           </button>
         </div>
       </aside>

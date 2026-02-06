@@ -67,7 +67,10 @@ export async function create(post: PostInsert): Promise<ApiResponse<Post>> {
 
     if (error) {
       if ("code" in error && error.code === "23505" && post.external_id) {
-        const existing = await findByExternalId(post.platform, post.external_id);
+        const existing = await findByExternalId(
+          post.platform,
+          post.external_id
+        );
         return {
           data: existing.data,
           error: new DuplicatePostError(
@@ -313,9 +316,11 @@ export async function listByCampaignHierarchy(
  * Get time-series metrics data for charts
  * Uses post_metrics table for historical snapshots (more accurate for growth tracking)
  * Falls back to posts table if no historical data exists
+ * @param platform - optional platform to filter by (e.g. 'tiktok', 'instagram'); when omitted, aggregates all platforms
  */
 export async function getCampaignMetricsTimeSeries(
-  campaignId: string
+  campaignId: string,
+  platform?: string
 ): Promise<ApiResponse<TimeSeriesDataPoint[]>> {
   try {
     // Get all campaign IDs (parent + subcampaigns) to ensure chart matches total metrics
@@ -373,20 +378,32 @@ export async function getCampaignMetricsTimeSeries(
       const currentPostMetrics = new Map<string, any>();
       const timeSeriesData: TimeSeriesDataPoint[] = [];
 
+      const platformLower = platform?.toLowerCase();
+
       sortedDates.forEach((date) => {
-        // Update current metrics with data from this date
+        // Update current metrics with data from this date (only for selected platform when filtering)
         const daysMetrics = metricsByDate.get(date) || [];
-        daysMetrics.forEach((m) => {
+        daysMetrics.forEach((m: any) => {
+          if (
+            platformLower &&
+            (m.posts?.platform?.toLowerCase() ?? "") !== platformLower
+          )
+            return;
           currentPostMetrics.set(m.post_id, m);
         });
 
-        // Calculate daily totals from current state of all posts
+        // Calculate daily totals from current state of all posts (respecting platform filter)
         let views = 0,
           likes = 0,
           comments = 0,
           shares = 0;
 
-        currentPostMetrics.forEach((m) => {
+        currentPostMetrics.forEach((m: any) => {
+          if (
+            platformLower &&
+            (m.posts?.platform?.toLowerCase() ?? "") !== platformLower
+          )
+            return;
           views += Number(m.views || 0);
           likes += Number(m.likes || 0);
           comments += Number(m.comments || 0);
@@ -415,7 +432,7 @@ export async function getCampaignMetricsTimeSeries(
     const { data, error } = await supabase
       .from("posts")
       .select(
-        "id, views, likes, comments, shares, last_scraped_at, created_at, updated_at"
+        "id, platform, views, likes, comments, shares, last_scraped_at, created_at, updated_at"
       )
       .in("campaign_id", campaignIds);
 
@@ -457,20 +474,27 @@ export async function getCampaignMetricsTimeSeries(
     const currentPosts = new Map<string, any>();
     const timeSeriesData: TimeSeriesDataPoint[] = [];
 
+    const platformLower = platform?.toLowerCase();
+
     sortedDates.forEach((date) => {
       // Update current posts with data from this date
       const daysPosts = postsByDate.get(date) || [];
-      daysPosts.forEach((p) => {
+      daysPosts.forEach((p: any) => {
         currentPosts.set(p.id, p);
       });
 
-      // Calculate daily totals
+      // Calculate daily totals (respecting platform filter)
       let views = 0,
         likes = 0,
         comments = 0,
         shares = 0;
 
-      currentPosts.forEach((p) => {
+      currentPosts.forEach((p: any) => {
+        if (
+          platformLower &&
+          (p.platform?.toLowerCase() ?? "") !== platformLower
+        )
+          return;
         views += Number(p.views || 0);
         likes += Number(p.likes || 0);
         comments += Number(p.comments || 0);

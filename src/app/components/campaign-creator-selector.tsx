@@ -152,16 +152,16 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
   return (
     <div className="space-y-4">
       {/* Campaign Selector */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
-        <CardContent className="p-4">
+      <Card className="bg-[#0D0D0D] border-white/[0.08]" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <CardContent className="p-5 sm:p-6">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Select Campaign(s)</label>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
+              <label className="block text-sm font-normal text-slate-300 mb-3">Select Campaign(s)</label>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {campaigns.map((campaign) => {
                   const isSelected = selectedCampaignIds.includes(campaign.id);
                   return (
-                    <div key={campaign.id} className="flex items-center gap-2">
+                    <div key={campaign.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/[0.02] transition-colors">
                       <button
                         onClick={() => {
                           if (isSelected) {
@@ -171,10 +171,10 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
                           }
                           setSelectedCreatorIds(new Set());
                         }}
-                        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                           isSelected
-                            ? 'bg-primary border-primary'
-                            : 'border-white/[0.2]'
+                            ? 'bg-white border-white'
+                            : 'border-white/[0.15] hover:border-white/[0.25]'
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3 text-black" />}
@@ -189,12 +189,11 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
               </div>
             </div>
             {selectedCampaignIds.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pt-2">
                 <Button
                   onClick={handleAddToCampaigns}
                   disabled={selectedCreatorIds.size === 0 || isAdding}
-                  className="h-10 bg-primary hover:bg-primary/90 text-black w-full sm:w-auto"
-                  style={{ backgroundClip: 'unset', WebkitBackgroundClip: 'unset' }}
+                  className="h-11 bg-white hover:bg-white/95 text-black font-medium w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   <span className="sm:hidden">
@@ -212,26 +211,26 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         <Input
           placeholder="Search creators by name, handle, or niche..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+          className="h-11 sm:h-12 pl-11 pr-4"
         />
       </div>
 
       {/* Select All */}
       {availableCreators.length > 0 && selectedCampaignIds.length > 0 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
           <button
             onClick={handleSelectAll}
-            className="text-sm text-primary hover:text-primary/80 flex items-center gap-2"
+            className="text-sm text-white hover:text-slate-200 flex items-center gap-2 transition-colors"
           >
-            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
               selectedCreatorIds.size === availableCreators.length
-                ? 'bg-primary border-primary'
-                : 'border-white/[0.2]'
+                ? 'bg-white border-white'
+                : 'border-white/[0.15] hover:border-white/[0.25]'
             }`}>
               {selectedCreatorIds.size === availableCreators.length && (
                 <Check className="w-3 h-3 text-black" />
@@ -265,7 +264,7 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
               <Card
                 key={creator.id}
                 className={`bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-all ${
-                  isSelected ? 'ring-2 ring-primary' : ''
+                  isSelected ? 'ring-2 ring-white/[0.2]' : ''
                 }`}
               >
                 <CardContent className="p-4">
@@ -274,10 +273,10 @@ export function CampaignCreatorSelector({ onNavigate }: CampaignCreatorSelectorP
                       {selectedCampaignIds.length > 0 && (
                         <button
                           onClick={() => handleToggleCreator(creator.id)}
-                          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 ${
+                          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all ${
                             isSelected
-                              ? 'bg-primary border-primary'
-                              : 'border-white/[0.2]'
+                              ? 'bg-white border-white'
+                              : 'border-white/[0.15] hover:border-white/[0.25]'
                           }`}
                         >
                           {isSelected && <Check className="w-3 h-3 text-black" />}

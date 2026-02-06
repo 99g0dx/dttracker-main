@@ -1,20 +1,35 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as postsApi from '../lib/api/posts';
-import * as scrapingApi from '../lib/api/scraping';
-import type { PostInsert, PostUpdate, PostWithCreator } from '../lib/types/database';
-import { toast } from 'sonner';
-import { campaignsKeys } from './useCampaigns';
-import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as postsApi from "../lib/api/posts";
+import * as scrapingApi from "../lib/api/scraping";
+import type {
+  PostInsert,
+  PostUpdate,
+  PostWithCreator,
+} from "../lib/types/database";
+import { toast } from "sonner";
+import { campaignsKeys } from "./useCampaigns";
+import { useWorkspace } from "../contexts/WorkspaceContext";
 
 // Query keys
 export const postsKeys = {
-  all: ['posts'] as const,
-  lists: () => [...postsKeys.all, 'list'] as const,
+  all: ["posts"] as const,
+  lists: () => [...postsKeys.all, "list"] as const,
   list: (campaignId: string, includeSubcampaigns = false) =>
-    [...postsKeys.lists(), campaignId, includeSubcampaigns ? 'hierarchy' : 'direct'] as const,
-  metrics: () => [...postsKeys.all, 'metrics'] as const,
-  campaignMetrics: (campaignId: string) => [...postsKeys.metrics(), campaignId] as const,
-  timeSeries: (campaignId: string) => [...postsKeys.metrics(), 'timeSeries', campaignId] as const,
+    [
+      ...postsKeys.lists(),
+      campaignId,
+      includeSubcampaigns ? "hierarchy" : "direct",
+    ] as const,
+  metrics: () => [...postsKeys.all, "metrics"] as const,
+  campaignMetrics: (campaignId: string) =>
+    [...postsKeys.metrics(), campaignId] as const,
+  timeSeries: (campaignId: string, platform?: string) =>
+    [
+      ...postsKeys.metrics(),
+      "timeSeries",
+      campaignId,
+      platform ?? "all",
+    ] as const,
 };
 
 /**
@@ -24,7 +39,10 @@ export function usePosts(campaignId: string, includeSubcampaigns = false) {
   return useQuery({
     queryKey: postsKeys.list(campaignId, includeSubcampaigns),
     queryFn: async () => {
-      const result = await postsApi.listByCampaignHierarchy(campaignId, includeSubcampaigns);
+      const result = await postsApi.listByCampaignHierarchy(
+        campaignId,
+        includeSubcampaigns
+      );
       if (result.error) {
         throw result.error;
       }
@@ -55,12 +73,19 @@ export function useCampaignMetrics(campaignId: string) {
 
 /**
  * Hook to fetch time-series metrics for charts
+ * @param platform - optional platform to filter by (e.g. 'tiktok', 'instagram'); when omitted, aggregates all platforms
  */
-export function useCampaignMetricsTimeSeries(campaignId: string) {
+export function useCampaignMetricsTimeSeries(
+  campaignId: string,
+  platform?: string
+) {
   return useQuery({
-    queryKey: postsKeys.timeSeries(campaignId),
+    queryKey: postsKeys.timeSeries(campaignId, platform),
     queryFn: async () => {
-      const result = await postsApi.getCampaignMetricsTimeSeries(campaignId);
+      const result = await postsApi.getCampaignMetricsTimeSeries(
+        campaignId,
+        platform
+      );
       if (result.error) {
         throw result.error;
       }
@@ -93,8 +118,10 @@ export function useCreatePost() {
         // Invalidate metrics
         queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list (to update stats)
-        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
-        toast.success('Post added successfully');
+        queryClient.invalidateQueries({
+          queryKey: campaignsKeys.lists(activeWorkspaceId),
+        });
+        toast.success("Post added successfully");
       }
     },
     onError: (error: Error) => {
@@ -126,7 +153,9 @@ export function useCreateManyPosts() {
         // Invalidate metrics
         queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list
-        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
+        queryClient.invalidateQueries({
+          queryKey: campaignsKeys.lists(activeWorkspaceId),
+        });
         toast.success(`${data.length} posts imported successfully`);
       }
     },
@@ -144,7 +173,15 @@ export function useUpdatePost() {
   const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
-    mutationFn: async ({ id, updates, campaignId }: { id: string; updates: PostUpdate; campaignId: string }) => {
+    mutationFn: async ({
+      id,
+      updates,
+      campaignId,
+    }: {
+      id: string;
+      updates: PostUpdate;
+      campaignId: string;
+    }) => {
       const result = await postsApi.update(id, updates);
       if (result.error) {
         throw result.error;
@@ -156,17 +193,22 @@ export function useUpdatePost() {
       await queryClient.cancelQueries({ queryKey: postsKeys.lists() });
 
       // Snapshot previous value
-      const previousPosts = queryClient.getQueryData(postsKeys.list(campaignId, false));
+      const previousPosts = queryClient.getQueryData(
+        postsKeys.list(campaignId, false)
+      );
 
       // Optimistically update posts list
-      queryClient.setQueryData(postsKeys.list(campaignId, false), (old: PostWithCreator[] | undefined) => {
-        if (!old) return old;
-        return old.map(post =>
-          post.id === id
-            ? { ...post, ...updates, updated_at: new Date().toISOString() }
-            : post
-        );
-      });
+      queryClient.setQueryData(
+        postsKeys.list(campaignId, false),
+        (old: PostWithCreator[] | undefined) => {
+          if (!old) return old;
+          return old.map((post) =>
+            post.id === id
+              ? { ...post, ...updates, updated_at: new Date().toISOString() }
+              : post
+          );
+        }
+      );
 
       return { previousPosts, campaignId };
     },
@@ -177,14 +219,19 @@ export function useUpdatePost() {
         // Invalidate metrics
         queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
         // Invalidate campaigns list
-        queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
-        toast.success('Post updated successfully');
+        queryClient.invalidateQueries({
+          queryKey: campaignsKeys.lists(activeWorkspaceId),
+        });
+        toast.success("Post updated successfully");
       }
     },
     onError: (error: Error, _variables, context) => {
       // Rollback optimistic update
       if (context?.previousPosts && context?.campaignId) {
-        queryClient.setQueryData(postsKeys.list(context.campaignId, false), context.previousPosts);
+        queryClient.setQueryData(
+          postsKeys.list(context.campaignId, false),
+          context.previousPosts
+        );
       }
       toast.error(`Failed to update post: ${error.message}`);
     },
@@ -199,7 +246,13 @@ export function useDeletePost() {
   const { activeWorkspaceId } = useWorkspace();
 
   return useMutation({
-    mutationFn: async ({ id, campaignId }: { id: string; campaignId: string }) => {
+    mutationFn: async ({
+      id,
+      campaignId,
+    }: {
+      id: string;
+      campaignId: string;
+    }) => {
       const result = await postsApi.deletePost(id);
       if (result.error) {
         throw result.error;
@@ -211,13 +264,18 @@ export function useDeletePost() {
       await queryClient.cancelQueries({ queryKey: postsKeys.lists() });
 
       // Snapshot previous value
-      const previousPosts = queryClient.getQueryData(postsKeys.list(campaignId, false));
+      const previousPosts = queryClient.getQueryData(
+        postsKeys.list(campaignId, false)
+      );
 
       // Optimistically remove from list
-      queryClient.setQueryData(postsKeys.list(campaignId, false), (old: PostWithCreator[] | undefined) => {
-        if (!old) return old;
-        return old.filter(post => post.id !== id);
-      });
+      queryClient.setQueryData(
+        postsKeys.list(campaignId, false),
+        (old: PostWithCreator[] | undefined) => {
+          if (!old) return old;
+          return old.filter((post) => post.id !== id);
+        }
+      );
 
       return { previousPosts, campaignId };
     },
@@ -227,13 +285,18 @@ export function useDeletePost() {
       // Invalidate metrics
       queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
-      toast.success('Post deleted successfully');
+      queryClient.invalidateQueries({
+        queryKey: campaignsKeys.lists(activeWorkspaceId),
+      });
+      toast.success("Post deleted successfully");
     },
     onError: (error: Error, _variables, context) => {
       // Rollback optimistic update
       if (context?.previousPosts && context?.campaignId) {
-        queryClient.setQueryData(postsKeys.list(context.campaignId, false), context.previousPosts);
+        queryClient.setQueryData(
+          postsKeys.list(context.campaignId, false),
+          context.previousPosts
+        );
       }
       toast.error(`Failed to delete post: ${error.message}`);
     },
@@ -261,8 +324,10 @@ export function useDeleteAllPosts() {
       // Invalidate metrics
       queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
-      toast.success('All posts deleted successfully');
+      queryClient.invalidateQueries({
+        queryKey: campaignsKeys.lists(activeWorkspaceId),
+      });
+      toast.success("All posts deleted successfully");
     },
     onError: (error: Error) => {
       toast.error(`Failed to delete posts: ${error.message}`);
@@ -283,7 +348,7 @@ export function useAddPostWithScrape() {
       // Step 1: Create the post
       const createResult = await postsApi.create(post);
       if (createResult.error || !createResult.data) {
-        throw createResult.error || new Error('Failed to create post');
+        throw createResult.error || new Error("Failed to create post");
       }
 
       const createdPost = createResult.data;
@@ -293,12 +358,17 @@ export function useAddPostWithScrape() {
         const scrapeResult = await scrapingApi.scrapePost({
           postId: createdPost.id,
           postUrl: createdPost.post_url,
-          platform: createdPost.platform as 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'facebook',
+          platform: createdPost.platform as
+            | "tiktok"
+            | "instagram"
+            | "youtube"
+            | "twitter"
+            | "facebook",
         });
 
         if (scrapeResult.error) {
           // Post was created but scraping failed - mark for retry by scheduler
-          console.warn('Post created but scraping failed:', scrapeResult.error);
+          console.warn("Post created but scraping failed:", scrapeResult.error);
           const errMsg = scrapeResult.error.message;
           await postsApi.update(createdPost.id, {
             initial_scrape_attempted: true,
@@ -307,7 +377,7 @@ export function useAddPostWithScrape() {
               {
                 timestamp: new Date().toISOString(),
                 error: errMsg,
-                type: 'initial_scrape',
+                type: "initial_scrape",
               },
             ],
           });
@@ -333,7 +403,7 @@ export function useAddPostWithScrape() {
             comments: metrics.comments,
             shares: metrics.shares,
             engagement_rate: metrics.engagement_rate,
-            status: 'scraped',
+            status: "scraped",
             initial_scrape_attempted: true,
             initial_scrape_completed: true,
             initial_scraped_at: now,
@@ -353,9 +423,9 @@ export function useAddPostWithScrape() {
         };
       } catch (scrapeError) {
         // Post was created but scraping failed - mark for retry by scheduler
-        console.warn('Post created but scraping failed:', scrapeError);
+        console.warn("Post created but scraping failed:", scrapeError);
         const errMsg =
-          scrapeError instanceof Error ? scrapeError.message : 'Unknown error';
+          scrapeError instanceof Error ? scrapeError.message : "Unknown error";
         await postsApi.update(createdPost.id, {
           initial_scrape_attempted: true,
           initial_scrape_failed: true,
@@ -363,7 +433,7 @@ export function useAddPostWithScrape() {
             {
               timestamp: new Date().toISOString(),
               error: errMsg,
-              type: 'initial_scrape',
+              type: "initial_scrape",
             },
           ],
         });
@@ -378,44 +448,56 @@ export function useAddPostWithScrape() {
     },
     onSuccess: (data, variables) => {
       const campaignId = variables.campaign_id;
-      
+
       // Invalidate posts list for this campaign
       queryClient.invalidateQueries({ queryKey: postsKeys.lists() });
       // Invalidate metrics
       queryClient.invalidateQueries({ queryKey: postsKeys.metrics() });
       // Invalidate campaigns list
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.lists(activeWorkspaceId) });
-      
+      queryClient.invalidateQueries({
+        queryKey: campaignsKeys.lists(activeWorkspaceId),
+      });
+
       if (data.scraped) {
-        let message = 'Post added';
+        let message = "Post added";
         if (data.ownerUsername) {
           message += `: @${data.ownerUsername}`;
         }
         if (data.creatorMatch?.matched) {
-          const creatorLabel = data.creatorMatch.creatorName || data.creatorMatch.creatorHandle;
+          const creatorLabel =
+            data.creatorMatch.creatorName || data.creatorMatch.creatorHandle;
           if (data.creatorMatch.created) {
             message += ` (creator @${creatorLabel} added to campaign)`;
           } else {
             message += ` (matched to ${creatorLabel})`;
           }
         } else if (!data.ownerUsername) {
-          message += ' and metrics scraped successfully';
+          message += " and metrics scraped successfully";
         }
         toast.success(message);
       } else {
-        const errorMessage = data.scrapeError || 'Unknown error';
+        const errorMessage = data.scrapeError || "Unknown error";
         // Provide more helpful error messages
-        if (errorMessage.includes('503') || errorMessage.includes('Service Unavailable')) {
+        if (
+          errorMessage.includes("503") ||
+          errorMessage.includes("Service Unavailable")
+        ) {
           toast.warning(
-            'Post added successfully, but scraping failed temporarily. The TikTok API is currently unavailable. You can retry scraping this post later.'
+            "Post added successfully, but scraping failed temporarily. The TikTok API is currently unavailable. You can retry scraping this post later."
           );
-        } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+        } else if (
+          errorMessage.includes("429") ||
+          errorMessage.includes("rate limit")
+        ) {
           toast.warning(
-            'Post added successfully, but scraping failed due to rate limits. Please wait a moment and retry scraping this post.'
+            "Post added successfully, but scraping failed due to rate limits. Please wait a moment and retry scraping this post."
           );
-        } else if (errorMessage.includes('502') || errorMessage.includes('504')) {
+        } else if (
+          errorMessage.includes("502") ||
+          errorMessage.includes("504")
+        ) {
           toast.warning(
-            'Post added successfully, but scraping failed temporarily due to network issues. You can retry scraping this post later.'
+            "Post added successfully, but scraping failed temporarily due to network issues. You can retry scraping this post later."
           );
         } else {
           toast.warning(`Post added but scraping failed: ${errorMessage}`);

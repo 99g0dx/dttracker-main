@@ -25,7 +25,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           title: "text-sm",
           description: "text-sm",
           closeButton:
-            "h-11 w-11 rounded-full flex items-center justify-center",
+            "h-5 w-5 rounded-[20px] flex items-center justify-center",
         },
       }}
       style={

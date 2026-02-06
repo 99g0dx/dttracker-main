@@ -65,24 +65,24 @@
   --destructive-foreground: #ffffff;
   --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.08);
-  --ring: #0ea5e9;
+  --ring: #ffffff;
   --success: #10b981;
   --warning: #f59e0b;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: #0ea5e9;
+  --chart-1: #ffffff;
   --chart-2: #8b5cf6;
   --chart-3: #ec4899;
   --chart-4: #10b981;
   --chart-5: #f59e0b;
   --sidebar: #0A0A0A;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #0ea5e9;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
   --sidebar-accent: #18181B;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #0ea5e9;
+  --sidebar-ring: #ffffff;
 }
 
 @theme inline {
@@ -109,7 +109,7 @@
   --color-ring: var(--ring);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --color-accent-blue: #0ea5e9;
+  --color-accent-blue: #ffffff;
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

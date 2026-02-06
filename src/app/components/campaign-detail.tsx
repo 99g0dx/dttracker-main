@@ -158,6 +158,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [chartRange, setChartRange] = useState<"7d" | "14d" | "30d" | "all">(
     "14d"
   );
+  const [chartPlatformFilter, setChartPlatformFilter] = useState<string>("all");
   const [chartsReady, setChartsReady] = useState(false);
   const [postFiltersOpen, setPostFiltersOpen] = useState(false);
   const [postPlatformFilter, setPostPlatformFilter] = useState("all");
@@ -280,7 +281,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     refetch: refetchPosts,
   } = usePosts(id, Boolean(isParent));
   const { data: hierarchyMetrics } = useCampaignHierarchyMetrics(id || "");
-  const { data: chartData = [] } = useCampaignMetricsTimeSeries(id);
+  const { data: chartData = [] } = useCampaignMetricsTimeSeries(
+    id,
+    chartPlatformFilter === "all" ? undefined : chartPlatformFilter
+  );
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
 
   // Sound tracking hooks
@@ -324,7 +328,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       });
 
       if (result.error) {
-        console.error("Failed to auto-update campaign status:", result.error);
+        if (import.meta.env.DEV) {
+          console.error("Failed to auto-update campaign status:", result.error);
+        }
         lastStatusUpdateRef.current = null;
         return;
       }
@@ -470,9 +476,11 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     });
 
     if (stuckPosts.length > 0) {
-      console.warn(
-        `⚠️ Found ${stuckPosts.length} stuck posts, resetting to pending...`
-      );
+      if (import.meta.env.DEV) {
+        console.warn(
+          `⚠️ Found ${stuckPosts.length} stuck posts, resetting to pending...`
+        );
+      }
 
       // Reset stuck posts to "pending" status
       stuckPosts.forEach(async (post) => {
@@ -481,10 +489,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
             .from("posts")
             .update({ status: "pending" })
             .eq("id", post.id);
-
-          console.log(`✅ Reset stuck post ${post.id} to pending`);
         } catch (error) {
-          console.error(`❌ Failed to reset post ${post.id}:`, error);
+          if (import.meta.env.DEV) {
+            console.error(`❌ Failed to reset post ${post.id}:`, error);
+          }
         }
       });
 
@@ -563,7 +571,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
               shares: Number(point.shares) || 0,
             };
           } catch (e) {
-            console.error("Error formatting chart data point:", e, point);
+            if (import.meta.env.DEV) {
+              console.error("Error formatting chart data point:", e, point);
+            }
             return null;
           }
         })
@@ -596,30 +606,8 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         const sharesMatch =
           Math.abs(chartLatestShares - kpiMetrics.total_shares) < 1;
 
-        console.log("[Graph Alignment Check]", {
-          "KPI Totals (All Platforms)": {
-            views: kpiMetrics.total_views,
-            likes: kpiMetrics.total_likes,
-            comments: kpiMetrics.total_comments,
-            shares: kpiMetrics.total_shares,
-          },
-          "Chart Latest Point Totals": {
-            views: chartLatestViews,
-            likes: chartLatestLikes,
-            comments: chartLatestComments,
-            shares: chartLatestShares,
-          },
-          "Alignment Status": {
-            views: viewsMatch ? "✓ Aligned" : "✗ Mismatch",
-            likes: likesMatch ? "✓ Aligned" : "✗ Mismatch",
-            comments: commentsMatch ? "✓ Aligned" : "✗ Mismatch",
-            shares: sharesMatch ? "✓ Aligned" : "✗ Mismatch",
-          },
-          Note: "Chart uses latest snapshot per date. Latest point should match KPI cards.",
-        });
-
-        // Warn if there's a mismatch
-        if (!viewsMatch || !likesMatch || !commentsMatch || !sharesMatch) {
+        // Warn if there's a mismatch (dev mode only)
+        if (import.meta.env.DEV && (!viewsMatch || !likesMatch || !commentsMatch || !sharesMatch)) {
           console.warn(
             "[Graph Alignment Warning]",
             "Chart totals do not match KPI card totals. This may indicate a data inconsistency."
@@ -629,7 +617,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
       return formatted;
     } catch (e) {
-      console.error("Error formatting chart data:", e);
+      if (import.meta.env.DEV) {
+        console.error("Error formatting chart data:", e);
+      }
       return [];
     }
   }, [chartData, kpiMetrics]);
@@ -698,13 +688,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       total_shares: Number(latestPoint.shares) || 0,
     };
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("[Filtered Metrics Latest Point]", {
-        chartRange,
-        latestDate: latestPoint.dateValue,
-        totals,
-      });
-    }
+    // Debug logging removed for production
 
     return totals;
   }, [filteredChartData, kpiMetrics, chartRange]);
@@ -874,7 +858,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
       return sorted;
     } catch (e) {
-      console.error("Error filtering posts:", e);
+      if (import.meta.env.DEV) {
+        console.error("Error filtering posts:", e);
+      }
       return posts;
     }
   }, [
@@ -1351,7 +1337,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       }
     } catch (error) {
       toast.error("Failed to import CSV");
-      console.error(error);
+      if (import.meta.env.DEV) {
+        console.error(error);
+      }
     } finally {
       setIsImporting(false);
       // Reset file input
@@ -1752,33 +1740,61 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         </Card>
       </div>
 
-      {/* Chart Range Selector */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          Timeframe
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "7d", label: "7D" },
-            { value: "14d", label: "14D" },
-            { value: "30d", label: "30D" },
-            { value: "all", label: "All" },
-          ].map((range) => (
-            <button
-              key={range.value}
-              onClick={() =>
-                setChartRange(range.value as "7d" | "14d" | "30d" | "all")
-              }
-              aria-pressed={chartRange === range.value}
-              className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
-                chartRange === range.value
-                  ? "bg-primary text-black border-primary"
-                  : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-              }`}
-            >
-              {range.label}
-            </button>
-          ))}
+      {/* Chart Range and Platform Filters */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Timeframe
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "7d", label: "7D" },
+              { value: "14d", label: "14D" },
+              { value: "30d", label: "30D" },
+              { value: "all", label: "All" },
+            ].map((range) => (
+              <button
+                key={range.value}
+                onClick={() =>
+                  setChartRange(range.value as "7d" | "14d" | "30d" | "all")
+                }
+                aria-pressed={chartRange === range.value}
+                className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
+                  chartRange === range.value
+                    ? "bg-primary text-black border-primary"
+                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Platform
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "all", label: "All" },
+              { value: "tiktok", label: "TikTok" },
+              { value: "instagram", label: "Instagram" },
+              { value: "youtube", label: "YouTube" },
+            ].map((platform) => (
+              <button
+                key={platform.value}
+                onClick={() => setChartPlatformFilter(platform.value)}
+                aria-pressed={chartPlatformFilter === platform.value}
+                className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
+                  chartPlatformFilter === platform.value
+                    ? "bg-primary text-black border-primary"
+                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                }`}
+              >
+                {platform.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -2264,7 +2280,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       });
                     } catch (error) {
                       // If linking fails, it might already be linked, which is fine
-                      console.log("Sound may already be linked:", error);
+                      if (import.meta.env.DEV) {
+                        console.log("Sound may already be linked:", error);
+                      }
                     }
                   }
                 }}
@@ -2795,7 +2813,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           canEditThisCampaign ? handleScrapePost : undefined
                         }
                         onDelete={
-                          canEditThisCampaign ? setShowDeletePostDialog : undefined
+                          canEditThisCampaign
+                            ? setShowDeletePostDialog
+                            : undefined
                         }
                         isScraping={
                           isScrapeAllPending ||
@@ -2992,13 +3012,61 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 </div>
                               </td>
                               <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {formatWithGrowth(post.views, (post as { last_view_growth?: number }).last_view_growth)}
+                                {(() => {
+                                  const formatted = formatWithGrowth(
+                                    post.views,
+                                    (post as { last_view_growth?: number })
+                                      .last_view_growth
+                                  );
+                                  return (
+                                    <>
+                                      {formatted.value}
+                                      {formatted.growth && (
+                                        <span className="text-xs text-slate-400 ml-1">
+                                          ({formatted.growth})
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </td>
                               <td className="px-6 py-4 text-right text-sm text-slate-300">
-                                {formatWithGrowth(post.likes, (post as { last_like_growth?: number }).last_like_growth)}
+                                {(() => {
+                                  const formatted = formatWithGrowth(
+                                    post.likes,
+                                    (post as { last_like_growth?: number })
+                                      .last_like_growth
+                                  );
+                                  return (
+                                    <>
+                                      {formatted.value}
+                                      {formatted.growth && (
+                                        <span className="text-xs text-slate-400 ml-1">
+                                          ({formatted.growth})
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </td>
                               <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
-                                {formatWithGrowth(post.comments, (post as { last_comment_growth?: number }).last_comment_growth)}
+                                {(() => {
+                                  const formatted = formatWithGrowth(
+                                    post.comments,
+                                    (post as { last_comment_growth?: number })
+                                      .last_comment_growth
+                                  );
+                                  return (
+                                    <>
+                                      {formatted.value}
+                                      {formatted.growth && (
+                                        <span className="text-xs text-slate-400 ml-1">
+                                          ({formatted.growth})
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </td>
                               <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                                 {post.engagement_rate &&
@@ -3150,13 +3218,61 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {formatWithGrowth(post.views, (post as { last_view_growth?: number }).last_view_growth)}
+                            {(() => {
+                              const formatted = formatWithGrowth(
+                                post.views,
+                                (post as { last_view_growth?: number })
+                                  .last_view_growth
+                              );
+                              return (
+                                <>
+                                  {formatted.value}
+                                  {formatted.growth && (
+                                    <span className="text-xs text-slate-400 ml-1">
+                                      ({formatted.growth})
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="px-6 py-4 text-right text-sm text-slate-300">
-                            {formatWithGrowth(post.likes, (post as { last_like_growth?: number }).last_like_growth)}
+                            {(() => {
+                              const formatted = formatWithGrowth(
+                                post.likes,
+                                (post as { last_like_growth?: number })
+                                  .last_like_growth
+                              );
+                              return (
+                                <>
+                                  {formatted.value}
+                                  {formatted.growth && (
+                                    <span className="text-xs text-slate-400 ml-1">
+                                      ({formatted.growth})
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
-                            {formatWithGrowth(post.comments, (post as { last_comment_growth?: number }).last_comment_growth)}
+                            {(() => {
+                              const formatted = formatWithGrowth(
+                                post.comments,
+                                (post as { last_comment_growth?: number })
+                                  .last_comment_growth
+                              );
+                              return (
+                                <>
+                                  {formatted.value}
+                                  {formatted.growth && (
+                                    <span className="text-xs text-slate-400 ml-1">
+                                      ({formatted.growth})
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                             {post.engagement_rate &&
@@ -3182,7 +3298,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       campaignId: id,
                                     });
                                   }}
-                                  disabled={isScrapingPost || !canEditThisCampaign}
+                                  disabled={
+                                    isScrapingPost || !canEditThisCampaign
+                                  }
                                   className="w-8 h-8 rounded-md hover:bg-primary/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Refresh metrics"
                                   title={

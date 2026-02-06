@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase } from "../supabase";
 import type {
   Activation,
   ActivationInsert,
@@ -7,8 +7,11 @@ import type {
   LeaderboardEntry,
   ApiResponse,
   ApiListResponse,
-} from '../types/database';
-import { buildPrizeStructure, calculatePerformanceScore } from '../utils/contest-prizes';
+} from "../types/database";
+import {
+  buildPrizeStructure,
+  calculatePerformanceScore,
+} from "../utils/contest-prizes";
 
 export interface ActivationWithSubmissionCount extends Activation {
   submissions_count?: number;
@@ -16,23 +19,26 @@ export interface ActivationWithSubmissionCount extends Activation {
 
 export async function listActivations(
   workspaceId: string | null,
-  filters?: { type?: 'contest' | 'sm_panel'; status?: string }
+  filters?: {
+    type?: "contest" | "sm_panel" | "creator_request";
+    status?: string;
+  }
 ): Promise<ApiListResponse<ActivationWithSubmissionCount>> {
   if (!workspaceId) {
-    return { data: null, error: new Error('Workspace ID required') };
+    return { data: null, error: new Error("Workspace ID required") };
   }
   try {
     let query = supabase
-      .from('activations')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .order('created_at', { ascending: false });
+      .from("activations")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false });
 
     if (filters?.type) {
-      query = query.eq('type', filters.type);
+      query = query.eq("type", filters.type);
     }
     if (filters?.status) {
-      query = query.eq('status', filters.status);
+      query = query.eq("status", filters.status);
     }
 
     const { data: activations, error } = await query;
@@ -44,13 +50,14 @@ export async function listActivations(
 
     if (ids.length > 0) {
       const { data: counts } = await supabase
-        .from('activation_submissions')
-        .select('activation_id')
-        .in('activation_id', ids);
+        .from("activation_submissions")
+        .select("activation_id")
+        .in("activation_id", ids);
 
       const arr = (counts || []) as { activation_id: string }[];
       arr.forEach((c) => {
-        submissionCounts[c.activation_id] = (submissionCounts[c.activation_id] || 0) + 1;
+        submissionCounts[c.activation_id] =
+          (submissionCounts[c.activation_id] || 0) + 1;
       });
     }
 
@@ -70,9 +77,9 @@ export async function getActivation(
 ): Promise<ApiResponse<Activation>> {
   try {
     const { data, error } = await supabase
-      .from('activations')
-      .select('*')
-      .eq('id', id)
+      .from("activations")
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) return { data: null, error };
@@ -92,20 +99,23 @@ export async function getContestLeaderboard(
 ): Promise<ApiResponse<ContestLeaderboardResult>> {
   try {
     const { data: activation, error: actError } = await supabase
-      .from('activations')
-      .select('*')
-      .eq('id', activationId)
+      .from("activations")
+      .select("*")
+      .eq("id", activationId)
       .single();
 
     if (actError || !activation) {
-      return { data: null, error: actError || new Error('Activation not found') };
+      return {
+        data: null,
+        error: actError || new Error("Activation not found"),
+      };
     }
 
     const { data: submissions, error: subError } = await supabase
-      .from('activation_submissions')
-      .select('*')
-      .eq('activation_id', activationId)
-      .order('submitted_at', { ascending: true });
+      .from("activation_submissions")
+      .select("*")
+      .eq("activation_id", activationId)
+      .order("submitted_at", { ascending: true });
 
     if (subError) return { data: null, error: subError };
 
@@ -126,8 +136,7 @@ export async function getContestLeaderboard(
 
     for (const s of subs) {
       const key =
-        s.creator_id ??
-        `${s.creator_handle ?? ''}:${s.creator_platform ?? ''}`;
+        s.creator_id ?? `${s.creator_handle ?? ""}:${s.creator_platform ?? ""}`;
 
       if (!byCreator.has(key)) {
         byCreator.set(key, {
@@ -201,11 +210,11 @@ export async function getActivationSubmissions(
 ): Promise<ApiResponse<ActivationSubmission[]>> {
   try {
     const { data, error } = await supabase
-      .from('activation_submissions')
-      .select('*')
-      .eq('activation_id', activationId)
-      .order('performance_score', { ascending: false, nullsFirst: false })
-      .order('submitted_at', { ascending: true });
+      .from("activation_submissions")
+      .select("*")
+      .eq("activation_id", activationId)
+      .order("performance_score", { ascending: false, nullsFirst: false })
+      .order("submitted_at", { ascending: true });
 
     if (error) return { data: null, error };
     return { data: (data || []) as ActivationSubmission[], error: null };
@@ -219,19 +228,21 @@ export async function createActivation(
   createdBy?: string
 ): Promise<ApiResponse<Activation>> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
-      return { data: null, error: new Error('Not authenticated') };
+      return { data: null, error: new Error("Not authenticated") };
     }
 
     const insert = {
       ...activation,
       created_by: createdBy ?? user.id,
-      status: 'draft',
+      status: "draft",
     };
 
     const { data, error } = await supabase
-      .from('activations')
+      .from("activations")
       .insert(insert)
       .select()
       .single();
@@ -249,22 +260,24 @@ export async function updateActivation(
 ): Promise<ApiResponse<Activation>> {
   try {
     const { data: existing } = await supabase
-      .from('activations')
-      .select('status')
-      .eq('id', id)
+      .from("activations")
+      .select("status")
+      .eq("id", id)
       .single();
 
-    if (existing && existing.status !== 'draft') {
+    if (existing && existing.status !== "draft") {
       return {
         data: null,
-        error: new Error('Cannot update activation that is not in draft status'),
+        error: new Error(
+          "Cannot update activation that is not in draft status"
+        ),
       };
     }
 
     const { data, error } = await supabase
-      .from('activations')
+      .from("activations")
       .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -284,15 +297,15 @@ export async function publishActivation(
     const accessToken = sessionData?.session?.access_token;
 
     if (!supabaseUrl) {
-      return { data: null, error: new Error('Missing Supabase URL') };
+      return { data: null, error: new Error("Missing Supabase URL") };
     }
 
     const response = await fetch(
       `${supabaseUrl}/functions/v1/activation-publish`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
           ...(import.meta.env.VITE_SUPABASE_ANON_KEY && {
             apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -308,7 +321,7 @@ export async function publishActivation(
       return {
         data: null,
         error: new Error(
-          result?.error || result?.message || 'Failed to publish activation'
+          result?.error || result?.message || "Failed to publish activation"
         ),
       };
     }
@@ -328,19 +341,24 @@ export async function approveSubmission(
   paymentAmount?: number
 ): Promise<ApiResponse<ActivationSubmission>> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
-      return { data: null, error: new Error('Not authenticated') };
+      return { data: null, error: new Error("Not authenticated") };
     }
 
     const { data: existing, error: fetchError } = await supabase
-      .from('activation_submissions')
-      .select('id, payment_amount, activation_id, activations(type)')
-      .eq('id', submissionId)
+      .from("activation_submissions")
+      .select("id, payment_amount, activation_id, activations(type)")
+      .eq("id", submissionId)
       .single();
 
     if (fetchError || !existing) {
-      return { data: null, error: fetchError || new Error('Submission not found') };
+      return {
+        data: null,
+        error: fetchError || new Error("Submission not found"),
+      };
     }
 
     const effectivePayment =
@@ -350,33 +368,33 @@ export async function approveSubmission(
           ? Number(existing.payment_amount)
           : 0;
 
-    const { data, error } = await supabase
-      .from('activation_submissions')
-      .update({
-        status: 'approved',
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
-        ...(paymentAmount != null && { payment_amount: paymentAmount }),
-      })
-      .eq('id', submissionId)
-      .select()
-      .single();
-
-    if (error) return { data: null, error };
-
+    // Call wallet RPC first so we don't mark approved if deduction fails
     if (effectivePayment > 0) {
       const { error: unlockError } = await supabase.rpc(
-        'unlock_activation_payment',
+        "release_sm_panel_payment",
         {
           p_submission_id: submissionId,
           p_payment_amount: effectivePayment,
         }
       );
       if (unlockError) {
-        console.error('unlock_activation_payment error:', unlockError);
+        return { data: null, error: unlockError };
       }
     }
 
+    const { data, error } = await supabase
+      .from("activation_submissions")
+      .update({
+        status: "approved",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user.id,
+        ...(paymentAmount != null && { payment_amount: paymentAmount }),
+      })
+      .eq("id", submissionId)
+      .select()
+      .single();
+
+    if (error) return { data: null, error };
     return { data: data as ActivationSubmission, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
@@ -387,19 +405,21 @@ export async function rejectSubmission(
   submissionId: string
 ): Promise<ApiResponse<ActivationSubmission>> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
-      return { data: null, error: new Error('Not authenticated') };
+      return { data: null, error: new Error("Not authenticated") };
     }
 
     const { data, error } = await supabase
-      .from('activation_submissions')
+      .from("activation_submissions")
       .update({
-        status: 'rejected',
+        status: "rejected",
         reviewed_at: new Date().toISOString(),
         reviewed_by: user.id,
       })
-      .eq('id', submissionId)
+      .eq("id", submissionId)
       .select()
       .single();
 
@@ -419,15 +439,15 @@ export async function scrapeSubmissionMetrics(
     const accessToken = sessionData?.session?.access_token;
 
     if (!supabaseUrl) {
-      return { data: null, error: new Error('Missing Supabase URL') };
+      return { data: null, error: new Error("Missing Supabase URL") };
     }
 
     const response = await fetch(
       `${supabaseUrl}/functions/v1/scrape-activation-submission`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
           ...(import.meta.env.VITE_SUPABASE_ANON_KEY && {
             apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -443,7 +463,7 @@ export async function scrapeSubmissionMetrics(
       return {
         data: null,
         error: new Error(
-          result?.error || result?.message || 'Failed to scrape metrics'
+          result?.error || result?.message || "Failed to scrape metrics"
         ),
       };
     }
@@ -456,19 +476,40 @@ export async function scrapeSubmissionMetrics(
 
 export async function finalizeContestWinners(
   activationId: string,
-  winnerSubmissions: Array<{ submissionId: string; rank: number; prizeAmount: number }>
+  winnerSubmissions: Array<{
+    submissionId: string;
+    rank: number;
+    prizeAmount: number;
+  }>
 ): Promise<ApiResponse<void>> {
   try {
+    const winnerPayments = winnerSubmissions.map((w) => ({
+      submission_id: w.submissionId,
+      prize_amount: w.prizeAmount,
+    }));
+
+    const { error: walletError } = await supabase.rpc(
+      "finalize_contest_wallet",
+      {
+        p_activation_id: activationId,
+        p_winner_payments: winnerPayments,
+      }
+    );
+
+    if (walletError) {
+      return { data: null, error: walletError };
+    }
+
     for (const w of winnerSubmissions) {
       const { error } = await supabase
-        .from('activation_submissions')
+        .from("activation_submissions")
         .update({
           rank: w.rank,
           prize_amount: w.prizeAmount,
-          status: 'approved',
+          status: "approved",
         })
-        .eq('id', w.submissionId)
-        .eq('activation_id', activationId);
+        .eq("id", w.submissionId)
+        .eq("activation_id", activationId);
 
       if (error) {
         return { data: null, error };
@@ -478,16 +519,52 @@ export async function finalizeContestWinners(
     const totalPaid = winnerSubmissions.reduce((s, w) => s + w.prizeAmount, 0);
 
     const { error: updateError } = await supabase
-      .from('activations')
+      .from("activations")
       .update({
-        status: 'completed',
+        status: "completed",
         finalized_at: new Date().toISOString(),
         spent_amount: totalPaid,
       })
-      .eq('id', activationId);
+      .eq("id", activationId);
 
     if (updateError) return { data: null, error: updateError };
 
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Finalize an SM panel activation: refund unused budget and mark completed.
+ * Calls finalize_sm_panel_activation RPC (SM panel only).
+ */
+export async function finalizeActivation(
+  activationId: string
+): Promise<ApiResponse<void>> {
+  try {
+    const { error } = await supabase.rpc("finalize_sm_panel_activation", {
+      p_activation_id: activationId,
+    });
+    if (error) return { data: null, error };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Cancel an SM panel activation: refund remaining locked budget and mark cancelled.
+ * Calls cancel_sm_panel_activation RPC (SM panel only).
+ */
+export async function cancelActivation(
+  activationId: string
+): Promise<ApiResponse<void>> {
+  try {
+    const { error } = await supabase.rpc("cancel_sm_panel_activation", {
+      p_activation_id: activationId,
+    });
+    if (error) return { data: null, error };
     return { data: null, error: null };
   } catch (err) {
     return { data: null, error: err as Error };

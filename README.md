@@ -19,15 +19,15 @@ A comprehensive social media campaign tracking tool built with React, TypeScript
 - **Backend**: Supabase (PostgreSQL, Auth, Storage, Edge Functions)
 - **State Management**: TanStack Query (React Query)
 - **Charts**: Recharts
-- **Scraping APIs**: RapidAPI (TikTok, Instagram), YouTube Data API v3
+- **Scraping APIs**: Apify (TikTok, Instagram, YouTube via streamers/youtube-scraper), RapidAPI (Twitter)
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or pnpm
 - Supabase account
-- RapidAPI account (for social media scraping)
-- Google Cloud account (for YouTube API)
+- Apify account (for TikTok, Instagram, and YouTube scraping)
+- RapidAPI account (for Twitter scraping)
 
 ## Getting Started
 
@@ -65,8 +65,10 @@ supabase login
 supabase link --project-ref your-project-ref
 
 # Set secrets
+supabase secrets set APIFY_TOKEN=your_apify_token
 supabase secrets set RAPIDAPI_KEY=your_rapidapi_key
-supabase secrets set YOUTUBE_API_KEY=your_youtube_key
+# Optional: YouTube-only Apify token (else APIFY_TOKEN is used for YouTube)
+# supabase secrets set APIFY_YOUTUBE_TOKEN=your_apify_youtube_token
 
 # Deploy functions
 supabase functions deploy scrape-post
@@ -100,24 +102,28 @@ The app will be available at `http://localhost:5173`
 ## Key Features
 
 ### Campaign Management
+
 - Create campaigns with cover images
 - Track campaign start/end dates
 - View campaign metrics and analytics
 - Export campaign data to CSV
 
 ### Post Scraping
+
 - Manual scraping of individual posts
 - Bulk scraping of all posts in a campaign
 - Support for TikTok, Instagram, YouTube, Twitter
 - Automatic metric extraction and calculation
 
 ### Creator Library
+
 - Manage creator profiles
 - Track follower counts and engagement
 - AI-powered creator info extraction from images
 - Bulk import via CSV
 
 ### Analytics
+
 - Real-time performance metrics
 - Time-series charts for trend analysis
 - Top performing content identification

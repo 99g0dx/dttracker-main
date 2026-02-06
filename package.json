@@ -11,7 +11,10 @@
     "dev": "vite",
     "check-env": "node scripts/check-env.js",
     "test": "tsx --test",
-    "email": "email dev"
+    "email": "email dev",
+    "credit-wallet": "tsx scripts/credit-wallet-manual.ts",
+    "reset-wallet": "tsx scripts/reset-wallet-balance.ts",
+    "verify-webhook": "tsx scripts/verify-webhook-setup.ts"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -63,6 +66,7 @@
     "react-dnd-html5-backend": "16.0.1",
     "react-dom": "18.3.1",
     "react-hook-form": "7.55.0",
+    "react-paystack": "^6.0.0",
     "react-popper": "2.3.0",
     "react-resizable-panels": "2.1.7",
     "react-responsive-masonry": "2.7.1",

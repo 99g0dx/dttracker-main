@@ -111,13 +111,21 @@ export function Requests({ onNavigate }: RequestsProps) {
   const { isOwner } = useWorkspaceAccess();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CreatorRequestStatus | "all">("all");
-  const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(null);
+  const [statusFilter, setStatusFilter] = useState<
+    CreatorRequestStatus | "all"
+  >("all");
+  const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(
+    null
+  );
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [campaignName, setCampaignName] = useState<string | null>(null);
-  const [campaignNames, setCampaignNames] = useState<Record<string, string>>({});
-  const [requesterNames, setRequesterNames] = useState<Record<string, string>>({});
+  const [campaignNames, setCampaignNames] = useState<Record<string, string>>(
+    {}
+  );
+  const [requesterNames, setRequesterNames] = useState<Record<string, string>>(
+    {}
+  );
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRequestId, setEditRequestId] = useState<string | null>(null);
   const [editInitialCreators, setEditInitialCreators] = useState<string[]>([]);
@@ -205,7 +213,10 @@ export function Requests({ onNavigate }: RequestsProps) {
       if (!requestDetails?.campaign_id) {
         setCampaignName(null);
       } else {
-        setCampaignName(campaignsById[requestDetails.campaign_id] || requestDetails.campaign_id);
+        setCampaignName(
+          campaignsById[requestDetails.campaign_id] ||
+            requestDetails.campaign_id
+        );
       }
     }
   }, [viewDialogOpen, requestDetails?.campaign_id, campaignsById]);
@@ -296,15 +307,26 @@ export function Requests({ onNavigate }: RequestsProps) {
     }
     const total = filteredRequests.length;
     const visibleCount = Math.ceil(desktopTableHeight / desktopRowHeight) + 8;
-    const startIndex = Math.max(0, Math.floor(desktopTableScrollTop / desktopRowHeight) - 4);
+    const startIndex = Math.max(
+      0,
+      Math.floor(desktopTableScrollTop / desktopRowHeight) - 4
+    );
     const endIndex = Math.min(total, startIndex + visibleCount);
     return {
       items: filteredRequests.slice(startIndex, endIndex),
       paddingTop: startIndex * desktopRowHeight,
-      paddingBottom: Math.max(0, total * desktopRowHeight - endIndex * desktopRowHeight),
+      paddingBottom: Math.max(
+        0,
+        total * desktopRowHeight - endIndex * desktopRowHeight
+      ),
       startIndex,
     };
-  }, [shouldVirtualizeTable, filteredRequests, desktopTableHeight, desktopTableScrollTop]);
+  }, [
+    shouldVirtualizeTable,
+    filteredRequests,
+    desktopTableHeight,
+    desktopTableScrollTop,
+  ]);
 
   const mobileVirtualWindow = useMemo(() => {
     if (!shouldVirtualizeMobile) {
@@ -317,15 +339,26 @@ export function Requests({ onNavigate }: RequestsProps) {
     }
     const total = filteredRequests.length;
     const visibleCount = Math.ceil(mobileListHeight / mobileRowHeight) + 6;
-    const startIndex = Math.max(0, Math.floor(mobileListScrollTop / mobileRowHeight) - 3);
+    const startIndex = Math.max(
+      0,
+      Math.floor(mobileListScrollTop / mobileRowHeight) - 3
+    );
     const endIndex = Math.min(total, startIndex + visibleCount);
     return {
       items: filteredRequests.slice(startIndex, endIndex),
       paddingTop: startIndex * mobileRowHeight,
-      paddingBottom: Math.max(0, total * mobileRowHeight - endIndex * mobileRowHeight),
+      paddingBottom: Math.max(
+        0,
+        total * mobileRowHeight - endIndex * mobileRowHeight
+      ),
       startIndex,
     };
-  }, [shouldVirtualizeMobile, filteredRequests, mobileListHeight, mobileListScrollTop]);
+  }, [
+    shouldVirtualizeMobile,
+    filteredRequests,
+    mobileListHeight,
+    mobileListScrollTop,
+  ]);
 
   const openViewDialog = (request: CreatorRequest) => {
     setSelectedRequest(request);
@@ -417,20 +450,20 @@ export function Requests({ onNavigate }: RequestsProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate?.("/")}
-            className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">
               Creator Requests
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">
               Track your creator requests and their status
             </p>
           </div>
@@ -438,29 +471,34 @@ export function Requests({ onNavigate }: RequestsProps) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-5 sm:grid-cols-3 lg:grid-cols-6">
         {Object.entries(statusConfig).map(([status, config]) => (
           <Card
             key={status}
-            className="bg-white/[0.02] border-white/[0.08] cursor-pointer hover:bg-white/[0.04] transition-colors"
+            className="bg-white/[0.02] border-white/[0.08] rounded-xl overflow-hidden cursor-pointer active:bg-white/[0.04] transition-colors"
+            style={{ boxShadow: "var(--shadow-card)" }}
             onClick={() =>
               setStatusFilter(
-                statusFilter === status ? "all" : (status as CreatorRequestStatus)
+                statusFilter === status
+                  ? "all"
+                  : (status as CreatorRequestStatus)
               )
             }
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
+            <CardContent className="p-3 min-[400px]:p-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <div
-                  className={`w-10 h-10 rounded-lg ${config.bgColor} border flex items-center justify-center ${config.color}`}
+                  className={`w-[34px] h-9 sm:w-10 sm:h-10 rounded-lg ${config.bgColor} border flex items-center justify-center ${config.color}`}
                 >
                   {config.icon}
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold text-white">
+                  <p className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
                     {statusCounts[status as CreatorRequestStatus]}
                   </p>
-                  <p className="text-xs text-slate-400">{config.label}</p>
+                  <p className="text-[10px] min-[400px]:text-xs text-slate-400 truncate">
+                    {config.label}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -469,8 +507,11 @@ export function Requests({ onNavigate }: RequestsProps) {
       </div>
 
       {/* Filters */}
-      <Card className="bg-white/[0.02] border-white/[0.08]">
-        <CardContent className="p-4">
+      <Card
+        className="bg-white/[0.02] border-white/[0.08] rounded-xl overflow-hidden"
+        style={{ boxShadow: "var(--shadow-card)" }}
+      >
+        <CardContent className="p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -479,7 +520,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search requests..."
-                className="pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+                className="pl-9 h-10 sm:h-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -487,9 +528,11 @@ export function Requests({ onNavigate }: RequestsProps) {
               <select
                 value={statusFilter}
                 onChange={(e) =>
-                  setStatusFilter(e.target.value as CreatorRequestStatus | "all")
+                  setStatusFilter(
+                    e.target.value as CreatorRequestStatus | "all"
+                  )
                 }
-                className="h-11 sm:h-10 px-3 pr-8 bg-white/[0.03] border border-white/[0.08] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                className="flex flex-wrap w-[117px] h-10 sm:h-9 px-3 pr-8 bg-white/[0.03] border border-white/[0.08] rounded-lg text-[10px] text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
               >
                 <option value="all">All Status</option>
                 {Object.entries(statusConfig).map(([status, config]) => (
@@ -503,7 +546,9 @@ export function Requests({ onNavigate }: RequestsProps) {
               <span className="rounded-full border border-white/[0.1] px-2 py-1">
                 Owner Approval
               </span>
-              <span>Pending suggestions require approval.</span>
+              <span className="w-[139px] h-[35px]">
+                Pending suggestions require approval.
+              </span>
             </div>
           </div>
         </CardContent>
@@ -543,7 +588,9 @@ export function Requests({ onNavigate }: RequestsProps) {
               setMobileListScrollTop(event.currentTarget.scrollTop);
             }}
             className={`lg:hidden space-y-4 ${
-              shouldVirtualizeMobile ? "max-h-[70vh] overflow-auto space-y-0" : ""
+              shouldVirtualizeMobile
+                ? "max-h-[70vh] overflow-auto space-y-0"
+                : ""
             }`}
           >
             {showRefreshShimmer && (
@@ -556,7 +603,8 @@ export function Requests({ onNavigate }: RequestsProps) {
             )}
             {mobileVirtualWindow.items.map((request, index) => {
               const status = statusConfig[request.status];
-              const requesterLabel = requesterNames[request.user_id] || "Unknown";
+              const requesterLabel =
+                requesterNames[request.user_id] || "Unknown";
               const ownerApproval =
                 request.submission_type === "suggestion" &&
                 request.status === "suggested"
@@ -578,11 +626,12 @@ export function Requests({ onNavigate }: RequestsProps) {
                       ? `${request.id}-${mobileVirtualWindow.startIndex + index}`
                       : request.id
                   }
-                  className="bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-colors cursor-pointer"
+                  className="bg-white/[0.02] border-white/[0.08] rounded-xl overflow-hidden active:bg-white/[0.04] transition-colors cursor-pointer"
+                  style={{ boxShadow: "var(--shadow-card)" }}
                   onMouseEnter={() => prefetchRequestDetail(request.id)}
                   onClick={() => openViewDialog(request)}
                 >
-                  <CardContent className="p-5 space-y-3">
+                  <CardContent className="p-4 min-[400px]:p-5 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       <div
                         className={`px-3 py-1 rounded-full border ${status.bgColor} ${status.color} flex items-center gap-1.5 text-xs font-medium`}
@@ -691,23 +740,39 @@ export function Requests({ onNavigate }: RequestsProps) {
                 <table className="min-w-[860px] w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-[#0D0D0D] text-slate-400">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium">Status</th>
-                      <th className="text-left px-4 py-3 font-medium">Campaign</th>
-                      <th className="text-left px-4 py-3 font-medium">Requester</th>
-                      <th className="text-left px-4 py-3 font-medium">Owner Approval</th>
-                      <th className="text-left px-4 py-3 font-medium">Created</th>
-                      <th className="text-right px-4 py-3 font-medium">Actions</th>
+                      <th className="text-left px-4 py-3 font-medium">
+                        Status
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium">
+                        Campaign
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium">
+                        Requester
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium">
+                        Owner Approval
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium">
+                        Created
+                      </th>
+                      <th className="text-right px-4 py-3 font-medium">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {desktopVirtualWindow.paddingTop > 0 && (
                       <tr>
-                        <td colSpan={6} style={{ height: desktopVirtualWindow.paddingTop }} />
+                        <td
+                          colSpan={6}
+                          style={{ height: desktopVirtualWindow.paddingTop }}
+                        />
                       </tr>
                     )}
                     {desktopVirtualWindow.items.map((request, index) => {
                       const status = statusConfig[request.status];
-                      const requesterLabel = requesterNames[request.user_id] || "Unknown";
+                      const requesterLabel =
+                        requesterNames[request.user_id] || "Unknown";
                       const ownerApproval =
                         request.submission_type === "suggestion" &&
                         request.status === "suggested"
@@ -741,10 +806,12 @@ export function Requests({ onNavigate }: RequestsProps) {
                           </td>
                           <td className="px-4 py-3">
                             <div className="text-slate-200">
-                              {campaignNames[request.campaign_id || ""] || "Campaign"}
+                              {campaignNames[request.campaign_id || ""] ||
+                                "Campaign"}
                             </div>
                             <div className="text-xs text-slate-500 capitalize">
-                              {request.campaign_type?.replace("_", " ") || "N/A"}
+                              {request.campaign_type?.replace("_", " ") ||
+                                "N/A"}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-slate-200">
@@ -758,7 +825,10 @@ export function Requests({ onNavigate }: RequestsProps) {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-slate-400">
-                            {format(parseISO(request.created_at), "MMM d, yyyy")}
+                            {format(
+                              parseISO(request.created_at),
+                              "MMM d, yyyy"
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
@@ -800,7 +870,9 @@ export function Requests({ onNavigate }: RequestsProps) {
                                     ? "hover:bg-red-500/20"
                                     : "opacity-40 cursor-not-allowed"
                                 }`}
-                                disabled={deleteRequestMutation.isPending || !canDelete}
+                                disabled={
+                                  deleteRequestMutation.isPending || !canDelete
+                                }
                                 aria-label="Delete request"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -812,7 +884,10 @@ export function Requests({ onNavigate }: RequestsProps) {
                     })}
                     {desktopVirtualWindow.paddingBottom > 0 && (
                       <tr>
-                        <td colSpan={6} style={{ height: desktopVirtualWindow.paddingBottom }} />
+                        <td
+                          colSpan={6}
+                          style={{ height: desktopVirtualWindow.paddingBottom }}
+                        />
                       </tr>
                     )}
                   </tbody>
@@ -825,14 +900,14 @@ export function Requests({ onNavigate }: RequestsProps) {
 
       {/* Request Detail Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="w-[92vw] max-w-3xl max-h-[85vh] overflow-hidden flex flex-col bg-gray-900 rounded-lg shadow-lg top-[50%] left-[50%] right-auto bottom-auto translate-x-[-50%] translate-y-[-50%] p-4 sm:p-6">
+        <DialogContent className="w-[92vw] max-w-3xl max-h-[85vh] overflow-hidden flex flex-col bg-[#0D0D0D] border-white/[0.08] rounded-xl top-[50%] left-[50%] right-auto bottom-auto translate-x-[-50%] translate-y-[-50%] p-5 sm:p-6">
           <DialogHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <DialogTitle className="text-2xl font-semibold text-white">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-xl sm:text-2xl font-semibold text-white">
                   Request Details
                 </DialogTitle>
-                <DialogDescription className="text-slate-400 mt-1">
+                <DialogDescription className="text-sm text-slate-400 mt-1">
                   {selectedRequest && (
                     <>
                       Status:{" "}
@@ -846,7 +921,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                 </DialogDescription>
               </div>
               {selectedRequest && (
-                <div className="flex items-center gap-2 mr-12">
+                <div className="flex items-center gap-2 mr-10 sm:mr-12 flex-shrink-0">
                   {isOwner && selectedRequest.status === "suggested" && (
                     <Button
                       variant="outline"
@@ -854,10 +929,10 @@ export function Requests({ onNavigate }: RequestsProps) {
                       onClick={async () => {
                         await openEditSuggestion(selectedRequest.id);
                       }}
-                      className="border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 flex items-center gap-2 h-9 px-3"
+                      className="h-9 sm:h-10 min-h-[36px] px-3 sm:px-4 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 flex items-center gap-2"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      Edit &amp; Send
+                      <span className="hidden sm:inline">Edit & Send</span>
                     </Button>
                   )}
                   {(() => {
@@ -875,15 +950,17 @@ export function Requests({ onNavigate }: RequestsProps) {
                           setViewDialogOpen(false);
                           setDeleteConfirmId(selectedRequest.id);
                         }}
-                        className={`border-red-600 bg-red-600/10 text-red-500 hover:text-red-400 flex flex-wrap items-center gap-2 h-9 px-3 ${
+                        className={`h-9 sm:h-10 min-h-[36px] px-3 sm:px-4 border-red-500/30 bg-red-500/10 text-red-400 flex items-center gap-2 ${
                           canDeleteSelected
-                            ? "hover:bg-red-600/20"
+                            ? "hover:bg-red-500/20"
                             : "opacity-40 cursor-not-allowed"
                         }`}
-                        disabled={deleteRequestMutation.isPending || !canDeleteSelected}
+                        disabled={
+                          deleteRequestMutation.isPending || !canDeleteSelected
+                        }
                       >
                         <Trash2 className="w-4 h-4" />
-                        Delete
+                        <span className="hidden sm:inline">Delete</span>
                       </Button>
                     );
                   })()}
@@ -892,65 +969,77 @@ export function Requests({ onNavigate }: RequestsProps) {
             </div>
           </DialogHeader>
 
-              {requestDetails && (
-                <div className="flex-1 overflow-y-auto space-y-6 py-4 px-2 sm:px-0">
-                  {/* Campaign Information */}
-                  <section className="space-y-3">
-                    <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
-                      Campaign Information
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg bg-gray-800 border border-white/[0.08]">
+          {requestDetails && (
+            <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 py-4 px-1 sm:px-0">
+              {/* Campaign Information */}
+              <section className="space-y-3">
+                <h3 className="text-base sm:text-lg font-semibold text-white">
+                  Campaign Information
+                </h3>
+                <div
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                  style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
+                >
                   <div>
-                    <p className="text-xs text-slate-400 mb-1">
+                    <p className="text-xs text-slate-400 mb-1.5">
                       Campaign Type
                     </p>
-                    <p className="text-sm text-white capitalize">
+                    <p className="text-sm text-white capitalize font-medium">
                       {requestDetails.campaign_type?.replace("_", " ") || "N/A"}
                     </p>
                   </div>
-                      <div>
-                        <p className="text-xs text-slate-400 mb-1">Linked Campaign</p>
-                        <p className="text-sm text-white">
-                          {campaignName || "Not linked"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 mb-1">Owner Approval</p>
-                        <p className="text-sm text-white">
-                          {requestDetails.submission_type === "suggestion" &&
-                          requestDetails.status === "suggested"
-                            ? "Pending"
-                            : "Approved"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 mb-1">Requested By</p>
-                        <p className="text-sm text-white">
-                          {requesterNames[requestDetails.user_id] || "Unknown"}
-                        </p>
-                      </div>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1.5">
+                      Linked Campaign
+                    </p>
+                    <p className="text-sm text-white font-medium">
+                      {campaignName || "Not linked"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1.5">
+                      Owner Approval
+                    </p>
+                    <p className="text-sm text-white font-medium">
+                      {requestDetails.submission_type === "suggestion" &&
+                      requestDetails.status === "suggested"
+                        ? "Pending"
+                        : "Approved"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1.5">
+                      Requested By
+                    </p>
+                    <p className="text-sm text-white font-medium">
+                      {requesterNames[requestDetails.user_id] || "Unknown"}
+                    </p>
+                  </div>
                   {requestDetails.deadline && (
                     <div>
-                      <p className="text-xs text-slate-400 mb-1">Deadline</p>
-                      <p className="text-sm text-white">
-                        {format(parseISO(requestDetails.deadline), "MMM d, yyyy")}
+                      <p className="text-xs text-slate-400 mb-1.5">Deadline</p>
+                      <p className="text-sm text-white font-medium">
+                        {format(
+                          parseISO(requestDetails.deadline),
+                          "MMM d, yyyy"
+                        )}
                       </p>
                     </div>
                   )}
                   {requestDetails.urgency && (
                     <div>
-                      <p className="text-xs text-slate-400 mb-1">Urgency</p>
-                      <p className="text-sm text-white capitalize">
+                      <p className="text-xs text-slate-400 mb-1.5">Urgency</p>
+                      <p className="text-sm text-white capitalize font-medium">
                         {requestDetails.urgency.replace("_", " ")}
                       </p>
                     </div>
                   )}
                   {requestDetails.posts_per_creator && (
                     <div>
-                      <p className="text-xs text-slate-400 mb-1">
+                      <p className="text-xs text-slate-400 mb-1.5">
                         Posts per Creator
                       </p>
-                      <p className="text-sm text-white">
+                      <p className="text-sm text-white font-medium">
                         {requestDetails.posts_per_creator}
                       </p>
                     </div>
@@ -960,39 +1049,49 @@ export function Requests({ onNavigate }: RequestsProps) {
 
               {/* Campaign Brief */}
               {requestDetails.campaign_brief && (
-                <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
+                <section className="space-y-3">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">
                     Campaign Brief
                   </h3>
-                  <p className="text-sm text-slate-300 p-4 rounded-lg bg-gray-800 border border-white/[0.08] whitespace-pre-wrap">
-                    {requestDetails.campaign_brief}
-                  </p>
+                  <div
+                    className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                    style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
+                  >
+                    <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {requestDetails.campaign_brief}
+                    </p>
+                  </div>
                 </section>
               )}
 
               {/* Operator Briefing */}
               {requestDetails.suggestion_reason && (
-                <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
+                <section className="space-y-3">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">
                     Operator Briefing
                   </h3>
-                  <p className="text-sm text-slate-300 p-4 rounded-lg bg-gray-800 border border-white/[0.08] whitespace-pre-wrap">
-                    {requestDetails.suggestion_reason}
-                  </p>
+                  <div
+                    className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                    style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
+                  >
+                    <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {requestDetails.suggestion_reason}
+                    </p>
+                  </div>
                 </section>
               )}
 
               {/* Deliverables */}
               {requestDetails.deliverables?.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
+                <section className="space-y-3">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">
                     Deliverables
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {requestDetails.deliverables.map((deliverable, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-xs font-medium capitalize"
+                        className="px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white text-xs font-medium capitalize"
                       >
                         {deliverable.replace("_", " ")}
                       </span>
@@ -1003,23 +1102,28 @@ export function Requests({ onNavigate }: RequestsProps) {
 
               {/* Usage Rights */}
               {requestDetails.usage_rights && (
-                <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
+                <section className="space-y-3">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">
                     Usage Rights
                   </h3>
-                  <p className="text-sm text-slate-300 capitalize">
-                    {requestDetails.usage_rights.replace("_", " ")}
-                  </p>
+                  <div
+                    className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.06]"
+                    style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
+                  >
+                    <p className="text-sm text-white capitalize font-medium">
+                      {requestDetails.usage_rights.replace("_", " ")}
+                    </p>
+                  </div>
                 </section>
               )}
 
               {/* Requested Creators + Quotes */}
               {requestDetails.items?.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
+                <section className="space-y-3">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">
                     Requested Creators ({requestDetails.items.length})
                   </h3>
-                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                     {requestDetails.items.map((item) => {
                       const creator = item.creator;
                       const canRespond =
@@ -1032,14 +1136,17 @@ export function Requests({ onNavigate }: RequestsProps) {
                       return (
                         <div
                           key={item.id}
-                          className="p-3 rounded-lg bg-gray-800 border border-white/[0.08] space-y-2"
+                          className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3"
+                          style={{
+                            boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)",
+                          }}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-white">
                                 {creator.name}
                               </p>
-                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                                 <span>@{creator.handle}</span>
                                 {(() => {
                                   const platformIcon = normalizePlatform(
@@ -1065,13 +1172,15 @@ export function Requests({ onNavigate }: RequestsProps) {
                                 })()}
                               </div>
                             </div>
-                            <div className="text-xs text-slate-300 capitalize">
+                            <div className="px-2.5 py-1 rounded-md bg-white/[0.06] border border-white/[0.1] text-xs text-white capitalize font-medium flex-shrink-0">
                               {item.status || "pending"}
                             </div>
                           </div>
 
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <div className="text-sm text-white">{quoteLabel}</div>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="text-sm text-white font-medium">
+                              {quoteLabel}
+                            </div>
                             {canRespond && (
                               <div className="flex items-center gap-2">
                                 <Button
@@ -1084,7 +1193,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                                       decision: "approved",
                                     })
                                   }
-                                  className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                  className="h-9 min-h-[36px] border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
                                   disabled={respondToQuoteMutation.isPending}
                                 >
                                   Approve
@@ -1099,7 +1208,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                                       decision: "rejected",
                                     })
                                   }
-                                  className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                                  className="h-9 min-h-[36px] border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20"
                                   disabled={respondToQuoteMutation.isPending}
                                 >
                                   Reject
@@ -1109,7 +1218,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                           </div>
 
                           {item.quote_notes && (
-                            <div className="text-xs text-slate-400">
+                            <div className="text-xs text-slate-400 leading-relaxed">
                               {item.quote_notes}
                             </div>
                           )}
@@ -1124,28 +1233,37 @@ export function Requests({ onNavigate }: RequestsProps) {
               {(requestDetails.contact_person_name ||
                 requestDetails.contact_person_email ||
                 requestDetails.contact_person_phone) && (
-                <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-white/[0.1] pb-2">
+                <section className="space-y-3">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">
                     Contact Information
                   </h3>
-                  <div className="p-4 rounded-lg bg-gray-800 border border-white/[0.08] space-y-2">
+                  <div
+                    className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3"
+                    style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
+                  >
                     {requestDetails.contact_person_name && (
-                      <p className="text-sm text-white">
-                        <span className="text-slate-400">Name: </span>
-                        {requestDetails.contact_person_name}
-                      </p>
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Name</p>
+                        <p className="text-sm text-white font-medium">
+                          {requestDetails.contact_person_name}
+                        </p>
+                      </div>
                     )}
                     {requestDetails.contact_person_email && (
-                      <p className="text-sm text-white">
-                        <span className="text-slate-400">Email: </span>
-                        {requestDetails.contact_person_email}
-                      </p>
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Email</p>
+                        <p className="text-sm text-white font-medium break-all">
+                          {requestDetails.contact_person_email}
+                        </p>
+                      </div>
                     )}
                     {requestDetails.contact_person_phone && (
-                      <p className="text-sm text-white">
-                        <span className="text-slate-400">Phone: </span>
-                        {requestDetails.contact_person_phone}
-                      </p>
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Phone</p>
+                        <p className="text-sm text-white font-medium">
+                          {requestDetails.contact_person_phone}
+                        </p>
+                      </div>
                     )}
                   </div>
                 </section>
@@ -1196,7 +1314,6 @@ export function Requests({ onNavigate }: RequestsProps) {
         initialFormValues={editInitialForm}
         submitLabel="Send Request"
       />
-
     </div>
   );
 }

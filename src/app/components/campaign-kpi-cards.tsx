@@ -1,12 +1,17 @@
 import React from "react";
 import { Card, CardContent } from "./ui/card";
 import { Eye, Heart, MessageCircle, Share2 } from "lucide-react";
+import { formatWithGrowth } from "../../lib/utils/format";
 
 export interface CampaignKPICardsProps {
   views: number;
   likes: number;
   comments: number;
   shares: number;
+  viewsGrowth?: number | null;
+  likesGrowth?: number | null;
+  commentsGrowth?: number | null;
+  sharesGrowth?: number | null;
 }
 
 export function CampaignKPICards({
@@ -14,7 +19,16 @@ export function CampaignKPICards({
   likes,
   comments,
   shares,
+  viewsGrowth,
+  likesGrowth,
+  commentsGrowth,
+  sharesGrowth,
 }: CampaignKPICardsProps) {
+  const viewsFormatted = formatWithGrowth(views, viewsGrowth);
+  const likesFormatted = formatWithGrowth(likes, likesGrowth);
+  const commentsFormatted = formatWithGrowth(comments, commentsGrowth);
+  const sharesFormatted = formatWithGrowth(shares, sharesGrowth);
+
   return (
     <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <Card className="bg-[#0D0D0D] border-white/[0.08]">
@@ -25,7 +39,12 @@ export function CampaignKPICards({
             </div>
           </div>
           <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-            {views.toLocaleString()}
+            {viewsFormatted.value}
+            {viewsFormatted.growth && (
+              <span className="text-xs font-normal text-slate-400 ml-1.5">
+                ({viewsFormatted.growth})
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
         </CardContent>
@@ -39,7 +58,12 @@ export function CampaignKPICards({
             </div>
           </div>
           <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-            {likes.toLocaleString()}
+            {likesFormatted.value}
+            {likesFormatted.growth && (
+              <span className="text-xs font-normal text-slate-400 ml-1.5">
+                ({likesFormatted.growth})
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
         </CardContent>
@@ -53,7 +77,12 @@ export function CampaignKPICards({
             </div>
           </div>
           <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-            {comments.toLocaleString()}
+            {commentsFormatted.value}
+            {commentsFormatted.growth && (
+              <span className="text-xs font-normal text-slate-400 ml-1.5">
+                ({commentsFormatted.growth})
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-400">Total Comments</p>
         </CardContent>
@@ -67,7 +96,12 @@ export function CampaignKPICards({
             </div>
           </div>
           <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
-            {shares.toLocaleString()}
+            {sharesFormatted.value}
+            {sharesFormatted.growth && (
+              <span className="text-xs font-normal text-slate-400 ml-1.5">
+                ({sharesFormatted.growth})
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-400">Total Shares</p>
         </CardContent>
