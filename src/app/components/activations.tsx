@@ -10,9 +10,14 @@ import {
   ThumbsUp,
   Calendar,
   Loader2,
+  Users,
+  Globe,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
-import { useActivations } from '../../hooks/useActivations';
+import { useActivations, useDeleteActivation } from '../../hooks/useActivations';
+import { ResponsiveConfirmDialog } from './ui/responsive-confirm-dialog';
 import type { ActivationWithSubmissionCount } from '../../lib/api/activations';
 import type { ActivationStatus, ActivationType } from '../../lib/types/database';
 import { format } from 'date-fns';
@@ -62,12 +67,16 @@ export function Activations({ onNavigate }: ActivationsProps) {
   const { activeWorkspaceId } = useWorkspace();
   const [typeFilter, setTypeFilter] = useState<ActivationType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<ActivationStatus | 'all'>('all');
+  const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'public' | 'community'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [shouldFetch, setShouldFetch] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const deleteActivation = useDeleteActivation();
 
   const filters = {
     type: typeFilter === 'all' ? undefined : typeFilter,
     status: statusFilter === 'all' ? undefined : statusFilter,
+    visibility: visibilityFilter === 'all' ? undefined : visibilityFilter,
   };
 
   const {
@@ -117,6 +126,42 @@ export function Activations({ onNavigate }: ActivationsProps) {
           <Plus className="w-4 h-4 mr-2" />
           Create
         </Button>
+      </div>
+
+      {/* Visibility Tabs */}
+      <div className="flex gap-2 border-b border-white/[0.08]">
+        <button
+          onClick={() => setVisibilityFilter('all')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+            visibilityFilter === 'all'
+              ? 'border-primary text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          All Activations
+        </button>
+        <button
+          onClick={() => setVisibilityFilter('public')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
+            visibilityFilter === 'public'
+              ? 'border-primary text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Globe className="w-4 h-4" />
+          Public
+        </button>
+        <button
+          onClick={() => setVisibilityFilter('community')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
+            visibilityFilter === 'community'
+              ? 'border-primary text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Community
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -181,11 +226,18 @@ export function Activations({ onNavigate }: ActivationsProps) {
           <CardContent className="py-16 text-center">
             <Trophy className="w-12 h-12 mx-auto text-slate-600 mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">
-              No activations yet
+              {visibilityFilter === 'all' 
+                ? 'No activations yet'
+                : visibilityFilter === 'public'
+                ? 'No public activations'
+                : 'No community activations'}
             </h3>
             <p className="text-slate-400 text-sm mb-4 max-w-md mx-auto">
-              Create a contest or SM panel to engage creators and run
-              performance-based campaigns.
+              {visibilityFilter === 'all'
+                ? 'Create a contest or SM panel to engage creators and run performance-based campaigns.'
+                : visibilityFilter === 'public'
+                ? 'No public activations found. Try changing filters or create a new activation.'
+                : 'No community-only activations found. Import fans and create community activations to target specific audiences.'}
             </p>
             <Button
               onClick={() => onNavigate('/activations/create')}
@@ -201,7 +253,7 @@ export function Activations({ onNavigate }: ActivationsProps) {
           {filtered.map((a: ActivationWithSubmissionCount) => (
             <Card
               key={a.id}
-              className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors cursor-pointer"
+              className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors cursor-pointer relative"
               onClick={() => onNavigate(`/activations/${a.id}`)}
             >
               <CardContent className="p-6">
@@ -216,7 +268,21 @@ export function Activations({ onNavigate }: ActivationsProps) {
                       {a.type === 'sm_panel' ? 'SM Panel' : a.type}
                     </span>
                   </div>
-                  <StatusBadge status={a.status} />
+                  <div className="flex items-center gap-2">
+                    {a.visibility === 'community' && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded border bg-purple-500/20 text-purple-400 border-purple-500/30 flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        Community
+                      </span>
+                    )}
+                    {(!a.visibility || a.visibility === 'public') && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded border bg-blue-500/20 text-blue-400 border-blue-500/30 flex items-center gap-1">
+                        <Globe className="w-3 h-3" />
+                        Public
+                      </span>
+                    )}
+                    <StatusBadge status={a.status} />
+                  </div>
                 </div>
                 <h3 className="font-semibold text-white truncate mb-2">
                   {a.title}
@@ -264,11 +330,60 @@ export function Activations({ onNavigate }: ActivationsProps) {
                       : ''}
                   </p>
                 )}
+                {a.status === 'draft' && (
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-white/[0.08]" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300 hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigate(`/activations/${a.id}/edit`);
+                      }}
+                    >
+                      <Edit2 className="w-4 h-4 mr-1.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteConfirmId(a.id);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1.5" />
+                      Delete
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <ResponsiveConfirmDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+        title="Delete Activation"
+        description="Are you sure you want to delete this draft activation? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        confirmLoading={deleteActivation.isPending}
+        onConfirm={async () => {
+          if (deleteConfirmId) {
+            try {
+              await deleteActivation.mutateAsync(deleteConfirmId);
+              setDeleteConfirmId(null);
+            } catch {
+              // Error handled by mutation toast
+            }
+          }
+        }}
+      />
     </div>
   );
 }

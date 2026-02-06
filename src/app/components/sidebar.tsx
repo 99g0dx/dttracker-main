@@ -241,12 +241,12 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   return (
     <>
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0A0A0A] border-b border-white/[0.08] flex items-center px-3 z-40">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center w-full gap-2">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-[#0A0A0A] border-b border-white/[0.08] flex items-center px-2 z-40">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center w-full gap-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="w-11 h-11 min-h-[44px] rounded-lg bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-all duration-150"
+              className="w-9 h-9 min-h-[36px] rounded-lg bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-all duration-150"
               aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
             >
               {sidebarOpen ? (
@@ -257,7 +257,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             </button>
             <button
               onClick={handleLogoClick}
-              className="h-11 min-h-[44px] flex items-center gap-2 rounded-lg px-2 text-white hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150"
+              className="h-9 min-h-[36px] flex items-center gap-2 rounded-lg px-2 text-white hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150"
               aria-label="Go to dashboard"
             >
               <img src={logoImage} alt="DTTracker" className="w-6 h-6 object-contain" />
@@ -267,11 +267,11 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             </button>
           </div>
           <div className="flex items-center justify-end">
-            <div className="w-11 h-11 min-h-[44px] flex items-center justify-center">
-              <NotificationsCenter />
-            </div>
+          <div className="w-9 h-9 min-h-[36px] flex items-center justify-center">
+            <NotificationsCenter />
           </div>
         </div>
+      </div>
       </div>
 
       {/* Mobile Overlay */}

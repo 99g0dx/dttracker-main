@@ -13,6 +13,29 @@ import {
   calculatePerformanceScore,
 } from "../utils/contest-prizes";
 
+/**
+ * Calculate service fee (10% of base amount)
+ */
+export function calculateServiceFee(amount: number): number {
+  return Math.round(amount * 0.10 * 100) / 100;
+}
+
+/**
+ * Calculate total cost including service fee
+ */
+export function calculateTotalCost(budget: number): {
+  budget: number;
+  serviceFee: number;
+  total: number;
+} {
+  const serviceFee = calculateServiceFee(budget);
+  return {
+    budget,
+    serviceFee,
+    total: budget + serviceFee,
+  };
+}
+
 export interface ActivationWithSubmissionCount extends Activation {
   submissions_count?: number;
 }
@@ -22,6 +45,7 @@ export async function listActivations(
   filters?: {
     type?: "contest" | "sm_panel" | "creator_request";
     status?: string;
+    visibility?: "public" | "community" | "all";
   }
 ): Promise<ApiListResponse<ActivationWithSubmissionCount>> {
   if (!workspaceId) {
@@ -39,6 +63,9 @@ export async function listActivations(
     }
     if (filters?.status) {
       query = query.eq("status", filters.status);
+    }
+    if (filters?.visibility && filters.visibility !== "all") {
+      query = query.eq("visibility", filters.visibility);
     }
 
     const { data: activations, error } = await query;
@@ -283,6 +310,44 @@ export async function updateActivation(
 
     if (error) return { data: null, error };
     return { data: data as Activation, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+export async function deleteActivation(
+  id: string
+): Promise<ApiResponse<void>> {
+  try {
+    const { data: existing } = await supabase
+      .from("activations")
+      .select("status")
+      .eq("id", id)
+      .single();
+
+    if (!existing) {
+      return {
+        data: null,
+        error: new Error("Activation not found"),
+      };
+    }
+
+    if (existing.status !== "draft") {
+      return {
+        data: null,
+        error: new Error(
+          "Cannot delete activation that is not in draft status"
+        ),
+      };
+    }
+
+    const { error } = await supabase
+      .from("activations")
+      .delete()
+      .eq("id", id);
+
+    if (error) return { data: null, error };
+    return { data: undefined, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }

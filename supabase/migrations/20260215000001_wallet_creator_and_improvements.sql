@@ -455,6 +455,16 @@ END $$;
 -- 9. UNIQUE (workspace_id, reconciliation_date) ON wallet_reconciliations
 -- ============================================
 
+-- Remove duplicates before creating unique index (keep the most recent one)
+DO $$
+BEGIN
+  DELETE FROM public.wallet_reconciliations wr1
+  USING public.wallet_reconciliations wr2
+  WHERE wr1.id < wr2.id
+    AND wr1.workspace_id = wr2.workspace_id
+    AND wr1.reconciliation_date = wr2.reconciliation_date;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_reconciliations_workspace_date
   ON public.wallet_reconciliations(workspace_id, reconciliation_date);
 

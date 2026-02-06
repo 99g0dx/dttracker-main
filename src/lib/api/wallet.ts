@@ -20,10 +20,12 @@ export type WalletTransactionType =
   | "payout"
   | "refund"
   | "fee"
+  | "service_fee"
   | "withdrawal";
 
 export interface WalletTransaction {
   id: string;
+  service_fee_amount?: number | null;
   workspace_id: string;
   type: WalletTransactionType;
   amount: number;

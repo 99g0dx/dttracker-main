@@ -400,6 +400,18 @@ function AppRoutes() {
                   }
                 />
                 <Route
+                  path="/activations/:id/edit"
+                  element={
+                    <ProtectedRoute>
+                      <ErrorBoundary>
+                        <ActivationCreate
+                          onNavigate={(path) => navigate(path)}
+                        />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/activations/:id"
                   element={
                     <ProtectedRoute>
@@ -423,7 +435,9 @@ function AppRoutes() {
                   path="/creators"
                   element={
                     <ProtectedRoute>
-                      <Creators onNavigate={(path) => navigate(path)} />
+                      <ErrorBoundary>
+                        <Creators onNavigate={(path) => navigate(path)} />
+                      </ErrorBoundary>
                     </ProtectedRoute>
                   }
                 />
