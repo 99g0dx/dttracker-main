@@ -77,6 +77,10 @@ interface ScrapeRequest {
   isAutoScrape?: boolean; // Flag to indicate auto-scraping vs manual
   /** Optional: requesting user id for agency bypass when called from scrape-all-posts (JWT may not be forwarded) */
   request_user_id?: string | null;
+  /** Optional: from scrape-job-worker; run id to update on success/failure */
+  run_id?: string | null;
+  /** Optional: override Apify actor (primary/fallback from parser_versions) */
+  actor_id?: string | null;
 }
 
 interface ScrapedMetrics {
@@ -93,7 +97,7 @@ interface ScrapedMetrics {
  * Scrape TikTok post metrics using RapidAPI video info endpoint
  */
 
-async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
+async function scrapeTikTok(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
   try {
     const apifyToken = Deno.env.get("APIFY_TOKEN");
     if (!apifyToken) {
@@ -112,7 +116,7 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       normalizedUrl = "https://" + normalizedUrl;
     }
 
-    const actorId = "clockworks~tiktok-scraper";
+    const actorId = actorOverride ?? "clockworks~tiktok-scraper";
     const apifyUrl =
       "https://api.apify.com/v2/acts/" +
       encodeURIComponent(actorId) +
@@ -759,11 +763,11 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
  * Scrape Instagram post metrics using Apify
  * Actor: apify/instagram-scraper
  */
-async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
+async function scrapeInstagram(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
   try {
     const apifyToken = Deno.env.get("APIFY_TOKEN");
     const apifyActorId =
-      Deno.env.get("APIFY_INSTAGRAM_ACTOR_ID") ?? "apify~instagram-scraper";
+      actorOverride ?? Deno.env.get("APIFY_INSTAGRAM_ACTOR_ID") ?? "apify~instagram-scraper";
 
     console.log("=== Instagram Scraping (Apify) ===");
     console.log("Post URL:", postUrl);
@@ -903,7 +907,7 @@ async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
  * Scrape YouTube video metrics using Apify (streamers/youtube-scraper).
  * Token (in order): APIFY_YOUTUBE_TOKEN, APIFY_TOKEN, APIFY_API_TOKEN.
  */
-async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
+async function scrapeYouTube(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
   try {
     const apifyToken =
       Deno.env.get("APIFY_YOUTUBE_TOKEN") ??
@@ -924,7 +928,7 @@ async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
       normalizedUrl = "https://" + normalizedUrl;
     }
 
-    const actorId = "streamers~youtube-scraper";
+    const actorId = actorOverride ?? "streamers~youtube-scraper";
     const apifyUrl =
       "https://api.apify.com/v2/acts/" +
       encodeURIComponent(actorId) +
@@ -1267,15 +1271,16 @@ async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
  */
 async function scrapePost(
   platform: string,
-  postUrl: string
+  postUrl: string,
+  actorIdOverride?: string | null
 ): Promise<ScrapedMetrics> {
   switch (platform) {
     case "tiktok":
-      return await scrapeTikTok(postUrl);
+      return await scrapeTikTok(postUrl, actorIdOverride);
     case "instagram":
-      return await scrapeInstagram(postUrl);
+      return await scrapeInstagram(postUrl, actorIdOverride);
     case "youtube":
-      return await scrapeYouTube(postUrl);
+      return await scrapeYouTube(postUrl, actorIdOverride);
     case "twitter":
       return await scrapeTwitter(postUrl);
     case "facebook":
@@ -1527,6 +1532,8 @@ serve(async (req) => {
       platform,
       isAutoScrape = false,
       request_user_id: bodyRequestUserId,
+      run_id: runId,
+      actor_id: actorIdOverride,
     } = requestBody;
 
     if (!postId || !postUrl || !platform) {
@@ -1726,9 +1733,10 @@ serve(async (req) => {
     }
 
     // Scrape the post
+    const startTime = Date.now();
     let metrics: ScrapedMetrics;
     try {
-      metrics = await scrapePost(platform, postUrl);
+      metrics = await scrapePost(platform, postUrl, actorIdOverride ?? undefined);
     } catch (scrapeError) {
       const errorMessage =
         scrapeError instanceof Error
@@ -1736,10 +1744,44 @@ serve(async (req) => {
           : String(scrapeError);
       console.error("Scraping failed:", errorMessage);
 
-      // Update post status to failed
+      // Determine error_type from error message
+      let errorType: string | null = null;
+      const errorLower = errorMessage.toLowerCase();
+      if (/blocked|403|forbidden/i.test(errorMessage)) {
+        errorType = "blocked";
+      } else if (/challenge|captcha/i.test(errorMessage)) {
+        errorType = "challenge";
+      } else if (/timeout|timed out/i.test(errorMessage)) {
+        errorType = "timeout";
+      } else {
+        errorType = "unknown";
+      }
+
+      if (runId) {
+        await supabase
+          .from("scrape_runs")
+          .update({
+            status: "failed",
+            finished_at: new Date().toISOString(),
+            duration_ms: Date.now() - startTime,
+            error_raw: errorMessage.substring(0, 2000),
+            error_type: errorType,
+            is_valid: false,
+          })
+          .eq("id", runId);
+      }
+
+      // Update post's last_attempt tracking and status
+      const now = new Date().toISOString();
       await supabase
         .from("posts")
-        .update({ status: "failed" })
+        .update({
+          status: "failed",
+          last_attempt_at: now,
+          last_attempt_status: "failed",
+          last_attempt_error: errorMessage.substring(0, 500),
+          last_attempt_items_count: 0,
+        })
         .eq("id", postId);
 
       return new Response(
@@ -1764,179 +1806,277 @@ serve(async (req) => {
       engagement_rate: Number(engagementRate.toFixed(2)),
     };
 
-    // Compute growth since last scrape
-    const prevViews = (post as { views?: number }).views ?? 0;
-    const prevLikes = (post as { likes?: number }).likes ?? 0;
-    const prevComments = (post as { comments?: number }).comments ?? 0;
-    const lastViewGrowth = scrapedMetrics.views - prevViews;
-    const lastLikeGrowth = scrapedMetrics.likes - prevLikes;
-    const lastCommentGrowth = scrapedMetrics.comments - prevComments;
-
-    // Update post in database
-    const updatePayload: Record<string, unknown> = {
-      views: scrapedMetrics.views,
-      likes: scrapedMetrics.likes,
-      comments: scrapedMetrics.comments,
-      shares: scrapedMetrics.shares,
-      engagement_rate: scrapedMetrics.engagement_rate,
-      status: "scraped",
-      last_scraped_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      canonical_url: postUrl, // Save the URL used for scraping
-      last_view_growth: lastViewGrowth,
-      last_like_growth: lastLikeGrowth,
-      last_comment_growth: lastCommentGrowth,
-      scrape_count: ((post as { scrape_count?: number }).scrape_count ?? 0) + 1,
-    };
-
-    // Add owner_username if available (especially useful for Instagram posts)
-    if (scrapedMetrics.owner_username) {
-      updatePayload.owner_username = scrapedMetrics.owner_username;
-      updatePayload.creator_handle = scrapedMetrics.owner_username;
-      console.log(
-        `Setting owner_username to: ${scrapedMetrics.owner_username}`
-      );
+    // Determine validity: run is valid if we got real metrics (not all zeros)
+    const totalMetrics = scrapedMetrics.views + scrapedMetrics.likes + scrapedMetrics.comments + scrapedMetrics.shares;
+    const isRunValid = totalMetrics > 0;
+    
+    // Determine error_type if invalid
+    let errorType: string | null = null;
+    if (!isRunValid) {
+      // Check if it's a timeout (duration > 60s suggests timeout)
+      const duration = Date.now() - startTime;
+      if (duration > 60000) {
+        errorType = "timeout";
+      } else {
+        // Likely empty dataset from Apify (soft-block/challenge/geo variance)
+        errorType = "empty";
+      }
     }
 
-    let creatorMatch: {
-      matched: boolean;
-      created: boolean;
-      creatorId?: string;
-      creatorHandle?: string;
-      creatorName?: string | null;
-    } = { matched: false, created: false };
+    // Always update scrape_runs with validity and error_type
+    if (runId) {
+      await supabase
+        .from("scrape_runs")
+        .update({
+          status: "succeeded",
+          finished_at: new Date().toISOString(),
+          duration_ms: Date.now() - startTime,
+          items_count: isRunValid ? 1 : 0,
+          error_type: errorType,
+          is_valid: isRunValid,
+        })
+        .eq("id", runId);
+    }
 
-    if (
-      !post.creator_id &&
-      platform === "instagram" &&
-      scrapedMetrics.owner_username
-    ) {
-      // First try to find an existing creator match
-      let match = await findInstagramCreatorMatch(
-        supabase,
-        campaign.workspace_id,
-        scrapedMetrics.owner_username
-      );
+    // Update post's last_attempt tracking (always, regardless of validity)
+    const now = new Date().toISOString();
+    const attemptUpdate: Record<string, unknown> = {
+      last_attempt_at: now,
+      last_attempt_status: "succeeded",
+      last_attempt_items_count: isRunValid ? 1 : 0,
+      last_attempt_error: errorType ? `Invalid scrape: ${errorType}` : null,
+    };
 
-      // If no match found, auto-create the creator
-      if (!match) {
+    // Only update post metrics if run is valid (prevents overwriting with zeros)
+    if (isRunValid) {
+      // Compute growth since last scrape
+      const prevViews = (post as { views?: number }).views ?? 0;
+      const prevLikes = (post as { likes?: number }).likes ?? 0;
+      const prevComments = (post as { comments?: number }).comments ?? 0;
+      const lastViewGrowth = scrapedMetrics.views - prevViews;
+      const lastLikeGrowth = scrapedMetrics.likes - prevLikes;
+      const lastCommentGrowth = scrapedMetrics.comments - prevComments;
+
+        // Update post in database with valid metrics
+      const updatePayload: Record<string, unknown> = {
+        views: scrapedMetrics.views,
+        likes: scrapedMetrics.likes,
+        comments: scrapedMetrics.comments,
+        shares: scrapedMetrics.shares,
+        engagement_rate: scrapedMetrics.engagement_rate,
+        status: "scraped",
+        last_scraped_at: now,
+        updated_at: now,
+        canonical_url: postUrl, // Save the URL used for scraping
+        last_view_growth: lastViewGrowth,
+        last_like_growth: lastLikeGrowth,
+        last_comment_growth: lastCommentGrowth,
+        scrape_count: ((post as { scrape_count?: number }).scrape_count ?? 0) + 1,
+        // Per-post tracking: mark as successful
+        last_success_at: now,
+        metrics: {
+          views: scrapedMetrics.views,
+          likes: scrapedMetrics.likes,
+          comments: scrapedMetrics.comments,
+          shares: scrapedMetrics.shares,
+          engagement_rate: scrapedMetrics.engagement_rate,
+        },
+        ...attemptUpdate,
+      };
+
+      // Add owner_username if available (especially useful for Instagram posts)
+      if (scrapedMetrics.owner_username) {
+        updatePayload.owner_username = scrapedMetrics.owner_username;
+        updatePayload.creator_handle = scrapedMetrics.owner_username;
         console.log(
-          `No existing creator match for @${scrapedMetrics.owner_username}, creating new creator...`
+          `Setting owner_username to: ${scrapedMetrics.owner_username}`
         );
-        match = await createInstagramCreator(
+      }
+
+      let creatorMatch: {
+        matched: boolean;
+        created: boolean;
+        creatorId?: string;
+        creatorHandle?: string;
+        creatorName?: string | null;
+      } = { matched: false, created: false };
+
+      if (
+        !post.creator_id &&
+        platform === "instagram" &&
+        scrapedMetrics.owner_username
+      ) {
+        // First try to find an existing creator match
+        let match = await findInstagramCreatorMatch(
           supabase,
           campaign.workspace_id,
           scrapedMetrics.owner_username
         );
-      }
 
-      if (match) {
-        updatePayload.creator_id = match.creatorId;
-        creatorMatch = {
-          matched: true,
-          created: match.created,
-          creatorId: match.creatorId,
-          creatorHandle: match.creatorHandle,
-          creatorName: match.creatorName,
-        };
-
-        // Add creator to campaign
-        const { error: campaignCreatorError } = await supabase
-          .from("campaign_creators")
-          .upsert(
-            { campaign_id: post.campaign_id, creator_id: match.creatorId },
-            { onConflict: "campaign_id,creator_id" }
+        // If no match found, auto-create the creator
+        if (!match) {
+          console.log(
+            `No existing creator match for @${scrapedMetrics.owner_username}, creating new creator...`
           );
-
-        if (campaignCreatorError) {
-          console.warn(
-            "Failed to attach creator to campaign:",
-            campaignCreatorError
+          match = await createInstagramCreator(
+            supabase,
+            campaign.workspace_id,
+            scrapedMetrics.owner_username
           );
         }
 
-        console.log(
-          `Creator ${match.created ? "created and " : ""}attached: @${match.creatorHandle} (${match.creatorId})`
-        );
+        if (match) {
+          updatePayload.creator_id = match.creatorId;
+          creatorMatch = {
+            matched: true,
+            created: match.created,
+            creatorId: match.creatorId,
+            creatorHandle: match.creatorHandle,
+            creatorName: match.creatorName,
+          };
+
+          // Add creator to campaign
+          const { error: campaignCreatorError } = await supabase
+            .from("campaign_creators")
+            .upsert(
+              { campaign_id: post.campaign_id, creator_id: match.creatorId },
+              { onConflict: "campaign_id,creator_id" }
+            );
+
+          if (campaignCreatorError) {
+            console.warn(
+              "Failed to attach creator to campaign:",
+              campaignCreatorError
+            );
+          }
+
+          console.log(
+            `Creator ${match.created ? "created and " : ""}attached: @${match.creatorHandle} (${match.creatorId})`
+          );
+        }
       }
-    }
 
-    const { data: updatedPost, error: updateError } = await supabase
-      .from("posts")
-      .update(updatePayload)
-      .eq("id", postId)
-      .select(
-        "id, platform, external_id, post_url, owner_username, creator_id, status"
-      )
-      .single();
+      const { data: updatedPost, error: updateError } = await supabase
+        .from("posts")
+        .update(updatePayload)
+        .eq("id", postId)
+        .select(
+          "id, platform, external_id, post_url, owner_username, creator_id, status"
+        )
+        .single();
 
-    if (updateError) {
-      throw updateError;
-    }
+      if (updateError) {
+        throw updateError;
+      }
 
-    await supabase.from("campaign_platform_scrapes").upsert(
-      {
-        campaign_id: post.campaign_id,
-        platform,
-        last_scraped_at: new Date().toISOString(),
-      },
-      { onConflict: "campaign_id,platform" }
-    );
+      // Creator data quality: only on valid success, set last_scraped_at / data_status / last_successful_scrape_at
+      const creatorIdToTouch =
+        creatorMatch.creatorId ?? (post as { creator_id?: string | null }).creator_id ?? null;
+      if (creatorIdToTouch) {
+        await supabase
+          .from("creators")
+          .update({
+            last_scraped_at: now,
+            data_status: "fresh",
+            last_successful_scrape_at: now,
+          })
+          .eq("id", creatorIdToTouch);
+      }
 
-    // Save historical metrics snapshot
-    const { error: metricsError } = await supabase.from("post_metrics").insert({
-      post_id: postId,
-      views: scrapedMetrics.views,
-      likes: scrapedMetrics.likes,
-      comments: scrapedMetrics.comments,
-      shares: scrapedMetrics.shares,
-      engagement_rate: scrapedMetrics.engagement_rate,
-      scraped_at: new Date().toISOString(),
-    });
+      await supabase.from("campaign_platform_scrapes").upsert(
+        {
+          campaign_id: post.campaign_id,
+          platform,
+          last_scraped_at: now,
+        },
+        { onConflict: "campaign_id,platform" }
+      );
 
-    if (metricsError) {
-      console.error("Failed to save historical metrics:", metricsError);
-      // Don't throw - historical metrics are optional
+      // Save historical metrics snapshot
+      const { error: metricsError } = await supabase.from("post_metrics").insert({
+        post_id: postId,
+        views: scrapedMetrics.views,
+        likes: scrapedMetrics.likes,
+        comments: scrapedMetrics.comments,
+        shares: scrapedMetrics.shares,
+        engagement_rate: scrapedMetrics.engagement_rate,
+        scraped_at: now,
+      });
+
+      if (metricsError) {
+        console.error("Failed to save historical metrics:", metricsError);
+        // Don't throw - historical metrics are optional
+      } else {
+        console.log(`✅ Historical metrics snapshot saved for post ${postId}`);
+      }
+
+      // Increment per-operator scrape count (manual scrape only)
+      if (!isAutoScrape && token) {
+        const {
+          data: { user: requestUser },
+        } = await supabase.auth.getUser(token);
+        const uid = requestUser?.id ?? null;
+        if (uid) {
+          await supabase.rpc("increment_operator_scrapes_today", {
+            p_workspace_id: campaign.workspace_id,
+            p_user_id: uid,
+          });
+        }
+      }
+
+      if (runId) {
+        // Already updated above with validity
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          metrics: scrapedMetrics,
+          post: updatedPost
+            ? {
+                id: updatedPost.id,
+                platform: updatedPost.platform,
+                externalId: updatedPost.external_id,
+                sourceUrl: updatedPost.post_url,
+                ownerUsername: updatedPost.owner_username ?? null,
+                creatorId: updatedPost.creator_id ?? null,
+                status: updatedPost.status,
+              }
+            : null,
+          creatorMatch,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
     } else {
-      console.log(`✅ Historical metrics snapshot saved for post ${postId}`);
-    }
+      // Run succeeded but invalid (empty/zero metrics) - don't update post metrics
+      console.warn(
+        `Scrape succeeded but invalid (${errorType}): post ${postId} metrics not updated`
+      );
 
-    // Increment per-operator scrape count (manual scrape only)
-    if (!isAutoScrape && token) {
-      const {
-        data: { user: requestUser },
-      } = await supabase.auth.getUser(token);
-      const uid = requestUser?.id ?? null;
-      if (uid) {
-        await supabase.rpc("increment_operator_scrapes_today", {
-          p_workspace_id: campaign.workspace_id,
-          p_user_id: uid,
-        });
-      }
-    }
+      // Update post's last_attempt tracking only (no metrics update)
+      await supabase
+        .from("posts")
+        .update(attemptUpdate)
+        .eq("id", postId);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        metrics: scrapedMetrics,
-        post: updatedPost
-          ? {
-              id: updatedPost.id,
-              platform: updatedPost.platform,
-              externalId: updatedPost.external_id,
-              sourceUrl: updatedPost.post_url,
-              ownerUsername: updatedPost.owner_username ?? null,
-              creatorId: updatedPost.creator_id ?? null,
-              status: updatedPost.status,
-            }
-          : null,
-        creatorMatch,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+      // Return success but indicate invalid
+      return new Response(
+        JSON.stringify({
+          success: true,
+          metrics: scrapedMetrics,
+          valid: false,
+          error_type: errorType,
+          message: `Scrape completed but returned no valid metrics (${errorType}). Post metrics not updated.`,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
   } catch (error) {
     console.error("Scraping error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);

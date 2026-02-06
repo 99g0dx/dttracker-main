@@ -157,7 +157,7 @@ export const PostCard = React.memo(
           </div>
           {post.last_scraped_at && (
             <div className="mt-1 text-[10px] text-slate-500">
-              Scraped {formatRelativeTime(post.last_scraped_at)}
+              Last updated {formatRelativeTime(post.last_scraped_at)}
             </div>
           )}
 
@@ -191,23 +191,49 @@ export const PostCard = React.memo(
             )}
             {!readOnly && (
               <>
-                <Button
-                  size="sm"
-                  onClick={() => onScrape(post.id)}
-                  disabled={!hasPostUrl || isScraping}
-                  className={`min-h-[44px] flex-1 ${
-                    post.status === "failed"
-                      ? "bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/20"
-                      : post.status === "pending"
-                        ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
-                        : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
-                  }`}
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </Button>
+                {(() => {
+                  const postWithTracking = post as {
+                    next_retry_at?: string | null;
+                    last_success_at?: string | null;
+                  };
+                  const nextRetryAt = postWithTracking.next_retry_at
+                    ? new Date(postWithTracking.next_retry_at)
+                    : null;
+                  const isRetryBlocked =
+                    nextRetryAt && nextRetryAt.getTime() > Date.now();
+                  const retryInMs = nextRetryAt
+                    ? nextRetryAt.getTime() - Date.now()
+                    : 0;
+                  const retryInMinutes = Math.ceil(retryInMs / 60000);
+                  const retryInHours = Math.ceil(retryInMs / 3600000);
+
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={() => onScrape(post.id)}
+                      disabled={!hasPostUrl || isScraping || isRetryBlocked}
+                      title={
+                        isRetryBlocked
+                          ? `Retry available in ${
+                              retryInHours > 1
+                                ? `${retryInHours}h`
+                                : `${retryInMinutes}m`
+                            }`
+                          : undefined
+                      }
+                      className={`min-h-[44px] flex-1 ${
+                        post.status === "failed" || post.status === "pending"
+                          ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
+                          : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
+                      }`}
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}
+                      />
+                      Refresh
+                    </Button>
+                  );
+                })()}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button

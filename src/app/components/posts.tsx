@@ -181,7 +181,7 @@ export function Posts() {
             <SelectItem value="scraped">Scraped</SelectItem>
             <SelectItem value="link-added">Link Added</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="failed">Update delayed</SelectItem>
           </SelectContent>
         </Select>
       </motion.div>

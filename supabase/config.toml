@@ -32,6 +32,12 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/scrape-all-scheduled/index.ts"
 
+# Called by cron every ~2 min to process scrape_jobs queue (use SCRAPE_TRIGGER_TOKEN or service role).
+[functions.scrape-job-worker]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/scrape-job-worker/index.ts"
+
 [functions.paystack-webhook]
 enabled = true
 verify_jwt = false
