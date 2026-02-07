@@ -165,15 +165,6 @@ serve(async (req) => {
           .from("scrape_jobs")
           .update({ status: "success", updated_at: new Date().toISOString() })
           .eq("id", job.id);
-        
-        // Clear next_retry_at on post when job succeeds
-        if (job.reference_type === "post") {
-          await supabase
-            .from("posts")
-            .update({ next_retry_at: null, cooldown_until: null })
-            .eq("id", job.reference_id);
-        }
-        
         processed++;
         continue;
       }
@@ -204,19 +195,6 @@ serve(async (req) => {
       }
 
       await supabase.from("scrape_jobs").update(update).eq("id", job.id);
-      
-      // Sync next_retry_at and cooldown_until to post
-      if (job.reference_type === "post") {
-        const postUpdate: Record<string, unknown> = {
-          next_retry_at: attempts >= job.max_attempts ? null : nextRetryAt,
-          cooldown_until: attempts >= job.max_attempts ? null : nextRetryAt,
-        };
-        await supabase
-          .from("posts")
-          .update(postUpdate)
-          .eq("id", job.reference_id);
-      }
-      
       processed++;
     }
 

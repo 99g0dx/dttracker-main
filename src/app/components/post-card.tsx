@@ -191,49 +191,21 @@ export const PostCard = React.memo(
             )}
             {!readOnly && (
               <>
-                {(() => {
-                  const postWithTracking = post as {
-                    next_retry_at?: string | null;
-                    last_success_at?: string | null;
-                  };
-                  const nextRetryAt = postWithTracking.next_retry_at
-                    ? new Date(postWithTracking.next_retry_at)
-                    : null;
-                  const isRetryBlocked =
-                    nextRetryAt && nextRetryAt.getTime() > Date.now();
-                  const retryInMs = nextRetryAt
-                    ? nextRetryAt.getTime() - Date.now()
-                    : 0;
-                  const retryInMinutes = Math.ceil(retryInMs / 60000);
-                  const retryInHours = Math.ceil(retryInMs / 3600000);
-
-                  return (
-                    <Button
-                      size="sm"
-                      onClick={() => onScrape(post.id)}
-                      disabled={!hasPostUrl || isScraping || isRetryBlocked}
-                      title={
-                        isRetryBlocked
-                          ? `Retry available in ${
-                              retryInHours > 1
-                                ? `${retryInHours}h`
-                                : `${retryInMinutes}m`
-                            }`
-                          : undefined
-                      }
-                      className={`min-h-[44px] flex-1 ${
-                        post.status === "failed" || post.status === "pending"
-                          ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
-                          : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
-                      }`}
-                    >
-                      <RefreshCw
-                        className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}
-                      />
-                      Refresh
-                    </Button>
-                  );
-                })()}
+                <Button
+                  size="sm"
+                  onClick={() => onScrape(post.id)}
+                  disabled={!hasPostUrl || isScraping}
+                  className={`min-h-[44px] flex-1 ${
+                    post.status === "failed" || post.status === "pending"
+                      ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
+                      : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
+                  }`}
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button

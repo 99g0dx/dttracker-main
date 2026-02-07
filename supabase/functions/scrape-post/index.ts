@@ -1371,13 +1371,16 @@ async function createInstagramCreator(
     // Check if it's a unique constraint violation (creator already exists)
     if (createError.code === "23505") {
       console.log("Creator already exists, fetching existing record...");
-      const { data: existingCreator } = await supabase
+      // Search globally by platform + normalized handle (not by user_id)
+      // Fetch all Instagram creators and filter by normalized handle
+      const { data: allCreators } = await supabase
         .from("creators")
         .select("id, handle, name")
-        .eq("user_id", workspaceId)
-        .eq("handle", normalizedHandle)
-        .eq("platform", "instagram")
-        .single();
+        .eq("platform", "instagram");
+
+      const existingCreator = allCreators?.find(
+        (c) => normalizeHandle(c.handle) === normalizedHandle
+      );
 
       if (existingCreator) {
         // Ensure they're in workspace_creators

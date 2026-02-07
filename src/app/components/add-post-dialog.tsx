@@ -192,6 +192,9 @@ export function AddPostDialog({
     if (!creatorToUse && handleToUse) {
       setIsCreatingCreator(true);
       try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'add-post-dialog.tsx:193',message:'calling getOrCreate',data:{handleToUse,platform:parsedUrl.platform},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         // 1. Create or get existing creator
         const creatorResult = await creatorsApi.getOrCreate(
           handleToUse, // Use handle as name
@@ -205,7 +208,14 @@ export function AddPostDialog({
           "manual" // sourceType
         );
 
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'add-post-dialog.tsx:208',message:'getOrCreate result',data:{success:!!creatorResult.data,error:creatorResult.error?.message,creatorId:creatorResult.data?.id},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+
         if (creatorResult.error || !creatorResult.data) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'add-post-dialog.tsx:210',message:'getOrCreate failed',data:{error:creatorResult.error?.message,errorStack:creatorResult.error?.stack},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           setError(
             `Failed to create creator: ${creatorResult.error?.message || "Unknown error"}`
           );
