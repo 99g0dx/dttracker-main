@@ -154,11 +154,11 @@ export function NotificationsCenter() {
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="relative w-8 h-8 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+        className="relative w-8 h-8 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center transition-colors"
       >
-        <Bell className="w-5 h-5 text-slate-300" />
+        <Bell className="w-5 h-5 text-current" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-black text-xs font-semibold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs font-semibold rounded-full flex items-center justify-center">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -172,13 +172,13 @@ export function NotificationsCenter() {
             "fixed inset-x-4 top-16 mx-auto w-auto max-w-[calc(100vw-32px)]",
             /* Desktop: Absolute positioning relative to the bell icon */
             "lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 lg:w-80 md:w-72 md:inset-auto md:right-18",
-            "bg-[#1A1A1A] border border-white/[0.08] rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            "bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           )}
         >
           {/* Header*/}
-          <div className="p-3 border-b border-white/[0.08]">
+          <div className="p-3 border-b border-border">
             <div className="flex items-center justify-between mb-1.5">
-              <h3 className="font-semibold text-white">Notifications</h3>
+              <h3 className="font-semibold text-foreground">Notifications</h3>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
                   <button
@@ -191,14 +191,14 @@ export function NotificationsCenter() {
                 {notifications.length > 0 && (
                   <button
                     onClick={clearAll}
-                    className="text-xs text-red-400 hover:text-red-400/80 transition-colors"
+                    className="text-xs text-destructive hover:text-destructive/80 transition-colors"
                   >
                     Clear all
                   </button>
                 )}
               </div>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {unreadCount > 0
                 ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}`
                 : "All caught up!"}
@@ -208,35 +208,35 @@ export function NotificationsCenter() {
           {/* Notifications List */}
           <div className="max-h-80 overflow-y-auto">
             {notifications.length > 0 ? (
-              <div className="divide-y divide-white/[0.06]">
+              <div className="divide-y divide-border">
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-3 hover:bg-white/[0.03] transition-colors group relative ${
-                      !notification.read ? "bg-white/[0.02]" : ""
+                    className={`p-3 hover:bg-muted/40 transition-colors group relative ${
+                      !notification.read ? "bg-muted/30" : ""
                     }`}
                   >
                     <div className="flex gap-2.5">
-                      <div className="w-6 h-6 rounded-lg bg-white/[0.03] flex items-center justify-center flex-shrink-0">
+                      <div className="w-6 h-6 rounded-lg bg-muted/40 flex items-center justify-center flex-shrink-0">
                         {getIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-0.5">
-                          <h4 className="text-sm font-medium text-white">
+                          <h4 className="text-sm font-medium text-foreground">
                             {notification.title}
                           </h4>
                           <button
                             onClick={() => removeNotification(notification.id)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                           >
-                            <X className="w-4 h-4 text-slate-500 hover:text-slate-300" />
+                            <X className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                           </button>
                         </div>
-                        <p className="text-sm text-slate-400 mb-1.5">
+                        <p className="text-sm text-muted-foreground mb-1.5">
                           {notification.message}
                         </p>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-muted-foreground">
                             {getRelativeTime(notification.time)}
                           </span>
                           {!notification.read && (
@@ -259,11 +259,11 @@ export function NotificationsCenter() {
               </div>
             ) : (
               <div className="py-8 text-center">
-                <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mx-auto mb-3">
-                  <Bell className="w-6 h-6 text-slate-600" />
+                <div className="w-12 h-12 rounded-lg bg-muted/40 flex items-center justify-center mx-auto mb-3">
+                  <Bell className="w-6 h-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm text-slate-500">No notifications</p>
-                <p className="text-xs text-slate-600 mt-1">
+                <p className="text-sm text-muted-foreground">No notifications</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   We'll notify you when something happens
                 </p>
               </div>
