@@ -152,18 +152,21 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   const serviceFeeRate = 0.10;
   const serviceFee = Math.round(form.total_budget * serviceFeeRate * 100) / 100;
   const totalCost = form.total_budget + serviceFee;
+  // Allow zero budget for testing (test_mode activations)
   const canPublish =
-    availableBalance >= totalCost && form.total_budget > 0;
+    (availableBalance >= totalCost && form.total_budget > 0) || form.total_budget === 0;
 
   const handleCreate = async (asDraft: boolean) => {
     if (!activeWorkspaceId) return;
 
+    // Allow zero budget for testing, but enforce minimum for non-zero budgets
     if (
       activationType === "contest" &&
+      form.total_budget > 0 &&
       form.total_budget < CONTEST_MIN_PRIZE_POOL
     ) {
       toast.error(
-        `Minimum prize pool is ₦${CONTEST_MIN_PRIZE_POOL.toLocaleString()}`
+        `Minimum prize pool is ₦${CONTEST_MIN_PRIZE_POOL.toLocaleString()} (or 0 for testing)`
       );
       return;
     }
@@ -253,6 +256,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       max_participants:
         activationType === "sm_panel" ? form.max_participants : null,
       auto_approve: activationType === "sm_panel" ? form.auto_approve : false,
+      test_mode: form.total_budget === 0, // Mark zero-budget activations as test mode
       platforms: form.platforms.length ? form.platforms : null,
       requirements: form.requirements.length ? form.requirements : null,
       instructions: form.instructions || null,
@@ -548,15 +552,22 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     className="bg-white/[0.04] border-white/[0.08]"
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    Minimum: ₦{formatNumber(CONTEST_MIN_PRIZE_POOL)}
+                    Minimum: ₦{formatNumber(CONTEST_MIN_PRIZE_POOL)} (or 0 for test mode)
                   </p>
-                  {totalCost > availableBalance && (
+                  {form.total_budget > 0 && totalCost > availableBalance && (
                     <div className="flex items-center gap-2 mt-2 text-amber-400 text-sm">
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       <span>
                         Insufficient balance. Need{" "}
                         {formatAmount(totalCost - availableBalance)}{" "}
                         more (including service fee).
+                      </span>
+                    </div>
+                  )}
+                  {form.total_budget === 0 && (
+                    <div className="flex items-center gap-2 mt-2 text-blue-400 text-sm">
+                      <span>
+                        🧪 Test mode: Zero budget activation (no funds required)
                       </span>
                     </div>
                   )}
@@ -883,12 +894,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   disabled={
                     !form.title ||
                     !form.deadline ||
-                    form.total_budget <= 0 ||
-                    (isContest && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
+                    form.total_budget < 0 ||
+                    (isContest && form.total_budget > 0 && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
                     (!isContest &&
                       (form.base_rate <= 0 ||
-                        form.total_budget < form.base_rate)) ||
-                    totalCost > availableBalance ||
+                        (form.total_budget > 0 && form.total_budget < form.base_rate))) ||
+                    (form.total_budget > 0 && totalCost > availableBalance) ||
                     createActivation.isPending
                   }
                   variant="outline"
@@ -904,12 +915,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                 disabled={
                   !form.title ||
                   !form.deadline ||
-                  form.total_budget <= 0 ||
-                  (isContest && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
+                  form.total_budget < 0 ||
+                  (isContest && form.total_budget > 0 && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
                   (!isContest &&
                     (form.base_rate <= 0 ||
-                      form.total_budget < form.base_rate)) ||
-                  totalCost > availableBalance ||
+                      (form.total_budget > 0 && form.total_budget < form.base_rate))) ||
+                  (form.total_budget > 0 && totalCost > availableBalance) ||
                   createActivation.isPending
                 }
                 className="bg-primary text-black hover:bg-primary/90"

@@ -67,3 +67,40 @@ entrypoint = "./functions/creator-stats-sync-from-dobbletap/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/activation-submission-webhook/index.ts"
+
+# Dobbletap Webhook Endpoints
+[functions.dobbletap-webhook-submission]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/dobbletap-webhook-submission/index.ts"
+
+[functions.dobbletap-webhook-status-change]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/dobbletap-webhook-status-change/index.ts"
+
+[functions.dobbletap-webhook-review-decision]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/dobbletap-webhook-review-decision/index.ts"
+
+[functions.dobbletap-webhook-post-submitted]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/dobbletap-webhook-post-submitted/index.ts"
+
+[functions.dobbletap-webhook-campaign-completed]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/dobbletap-webhook-campaign-completed/index.ts"
+
+[functions.dobbletap-webhook-verification-completed]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/dobbletap-webhook-verification-completed/index.ts"
+
+# Activation Publishing (DTTracker → Dobbletap sync)
+[functions.activation-publish]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/activation-publish/index.ts"

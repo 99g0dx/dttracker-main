@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { syncToDobbleTap } from '../_shared/dobble-tap-sync.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -155,16 +156,21 @@ serve(async (req) => {
 
     if (dobbleTapApi) {
       try {
-        await fetch(`${dobbleTapApi}/api/sync/offer`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        await syncToDobbleTap(
+          supabase,
+          'creator_request_invitation',
+          '/webhooks/dttracker',
+          {
             creator_id: creatorId,
             activation_id: activationId,
+            dttrackerCampaignId: activationId,
             amount,
-            message,
-          }),
-        });
+            message: message || null,
+            activation_title: activation.title,
+            workspace_id: workspaceId,
+          },
+          activationId
+        );
       } catch {
         /* sync optional */
       }

@@ -18,6 +18,7 @@ serve(async (req) => {
     req.headers.get('Authorization') ?? req.headers.get('authorization');
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const syncApiKey = Deno.env.get('SYNC_API_KEY') ?? '';
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
@@ -38,17 +39,30 @@ serve(async (req) => {
       });
     }
 
-  const token = authHeader.replace(/^Bearer\s+/i, '');
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(token);
+    // Allow both JWT and API key authentication
+    let userId = null;
+    const token = authHeader.replace(/^Bearer\s+/i, '');
 
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Try API key auth first (for testing)
+    if (syncApiKey && authHeader === `Bearer ${syncApiKey}`) {
+      console.log('Using API key authentication (test mode)');
+      // API key authenticated - skip user validation
+      userId = null; // Will be set from activation data
+    } else {
+      // Try JWT auth - but don't fail for test mode activations
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser(token);
+
+      if (userError || !user) {
+        console.warn('JWT validation failed:', userError);
+        // Don't fail immediately - check if it's a test mode activation
+        // We'll validate this later after fetching the activation
+        userId = null;
+      } else {
+        userId = user.id;
+      }
     }
 
     const body = await req.json();
@@ -89,8 +103,21 @@ serve(async (req) => {
 
     const totalBudget = Number(activation.total_budget) || 0;
     const workspaceId = activation.workspace_id;
+    const testMode = activation.test_mode === true;
 
-    if (totalBudget <= 0) {
+    // If JWT validation failed and it's not a test mode activation, reject
+    if (!userId && !testMode) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Invalid JWT and not test mode' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Allow zero budget for test mode activations
+    if (totalBudget <= 0 && !testMode) {
       return new Response(
         JSON.stringify({ error: 'Invalid total budget' }),
         {
@@ -105,127 +132,132 @@ serve(async (req) => {
     const serviceFee = Math.round(totalBudget * serviceFeeRate * 100) / 100; // Round to 2 decimal places
     const totalCost = totalBudget + serviceFee;
 
-    let { data: wallet } = await supabase
-      .from('workspace_wallets')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .maybeSingle();
-
-    if (!wallet) {
-      const { data: newWallet, error: insertErr } = await supabase
+    // Skip wallet operations for test mode or zero budget activations
+    if (!testMode && totalBudget > 0) {
+      let { data: wallet } = await supabase
         .from('workspace_wallets')
-        .insert({
-          workspace_id: workspaceId,
-          balance: 0,
-          locked_balance: 0,
-          currency: 'NGN',
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .maybeSingle();
 
-      if (insertErr || !newWallet) {
+      if (!wallet) {
+        const { data: newWallet, error: insertErr } = await supabase
+          .from('workspace_wallets')
+          .insert({
+            workspace_id: workspaceId,
+            balance: 0,
+            locked_balance: 0,
+            currency: 'NGN',
+          })
+          .select()
+          .single();
+
+        if (insertErr || !newWallet) {
+          return new Response(
+            JSON.stringify({ error: 'Failed to create wallet' }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+        wallet = newWallet;
+      }
+
+      const availableBalance = Number(wallet.balance) || 0;
+      const lockedBalance = Number(wallet.locked_balance) || 0;
+      const dailySpendLimit = wallet.daily_spend_limit != null ? Number(wallet.daily_spend_limit) : null;
+      const lastReset = wallet.last_spend_reset_date ? String(wallet.last_spend_reset_date).slice(0, 10) : null;
+      const today = new Date().toISOString().slice(0, 10);
+      const spentToday = lastReset === today ? Number(wallet.daily_spent_today) || 0 : 0;
+
+      // Check balance for total cost (budget + service fee)
+      if (availableBalance < totalCost) {
         return new Response(
-          JSON.stringify({ error: 'Failed to create wallet' }),
+          JSON.stringify({
+            error: `Insufficient balance. Available: ${availableBalance}, Required: ${totalCost} (Budget: ${totalBudget} + Service Fee: ${serviceFee})`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      if (dailySpendLimit != null && spentToday + totalCost > dailySpendLimit) {
+        return new Response(
+          JSON.stringify({
+            error: `Daily spending limit exceeded. Limit: ${dailySpendLimit}, already spent today: ${spentToday}, requested: ${totalCost} (Budget: ${totalBudget} + Service Fee: ${serviceFee})`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const newAvailable = availableBalance - totalCost;
+      const newLocked = lockedBalance + totalBudget;
+      const newSpentToday = spentToday + totalCost;
+
+      const { error: updateWalletError } = await supabase
+        .from('workspace_wallets')
+        .update({
+          balance: newAvailable,
+          locked_balance: newLocked,
+          daily_spent_today: newSpentToday,
+          last_spend_reset_date: today,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', wallet.id);
+
+      if (updateWalletError) {
+        return new Response(
+          JSON.stringify({ error: 'Failed to lock budget' }),
           {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         );
       }
-      wallet = newWallet;
+
+      // Create transaction for activation budget lock
+      await supabase.from('wallet_transactions').insert({
+        workspace_id: workspaceId,
+        type: 'lock',
+        amount: totalBudget,
+        balance_after: newAvailable,
+        locked_balance_after: newLocked,
+        reference_type: 'activation',
+        reference_id: activationId,
+        description: `Budget locked for activation: ${activation.title}`,
+        status: 'completed',
+        processed_at: new Date().toISOString(),
+        metadata: { activation_title: activation.title },
+      });
+
+      // Create transaction for service fee
+      await supabase.from('wallet_transactions').insert({
+        workspace_id: workspaceId,
+        type: 'service_fee',
+        amount: serviceFee,
+        service_fee_amount: serviceFee,
+        balance_after: newAvailable,
+        locked_balance_after: newLocked,
+        reference_type: 'activation',
+        reference_id: activationId,
+        description: `Service fee (10%) for activation: ${activation.title}`,
+        status: 'completed',
+        processed_at: new Date().toISOString(),
+        metadata: {
+          activation_title: activation.title,
+          service_fee_rate: serviceFeeRate,
+          base_amount: totalBudget,
+        },
+      });
+    } else {
+      console.log(`Skipping wallet operations for ${testMode ? 'test mode' : 'zero budget'} activation:`, activationId);
     }
-
-    const availableBalance = Number(wallet.balance) || 0;
-    const lockedBalance = Number(wallet.locked_balance) || 0;
-    const dailySpendLimit = wallet.daily_spend_limit != null ? Number(wallet.daily_spend_limit) : null;
-    const lastReset = wallet.last_spend_reset_date ? String(wallet.last_spend_reset_date).slice(0, 10) : null;
-    const today = new Date().toISOString().slice(0, 10);
-    const spentToday = lastReset === today ? Number(wallet.daily_spent_today) || 0 : 0;
-
-    // Check balance for total cost (budget + service fee)
-    if (availableBalance < totalCost) {
-      return new Response(
-        JSON.stringify({
-          error: `Insufficient balance. Available: ${availableBalance}, Required: ${totalCost} (Budget: ${totalBudget} + Service Fee: ${serviceFee})`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    if (dailySpendLimit != null && spentToday + totalCost > dailySpendLimit) {
-      return new Response(
-        JSON.stringify({
-          error: `Daily spending limit exceeded. Limit: ${dailySpendLimit}, already spent today: ${spentToday}, requested: ${totalCost} (Budget: ${totalBudget} + Service Fee: ${serviceFee})`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const newAvailable = availableBalance - totalCost;
-    const newLocked = lockedBalance + totalBudget;
-    const newSpentToday = spentToday + totalCost;
-
-    const { error: updateWalletError } = await supabase
-      .from('workspace_wallets')
-      .update({
-        balance: newAvailable,
-        locked_balance: newLocked,
-        daily_spent_today: newSpentToday,
-        last_spend_reset_date: today,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', wallet.id);
-
-    if (updateWalletError) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to lock budget' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // Create transaction for activation budget lock
-    await supabase.from('wallet_transactions').insert({
-      workspace_id: workspaceId,
-      type: 'lock',
-      amount: totalBudget,
-      balance_after: newAvailable,
-      locked_balance_after: newLocked,
-      reference_type: 'activation',
-      reference_id: activationId,
-      description: `Budget locked for activation: ${activation.title}`,
-      status: 'completed',
-      processed_at: new Date().toISOString(),
-      metadata: { activation_title: activation.title },
-    });
-
-    // Create transaction for service fee
-    await supabase.from('wallet_transactions').insert({
-      workspace_id: workspaceId,
-      type: 'service_fee',
-      amount: serviceFee,
-      service_fee_amount: serviceFee,
-      balance_after: newAvailable,
-      locked_balance_after: newLocked,
-      reference_type: 'activation',
-      reference_id: activationId,
-      description: `Service fee (10%) for activation: ${activation.title}`,
-      status: 'completed',
-      processed_at: new Date().toISOString(),
-      metadata: { 
-        activation_title: activation.title,
-        service_fee_rate: serviceFeeRate,
-        base_amount: totalBudget,
-      },
-    });
 
     // Sync to Dobble Tap using shared utility
     const syncPayload = {
@@ -266,7 +298,7 @@ serve(async (req) => {
     const syncResult = await syncToDobbleTap(
       supabase,
       'activation',
-      '/api/sync/activation',
+      '/webhooks/dttracker',
       syncPayload,
       activation.id
     );
