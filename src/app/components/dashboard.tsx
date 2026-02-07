@@ -832,10 +832,10 @@ useEffect(() => {
           
           <button
             onClick={() => onNavigate('/activations/create')}
-            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-amber-500/30"
+            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-secondary hover:bg-secondary/80 border border-border text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             aria-label="Create activation"
           >
-            <TrophyIcon className="w-4 h-4" />
+            <TrophyIcon className="w-4 h-4 text-current" />
             <span className="hidden sm:inline">Create Activation</span>
           </button>
           <button
