@@ -135,7 +135,7 @@ export function Posts() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Button className="relative overflow-hidden bg-gradient-to-r from-primary to-cyan-500 hover:from-primary/90 hover:to-cyan-500/90 shadow-[0_0_30px_rgba(14,165,233,0.3)] hover:shadow-[0_0_40px_rgba(14,165,233,0.5)] transition-all duration-300 group">
+          <Button className="relative overflow-hidden bg-gradient-to-r from-primary to-red-500 dark:to-cyan-500 hover:from-primary/90 hover:to-red-500/90 dark:hover:to-cyan-500/90 shadow-[0_0_30px_rgba(225,29,72,0.3)] dark:shadow-[0_0_30px_rgba(14,165,233,0.3)] hover:shadow-[0_0_40px_rgba(225,29,72,0.5)] dark:hover:shadow-[0_0_40px_rgba(14,165,233,0.5)] transition-all duration-300 group">
             <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
             <RefreshCw className="w-4 h-4 mr-2 relative z-10" />
             <span className="relative z-10">Scrape All</span>
@@ -196,7 +196,7 @@ export function Posts() {
         >
           <div className="absolute -inset-[1px] bg-gradient-to-br from-primary/10 via-purple-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
           
-          <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
+          <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(225,29,72,0.12)] dark:hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
             
             <CardContent className="p-0">
@@ -258,7 +258,7 @@ export function Posts() {
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {post.views > 0 ? (
-                          <span className="bg-gradient-to-br from-primary to-cyan-400 bg-clip-text text-transparent">
+                          <span className="bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 bg-clip-text text-transparent">
                             {post.views.toLocaleString()}
                           </span>
                         ) : '-'}

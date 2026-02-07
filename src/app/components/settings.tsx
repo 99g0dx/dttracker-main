@@ -517,20 +517,20 @@ export function Settings({ onNavigate }: SettingsProps) {
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate('/')}
-            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-9 h-9 flex-shrink-0 rounded-md bg-muted/60 hover:bg-muted border border-border flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Settings</h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Only workspace owners can manage account settings.
             </p>
           </div>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Settings are only available to the workspace owner.
             </p>
           </CardContent>
@@ -624,15 +624,20 @@ export function Settings({ onNavigate }: SettingsProps) {
   };
 
   const roleStyles: Record<string, string> = {
-    brand_owner: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-    agency_admin: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+    brand_owner:
+      'text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-400/10 border-amber-200 dark:border-amber-400/20',
+    agency_admin:
+      'text-purple-700 dark:text-purple-400 bg-purple-100/70 dark:bg-purple-400/10 border-purple-200 dark:border-purple-400/20',
     brand_member: 'text-primary bg-primary/10 border-primary/20',
-    agency_ops: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+    agency_ops:
+      'text-slate-600 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-400/10 border-slate-200 dark:border-slate-400/20',
   };
 
   const statusStyles: Record<string, string> = {
-    active: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-    pending: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+    active:
+      'text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-400/10 border-emerald-200 dark:border-emerald-400/20',
+    pending:
+      'text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-400/10 border-amber-200 dark:border-amber-400/20',
   };
 
   return (
@@ -640,18 +645,18 @@ export function Settings({ onNavigate }: SettingsProps) {
       <div className="flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => onNavigate('/')}
-          className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-muted/60 hover:bg-muted active:bg-muted border border-border flex items-center justify-center transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">Settings</h1>
-          <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">Manage your account and preferences</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground">Settings</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">Manage your account and preferences</p>
         </div>
       </div>
 
       {/* Subscription Card */}
-      <Card className="bg-gradient-to-br from-primary/10 to-[#0D0D0D] border-primary/20 rounded-xl relative overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+      <Card className="bg-gradient-to-br from-primary/10 to-card border-primary/20 rounded-xl relative overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
         <CardContent className="p-5 sm:p-6 lg:p-7">
           <div className="flex items-start justify-between flex-col sm:flex-row gap-4">
             <div className="flex items-center gap-3">
@@ -659,41 +664,41 @@ export function Settings({ onNavigate }: SettingsProps) {
                 <Crown className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-white">
+                <h3 className="text-base font-semibold text-foreground">
                   {billingLoading ? 'Loading Plan...' : planLabel}
                 </h3>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-muted-foreground">
                   {billingLoading ? 'Fetching subscription details' : planSubtitle}
                 </p>
               </div>
             </div>
             <Button 
               onClick={() => onNavigate('/subscription')}
-              className="min-h-[44px] h-11 px-4 bg-primary hover:bg-primary/90 text-black w-full sm:w-auto"
+              className="min-h-[44px] h-11 px-4 bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto"
             >
               {ctaLabel}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
-          <div className="mt-4 p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+          <div className="mt-4 p-4 bg-muted/60 rounded-lg border border-border">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
               <div>
-              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   {billingLoading ? '--' : formatLimit(campaignLimitValue)}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500">Campaign Limit</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Campaign Limit</div>
               </div>
               <div>
-                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   {billingLoading ? '--' : formatLimit(creatorLimitValue)}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500">Creators per Campaign</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Creators per Campaign</div>
               </div>
               <div>
-                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-400">
+                <div className="text-2xl sm:text-3xl font-bold tracking-tight text-muted-foreground">
                   {billingLoading ? '--' : analyticsLabel}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500">Analytics</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Analytics</div>
               </div>
             </div>
           </div>
@@ -701,15 +706,15 @@ export function Settings({ onNavigate }: SettingsProps) {
       </Card>
 
       {/* Profile Settings */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+      <Card className="bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
         <CardContent className="p-5 sm:p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <User className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Profile</h3>
-              <p className="text-sm text-slate-400">Update your personal information</p>
+              <h3 className="text-base font-semibold text-foreground">Profile</h3>
+              <p className="text-sm text-muted-foreground">Update your personal information</p>
             </div>
           </div>
 
@@ -733,7 +738,7 @@ export function Settings({ onNavigate }: SettingsProps) {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-normal text-slate-300 mb-2">First Name</label>
+                  <label className="block text-sm font-normal text-foreground mb-2">First Name</label>
                   <Input
                     value={profileForm.firstName}
                     onChange={(e) =>
@@ -743,7 +748,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-normal text-slate-300 mb-2">Last Name</label>
+                  <label className="block text-sm font-normal text-foreground mb-2">Last Name</label>
                   <Input
                     value={profileForm.lastName}
                     onChange={(e) =>
@@ -755,7 +760,7 @@ export function Settings({ onNavigate }: SettingsProps) {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-normal text-slate-300 mb-2">Email</label>
+                  <label className="block text-sm font-normal text-foreground mb-2">Email</label>
                   <Input
                     type="email"
                     value={profileForm.email}
@@ -764,7 +769,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-normal text-slate-300 mb-2">Phone</label>
+                  <label className="block text-sm font-normal text-foreground mb-2">Phone</label>
                   <Input
                     type="tel"
                     inputMode="tel"
@@ -777,7 +782,7 @@ export function Settings({ onNavigate }: SettingsProps) {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-normal text-slate-300 mb-2">Company</label>
+                <label className="block text-sm font-normal text-foreground mb-2">Company</label>
                 <Input
                   value={profileForm.company}
                   onChange={(e) =>
@@ -788,7 +793,7 @@ export function Settings({ onNavigate }: SettingsProps) {
               </div>
               <Button
                 onClick={handleSaveProfile}
-                className="min-h-[44px] h-11 bg-white hover:bg-white/95 text-black font-medium"
+                className="min-h-[44px] h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                 disabled={profileSaving}
               >
                 {profileSaving ? 'Saving...' : 'Save Changes'}
@@ -800,13 +805,13 @@ export function Settings({ onNavigate }: SettingsProps) {
 
       {mfaEnrollOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-xl border border-white/[0.1] bg-[#0D0D0D] p-6">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-white">Set up MFA</h3>
-                <p className="text-xs text-slate-400">Scan the QR code in your authenticator app.</p>
+                <h3 className="text-lg font-semibold text-foreground">Set up MFA</h3>
+                <p className="text-xs text-muted-foreground">Scan the QR code in your authenticator app.</p>
               </div>
-              <button onClick={() => setMfaEnrollOpen(false)} className="text-slate-500 hover:text-white">
+              <button onClick={() => setMfaEnrollOpen(false)} className="text-muted-foreground hover:text-foreground">
                 ✕
               </button>
             </div>
@@ -816,24 +821,24 @@ export function Settings({ onNavigate }: SettingsProps) {
                 mfaQr.startsWith('data:') ? (
                   <img src={mfaQr} alt="MFA QR Code" className="h-40 w-40 rounded-lg bg-white p-2" />
                 ) : (
-                  <div className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-slate-300">
+                  <div className="w-full rounded-lg border border-border bg-muted/60 p-3 text-xs text-foreground">
                     {mfaQr}
                   </div>
                 )
               ) : (
-                <div className="text-xs text-slate-500">QR code unavailable.</div>
+                <div className="text-xs text-muted-foreground">QR code unavailable.</div>
               )}
 
               {mfaSecret && (
-                <div className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-slate-300">
-                  <div className="text-[11px] text-slate-500 mb-1">Manual code</div>
+                <div className="w-full rounded-lg border border-border bg-muted/60 p-3 text-xs text-foreground">
+                  <div className="text-[11px] text-muted-foreground mb-1">Manual code</div>
                   <div className="font-mono break-all">{mfaSecret}</div>
                 </div>
               )}
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-normal text-slate-300 mb-2">6-digit code</label>
+              <label className="block text-sm font-normal text-foreground mb-2">6-digit code</label>
               <Input
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value)}
@@ -853,21 +858,21 @@ export function Settings({ onNavigate }: SettingsProps) {
       )}
 
       {/* Security */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <Lock className="w-5 h-5 text-purple-400" />
+              <Lock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Security</h3>
-              <p className="text-sm text-slate-400">Manage your password and security settings</p>
+              <h3 className="text-base font-semibold text-foreground">Security</h3>
+              <p className="text-sm text-muted-foreground">Manage your password and security settings</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-normal text-slate-300 mb-2">Current Password</label>
+              <label className="block text-sm font-normal text-foreground mb-2">Current Password</label>
               <Input
                 type="password"
                 value={currentPassword}
@@ -876,7 +881,7 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-normal text-slate-300 mb-2">New Password</label>
+              <label className="block text-sm font-normal text-foreground mb-2">New Password</label>
               <Input
                 type="password"
                 value={newPassword}
@@ -885,7 +890,7 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-normal text-slate-300 mb-2">Confirm New Password</label>
+              <label className="block text-sm font-normal text-foreground mb-2">Confirm New Password</label>
               <Input
                 type="password"
                 value={confirmPassword}
@@ -895,17 +900,17 @@ export function Settings({ onNavigate }: SettingsProps) {
             </div>
             <Button
               onClick={handleUpdatePassword}
-              className="min-h-[44px] h-11 bg-white hover:bg-white/95 text-black font-medium"
+              className="min-h-[44px] h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
               disabled={passwordSaving}
             >
               {passwordSaving ? 'Updating...' : 'Update Password'}
             </Button>
 
-            <div className="mt-6 border-t border-white/[0.08] pt-6">
+            <div className="mt-6 border-t border-border pt-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Multi-Factor Authentication</h4>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <h4 className="text-sm font-semibold text-foreground">Multi-Factor Authentication</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
                     Protect your account with an authenticator app.
                   </p>
                 </div>
@@ -921,20 +926,20 @@ export function Settings({ onNavigate }: SettingsProps) {
 
               <div className="mt-4 space-y-2">
                 {mfaFactors.length === 0 ? (
-                  <div className="text-xs text-slate-500">No MFA factors configured.</div>
+                  <div className="text-xs text-muted-foreground">No MFA factors configured.</div>
                 ) : (
                   mfaFactors.map((factor: any) => (
                     <div
                       key={factor.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-slate-300"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border bg-muted/60 px-3 py-2 text-xs text-foreground"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-white">Authenticator App</span>
-                        <span className="text-slate-500">•</span>
+                        <span className="font-medium text-foreground">Authenticator App</span>
+                        <span className="text-muted-foreground">•</span>
                         <span>{factor.status}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500">Added {new Date(factor.created_at).toLocaleDateString()}</span>
+                        <span className="text-muted-foreground">Added {new Date(factor.created_at).toLocaleDateString()}</span>
                         <button
                           onClick={() => removeMfa(factor.id)}
                           className="text-red-400 hover:text-red-300"
@@ -956,23 +961,23 @@ export function Settings({ onNavigate }: SettingsProps) {
      
 
       {/* Notifications */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <Bell className="w-5 h-5 text-amber-400" />
+              <Bell className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Notification Preferences</h3>
-              <p className="text-sm text-slate-400">Manage how you receive notifications</p>
+              <h3 className="text-base font-semibold text-foreground">Notification Preferences</h3>
+              <p className="text-sm text-muted-foreground">Manage how you receive notifications</p>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-white mb-1">Campaign Updates</div>
-                <div className="text-sm text-slate-400">Get notified when campaigns are created or updated</div>
+                <div className="font-medium text-foreground mb-1">Campaign Updates</div>
+                <div className="text-sm text-muted-foreground">Get notified when campaigns are created or updated</div>
               </div>
               <Switch
                 checked={notificationSettings.campaignUpdates}
@@ -980,10 +985,10 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-white mb-1">Performance Alerts</div>
-                <div className="text-sm text-slate-400">Receive alerts when performance metrics change significantly</div>
+                <div className="font-medium text-foreground mb-1">Performance Alerts</div>
+                <div className="text-sm text-muted-foreground">Receive alerts when performance metrics change significantly</div>
               </div>
               <Switch
                 checked={notificationSettings.performanceAlerts}
@@ -991,10 +996,10 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-white mb-1">Team Mentions</div>
-                <div className="text-sm text-slate-400">Get notified when team members mention you</div>
+                <div className="font-medium text-foreground mb-1">Team Mentions</div>
+                <div className="text-sm text-muted-foreground">Get notified when team members mention you</div>
               </div>
               <Switch
                 checked={notificationSettings.teamMentions}
@@ -1002,10 +1007,10 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-white mb-1">Weekly Reports</div>
-                <div className="text-sm text-slate-400">Receive weekly summary of campaign performance</div>
+                <div className="font-medium text-foreground mb-1">Weekly Reports</div>
+                <div className="text-sm text-muted-foreground">Receive weekly summary of campaign performance</div>
               </div>
               <Switch
                 checked={notificationSettings.weeklyReports}
@@ -1017,43 +1022,43 @@ export function Settings({ onNavigate }: SettingsProps) {
       </Card>
 
       {/* Billing History */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-emerald-400" />
+              <CreditCard className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Billing & Invoices</h3>
-              <p className="text-sm text-slate-400">View your billing history and download invoices</p>
+              <h3 className="text-base font-semibold text-foreground">Billing & Invoices</h3>
+              <p className="text-sm text-muted-foreground">View your billing history and download invoices</p>
             </div>
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-white mb-1">
+                <div className="font-medium text-foreground mb-1">
                   {billingLoading ? 'Loading Plan...' : planLabel}
                 </div>
-                <div className="text-sm text-slate-400">
+                <div className="text-sm text-muted-foreground">
                   {billingLoading
                     ? 'Fetching billing details'
                     : `${isPaid ? 'Current plan' : 'Free plan'} • ${planCycleLabel} billing`}
                 </div>
               </div>
-              <div className="text-lg font-semibold text-white">
+              <div className="text-lg font-semibold text-foreground">
                 {billingLoading ? '--' : planPriceLabel}
               </div>
             </div>
 
-            <div className="p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
-              <div className="text-sm font-medium text-slate-400 mb-3">Payment History</div>
+            <div className="p-4 bg-muted/60 rounded-lg border border-border">
+              <div className="text-sm font-medium text-muted-foreground mb-3">Payment History</div>
               <div className="text-center py-8">
-                <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mx-auto mb-3">
-                  <CreditCard className="w-6 h-6 text-slate-600" />
+                <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mx-auto mb-3">
+                  <CreditCard className="w-6 h-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm text-slate-500">No payment history available</p>
-                <p className="text-xs text-slate-600 mt-1">{invoiceHint}</p>
+                <p className="text-sm text-muted-foreground">No payment history available</p>
+                <p className="text-xs text-muted-foreground mt-1">{invoiceHint}</p>
               </div>
             </div>
           </div>

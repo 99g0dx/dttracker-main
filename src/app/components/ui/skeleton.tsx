@@ -4,7 +4,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("bg-white/[0.05] animate-pulse rounded-md", className)}
+      className={cn("bg-muted/60 animate-pulse rounded-md", className)}
       {...props}
     />
   );
@@ -13,7 +13,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
 // Campaign card skeleton for list view
 function CampaignCardSkeleton() {
   return (
-    <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg overflow-hidden">
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
       {/* Cover image skeleton */}
       <Skeleton className="w-full h-32" />
 
@@ -47,7 +47,7 @@ function CampaignCardSkeleton() {
 // Post table row skeleton
 function PostRowSkeleton() {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 border-b border-white/[0.08]">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 border-b border-border">
       {/* Avatar */}
       <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
 
@@ -84,7 +84,7 @@ function CampaignHeaderSkeleton() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4">
+          <div key={i} className="bg-card border border-border rounded-lg p-4">
             <Skeleton className="h-3 w-16 mb-2" />
             <Skeleton className="h-7 w-24" />
           </div>
@@ -148,7 +148,7 @@ function CardGridSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4 space-y-3">
+        <div key={i} className="bg-card border border-border rounded-lg p-4 space-y-3">
           <Skeleton className="h-6 w-3/4" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-2/3" />
@@ -169,7 +169,7 @@ function DashboardKpiSkeleton() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4"
+          className="bg-card border border-border rounded-lg p-4"
         >
           <Skeleton className="h-3 w-16 mb-2" />
           <Skeleton className="h-7 w-24" />
@@ -182,7 +182,7 @@ function DashboardKpiSkeleton() {
 // Chart panel skeleton
 function ChartPanelSkeleton() {
   return (
-    <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-4 space-y-4">
+    <div className="bg-card border border-border rounded-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-3 w-20" />
@@ -195,7 +195,7 @@ function ChartPanelSkeleton() {
 // Table row skeleton (compact)
 function TableRowSkeleton() {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3 border-b border-white/[0.08]">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3 border-b border-border">
       <Skeleton className="h-4 w-40 sm:w-56" />
       <Skeleton className="h-4 w-28 sm:w-24" />
       <Skeleton className="h-4 w-24 sm:w-20" />
@@ -209,7 +209,7 @@ function TableRowSkeleton() {
 // Creator card skeleton
 function CreatorCardSkeleton() {
   return (
-    <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-3 space-y-3">
+    <div className="bg-card border border-border rounded-lg p-3 space-y-3">
       <div className="flex items-center gap-3">
         <Skeleton className="h-9 w-9 rounded-full" />
         <div className="flex-1 space-y-2">
@@ -229,7 +229,7 @@ function CreatorCardSkeleton() {
 // Request row skeleton
 function RequestRowSkeleton() {
   return (
-    <div className="flex flex-col gap-2 border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
+    <div className="flex flex-col gap-2 border border-border rounded-lg p-4 bg-muted/40">
       <div className="flex items-center gap-2">
         <Skeleton className="h-5 w-24 rounded-full" />
         <Skeleton className="h-4 w-20" />

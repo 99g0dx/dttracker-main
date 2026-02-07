@@ -261,7 +261,7 @@ export function ActivityDetailDrawer({
                   return (
                     <div key={creator.id} className="flex items-center justify-between p-2 rounded-md bg-white/[0.03] border border-white/[0.06]">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white text-xs font-semibold">
                           {creator.name.charAt(0)}
                         </div>
                         <div>

@@ -9,12 +9,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         position="top-right"
       toastOptions={{
         style: {
-          background: "rgba(21, 27, 46, 0.95)",
+          background: "var(--popover)",
           backdropFilter: "blur(12px)",
-          border: "1px solid rgba(148, 163, 184, 0.1)",
+          border: "1px solid var(--border)",
           borderRadius: "12px",
           boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-          color: "rgba(255, 255, 255, 1)",
+          color: "var(--popover-foreground)",
           width: "auto",
           maxWidth: "min(92vw, 20rem)",
         },

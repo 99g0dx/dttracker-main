@@ -357,45 +357,31 @@ export async function publishActivation(
   activationId: string
 ): Promise<ApiResponse<Activation>> {
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!supabaseUrl) {
-      return { data: null, error: new Error("Missing Supabase URL") };
+    if (!activationId) {
+      return { data: null, error: new Error("Activation ID required") };
     }
 
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/activation-publish`,
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) {
+      return { data: null, error: new Error("Not authenticated") };
+    }
+
+    const { data, error } = await supabase.functions.invoke(
+      "activation-publish",
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-          ...(import.meta.env.VITE_SUPABASE_ANON_KEY && {
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          }),
-        },
-        body: JSON.stringify({ activationId }),
+        body: { activationId },
       }
     );
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      return {
-        data: null,
-        error: new Error(
-          result?.error || result?.message || "Failed to publish activation"
-        ),
-      };
+    if (error) {
+      return { data: null, error: new Error(error.message) };
     }
 
-    if (result.error) {
-      return { data: null, error: new Error(result.error) };
+    if (data?.error) {
+      return { data: null, error: new Error(data.error) };
     }
 
-    return { data: result.activation as Activation, error: null };
+    return { data: data?.activation as Activation, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }

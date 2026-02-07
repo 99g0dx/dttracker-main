@@ -24,7 +24,8 @@ const statusConfig = {
   },
   completed: {
     label: "Completed",
-    className: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    className:
+      "bg-red-100/70 dark:bg-blue-500/10 text-red-700 dark:text-blue-400 border-red-200 dark:border-blue-500/20",
   },
   draft: {
     label: "Draft",
@@ -48,7 +49,8 @@ const statusConfig = {
   },
   "link-added": {
     label: "Link Added",
-    className: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    className:
+      "bg-red-100/70 dark:bg-blue-500/10 text-red-700 dark:text-blue-400 border-red-200 dark:border-blue-500/20",
   },
   scraping: {
     label: "Scraping",

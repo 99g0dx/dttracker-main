@@ -22,7 +22,7 @@ export function MetricCard({ title, value, change, icon }: MetricCardProps) {
       {/* Gradient border effect */}
       <div className="absolute -inset-[1px] bg-gradient-to-br from-primary/20 via-purple-500/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm"></div>
       
-      <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] group-hover:shadow-[0_8px_30px_rgba(14,165,233,0.15),0_0_60px_rgba(14,165,233,0.05)] transition-all duration-300">
+      <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] group-hover:shadow-[0_8px_30px_rgba(225,29,72,0.18),0_0_60px_rgba(225,29,72,0.06)] dark:group-hover:shadow-[0_8px_30px_rgba(14,165,233,0.15),0_0_60px_rgba(14,165,233,0.05)] transition-all duration-300">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm text-muted-foreground">
             {title}

@@ -9,7 +9,7 @@ export function RouteProgress({ isActive }: { isActive: boolean }) {
         isActive && "opacity-100"
       )}
     >
-      <div className="h-full w-full bg-gradient-to-r from-primary via-cyan-400 to-purple-500 animate-progress" />
+      <div className="h-full w-full bg-gradient-to-r from-primary via-red-400 dark:via-cyan-400 to-purple-500 animate-progress" />
     </div>
   );
 }

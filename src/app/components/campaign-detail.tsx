@@ -76,6 +76,7 @@ import {
 } from "../../hooks/useCreators";
 import * as csvUtils from "../../lib/utils/csv";
 import { formatWithGrowth } from "../../lib/utils/format";
+import { getCampaignCoverGradient } from "../../lib/utils/campaign-gradients";
 import type { CSVImportResult } from "../../lib/types/database";
 import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
@@ -211,18 +212,18 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Invalid Campaign
           </h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-slate-400">No campaign ID provided.</p>
+            <p className="text-muted-foreground">No campaign ID provided.</p>
           </CardContent>
         </Card>
       </div>
@@ -236,27 +237,27 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Error Loading Campaign
           </h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-red-400 mb-2">
+            <p className="text-red-600 dark:text-red-400 mb-2">
               An error occurred while loading the campaign:
             </p>
-            <p className="text-slate-400 text-sm">{renderError.message}</p>
+            <p className="text-muted-foreground text-sm">{renderError.message}</p>
             <button
               onClick={() => {
                 setRenderError(null);
                 window.location.reload();
               }}
-              className="mt-4 h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium"
+              className="mt-4 h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium"
             >
               Reload Page
             </button>
@@ -286,6 +287,13 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     chartPlatformFilter === "all" ? undefined : chartPlatformFilter
   );
   const { data: campaignCreators = [] } = useCreatorsByCampaign(id || "");
+  const coverGradient = React.useMemo(
+    () =>
+      getCampaignCoverGradient(
+        campaign?.id || campaign?.name || id || "campaign"
+      ),
+    [campaign?.id, campaign?.name, id]
+  );
 
   // Sound tracking hooks
   const {
@@ -703,10 +711,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   const chartXAxisProps = React.useMemo(
     () => ({
-      stroke: "#64748b",
+      stroke: "var(--muted-foreground)",
       fontSize: 11,
       tickLine: false,
-      axisLine: { stroke: "#ffffff08" },
+      axisLine: { stroke: "var(--border)" },
       minTickGap: isMobile ? 18 : 8,
       interval: isMobile ? "preserveStartEnd" : "preserveEnd",
     }),
@@ -740,8 +748,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   const chartTooltipStyle = React.useMemo(
     () => ({
-      backgroundColor: "#0D0D0D",
-      border: "1px solid rgba(255,255,255,0.08)",
+      backgroundColor: "var(--popover)",
+      color: "var(--popover-foreground)",
+      border: "1px solid var(--border)",
       borderRadius: "12px",
       fontSize: "12px",
       padding: "10px 12px",
@@ -1453,23 +1462,23 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Campaign not found
           </h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               {campaignError?.message ||
                 "The campaign you are looking for does not exist."}
             </p>
             {id && (
-              <p className="text-xs text-slate-500 mt-2">Campaign ID: {id}</p>
+              <p className="text-xs text-muted-foreground mt-2">Campaign ID: {id}</p>
             )}
           </CardContent>
         </Card>
@@ -1484,22 +1493,22 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Campaign not found
           </h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               The campaign you are looking for does not exist.
             </p>
             {id && (
-              <p className="text-xs text-slate-500 mt-2">Campaign ID: {id}</p>
+              <p className="text-xs text-muted-foreground mt-2">Campaign ID: {id}</p>
             )}
           </CardContent>
         </Card>
@@ -1514,7 +1523,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           onClick={() =>
             onNavigate(`/campaigns/${campaign.parent_campaign_id}`)
           }
-          className="text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Parent Campaign
@@ -1526,7 +1535,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           <div className="flex items-start gap-3">
             <button
               onClick={() => onNavigate("/campaigns")}
-              className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+              className="w-11 h-11 flex-shrink-0 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
               aria-label="Back to campaigns"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -1534,11 +1543,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             <div className="min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1]">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1]">
                     {campaign.name}
                   </h1>
                   {campaign.brand_name && (
-                    <p className="text-sm text-slate-400 mt-1 break-words">
+                    <p className="text-sm text-muted-foreground mt-1 break-words">
                       {campaign.brand_name}
                     </p>
                   )}
@@ -1563,7 +1572,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   setShowShareLinkModal(true);
                 }}
                 disabled={!canEditThisCampaign}
-                className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="h-11 px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Share campaign link"
               >
                 <Share2 className="w-4 h-4" />
@@ -1574,7 +1583,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-11 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     aria-label="Campaign actions"
                     disabled={!canEditThisCampaign}
                   >
@@ -1584,7 +1593,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="w-52 bg-black text-white border-white/[0.08]"
+                  className="w-52 bg-popover text-popover-foreground border-border"
                 >
                   <DropdownMenuItem
                     onSelect={() => {
@@ -1597,7 +1606,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       onNavigate(`/campaigns/${campaign.id}/edit`);
                     }}
                     disabled={!canEditThisCampaign}
-                    className="text-white [&_svg]:text-white"
+                    className="text-foreground [&_svg]:text-foreground"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit Campaign
@@ -1629,7 +1638,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
       {/* Cover Image Hero Section */}
       {campaign && (
-        <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/9] max-h-[240px] sm:max-h-[300px] rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
+        <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/9] max-h-[240px] sm:max-h-[300px] rounded-xl overflow-hidden border border-border shadow-lg shadow-black/20">
           {campaign.cover_image_url ? (
             <>
               <img
@@ -1649,14 +1658,18 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   }
                 }}
               />
-              <div className="gradient-fallback hidden w-full h-full bg-gradient-to-br from-primary via-primary/80 to-cyan-400 items-center justify-center">
+              <div
+                className={`gradient-fallback hidden w-full h-full ${coverGradient} items-center justify-center`}
+              >
                 <h2 className="text-3xl sm:text-5xl font-bold text-white/90">
                   {campaign.name.charAt(0).toUpperCase()}
                 </h2>
               </div>
             </>
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary via-primary/80 to-cyan-400 flex items-center justify-center relative overflow-hidden">
+            <div
+              className={`w-full h-full ${coverGradient} flex items-center justify-center relative overflow-hidden`}
+            >
               {/* Subtle pattern overlay */}
               <div
                 className="absolute inset-0 opacity-10"
@@ -1675,11 +1688,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
           {/* Text content with improved spacing and typography */}
           <div className="absolute bottom-6 left-6 right-6">
-            <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg">
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground mb-2 drop-shadow-lg">
               {campaign.name}
             </h2>
             {campaign.brand_name && (
-              <p className="text-sm sm:text-lg text-white font-semibold drop-shadow-md">
+              <p className="text-sm sm:text-lg text-foreground font-semibold drop-shadow-md">
                 {campaign.brand_name}
               </p>
             )}
@@ -1689,59 +1702,59 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
       {/* KPI Cards - Performance Metrics */}
       <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-3 sm:p-5">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
               {(filteredMetrics.total_views ?? 0).toLocaleString()}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Views</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Views</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-3 sm:p-5">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
                 <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
               {(filteredMetrics.total_likes ?? 0).toLocaleString()}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Likes</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Likes</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-3 sm:p-5">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-100/70 dark:bg-cyan-500/10 flex items-center justify-center">
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-cyan-400" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
               {(filteredMetrics.total_comments ?? 0).toLocaleString()}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Comments</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Comments</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-3 sm:p-5">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
                 <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
             </div>
-            <div className="text-lg sm:text-2xl font-semibold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
               {(filteredMetrics.total_shares ?? 0).toLocaleString()}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Shares</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Shares</p>
           </CardContent>
         </Card>
       </div>
@@ -1749,7 +1762,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       {/* Chart Range and Platform Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Timeframe
           </span>
           <div className="flex flex-wrap gap-2">
@@ -1767,8 +1780,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 aria-pressed={chartRange === range.value}
                 className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
                   chartRange === range.value
-                    ? "bg-primary text-black border-primary"
-                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                 }`}
               >
                 {range.label}
@@ -1777,7 +1790,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Platform
           </span>
           <div className="flex flex-wrap gap-2">
@@ -1793,8 +1806,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 aria-pressed={chartPlatformFilter === platform.value}
                 className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
                   chartPlatformFilter === platform.value
-                    ? "bg-primary text-black border-primary"
-                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                 }`}
               >
                 {platform.label}
@@ -1815,31 +1828,31 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             }
             className="lg:hidden"
           >
-            <TabsList className="grid w-full max-w-[360px] sm:max-w-none grid-cols-4 gap-1 h-11 bg-white/[0.03] border border-white/[0.08] p-1 mx-auto sm:mx-0 overflow-y-hidden">
+            <TabsList className="grid w-full max-w-[360px] sm:max-w-none grid-cols-4 gap-1 h-11 bg-muted/60 border border-border p-1 mx-auto sm:mx-0 overflow-y-hidden">
               <TabsTrigger
                 value="views"
-                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+                className="flex items-center gap-1.5 data-[state=active]:bg-muted/80 h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Views</span>
               </TabsTrigger>
               <TabsTrigger
                 value="likes"
-                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+                className="flex items-center gap-1.5 data-[state=active]:bg-muted/80 h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
               >
                 <Heart className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Likes</span>
               </TabsTrigger>
               <TabsTrigger
                 value="comments"
-                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+                className="flex items-center gap-1.5 data-[state=active]:bg-muted/80 h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Comments</span>
               </TabsTrigger>
               <TabsTrigger
                 value="shares"
-                className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+                className="flex items-center gap-1.5 data-[state=active]:bg-muted/80 h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Shares</span>
@@ -1850,14 +1863,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               value="views"
               className="mt-4 animate-in fade-in-50 duration-200"
             >
-              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <Card className="bg-card border-border">
                 <CardContent className="p-4 sm:p-6">
                   <div className="mb-4">
-                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                       <Eye className="w-4 h-4 text-primary" />
                       Views Over Time
                     </h3>
-                    <p className="text-sm text-slate-400 mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {chartRangeLabel}
                     </p>
                   </div>
@@ -1865,12 +1878,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <LineChart data={filteredChartData}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#ffffff08"
+                        stroke="var(--border)"
                         vertical={false}
                       />
                       <XAxis dataKey="date" {...chartXAxisProps} />
                       <YAxis
-                        stroke="#64748b"
+                        stroke="var(--muted-foreground)"
                         fontSize={11}
                         tickLine={false}
                         axisLine={false}
@@ -1883,7 +1896,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <Line
                         type="monotone"
                         dataKey="views"
-                        stroke="#0ea5e9"
+                        stroke="var(--chart-1)"
                         strokeWidth={2}
                         dot={false}
                       />
@@ -1897,14 +1910,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               value="likes"
               className="mt-4 animate-in fade-in-50 duration-200"
             >
-              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <Card className="bg-card border-border">
                 <CardContent className="p-4 sm:p-6">
                   <div className="mb-4">
-                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                       <Heart className="w-4 h-4 text-pink-400" />
                       Likes Over Time
                     </h3>
-                    <p className="text-sm text-slate-400 mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {chartRangeLabel}
                     </p>
                   </div>
@@ -1912,12 +1925,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <LineChart data={filteredChartData}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#ffffff08"
+                        stroke="var(--border)"
                         vertical={false}
                       />
                       <XAxis dataKey="date" {...chartXAxisProps} />
                       <YAxis
-                        stroke="#64748b"
+                        stroke="var(--muted-foreground)"
                         fontSize={11}
                         tickLine={false}
                         axisLine={false}
@@ -1930,7 +1943,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <Line
                         type="monotone"
                         dataKey="likes"
-                        stroke="#ec4899"
+                        stroke="var(--chart-5)"
                         strokeWidth={2}
                         dot={false}
                       />
@@ -1944,14 +1957,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               value="comments"
               className="mt-4 animate-in fade-in-50 duration-200"
             >
-              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <Card className="bg-card border-border">
                 <CardContent className="p-4 sm:p-6">
                   <div className="mb-4">
-                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                      <MessageCircle className="w-4 h-4 text-cyan-400" />
+                    <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-red-600 dark:text-cyan-400" />
                       Comments Over Time
                     </h3>
-                    <p className="text-sm text-slate-400 mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {chartRangeLabel}
                     </p>
                   </div>
@@ -1959,12 +1972,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <LineChart data={filteredChartData}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#ffffff08"
+                        stroke="var(--border)"
                         vertical={false}
                       />
                       <XAxis dataKey="date" {...chartXAxisProps} />
                       <YAxis
-                        stroke="#64748b"
+                        stroke="var(--muted-foreground)"
                         fontSize={11}
                         tickLine={false}
                         axisLine={false}
@@ -1977,7 +1990,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <Line
                         type="monotone"
                         dataKey="comments"
-                        stroke="#06b6d4"
+                        stroke="var(--chart-3)"
                         strokeWidth={2}
                         dot={false}
                       />
@@ -1991,14 +2004,14 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               value="shares"
               className="mt-4 animate-in fade-in-50 duration-200"
             >
-              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <Card className="bg-card border-border">
                 <CardContent className="p-4 sm:p-6">
                   <div className="mb-4">
-                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                       <Share2 className="w-4 h-4 text-purple-400" />
                       Shares Over Time
                     </h3>
-                    <p className="text-sm text-slate-400 mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {chartRangeLabel}
                     </p>
                   </div>
@@ -2006,12 +2019,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <LineChart data={filteredChartData}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#ffffff08"
+                        stroke="var(--border)"
                         vertical={false}
                       />
                       <XAxis dataKey="date" {...chartXAxisProps} />
                       <YAxis
-                        stroke="#64748b"
+                        stroke="var(--muted-foreground)"
                         fontSize={11}
                         tickLine={false}
                         axisLine={false}
@@ -2024,7 +2037,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       <Line
                         type="monotone"
                         dataKey="shares"
-                        stroke="#a855f7"
+                        stroke="var(--chart-2)"
                         strokeWidth={2}
                         dot={false}
                       />
@@ -2038,13 +2051,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           {/* Desktop: Keep existing 2x2 grid */}
           <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Views Over Time */}
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-base font-semibold text-white">
+                  <h3 className="text-base font-semibold text-foreground">
                     Views Over Time
                   </h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     {chartRangeLabel}
                   </p>
                 </div>
@@ -2052,12 +2065,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <LineChart data={filteredChartData}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="#ffffff08"
+                      stroke="var(--border)"
                       vertical={false}
                     />
                     <XAxis dataKey="date" {...chartXAxisProps} />
                     <YAxis
-                      stroke="#64748b"
+                      stroke="var(--muted-foreground)"
                       fontSize={11}
                       tickLine={false}
                       axisLine={false}
@@ -2070,7 +2083,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <Line
                       type="monotone"
                       dataKey="views"
-                      stroke="#0ea5e9"
+                      stroke="var(--chart-1)"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -2080,13 +2093,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </Card>
 
             {/* Likes Over Time */}
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-base font-semibold text-white">
+                  <h3 className="text-base font-semibold text-foreground">
                     Likes Over Time
                   </h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     {chartRangeLabel}
                   </p>
                 </div>
@@ -2094,12 +2107,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <LineChart data={filteredChartData}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="#ffffff08"
+                      stroke="var(--border)"
                       vertical={false}
                     />
                     <XAxis dataKey="date" {...chartXAxisProps} />
                     <YAxis
-                      stroke="#64748b"
+                      stroke="var(--muted-foreground)"
                       fontSize={11}
                       tickLine={false}
                       axisLine={false}
@@ -2112,7 +2125,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <Line
                       type="monotone"
                       dataKey="likes"
-                      stroke="#ec4899"
+                      stroke="var(--chart-5)"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -2122,13 +2135,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </Card>
 
             {/* Comments Over Time */}
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-base font-semibold text-white">
+                  <h3 className="text-base font-semibold text-foreground">
                     Comments Over Time
                   </h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     {chartRangeLabel}
                   </p>
                 </div>
@@ -2136,12 +2149,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <LineChart data={filteredChartData}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="#ffffff08"
+                      stroke="var(--border)"
                       vertical={false}
                     />
                     <XAxis dataKey="date" {...chartXAxisProps} />
                     <YAxis
-                      stroke="#64748b"
+                      stroke="var(--muted-foreground)"
                       fontSize={11}
                       tickLine={false}
                       axisLine={false}
@@ -2154,7 +2167,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <Line
                       type="monotone"
                       dataKey="comments"
-                      stroke="#06b6d4"
+                      stroke="var(--chart-3)"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -2164,13 +2177,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </Card>
 
             {/* Shares Over Time */}
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-base font-semibold text-white">
+                  <h3 className="text-base font-semibold text-foreground">
                     Shares Over Time
                   </h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     {chartRangeLabel}
                   </p>
                 </div>
@@ -2178,12 +2191,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <LineChart data={filteredChartData}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="#ffffff08"
+                      stroke="var(--border)"
                       vertical={false}
                     />
                     <XAxis dataKey="date" {...chartXAxisProps} />
                     <YAxis
-                      stroke="#64748b"
+                      stroke="var(--muted-foreground)"
                       fontSize={11}
                       tickLine={false}
                       axisLine={false}
@@ -2196,7 +2209,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <Line
                       type="monotone"
                       dataKey="shares"
-                      stroke="#a855f7"
+                      stroke="var(--chart-2)"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -2207,9 +2220,9 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           </div>
         </>
       ) : (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <div className="text-sm text-slate-400">Loading charts...</div>
+            <div className="text-sm text-muted-foreground">Loading charts...</div>
           </CardContent>
         </Card>
       )}
@@ -2300,15 +2313,15 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
       {/* Creators Section */}
       {campaignCreators.length > 0 && (
-        <Card className="bg-[#09090b] border-white/[0.04] shadow-2xl">
+        <Card className="bg-card border-border/60 shadow-2xl">
           <CardContent className="p-5 md:p-6">
             {/* Header Section */}
             <div className="flex flex-col gap-4 mb-6">
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                <h3 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
                   Campaign Roster
                 </h3>
-                <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+                <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
                   {creatorSearchQuery || selectedPlatform !== "all"
                     ? `Showing ${filteredCreators.length} of ${uniqueRosterCreators.length} Active Participants`
                     : `${uniqueRosterCreators.length} of ${uniqueRosterCreators.length} Active Participants`}
@@ -2318,13 +2331,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               {/* Optimized Filters */}
               <div className="flex flex-col gap-3">
                 <div className="relative w-full group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     type="search"
                     value={creatorSearchQuery}
                     onChange={(e) => setCreatorSearchQuery(e.target.value)}
                     placeholder="Search creators..."
-                    className="pl-9 bg-zinc-950 border-white/5 text-zinc-300 rounded-xl focus:ring-primary/20"
+                    className="pl-9 bg-muted/70 border-border/60 text-foreground rounded-xl focus:ring-primary/20"
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -2339,8 +2352,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       onClick={() => setSelectedPlatform(platform.value)}
                       className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wider transition-colors flex items-center gap-2 ${
                         selectedPlatform === platform.value
-                          ? "bg-primary text-black border-primary"
-                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                       }`}
                     >
                       {platform.value === "all" ? (
@@ -2369,7 +2382,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           );
                         })()
                       )}
-                      <span className="text-[10px] font-semibold text-slate-400">
+                      <span className="text-[10px] font-semibold text-muted-foreground">
                         {creatorPlatformCounts[platform.value] ?? 0}
                       </span>
                     </button>
@@ -2424,8 +2437,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                             </>
                           );
                         })()}
-                        <div className="h-px flex-1 bg-white/5" />
-                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                        <div className="h-px flex-1 bg-border/60" />
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                           {uniqueCreatorCount} Creators • {platformPosts} Total
                           Posts
                         </span>
@@ -2449,7 +2462,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 "group relative p-3 rounded-xl border text-left transition-all hover:scale-[1.01]",
                                 hasPosts
                                   ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/40"
-                                  : "bg-zinc-900/40 border-white/5 hover:border-white/20"
+                                  : "bg-muted/60 border-border/60 hover:border-border/80"
                               )}
                             >
                               {/* Remove Button */}
@@ -2462,7 +2475,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       name: creator.name,
                                     });
                                   }}
-                                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10"
+                                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10"
                                   aria-label={`Remove ${creator.name} from campaign`}
                                   title="Remove from campaign"
                                 >
@@ -2481,36 +2494,36 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 <div className="flex items-center gap-3">
                                   {/* Avatar with Status Pip */}
                                   <div className="relative shrink-0">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-400 font-bold text-sm border border-white/10 group-hover:border-primary/50 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-muted/80 to-muted flex items-center justify-center text-muted-foreground font-bold text-sm border border-border/70 group-hover:border-primary/50 transition-colors">
                                       {creator.name.charAt(0).toUpperCase()}
                                     </div>
                                     {hasPosts && (
-                                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full" />
+                                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-card rounded-full" />
                                     )}
                                   </div>
 
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-bold text-white truncate leading-tight group-hover:text-primary transition-colors">
+                                    <div className="text-sm font-bold text-foreground truncate leading-tight group-hover:text-primary transition-colors">
                                       {creator.name}
                                     </div>
-                                    <div className="text-xs text-zinc-500 truncate font-medium">
+                                    <div className="text-xs text-muted-foreground truncate font-medium">
                                       @{creator.handle}
                                     </div>
                                   </div>
                                 </div>
 
                                 {/* Post Counter Badge */}
-                                <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2">
                                   <span
                                     className={`text-[10px] font-bold uppercase ${
                                       hasPosts
                                         ? "text-emerald-500/80"
-                                        : "text-slate-500"
+                                        : "text-muted-foreground"
                                     }`}
                                   >
                                     {hasPosts ? "Active" : "No Posts"}
                                   </span>
-                                  <span className="text-[10px] font-mono text-zinc-400">
+                                  <span className="text-[10px] font-mono text-muted-foreground">
                                     {creatorPosts.length}{" "}
                                     {creatorPosts.length === 1
                                       ? "POST"
@@ -2533,7 +2546,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 [group.platform]: true,
                               }))
                             }
-                            className="mt-4 w-full h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+                            className="mt-4 w-full h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground transition-colors"
                           >
                             Show more creators
                           </button>
@@ -2555,17 +2568,17 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       {/* Posts Table */}
       <Card
         id="campaign-posts"
-        className="relative overflow-hidden bg-[#0B0C10] border-white/[0.08] shadow-[0_12px_40px_-20px_rgba(0,0,0,0.8)]"
+        className="relative overflow-hidden bg-card border-border shadow-[0_12px_40px_-20px_rgba(0,0,0,0.8)]"
       >
         <CardContent className="relative p-0">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.08),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(16,185,129,0.08),transparent_40%)]" />
-          <div className="relative p-4 sm:p-6 border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-xl">
+          <div className="relative p-4 sm:p-6 border-b border-border bg-muted/40 backdrop-blur-xl">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4 sm:mb-5">
               <div>
-                <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+                <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
                   Posts
                 </h3>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {posts.length} posts
                   {highlightedTopPosts.length > 0
                     ? ` · ${highlightedTopPosts.length} top`
@@ -2579,7 +2592,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     setShowAddPostDialog(true);
                   }}
                   disabled={!canEditThisCampaign}
-                  className="h-11 px-4 bg-primary hover:bg-primary/90 text-[rgb(0,0,0)] text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="h-11 px-4 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold flex items-center justify-center gap-1.5 rounded-lg transition-colors w-full sm:w-auto shadow-[0_8px_20px_-12px_rgba(34,197,94,0.8)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                   Add Post
@@ -2588,7 +2601,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="h-11 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-xs text-slate-300 flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto"
+                      className="h-11 px-3 rounded-lg bg-muted/40 hover:bg-muted/80 border border-border text-xs text-foreground flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto"
                       aria-label="Post actions"
                     >
                       <MoreHorizontal className="w-4 h-4" />
@@ -2652,7 +2665,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     value: "score" | "views" | "engagement" | "latest"
                   ) => setSortBy(value)}
                 >
-                  <SelectTrigger className="h-9 w-fit md:w-[170px] bg-white/[0.02] border-white/[0.08] text-slate-300 text-xs">
+                  <SelectTrigger className="h-9 w-fit md:w-[170px] bg-muted/40 border-border text-foreground text-xs">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2667,12 +2680,12 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               </div>
               <button
                 onClick={() => setPostFiltersOpen(true)}
-                className="h-11 min-h-[44px] px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                className="h-11 min-h-[44px] px-3 rounded-lg bg-muted/40 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center justify-center gap-2 transition-colors"
               >
                 <Filter className="w-4 h-4" />
                 Filters
                 {activePostFilterCount > 0 && (
-                  <span className="ml-1 w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-semibold">
+                  <span className="ml-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
                     {activePostFilterCount}
                   </span>
                 )}
@@ -2693,13 +2706,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <div className="px-4 sm:px-6 pb-4">
                 <div className="space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="search"
                       placeholder="Search posts..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-11 w-full pl-9 pr-3 bg-slate-950/40 border border-white/[0.08] rounded-lg text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="h-11 w-full pl-9 pr-3 bg-muted/50 border border-border rounded-lg text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
                   {activePostFilters.length > 0 && (
@@ -2708,7 +2721,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <button
                           key={filter.key}
                           onClick={filter.onClear}
-                          className="min-h-[44px] px-3 rounded-full border border-white/[0.08] bg-white/[0.04] text-xs text-slate-300 flex items-center gap-1 transition-colors hover:bg-white/[0.07]"
+                          className="min-h-[44px] px-3 rounded-full border border-border bg-muted/70 text-xs text-foreground flex items-center gap-1 transition-colors hover:bg-muted/80"
                           aria-label={`Remove ${filter.label}`}
                         >
                           <span className="max-w-[180px] truncate">
@@ -2732,7 +2745,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       className={`h-11 min-h-[44px] px-3 rounded-md border text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
                         showTopPerformers
                           ? "bg-primary/20 border-primary/30 text-primary"
-                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                          : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                       }`}
                     >
                       {showTopPerformers ? "All Posts" : "Top Performers"}
@@ -2778,10 +2791,10 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                 {visibleRemainingPosts.length > 0 && !showTopPerformers && (
                   <>
                     <div className="flex items-center gap-2 pb-1 pt-2">
-                      <span className="text-xs font-semibold text-slate-400">
+                      <span className="text-xs font-semibold text-muted-foreground">
                         Other Posts
                       </span>
-                      <div className="flex-1 h-px bg-white/[0.08]"></div>
+                      <div className="flex-1 h-px bg-border/80"></div>
                     </div>
                     <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
                       {visibleRemainingPosts.map((post) => (
@@ -2839,32 +2852,32 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/[0.08] bg-white/[0.02]">
-                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                    <tr className="border-b border-border bg-muted/40">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Creator
                       </th>
-                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Platform
                       </th>
-                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Post URL
                       </th>
-                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="text-left text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Status
                       </th>
-                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Views
                       </th>
-                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Likes
                       </th>
-                      <th className="hidden xl:table-cell text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="hidden xl:table-cell text-right text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Comments
                       </th>
-                      <th className="hidden 2xl:table-cell text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3">
+                      <th className="hidden 2xl:table-cell text-right text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3">
                         Engagement
                       </th>
-                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400 px-6 py-3"></th>
+                      <th className="text-right text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground px-6 py-3"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2874,7 +2887,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         <tr>
                           <td
                             colSpan={9}
-                            className="px-6 py-3 bg-gradient-to-r from-primary/10 via-white/[0.02] to-transparent border-b border-primary/20"
+                            className="px-6 py-3 bg-gradient-to-r from-primary/10 via-muted/40 to-transparent border-b border-primary/20"
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-semibold text-primary">
@@ -2895,7 +2908,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 className={`h-8 px-2 rounded-md border text-[11px] sm:text-xs font-medium flex flex-wrap items-center justify-center gap-1.5 transition-colors w-fit shrink-0 ${
                                   showTopPerformers
                                     ? "bg-primary/20 border-primary/30 text-primary"
-                                    : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                                    : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                                 }`}
                               >
                                 {showTopPerformers
@@ -2913,7 +2926,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       | "latest"
                                   ) => setSortBy(value)}
                                 >
-                                  <SelectTrigger className="h-8 w-fit bg-white/[0.03] border-white/[0.08] text-slate-300 text-[11px] sm:text-xs">
+                                  <SelectTrigger className="h-8 w-fit bg-muted/60 border-border text-foreground text-[11px] sm:text-xs">
                                     <SelectValue placeholder="Sort by" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -2947,22 +2960,22 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           return (
                             <tr
                               key={post.id}
-                              className={`border-b border-white/[0.04] transition-colors group ${
+                              className={`border-b border-border/60 transition-colors group ${
                                 isTop3
                                   ? "bg-primary/5 hover:bg-primary/10"
                                   : isTop5
                                     ? "bg-primary/2 hover:bg-primary/5"
-                                    : "hover:bg-white/[0.02]"
+                                    : "hover:bg-muted/40"
                               } ${
                                 isTop5 ? "border-l-2 border-l-primary/30" : ""
                               }`}
                             >
                               <td className="px-6 py-4">
                                 <div>
-                                  <div className="font-medium text-sm text-white">
+                                  <div className="font-medium text-sm text-foreground">
                                     {post.creator?.name || "Unknown"}
                                   </div>
-                                  <div className="text-xs text-slate-500">
+                                  <div className="text-xs text-muted-foreground">
                                     @
                                     {post.creator?.handle ||
                                       post.owner_username ||
@@ -2980,7 +2993,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     />
                                   )}
                                   {!isKpiPlatform(post.platform) && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-muted/70 text-muted-foreground border border-border">
                                       Not counted in KPIs
                                     </span>
                                   )}
@@ -2998,7 +3011,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     View Post
                                   </a>
                                 ) : (
-                                  <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
+                                  <button className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
                                     <LinkIcon className="w-3 h-3" />
                                     Add Link
                                   </button>
@@ -3017,7 +3030,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   )}
                                 </div>
                               </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
+                              <td className="px-6 py-4 text-right text-sm text-foreground">
                                 {(() => {
                                   const formatted = formatWithGrowth(
                                     post.views,
@@ -3028,7 +3041,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     <>
                                       {formatted.value}
                                       {formatted.growth && (
-                                        <span className="text-xs text-slate-400 ml-1">
+                                        <span className="text-xs text-muted-foreground ml-1">
                                           ({formatted.growth})
                                         </span>
                                       )}
@@ -3036,7 +3049,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   );
                                 })()}
                               </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">
+                              <td className="px-6 py-4 text-right text-sm text-foreground">
                                 {(() => {
                                   const formatted = formatWithGrowth(
                                     post.likes,
@@ -3047,7 +3060,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     <>
                                       {formatted.value}
                                       {formatted.growth && (
-                                        <span className="text-xs text-slate-400 ml-1">
+                                        <span className="text-xs text-muted-foreground ml-1">
                                           ({formatted.growth})
                                         </span>
                                       )}
@@ -3055,7 +3068,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   );
                                 })()}
                               </td>
-                              <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
+                              <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-foreground">
                                 {(() => {
                                   const formatted = formatWithGrowth(
                                     post.comments,
@@ -3066,7 +3079,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                     <>
                                       {formatted.value}
                                       {formatted.growth && (
-                                        <span className="text-xs text-slate-400 ml-1">
+                                        <span className="text-xs text-muted-foreground ml-1">
                                           ({formatted.growth})
                                         </span>
                                       )}
@@ -3077,11 +3090,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                                 {post.engagement_rate &&
                                 post.engagement_rate > 0 ? (
-                                  <span className="text-sm text-emerald-400 font-medium">
+                                  <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
                                     {post.engagement_rate}%
                                   </span>
                                 ) : (
-                                  <span className="text-sm text-slate-500">
+                                  <span className="text-sm text-muted-foreground">
                                     -
                                   </span>
                                 )}
@@ -3125,7 +3138,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                       className="w-8 h-8 rounded-md hover:bg-red-500/20 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
                                       title="Delete this post"
                                     >
-                                      <Trash2 className="w-4 h-4 text-red-400" />
+                                      <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                                     </button>
                                   )}
                                 </div>
@@ -3137,7 +3150,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           <tr>
                             <td
                               colSpan={9}
-                              className="px-6 py-2 border-b border-white/[0.08]"
+                              className="px-6 py-2 border-b border-border"
                             >
                               <div className="h-px"></div>
                             </td>
@@ -3157,18 +3170,18 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       return (
                         <tr
                           key={post.id}
-                          className={`border-b border-white/[0.04] transition-colors group ${
+                          className={`border-b border-border/60 transition-colors group ${
                             isTop3
                               ? "bg-primary/5 hover:bg-primary/10"
-                              : "hover:bg-white/[0.02]"
+                              : "hover:bg-muted/40"
                           }`}
                         >
                           <td className="px-6 py-4">
                             <div>
-                              <div className="font-medium text-sm text-white">
+                              <div className="font-medium text-sm text-foreground">
                                 {post.creator?.name || "Unknown"}
                               </div>
-                              <div className="text-xs text-slate-500">
+                              <div className="text-xs text-muted-foreground">
                                 @
                                 {post.creator?.handle ||
                                   post.owner_username ||
@@ -3186,7 +3199,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 />
                               )}
                               {!isKpiPlatform(post.platform) && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/50">
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-muted/70 text-muted-foreground border border-border">
                                   Not counted in KPIs
                                 </span>
                               )}
@@ -3204,7 +3217,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 View Post
                               </a>
                             ) : (
-                              <button className="text-xs text-slate-400 hover:text-primary flex items-center gap-1">
+                              <button className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
                                 <LinkIcon className="w-3 h-3" />
                                 Add Link
                               </button>
@@ -3223,7 +3236,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
+                          <td className="px-6 py-4 text-right text-sm text-foreground">
                             {(() => {
                               const formatted = formatWithGrowth(
                                 post.views,
@@ -3234,7 +3247,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 <>
                                   {formatted.value}
                                   {formatted.growth && (
-                                    <span className="text-xs text-slate-400 ml-1">
+                                    <span className="text-xs text-muted-foreground ml-1">
                                       ({formatted.growth})
                                     </span>
                                   )}
@@ -3242,7 +3255,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               );
                             })()}
                           </td>
-                          <td className="px-6 py-4 text-right text-sm text-slate-300">
+                          <td className="px-6 py-4 text-right text-sm text-foreground">
                             {(() => {
                               const formatted = formatWithGrowth(
                                 post.likes,
@@ -3253,7 +3266,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 <>
                                   {formatted.value}
                                   {formatted.growth && (
-                                    <span className="text-xs text-slate-400 ml-1">
+                                    <span className="text-xs text-muted-foreground ml-1">
                                       ({formatted.growth})
                                     </span>
                                   )}
@@ -3261,7 +3274,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                               );
                             })()}
                           </td>
-                          <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-slate-300">
+                          <td className="hidden xl:table-cell px-6 py-4 text-right text-sm text-foreground">
                             {(() => {
                               const formatted = formatWithGrowth(
                                 post.comments,
@@ -3272,7 +3285,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 <>
                                   {formatted.value}
                                   {formatted.growth && (
-                                    <span className="text-xs text-slate-400 ml-1">
+                                    <span className="text-xs text-muted-foreground ml-1">
                                       ({formatted.growth})
                                     </span>
                                   )}
@@ -3283,11 +3296,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           <td className="hidden 2xl:table-cell px-6 py-4 text-right">
                             {post.engagement_rate &&
                             post.engagement_rate > 0 ? (
-                              <span className="text-sm text-emerald-400 font-medium">
+                              <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
                                 {post.engagement_rate}%
                               </span>
                             ) : (
-                              <span className="text-sm text-slate-500">-</span>
+                              <span className="text-sm text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -3331,7 +3344,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                   aria-label="Delete post"
                                   title="Delete this post"
                                 >
-                                  <Trash2 className="w-4 h-4 text-red-400" />
+                                  <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                                 </button>
                               )}
                             </div>
@@ -3346,7 +3359,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               {/* Mobile Pagination */}
               {mobileTotalPages > 1 && (
                 <div className="lg:hidden px-4 sm:px-6 pb-4 space-y-3">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-muted-foreground">
                     Showing {mobileStartIndex + 1} to{" "}
                     {Math.min(
                       mobileStartIndex + postsPerPage,
@@ -3364,13 +3377,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <button
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={mobileSafeCurrentPage === 1}
-                      className="h-9 w-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                      className="h-9 w-9 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                     >
                       <ChevronLeft className="w-4 h-4" />
                       <span className="sr-only">Previous page</span>
                     </button>
                     <div className="flex items-center gap-1">
-                      <div className="min-[360px]:hidden text-xs text-slate-400">
+                      <div className="min-[360px]:hidden text-xs text-muted-foreground">
                         Page {mobileSafeCurrentPage} / {mobileTotalPages}
                       </div>
                       <div className="hidden min-[360px]:flex items-center gap-1">
@@ -3386,7 +3399,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           return (
                             <React.Fragment key={page}>
                               {showEllipsis && (
-                                <span className="px-1 text-slate-500 text-xs">
+                                <span className="px-1 text-muted-foreground text-xs">
                                   ...
                                 </span>
                               )}
@@ -3394,8 +3407,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                                 onClick={() => setCurrentPage(page)}
                                 className={`h-9 w-9 rounded-md text-xs transition-colors ${
                                   mobileSafeCurrentPage === page
-                                    ? "bg-primary text-black"
-                                    : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted/60 hover:bg-muted/80 border border-border text-foreground"
                                 }`}
                               >
                                 {page}
@@ -3410,7 +3423,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         setCurrentPage((p) => Math.min(mobileTotalPages, p + 1))
                       }
                       disabled={mobileSafeCurrentPage === mobileTotalPages}
-                      className="h-9 w-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                      className="h-9 w-9 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                     >
                       <ChevronRight className="w-4 h-4" />
                       <span className="sr-only">Next page</span>
@@ -3421,8 +3434,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
               {/* Desktop Pagination */}
               {totalPages > 1 && (
-                <div className="hidden lg:flex p-4 border-t border-white/[0.08] items-center justify-between">
-                  <p className="text-sm text-slate-400">
+                <div className="hidden lg:flex p-4 border-t border-border items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
                     {highlightedTopPosts.length > 0 && !showTopPerformers
                       ? `${highlightedTopPosts.length} top posts + `
                       : ""}
@@ -3437,7 +3450,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     <button
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="h-8 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Previous
                     </button>
@@ -3449,8 +3462,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                             onClick={() => setCurrentPage(page)}
                             className={`w-8 h-8 rounded-md text-sm transition-colors ${
                               currentPage === page
-                                ? "bg-primary text-black"
-                                : "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted/60 hover:bg-muted/80 border border-border text-foreground"
                             }`}
                           >
                             {page}
@@ -3463,7 +3476,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         setCurrentPage((p) => Math.min(totalPages, p + 1))
                       }
                       disabled={currentPage === totalPages}
-                      className="h-8 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="h-8 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Next
                     </button>
@@ -3473,13 +3486,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-slate-600" />
+              <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
+                <Search className="w-6 h-6 text-muted-foreground" />
               </div>
-              <h3 className="text-base font-semibold text-white mb-1">
+              <h3 className="text-base font-semibold text-foreground mb-1">
                 No posts found
               </h3>
-              <p className="text-sm text-slate-400 text-center mb-6 max-w-md">
+              <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
                 {searchQuery
                   ? "Try adjusting your search query"
                   : "Get started by adding posts manually or importing from CSV"}
@@ -3491,18 +3504,18 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
       {/* Import Creators Dialog */}
       <Dialog open={postFiltersOpen} onOpenChange={setPostFiltersOpen}>
-        <DialogContent className="bg-[#0D0D0D] border-white/[0.08]">
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-white">
+            <DialogTitle className="text-lg font-semibold text-foreground">
               Filters
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-400">
+            <DialogDescription className="text-sm text-muted-foreground">
               Refine posts by platform, status, and creator.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Platform
               </p>
               <div className="flex flex-wrap gap-2">
@@ -3519,8 +3532,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     onClick={() => setPostPlatformFilter(platform)}
                     className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
                       postPlatformFilter === platform
-                        ? "bg-primary text-black border-primary"
-                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                     }`}
                   >
                     {platform === "all" ? "All" : platform}
@@ -3530,7 +3543,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Status
               </p>
               <div className="flex flex-wrap gap-2">
@@ -3541,8 +3554,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       onClick={() => setPostStatusFilter(status)}
                       className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
                         postStatusFilter === status
-                          ? "bg-primary text-black border-primary"
-                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                       }`}
                     >
                       {status === "all"
@@ -3557,13 +3570,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Creator
               </label>
               <select
                 value={postCreatorFilter}
                 onChange={(e) => setPostCreatorFilter(e.target.value)}
-                className="h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-base text-white"
+                className="h-11 w-full rounded-md bg-muted/60 border border-border px-3 text-base text-foreground"
               >
                 <option value="all">All creators</option>
                 {postCreatorOptions.map((creator) => (
@@ -3575,7 +3588,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Date Range
               </p>
               <div className="flex flex-wrap gap-2">
@@ -3590,8 +3603,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     onClick={() => setPostDateFilter(range.value)}
                     className={`h-11 min-h-[44px] px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition-colors ${
                       postDateFilter === range.value
-                        ? "bg-primary text-black border-primary"
-                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/60 border-border text-foreground hover:bg-muted/80"
                     }`}
                   >
                     {range.label}
@@ -3618,33 +3631,33 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       </Dialog>
 
       <Dialog open={creatorDrawerOpen} onOpenChange={setCreatorDrawerOpen}>
-        <DialogContent className="bg-[#0D0D0D] border-white/[0.08]">
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-white">
+            <DialogTitle className="text-lg font-semibold text-foreground">
               Creator Details
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-400">
+            <DialogDescription className="text-sm text-muted-foreground">
               Quick stats and actions for this creator.
             </DialogDescription>
           </DialogHeader>
           {activeCreator && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-300 font-bold text-base border border-white/10">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-muted/80 to-muted flex items-center justify-center text-foreground font-bold text-base border border-border/70">
                   {activeCreator.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-base font-semibold text-white truncate">
+                  <p className="text-base font-semibold text-foreground truncate">
                     {activeCreator.name}
                   </p>
-                  <p className="text-sm text-slate-400 truncate">
+                  <p className="text-sm text-muted-foreground truncate">
                     @{activeCreator.handle}
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">
+                <div className="rounded-lg border border-border bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
                     Platform
                   </p>
                   {(() => {
@@ -3653,7 +3666,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     );
                     if (!platformIcon) {
                       return (
-                        <p className="text-sm text-white mt-1">
+                        <p className="text-sm text-foreground mt-1">
                           {activeCreator.platform}
                         </p>
                       );
@@ -3676,11 +3689,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     );
                   })()}
                 </div>
-                <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">
+                <div className="rounded-lg border border-border bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
                     Posts
                   </p>
-                  <p className="text-sm text-white mt-1">
+                  <p className="text-sm text-foreground mt-1">
                     {activeCreatorPosts.length}
                   </p>
                 </div>
@@ -3731,15 +3744,15 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       {/* Import Posts Dialog */}
       {showImportPostsDialog && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
+          <Card className="bg-card border-border w-full max-w-md">
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
                 Import Posts from CSV
               </h3>
 
               {!isImporting && !importResult && (
                 <>
-                  <div className="border-2 border-dashed border-white/[0.08] rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer mb-4">
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer mb-4">
                     <input
                       type="file"
                       accept=".csv"
@@ -3749,22 +3762,22 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       disabled={isImporting}
                     />
                     <label htmlFor="csv-upload" className="cursor-pointer">
-                      <Upload className="w-12 h-12 mx-auto mb-3 text-slate-500" />
-                      <p className="text-sm text-slate-300 mb-1">
+                      <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                      <p className="text-sm text-foreground mb-1">
                         Upload CSV file
                       </p>
-                      <p className="text-xs text-slate-500 mb-3">
+                      <p className="text-xs text-muted-foreground mb-3">
                         Required: creator_name, creator_handle, platform,
                         post_url
                       </p>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-muted-foreground">
                         Optional: posted_date, views, likes, comments, shares
                       </p>
                     </label>
                   </div>
                   <button
                     onClick={handleDownloadTemplate}
-                    className="w-full h-9 mb-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                    className="w-full h-9 mb-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center justify-center gap-2 transition-colors"
                   >
                     <Download className="w-4 h-4" />
                     Download CSV Template
@@ -3772,7 +3785,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowImportPostsDialog(false)}
-                      className="flex-1 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+                      className="flex-1 h-9 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground transition-colors"
                     >
                       Cancel
                     </button>
@@ -3783,8 +3796,8 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               {isImporting && (
                 <div className="py-8 text-center">
                   <div className="w-12 h-12 mx-auto mb-4 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                  <p className="text-sm text-slate-300">Importing posts...</p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-sm text-foreground">Importing posts...</p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     This may take a moment
                   </p>
                 </div>
@@ -3793,7 +3806,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               {importResult && (
                 <div className="space-y-4">
                   <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <p className="text-sm text-emerald-400 font-medium mb-1">
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mb-1">
                       ✓ {importResult.success_count} post
                       {importResult.success_count !== 1 ? "s" : ""} imported
                       successfully
@@ -3802,13 +3815,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
 
                   {importResult.error_count > 0 && (
                     <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                      <p className="text-sm text-red-400 font-medium mb-2">
+                      <p className="text-sm text-red-600 dark:text-red-400 font-medium mb-2">
                         {importResult.error_count} error
                         {importResult.error_count !== 1 ? "s" : ""}
                       </p>
                       <div className="space-y-1 max-h-32 overflow-y-auto">
                         {importResult.errors.map((error, idx) => (
-                          <p key={idx} className="text-xs text-red-300">
+                          <p key={idx} className="text-xs text-red-500 dark:text-red-300">
                             Row {error.row}: {error.message}
                           </p>
                         ))}
@@ -3821,7 +3834,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                       setShowImportPostsDialog(false);
                       setImportResult(null);
                     }}
-                    className="w-full h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+                    className="w-full h-9 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground transition-colors"
                   >
                     {importResult.error_count === 0 ? "Done" : "Close"}
                   </button>
@@ -3835,25 +3848,25 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
       {/* Scrape All Confirmation Dialog */}
       {showScrapeAllDialog && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-md">
+          <Card className="bg-card border-border w-full max-w-md">
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">
+              <h3 className="text-lg font-semibold text-foreground mb-2">
                 Scrape All Posts?
               </h3>
-              <p className="text-sm text-slate-400 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 This will scrape metrics for all posts with URLs in this
                 campaign. Posts without URLs will be skipped.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowScrapeAllDialog(false)}
-                  className="flex-1 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+                  className="flex-1 h-9 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleScrapeAll}
-                  className="flex-1 h-9 rounded-md bg-[rgba(89,104,120,1)] hover:bg-[rgba(89,104,120,0.9)] text-[var(--accent-foreground)] text-sm font-medium transition-colors"
+                  className="flex-1 h-9 rounded-md bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium transition-colors"
                 >
                   Start Scraping
                 </button>
@@ -4007,11 +4020,11 @@ const EmptyState = ({ searchQuery, selectedPlatform }: EmptyStateProps) => {
 
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-        <Search className="w-6 h-6 text-slate-600" />
+      <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
+        <Search className="w-6 h-6 text-muted-foreground" />
       </div>
-      <h3 className="text-base font-semibold text-white mb-1">{title}</h3>
-      <p className="text-sm text-slate-400 max-w-md">{description}</p>
+      <h3 className="text-base font-semibold text-foreground mb-1">{title}</h3>
+      <p className="text-sm text-muted-foreground max-w-md">{description}</p>
     </div>
   );
 };

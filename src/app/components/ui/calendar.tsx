@@ -30,25 +30,25 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-4 sm:p-5 bg-[#0B0C10]", className)}
+      className={cn("p-4 sm:p-5 bg-card", className)}
       disabled={mergedDisabled}
       classNames={{
         months: "flex flex-col sm:flex-row gap-4",
         month: "flex flex-col gap-3",
         caption:
-          "flex items-center justify-between px-1.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.06]",
-        caption_label: "text-sm font-semibold text-white ",
+          "flex items-center justify-between px-1.5 py-1.5 rounded-lg bg-muted/40 border border-border",
+        caption_label: "text-sm font-semibold text-foreground",
         nav: "flex items-center gap-1",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "size-8 bg-white/[0.02] border-white/[0.08] p-0 text-slate-300 hover:text-white hover:bg-white/[0.06]",
+          "size-8 bg-muted/40 border-border p-0 text-foreground hover:bg-muted/60",
         ),
         nav_button_previous: "static",
         nav_button_next: "static",
         table: "w-full border-collapse space-x-1",
         head_row: "flex",
         head_cell:
-          "text-slate-500 rounded-md w-9 font-medium text-[0.7rem] uppercase tracking-wider",
+          "text-muted-foreground rounded-md w-9 font-medium text-[0.7rem] uppercase tracking-wider",
         row: "flex w-full mt-1.5",
         cell: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-primary/15 [&:has([aria-selected].day-range-end)]:rounded-r-lg",
@@ -58,21 +58,21 @@ function Calendar({
         ),
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "size-9 p-0 font-medium text-slate-200 hover:bg-white/[0.06] aria-selected:opacity-100",
+          "size-9 p-0 font-medium text-foreground hover:bg-muted/60 aria-selected:opacity-100",
         ),
         day_range_start:
-          "day-range-start aria-selected:bg-primary aria-selected:text-black",
+          "day-range-start aria-selected:bg-primary aria-selected:text-primary-foreground",
         day_range_end:
-          "day-range-end aria-selected:bg-primary aria-selected:text-black",
+          "day-range-end aria-selected:bg-primary aria-selected:text-primary-foreground",
         day_selected:
-          "bg-primary text-black hover:bg-primary hover:text-black focus:bg-primary focus:text-black",
-        day_today: "bg-white/[0.06] text-white ring-1 ring-white/[0.12]",
+          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+        day_today: "bg-muted/60 text-foreground ring-1 ring-border",
         day_outside:
-          "day-outside text-slate-600 aria-selected:text-slate-500",
+          "day-outside text-muted-foreground aria-selected:text-muted-foreground",
         day_disabled:
-          "text-slate-600 opacity-40 line-through decoration-slate-600/40",
+          "text-muted-foreground opacity-40 line-through decoration-muted-foreground/40",
         day_range_middle:
-          "aria-selected:bg-primary/15 aria-selected:text-white",
+          "aria-selected:bg-primary/15 aria-selected:text-foreground",
         day_hidden: "invisible",
         ...classNames,
       }}

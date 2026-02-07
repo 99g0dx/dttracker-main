@@ -510,11 +510,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       ];
     }
     return [
-      { key: 'total_accounts', label: 'Total Accounts', value: displayAccountCount.toLocaleString(), icon: <Users className="w-4 h-4 text-indigo-400" /> },
+      { key: 'total_accounts', label: 'Total Accounts', value: displayAccountCount.toLocaleString(), icon: <Users className="w-4 h-4 text-red-600 dark:text-indigo-400" /> },
       { key: 'total_workspaces', label: 'Total Workspaces', value: workspaceCount.toLocaleString(), icon: <Users className="w-4 h-4 text-purple-400" /> },
       { key: 'total_campaigns', label: 'Total Campaigns', value: campaignCount.toLocaleString(), icon: <Megaphone className="w-4 h-4 text-emerald-400" /> },
       { key: 'total_creators', label: 'Total Creators', value: creatorCount.toLocaleString(), icon: <Users className="w-4 h-4 text-amber-400" /> },
-      { key: 'total_views', label: 'Total Views', value: totalViews.toLocaleString(), icon: <Eye className="w-4 h-4 text-sky-400" /> },
+      { key: 'total_views', label: 'Total Views', value: totalViews.toLocaleString(), icon: <Eye className="w-4 h-4 text-red-600 dark:text-sky-400" /> },
       { key: 'avg_engagement', label: 'Avg Engagement', value: `${displayEngagementRate.toFixed(1)}%`, icon: <Users className="w-4 h-4 text-pink-400" /> },
     ];
   }, [

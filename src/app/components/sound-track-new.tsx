@@ -129,7 +129,7 @@ export function SoundTrackNew({ onNavigate }: SoundTrackNewProps) {
             )}
 
             {createMutation.isPending && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100/70 dark:bg-blue-500/10 border border-red-200 dark:border-blue-500/20 text-red-700 dark:text-blue-400 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
                 <span>Processing sound link...</span>
               </div>

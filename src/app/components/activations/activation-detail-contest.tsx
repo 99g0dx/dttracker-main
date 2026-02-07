@@ -119,19 +119,19 @@ export function ActivationDetailContest({
       <div className="flex items-center gap-4">
         <button
           onClick={() => onNavigate('/activations')}
-          className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
+          className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Trophy className="w-5 h-5 text-amber-400 flex-shrink-0" />
-            <span className="text-xs text-slate-500">Contest</span>
+            <Trophy className="w-5 h-5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+            <span className="text-xs text-muted-foreground">Contest</span>
           </div>
-          <h1 className="text-xl font-semibold text-white truncate">
+          <h1 className="text-xl font-semibold text-foreground truncate">
             {activation.title}
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted-foreground">
             {totalEntries} total entries • {activation.winner_count ?? 20} winners
           </p>
           {activation.platforms && activation.platforms.length > 0 && (
@@ -139,7 +139,7 @@ export function ActivationDetailContest({
               {activation.platforms.map((p) => (
                 <div
                   key={p}
-                  className="flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5"
+                  className="flex items-center gap-1 rounded-md bg-muted/80 px-2 py-0.5"
                 >
                   <PlatformIcon
                     platform={
@@ -147,7 +147,7 @@ export function ActivationDetailContest({
                     }
                     size="sm"
                   />
-                  <span className="text-xs text-slate-400 capitalize">{p}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{p}</span>
                 </div>
               ))}
             </div>
@@ -156,10 +156,10 @@ export function ActivationDetailContest({
         <span
           className={`text-xs font-medium px-2 py-1 rounded border ${
             activation.status === 'live'
-              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
               : activation.status === 'completed'
-                ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                ? 'bg-red-100/70 dark:bg-blue-500/20 text-red-700 dark:text-blue-400 border-red-200 dark:border-blue-500/30'
+                : 'bg-slate-500/20 text-muted-foreground border-slate-500/30'
           }`}
         >
           {statusLabel}
@@ -167,27 +167,27 @@ export function ActivationDetailContest({
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Deadline</p>
-            <p className="font-medium text-white flex items-center gap-2 mt-1">
+            <p className="text-xs text-muted-foreground">Deadline</p>
+            <p className="font-medium text-foreground flex items-center gap-2 mt-1">
               <Calendar className="w-4 h-4" />
               {format(new Date(activation.deadline), 'MMM d, yyyy')}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Prize Pool</p>
-            <p className="font-medium text-white mt-1">
+            <p className="text-xs text-muted-foreground">Prize Pool</p>
+            <p className="font-medium text-foreground mt-1">
               {formatAmount(activation.total_budget)}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Winners</p>
-            <p className="font-medium text-white mt-1">
+            <p className="text-xs text-muted-foreground">Winners</p>
+            <p className="font-medium text-foreground mt-1">
               {activation.winner_count ?? 20}
             </p>
           </CardContent>
@@ -195,28 +195,28 @@ export function ActivationDetailContest({
       </div>
 
       {activation.brief && (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <h3 className="text-sm font-medium text-slate-400 mb-2">Brief</h3>
-            <p className="text-white whitespace-pre-wrap">{activation.brief}</p>
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">Brief</h3>
+            <p className="text-foreground whitespace-pre-wrap">{activation.brief}</p>
           </CardContent>
         </Card>
       )}
 
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Top 20 Win Prizes • {totalEntries} Total Entries
             </p>
             <div className="flex flex-wrap gap-2">
               <div className="relative flex-1 sm:flex-initial sm:w-48">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search creator..."
-                  className="pl-9 h-9 bg-white/[0.04] border-white/[0.08] text-white"
+                  className="pl-9 h-9 bg-muted/70 border-border text-foreground"
                 />
               </div>
               <Button
@@ -224,7 +224,7 @@ export function ActivationDetailContest({
                 size="sm"
                 onClick={handleRefreshAll}
                 disabled={scrapeSubmission.isPending}
-                className="border-white/[0.08]"
+                className="border-border"
               >
                 {scrapeSubmission.isPending ? (
                   <RefreshCw className="w-4 h-4 animate-spin mr-2" />
@@ -238,7 +238,7 @@ export function ActivationDetailContest({
                 size="sm"
                 onClick={handleExportCSV}
                 disabled={leaderboard.length === 0}
-                className="border-white/[0.08]"
+                className="border-border"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export
@@ -248,12 +248,12 @@ export function ActivationDetailContest({
 
           {isLoading ? (
             <div className="py-12 text-center">
-              <p className="text-slate-400">Loading leaderboard...</p>
+              <p className="text-muted-foreground">Loading leaderboard...</p>
             </div>
           ) : filteredLeaderboard.length === 0 ? (
             <div className="py-12 text-center">
-              <p className="text-slate-400">No submissions yet</p>
-              <p className="text-slate-500 text-sm mt-1">
+              <p className="text-muted-foreground">No submissions yet</p>
+              <p className="text-muted-foreground text-sm mt-1">
                 Submissions will appear when creators submit from Dobble Tap
               </p>
             </div>
@@ -261,32 +261,32 @@ export function ActivationDetailContest({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/[0.08]">
-                    <th className="text-left py-3 px-2 text-slate-500 font-medium">
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-2 text-muted-foreground font-medium">
                       Rank
                     </th>
-                    <th className="text-left py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-left py-3 px-2 text-muted-foreground font-medium">
                       Creator
                     </th>
-                    <th className="text-right py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-right py-3 px-2 text-muted-foreground font-medium">
                       Posts
                     </th>
-                    <th className="text-right py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-right py-3 px-2 text-muted-foreground font-medium">
                       Views
                     </th>
-                    <th className="text-right py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-right py-3 px-2 text-muted-foreground font-medium">
                       Likes
                     </th>
-                    <th className="text-right py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-right py-3 px-2 text-muted-foreground font-medium">
                       Comments
                     </th>
-                    <th className="text-right py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-right py-3 px-2 text-muted-foreground font-medium">
                       Score
                     </th>
-                    <th className="text-right py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-right py-3 px-2 text-muted-foreground font-medium">
                       Prize
                     </th>
-                    <th className="text-right py-3 px-2 text-slate-500 font-medium">
+                    <th className="text-right py-3 px-2 text-muted-foreground font-medium">
                       Actions
                     </th>
                   </tr>
@@ -298,40 +298,40 @@ export function ActivationDetailContest({
                         entry.creator_id ??
                         `${entry.creator_handle}:${entry.creator_platform}`
                       }
-                      className={`border-b border-white/[0.04] ${
+                      className={`border-b border-border/60 ${
                         entry.is_winner ? 'bg-emerald-500/5' : ''
                       }`}
                     >
                       <td className="py-3 px-2">
-                        <span className="font-medium text-white">
+                        <span className="font-medium text-foreground">
                           {rankEmoji(entry.current_rank)}
                         </span>
                       </td>
-                      <td className="py-3 px-2 font-medium text-white">
+                      <td className="py-3 px-2 font-medium text-foreground">
                         @{entry.creator_handle ?? 'Unknown'}
                       </td>
-                      <td className="py-3 px-2 text-right text-slate-300">
+                      <td className="py-3 px-2 text-right text-foreground">
                         {entry.total_posts}
                       </td>
-                      <td className="py-3 px-2 text-right text-slate-300">
+                      <td className="py-3 px-2 text-right text-foreground">
                         {formatCompactNumber(entry.total_views)}
                       </td>
-                      <td className="py-3 px-2 text-right text-slate-300">
+                      <td className="py-3 px-2 text-right text-foreground">
                         {formatCompactNumber(entry.total_likes)}
                       </td>
-                      <td className="py-3 px-2 text-right text-slate-300">
+                      <td className="py-3 px-2 text-right text-foreground">
                         {formatCompactNumber(entry.total_comments)}
                       </td>
-                      <td className="py-3 px-2 text-right text-slate-300">
+                      <td className="py-3 px-2 text-right text-foreground">
                         {entry.cumulative_score.toLocaleString()}
                       </td>
                       <td className="py-3 px-2 text-right">
                         {entry.is_winner ? (
-                          <span className="text-emerald-400 font-medium">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                             {formatAmount(entry.prize_amount)}
                           </span>
                         ) : (
-                          <span className="text-slate-500">–</span>
+                          <span className="text-muted-foreground">–</span>
                         )}
                       </td>
                       <td className="py-3 px-2 text-right">

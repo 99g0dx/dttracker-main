@@ -397,7 +397,7 @@ export function AddPostDialog({
                     <span className="text-sm text-slate-400">
                       Instagram shortcode:
                     </span>
-                    <span className="text-sm text-cyan-400 font-mono">
+                    <span className="text-sm text-red-600 dark:text-cyan-400 font-mono">
                       {parsedUrl.shortcode}
                     </span>
                   </div>
@@ -407,7 +407,7 @@ export function AddPostDialog({
                 {parsedUrl.platform === "tiktok" && parsedUrl.videoId && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-400">Video ID:</span>
-                    <span className="text-sm text-cyan-400 font-mono text-xs">
+                    <span className="text-sm text-red-600 dark:text-cyan-400 font-mono text-xs">
                       {parsedUrl.videoId}
                     </span>
                   </div>
@@ -417,7 +417,7 @@ export function AddPostDialog({
                 {parsedUrl.platform === "youtube" && parsedUrl.videoId && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-400">Video ID:</span>
-                    <span className="text-sm text-cyan-400 font-mono text-xs">
+                    <span className="text-sm text-red-600 dark:text-cyan-400 font-mono text-xs">
                       {parsedUrl.videoId}
                     </span>
                   </div>

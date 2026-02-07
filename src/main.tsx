@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import App from "./app/App.tsx";
 import { AuthProvider } from "./contexts/AuthContext";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
@@ -17,19 +18,27 @@ if (import.meta.env.PROD) {
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem={true}
+      storageKey="dt-theme"
+      disableTransitionOnChange={false}
     >
-      <AuthProvider>
-        <WorkspaceProvider>
-          <CartProvider>
-            <App />
-          </CartProvider>
-        </WorkspaceProvider>
-      </AuthProvider>
-    </BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <AuthProvider>
+          <WorkspaceProvider>
+            <CartProvider>
+              <App />
+            </CartProvider>
+          </WorkspaceProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   </QueryClientProvider>
 );

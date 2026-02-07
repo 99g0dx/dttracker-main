@@ -28,22 +28,24 @@ export function ServiceFeeDisplay({
   };
 
   if (!showBreakdown) {
-    return <span className="text-sm text-slate-300">{formatAmount(totalCost)}</span>;
+    return <span className="text-sm text-foreground">{formatAmount(totalCost)}</span>;
   }
 
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-slate-400">Budget:</span>
-        <span className="text-slate-300 font-medium">{formatAmount(baseAmount)}</span>
+        <span className="text-muted-foreground">Budget:</span>
+        <span className="text-foreground font-medium">{formatAmount(baseAmount)}</span>
       </div>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-slate-400">Service Fee ({Math.round(serviceFeeRate * 100)}%):</span>
-        <span className="text-slate-300 font-medium">{formatAmount(serviceFee)}</span>
+        <span className="text-muted-foreground">
+          Service Fee ({Math.round(serviceFeeRate * 100)}%):
+        </span>
+        <span className="text-foreground font-medium">{formatAmount(serviceFee)}</span>
       </div>
-      <div className="flex items-center justify-between text-sm pt-1 border-t border-white/[0.08]">
-        <span className="text-slate-300 font-semibold">Total:</span>
-        <span className="text-white font-semibold">{formatAmount(totalCost)}</span>
+      <div className="flex items-center justify-between text-sm pt-1 border-t border-border">
+        <span className="text-foreground font-semibold">Total:</span>
+        <span className="text-foreground font-semibold">{formatAmount(totalCost)}</span>
       </div>
     </div>
   );

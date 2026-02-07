@@ -31,6 +31,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
+import { getCampaignCoverGradient } from '../../lib/utils/campaign-gradients';
 import {
   Pagination,
   PaginationContent,
@@ -780,8 +781,8 @@ useEffect(() => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">Dashboard</h1>
-          <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">Track your campaign performance</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">Track your campaign performance</p>
         </div>
         
           <div className="flex flex-wrap items-center gap-3">
@@ -789,7 +790,7 @@ useEffect(() => {
           <div className="relative" ref={dateDropdownRef}>
             <button 
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-              className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center gap-2 transition-colors"
+              className="h-11 sm:h-10 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center gap-2 transition-colors"
             >
               <CalendarIcon className="w-4 h-4" />
               <span className="hidden sm:inline">{formatDateRange(dateRange)}</span>
@@ -804,7 +805,7 @@ useEffect(() => {
               "fixed inset-x-4 top-50 mx-auto w-auto max-w-[280px] origin-top",
               /* Desktop: Reset to absolute positioning near the button */
               "md:absolute md:fixed-none md:inset-auto md:right-0 md:top-full sm:left-0 md:mt-2 md:w-48 md:translate-y-0",
-              "bg-[#0D0D0D] border border-white/[0.08] rounded-lg shadow-xl z-[100] py-1 animate-in fade-in zoom-in-95 duration-200"
+              "bg-card border border-border rounded-lg shadow-xl z-[100] py-1 animate-in fade-in zoom-in-95 duration-200"
             )}>
               {DATE_RANGE_PRESETS.map((option) => (
                 <button
@@ -816,7 +817,7 @@ useEffect(() => {
                   className={`w-full text-left px-4 py-3 lg:py-2 text-sm transition-colors ${
                     dateRange.label === option.label
                       ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-slate-300 hover:bg-white/[0.06]'
+                      : 'text-foreground hover:bg-muted/80'
                   }`}
                 >
                   {option.label}
@@ -839,7 +840,7 @@ useEffect(() => {
           </button>
           <button
             onClick={() => onNavigate('/campaigns/new')}
-            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             aria-label="Track new campaign"
           >
             <CampaignIcon className="w-4 h-4" />
@@ -847,7 +848,7 @@ useEffect(() => {
           </button>
           <button
             onClick={handleExportCSV}
-            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             aria-label="Export analytics"
           >
             <DownloadIcon className="w-4 h-4" />
@@ -858,64 +859,64 @@ useEffect(() => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
-        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <Card className="bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/[0.08] flex items-center justify-center">
-                <EyeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-muted/70 flex items-center justify-center">
+                <EyeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
               </div>
             </div>
-            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-1 sm:mb-2">
               {kpiMetrics.totalReach}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Reach</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Reach</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <Card className="bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
                 <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
             </div>
-            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-1 sm:mb-2">
               {kpiMetrics.engagementRate}%
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Engagement Rate</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Engagement Rate</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <Card className="bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <PeopleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-red-100/70 dark:bg-cyan-500/10 flex items-center justify-center">
+                <PeopleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-cyan-400" />
               </div>
             </div>
-            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-1 sm:mb-2">
               {kpiMetrics.activeCreators}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Active Creators</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Active Creators</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <Card className="bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-start justify-between mb-2 sm:mb-3">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
                 <DocumentIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               </div>
             </div>
-            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-1 sm:mb-2">
               {kpiMetrics.totalPosts}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Total Posts</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Posts</p>
           </CardContent>
         </Card>
 
         <Card
-          className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden cursor-pointer active:border-white/[0.12] transition-all duration-150"
+          className="bg-card border-border rounded-xl overflow-hidden cursor-pointer active:border-border/80 transition-all duration-150"
           style={{ boxShadow: 'var(--shadow-card)' }}
           onClick={() => onNavigate('/activations')}
         >
@@ -925,10 +926,10 @@ useEffect(() => {
                 <TrophyIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               </div>
             </div>
-            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1 sm:mb-2">
+            <div className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-1 sm:mb-2">
               {activeActivationsCount}
             </div>
-            <p className="text-xs sm:text-sm text-slate-400">Active Activations</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Active Activations</p>
           </CardContent>
         </Card>
       </div>
@@ -936,48 +937,48 @@ useEffect(() => {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 animate-in fade-in duration-700">
         {/* Performance Chart */}
-        <Card className="lg:col-span-2 bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <Card className="lg:col-span-2 bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="p-5 sm:p-6 lg:p-7">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
               <div>
-                <h3 className="text-base font-semibold text-white">Performance Overview</h3>
-                <p className="text-sm text-slate-400 mt-0.5">Reach and engagement trends</p>
+                <h3 className="text-base font-semibold text-foreground">Performance Overview</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">Reach and engagement trends</p>
               </div>
               <div className="flex gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#0ea5e9]"></div>
-                  <span className="text-slate-400">Reach</span>
+                  <div className="w-2 h-2 rounded-full bg-chart-1"></div>
+                  <span className="text-muted-foreground">Reach</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-400"></div>
-                  <span className="text-slate-400">Engagement</span>
+                  <div className="w-2 h-2 rounded-full bg-chart-2"></div>
+                  <span className="text-muted-foreground">Engagement</span>
                 </div>
               </div>
             </div>
             {timeSeriesLoading ? (
               <div className="h-[280px] flex items-center justify-center">
-                <div className="text-slate-400 text-sm">Loading chart data...</div>
+                <div className="text-muted-foreground text-sm">Loading chart data...</div>
               </div>
             ) : performanceData.length === 0 || (performanceData.length === 1 && performanceData[0].date === 'No data') ? (
               <div className="h-[280px] flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-slate-400 text-sm mb-1">No performance data available</div>
-                  <div className="text-slate-500 text-xs">Data will appear as posts are scraped</div>
+                  <div className="text-muted-foreground text-sm mb-1">No performance data available</div>
+                  <div className="text-muted-foreground text-xs">Data will appear as posts are scraped</div>
                 </div>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis 
                     dataKey="date" 
-                    stroke="#64748b"
+                    stroke="var(--muted-foreground)"
                     fontSize={12}
                     tickLine={false}
-                    axisLine={{ stroke: '#ffffff08' }}
+                    axisLine={{ stroke: 'var(--border)' }}
                   />
                   <YAxis 
-                    stroke="#64748b"
+                    stroke="var(--muted-foreground)"
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
@@ -989,8 +990,9 @@ useEffect(() => {
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#18181B',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      backgroundColor: 'var(--popover)',
+                      color: 'var(--popover-foreground)',
+                      border: '1px solid var(--border)',
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
@@ -1004,7 +1006,7 @@ useEffect(() => {
                   <Line
                     type="monotone"
                     dataKey="reach"
-                    stroke="#0ea5e9"
+                    stroke="var(--chart-1)"
                     strokeWidth={2.5}
                     dot={false}
                     animationDuration={750}
@@ -1012,7 +1014,7 @@ useEffect(() => {
                   <Line
                     type="monotone"
                     dataKey="engagement"
-                    stroke="#a855f7"
+                    stroke="var(--chart-2)"
                     strokeWidth={2.5}
                     dot={false}
                     animationDuration={750}
@@ -1024,25 +1026,25 @@ useEffect(() => {
         </Card>
 
         {/* Platform Breakdown */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <Card className="bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="p-5 sm:p-6 lg:p-7">
-            <h3 className="text-base font-semibold text-white mb-1">Platform Split</h3>
-            <p className="text-sm text-slate-400 mb-6">Content distribution</p>
+            <h3 className="text-base font-semibold text-foreground mb-1">Platform Split</h3>
+            <p className="text-sm text-muted-foreground mb-6">Content distribution</p>
             
             {postsLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="animate-pulse">
                     <div className="flex items-center justify-between mb-1.5">
-                      <div className="h-4 w-20 bg-white/[0.06] rounded" />
-                      <div className="h-4 w-12 bg-white/[0.06] rounded" />
+                      <div className="h-4 w-20 bg-muted/80 rounded" />
+                      <div className="h-4 w-12 bg-muted/80 rounded" />
                     </div>
-                    <div className="h-1.5 bg-white/[0.06] rounded-full" />
+                    <div className="h-1.5 bg-muted/80 rounded-full" />
                   </div>
                 ))}
               </div>
             ) : platformData.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-sm">No platform data available</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">No platform data available</div>
             ) : (
               <div className="space-y-3">
                 {platformData.map((platform) => (
@@ -1053,14 +1055,14 @@ useEffect(() => {
                           className="w-2 h-2 rounded-full transition-all group-hover:scale-125"
                           style={{ backgroundColor: platform.color }}
                         />
-                        <span className="text-sm text-slate-300 font-medium">{platform.name}</span>
+                        <span className="text-sm text-foreground font-medium">{platform.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">({platform.count})</span>
-                        <span className="text-sm font-semibold text-white">{platform.value}%</span>
+                        <span className="text-xs text-muted-foreground">({platform.count})</span>
+                        <span className="text-sm font-semibold text-foreground">{platform.value}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-muted/80 rounded-full overflow-hidden">
                       <div 
                         className="h-full rounded-full transition-all duration-500 ease-out"
                         style={{ 
@@ -1078,14 +1080,14 @@ useEffect(() => {
       </div>
 
       {/* Campaigns Table */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden animate-in fade-in duration-500" style={{ boxShadow: 'var(--shadow-card)' }}>
+      <Card className="bg-card border-border rounded-xl overflow-hidden animate-in fade-in duration-500" style={{ boxShadow: 'var(--shadow-card)' }}>
         <CardContent className="p-0">
-          <div className="p-5 sm:p-6 lg:p-7 border-b border-white/[0.08]">
+          <div className="p-5 sm:p-6 lg:p-7 border-b border-border">
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-semibold text-white">Active Campaigns</h3>
-              <p className="text-sm text-slate-400 mt-0.5">
+              <h3 className="text-base font-semibold text-foreground">Active Campaigns</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Manage and monitor your campaigns
               </p>
             </div>
@@ -1094,12 +1096,12 @@ useEffect(() => {
               {/* Filters Button */}
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="h-11 sm:h-10 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex flex-wrap items-center gap-2 transition-colors w-fit"
+                className="h-11 sm:h-10 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex flex-wrap items-center gap-2 transition-colors w-fit"
               >
                 <FilterIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
                 {activeFilterCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-primary text-black text-xs flex items-center justify-center font-medium">
+                  <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
                     {activeFilterCount}
                   </span>
                 )}
@@ -1107,13 +1109,13 @@ useEffect(() => {
 
               {/* Search Input */}
               <div className="relative w-full sm:w-64">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="search"
                   placeholder="Search campaigns..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 sm:h-10 pl-9 pr-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
+                  className="h-11 sm:h-10 pl-9 pr-3 bg-muted/60 border border-border rounded-md text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
                 />
               </div>
             </div>
@@ -1125,11 +1127,14 @@ useEffect(() => {
 
           <div className="lg:hidden px-4 sm:px-6 pb-4 grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {isCampaignsLoading ? (
-              <div className="text-sm text-slate-400 col-span-full">Loading campaigns...</div>
+              <div className="text-sm text-muted-foreground col-span-full">Loading campaigns...</div>
             ) : filteredCampaigns.length === 0 ? (
-              <div className="text-sm text-slate-400 col-span-full">No campaigns found</div>
+              <div className="text-sm text-muted-foreground col-span-full">No campaigns found</div>
             ) : (
               pagedCampaigns.map((campaign) => {
+                const coverGradient = getCampaignCoverGradient(
+                  campaign.id || campaign.name
+                );
                 const formattedViews =
                   campaign.total_views >= 1000000
                     ? `${(campaign.total_views / 1000000).toFixed(1)}M`
@@ -1139,29 +1144,35 @@ useEffect(() => {
                 return (
                   <Card
                     key={campaign.id}
-                    className="bg-[#0D0D0D] border-white/[0.08] active:border-white/[0.12] rounded-xl overflow-hidden transition-all cursor-pointer"
+                    className="bg-card border-border active:border-border/80 rounded-xl overflow-hidden transition-all cursor-pointer"
                     style={{ boxShadow: 'var(--shadow-card)' }}
                     onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
                   >
                     <CardContent className="p-3 min-[400px]:p-3.5 sm:p-4 space-y-2">
-                      {campaign.cover_image_url ? (
-                        <div className="h-24 sm:h-28 rounded-md overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+                      <div
+                        className={`h-24 sm:h-28 rounded-md overflow-hidden border border-border/60 ${coverGradient}`}
+                      >
+                        {campaign.cover_image_url ? (
                           <img
                             src={campaign.cover_image_url}
                             alt={`${campaign.name} cover`}
                             className="h-full w-full object-cover"
                             loading="lazy"
                           />
-                        </div>
-                      ) : (
-                        <div className="h-24 sm:h-28 rounded-md border border-white/[0.06] bg-white/[0.02]" />
-                      )}
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <span className="text-2xl font-semibold text-white/90">
+                              {campaign.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-xs min-[400px]:text-sm sm:text-base font-semibold text-white truncate">
+                          <p className="text-xs min-[400px]:text-sm sm:text-base font-semibold text-foreground truncate">
                             {campaign.name}
                           </p>
-                          <p className="text-[10px] min-[400px]:text-xs text-slate-400 mt-0.5 sm:mt-1 truncate">
+                          <p className="text-[10px] min-[400px]:text-xs text-muted-foreground mt-0.5 sm:mt-1 truncate">
                             {campaign.brand_name || 'Active campaign'}
                           </p>
                         </div>
@@ -1169,26 +1180,26 @@ useEffect(() => {
                       </div>
                       <div className="grid grid-cols-3 gap-1 sm:gap-2">
                         <div className="min-w-0">
-                          <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 truncate">
+                          <p className="text-[9px] min-[400px]:text-[10px] text-muted-foreground truncate">
                             Posts
                           </p>
-                          <p className="text-xs min-[400px]:text-sm text-white mt-1">
+                          <p className="text-xs min-[400px]:text-sm text-foreground mt-1">
                             {campaign.posts_count || 0}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 truncate">
+                          <p className="text-[9px] min-[400px]:text-[10px] text-muted-foreground truncate">
                             Reach
                           </p>
-                          <p className="text-xs min-[400px]:text-sm text-white mt-1">
+                          <p className="text-xs min-[400px]:text-sm text-foreground mt-1">
                             {formattedViews}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 truncate">
+                          <p className="text-[9px] min-[400px]:text-[10px] text-muted-foreground truncate">
                             Engagement
                           </p>
-                          <p className="text-xs min-[400px]:text-sm text-emerald-400 mt-1">
+                          <p className="text-xs min-[400px]:text-sm text-emerald-600 dark:text-emerald-400 mt-1">
                             {campaign.avg_engagement_rate?.toFixed(1) || "0.0"}%
                           </p>
                         </div>
@@ -1202,7 +1213,7 @@ useEffect(() => {
 
           {filteredCampaigns.length > 0 && !isCampaignsLoading && (
             <div className="lg:hidden px-4 sm:px-6 pb-6 space-y-3">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}
                 {filteredCampaigns.length} campaigns
               </p>
@@ -1217,7 +1228,7 @@ useEffect(() => {
                           if (safeCampaignPage === 1) return;
                           setCampaignPage((prev) => Math.max(1, prev - 1));
                         }}
-                        className="min-h-[44px] bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        className="min-h-[44px] bg-muted/60 border border-border text-foreground"
                         aria-disabled={safeCampaignPage === 1}
                       />
                     </PaginationItem>
@@ -1228,7 +1239,7 @@ useEffect(() => {
                         <React.Fragment key={page}>
                           {showEllipsis && (
                             <PaginationItem>
-                              <PaginationEllipsis className="text-slate-500" />
+                              <PaginationEllipsis className="text-muted-foreground" />
                             </PaginationItem>
                           )}
                           <PaginationItem>
@@ -1242,8 +1253,8 @@ useEffect(() => {
                               className={cn(
                                 "min-h-[44px]",
                                 page === safeCampaignPage
-                                  ? "bg-primary text-black"
-                                  : "bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted/60 border border-border text-foreground hover:bg-muted/80"
                               )}
                             >
                               {page}
@@ -1262,7 +1273,7 @@ useEffect(() => {
                             Math.min(totalCampaignPages, prev + 1)
                           );
                         }}
-                        className="min-h-[44px] bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        className="min-h-[44px] bg-muted/60 border border-border text-foreground"
                         aria-disabled={safeCampaignPage === totalCampaignPages}
                       />
                     </PaginationItem>
@@ -1275,26 +1286,26 @@ useEffect(() => {
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/[0.08]">
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3">Campaign</th>
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden sm:table-cell">Status</th>
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden md:table-cell">Posts</th>
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3">Reach</th>
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden lg:table-cell">Engagement</th>
-                  <th className="text-left text-xs font-medium text-slate-400 px-4 sm:px-6 py-3 hidden lg:table-cell">Performance</th>
-                  <th className="text-right text-xs font-medium text-slate-400 px-4 sm:px-6 py-3"></th>
+                <tr className="border-b border-border">
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 sm:px-6 py-3">Campaign</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 sm:px-6 py-3 hidden sm:table-cell">Status</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 sm:px-6 py-3 hidden md:table-cell">Posts</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 sm:px-6 py-3">Reach</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 sm:px-6 py-3 hidden lg:table-cell">Engagement</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 sm:px-6 py-3 hidden lg:table-cell">Performance</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground px-4 sm:px-6 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {isCampaignsLoading ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-slate-400">
+                    <td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">
                       Loading campaigns...
                     </td>
                   </tr>
                 ) : filteredCampaigns.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-slate-400">
+                    <td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">
                       No campaigns found
                     </td>
                   </tr>
@@ -1314,11 +1325,11 @@ useEffect(() => {
                   <tr 
                     key={campaign.id}
                         onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
-                        className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                        className="border-b border-border/60 hover:bg-muted/40 transition-colors group cursor-pointer"
                   >
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="font-medium text-sm text-white">{campaign.name}</div>
-                      <div className="text-xs text-slate-400 mt-1 sm:hidden">
+                      <div className="font-medium text-sm text-foreground">{campaign.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1 sm:hidden">
                         <StatusBadge status={campaign.status} />
                       </div>
                     </td>
@@ -1326,25 +1337,25 @@ useEffect(() => {
                       <StatusBadge status={campaign.status} />
                     </td>
                     <td className="px-4 sm:px-6 py-4 hidden md:table-cell">
-                          <div className="text-sm text-slate-300">{campaign.posts_count || 0}</div>
+                          <div className="text-sm text-foreground">{campaign.posts_count || 0}</div>
                     </td>
                     <td className="px-4 sm:px-6 py-4">
-                          <div className="text-sm text-slate-300">{formattedViews}</div>
+                          <div className="text-sm text-foreground">{formattedViews}</div>
                     </td>
                     <td className="px-4 sm:px-6 py-4 hidden lg:table-cell">
-                          <div className="text-sm text-emerald-400 font-medium">
+                          <div className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
                             {campaign.avg_engagement_rate?.toFixed(1) || '0.0'}%
                           </div>
                     </td>
                     <td className="px-4 sm:px-6 py-4 hidden lg:table-cell">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden max-w-[80px]">
+                        <div className="flex-1 h-1.5 bg-muted/80 rounded-full overflow-hidden max-w-[80px]">
                           <div 
                             className="h-full bg-primary rounded-full"
                                 style={{ width: `${performance}%` }}
                           />
                         </div>
-                            <span className="text-xs text-slate-400 font-medium min-w-[32px]">{performance.toFixed(0)}%</span>
+                            <span className="text-xs text-muted-foreground font-medium min-w-[32px]">{performance.toFixed(0)}%</span>
                       </div>
                     </td>
                   </tr>
@@ -1355,8 +1366,8 @@ useEffect(() => {
             </table>
           </div>
           {filteredCampaigns.length > 0 && !isCampaignsLoading && (
-            <div className="hidden lg:flex items-center justify-between px-6 py-4 border-t border-white/[0.08]">
-              <p className="text-sm text-slate-400">
+            <div className="hidden lg:flex items-center justify-between px-6 py-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
                 Showing {campaignStartIndex + 1} to {campaignEndIndex} of{" "}
                 {filteredCampaigns.length} campaigns
               </p>
@@ -1371,7 +1382,7 @@ useEffect(() => {
                           if (safeCampaignPage === 1) return;
                           setCampaignPage((prev) => Math.max(1, prev - 1));
                         }}
-                        className="bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        className="bg-muted/60 border border-border text-foreground"
                         aria-disabled={safeCampaignPage === 1}
                       />
                     </PaginationItem>
@@ -1382,7 +1393,7 @@ useEffect(() => {
                         <React.Fragment key={page}>
                           {showEllipsis && (
                             <PaginationItem>
-                              <PaginationEllipsis className="text-slate-500" />
+                              <PaginationEllipsis className="text-muted-foreground" />
                             </PaginationItem>
                           )}
                           <PaginationItem>
@@ -1395,8 +1406,8 @@ useEffect(() => {
                               }}
                               className={cn(
                                 page === safeCampaignPage
-                                  ? "bg-primary text-black"
-                                  : "bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted/60 border border-border text-foreground hover:bg-muted/80"
                               )}
                             >
                               {page}
@@ -1415,7 +1426,7 @@ useEffect(() => {
                             Math.min(totalCampaignPages, prev + 1)
                           );
                         }}
-                        className="bg-white/[0.03] border border-white/[0.08] text-slate-300"
+                        className="bg-muted/60 border border-border text-foreground"
                         aria-disabled={safeCampaignPage === totalCampaignPages}
                       />
                     </PaginationItem>
@@ -1430,13 +1441,13 @@ useEffect(() => {
       {/* Filter Modal */}
       {isFilterOpen && (
         <div className="fixed inset-0 bg-black/[0.5] z-50 p-4 flex items-end sm:items-center justify-center">
-          <div className="w-full max-w-md bg-[#0D0D0D] border border-white/[0.08] rounded-t-2xl sm:rounded-lg shadow-xl max-h-[90dvh] overflow-y-auto">
+          <div className="w-full max-w-md bg-card border border-border rounded-t-2xl sm:rounded-lg shadow-xl max-h-[90dvh] overflow-y-auto">
             <div className="p-6">
-              <h3 className="text-base font-semibold text-white mb-4">Filters</h3>
+              <h3 className="text-base font-semibold text-foreground mb-4">Filters</h3>
 
               {/* Status Filter */}
               <div className="mb-4">
-                <h4 className="text-sm font-medium text-slate-400 mb-2">Status</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Status</h4>
                 <div className="space-y-2">
                   {filterOptions.status.map(status => (
                     <div key={status} className="flex items-center">
@@ -1444,9 +1455,9 @@ useEffect(() => {
                         type="checkbox"
                         checked={filters.status.includes(status)}
                         onChange={() => toggleFilter('status', status)}
-                        className="h-4 w-4 text-primary bg-white/[0.03] border border-white/[0.08] rounded focus:ring-primary/50"
+                        className="h-4 w-4 text-primary bg-muted/60 border border-border rounded focus:ring-primary/50"
                       />
-                      <label className="ml-2 text-sm text-slate-300">{status}</label>
+                      <label className="ml-2 text-sm text-foreground">{status}</label>
                     </div>
                   ))}
                 </div>
@@ -1454,7 +1465,7 @@ useEffect(() => {
 
               {/* Budget Range Filter */}
               <div className="mb-4">
-                <h4 className="text-sm font-medium text-slate-400 mb-2">Budget Range</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Budget Range</h4>
                 <div className="space-y-2">
                   {filterOptions.budgetRange.map(range => (
                     <div key={range.label} className="flex items-center">
@@ -1462,9 +1473,9 @@ useEffect(() => {
                         type="checkbox"
                         checked={filters.budgetRange.includes(range.label)}
                         onChange={() => toggleFilter('budgetRange', range.label)}
-                        className="h-4 w-4 text-primary bg-white/[0.03] border border-white/[0.08] rounded focus:ring-primary/50"
+                        className="h-4 w-4 text-primary bg-muted/60 border border-border rounded focus:ring-primary/50"
                       />
-                      <label className="ml-2 text-sm text-slate-300">{range.label}</label>
+                      <label className="ml-2 text-sm text-foreground">{range.label}</label>
                     </div>
                   ))}
                 </div>
@@ -1472,7 +1483,7 @@ useEffect(() => {
 
               {/* Performance Filter */}
               <div className="mb-4">
-                <h4 className="text-sm font-medium text-slate-400 mb-2">Performance</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Performance</h4>
                 <div className="space-y-2">
                   {filterOptions.performance.map(perf => (
                     <div key={perf.label} className="flex items-center">
@@ -1480,9 +1491,9 @@ useEffect(() => {
                         type="checkbox"
                         checked={filters.performance.includes(perf.label)}
                         onChange={() => toggleFilter('performance', perf.label)}
-                        className="h-4 w-4 text-primary bg-white/[0.03] border border-white/[0.08] rounded focus:ring-primary/50"
+                        className="h-4 w-4 text-primary bg-muted/60 border border-border rounded focus:ring-primary/50"
                       />
-                      <label className="ml-2 text-sm text-slate-300">{perf.label}</label>
+                      <label className="ml-2 text-sm text-foreground">{perf.label}</label>
                     </div>
                   ))}
                 </div>
@@ -1492,20 +1503,20 @@ useEffect(() => {
               <div className="flex justify-between">
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-slate-400 hover:text-slate-300"
+                  className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   Clear Filters
                 </button>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setIsFilterOpen(false)}
-                    className="h-9 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+                    className="h-9 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => setIsFilterOpen(false)}
-                    className="h-9 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center gap-2 transition-colors"
+                    className="h-9 px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium flex items-center gap-2 transition-colors"
                   >
                     Apply
                   </button>

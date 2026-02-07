@@ -106,7 +106,7 @@ export function NotificationsCenter() {
       case "team":
         return <Users className="w-4 h-4 text-purple-400" />;
       case "post_scraped":
-        return <Check className="w-4 h-4 text-cyan-400" />;
+        return <Check className="w-4 h-4 text-red-600 dark:text-cyan-400" />;
       case "top_performer":
         return <TrendingUp className="w-4 h-4 text-yellow-400" />;
       case "bulk_scraped":

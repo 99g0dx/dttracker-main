@@ -28,6 +28,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
+import { getCampaignCoverGradient } from "../../lib/utils/campaign-gradients";
 
 interface CampaignsProps {
   onNavigate: (path: string) => void;
@@ -145,23 +146,23 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
           <div className="flex items-center gap-4">
             <button
               onClick={() => onNavigate("/")}
-              className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+              className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
               aria-label="Back to dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
                 Campaigns
               </h1>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Manage your marketing campaigns
               </p>
             </div>
           </div>
           <Button
             onClick={() => onNavigate("/campaigns/new")}
-            className="bg-primary hover:bg-primary/90 text-black disabled:opacity-60"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-60"
             disabled={!canCreateCampaign}
             title={
               !canCreateCampaign
@@ -190,23 +191,23 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
           <div className="flex items-center gap-4">
             <button
               onClick={() => onNavigate("/")}
-              className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+              className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
               aria-label="Back to dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
                 Campaigns
               </h1>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Manage your marketing campaigns
               </p>
             </div>
           </div>
           <Button
             onClick={() => onNavigate("/campaigns/new")}
-            className="bg-primary hover:bg-primary/90 text-black disabled:opacity-60"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-60"
             disabled={!canCreateCampaign}
             title={
               !canCreateCampaign
@@ -218,20 +219,20 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
             New Campaign
           </Button>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center mb-4">
               <FileText className="w-6 h-6 text-red-400" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">
+            <h3 className="text-base font-semibold text-foreground mb-1">
               Failed to load campaigns
             </h3>
-            <p className="text-sm text-slate-400 mb-4 text-center max-w-md">
+            <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
               {error.message}
             </p>
             <Button
               onClick={handleRetry}
-              className="bg-primary hover:bg-primary/90 text-black"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Try Again
@@ -248,23 +249,23 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate("/")}
-            className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-muted/60 hover:bg-muted/80 active:bg-muted/80 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground">
               Campaigns
             </h1>
-            <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
               Manage your marketing campaigns
             </p>
           </div>
         </div>
         <Button
           onClick={() => onNavigate("/campaigns/new")}
-          className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-black disabled:opacity-60"
+          className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-60"
           disabled={!canCreateCampaign}
           title={
             !canCreateCampaign
@@ -279,13 +280,13 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Search campaigns..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+          className="pl-9 bg-muted/60 border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
@@ -294,16 +295,21 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
           {filteredCampaigns.map((campaign) => {
             const canEditThisCampaign = canEditCampaign(campaign.id);
+            const coverGradient = getCampaignCoverGradient(
+              campaign.id || campaign.name
+            );
             return (
               <Card
                 key={campaign.id}
-                className="bg-[#0D0D0D] border-white/[0.08] active:border-white/[0.12] rounded-xl transition-all cursor-pointer group relative overflow-hidden"
+                className="w-full bg-card border-border active:border-border/80 rounded-xl transition-all cursor-pointer group relative overflow-hidden"
                 style={{ boxShadow: 'var(--shadow-card)' }}
                 onClick={() => onNavigate(`/campaigns/${campaign.id}`)}
               >
-                <CardContent className="p-0">
+                <CardContent className="!p-0 ">
                   {/* Cover Image Header */}
-                  <div className="relative w-full h-24 sm:h-28 bg-gradient-to-br from-primary to-cyan-400">
+                  <div
+                    className={`w-full relative h-24 sm:h-28 ${coverGradient}`}
+                  >
                     {campaign.cover_image_url ? (
                       <img
                         src={campaign.cover_image_url}
@@ -312,7 +318,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-3xl sm:text-4xl font-bold text-white">
+                        <span className="text-3xl sm:text-4xl font-bold text-primary-foreground">
                           {campaign.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -330,21 +336,21 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
 
                         {/* Dropdown Menu */}
                         {openMenuId === campaign.id && (
-                          <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-[#1A1A1A] border border-white/[0.08] rounded-lg shadow-xl z-1 overflow-hidden">
+                          <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-popover border border-border rounded-lg shadow-xl z-1 overflow-hidden">
                             {canEditThisCampaign ? (
                               <>
                                 <button
                                   onClick={(e) =>
                                     handleEditClick(e, campaign.id)
                                   }
-                                  className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                                  className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-foreground hover:bg-muted/80 transition-colors text-left"
                                 >
                                   <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
                                   Edit Campaign
                                 </button>
                                 {isOwner && (
                                   <>
-                                    <div className="h-px bg-white/[0.06]" />
+                                    <div className="h-px bg-muted/80" />
                                     <button
                                       onClick={(e) =>
                                         handleDeleteClick(e, campaign.id)
@@ -354,12 +360,12 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                                       <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                                       Delete Campaign
                                     </button>
-                                    <div className="h-px bg-white/[0.06]" />
+                                    <div className="h-px bg-muted/80" />
                                     <button
                                       onClick={(e) =>
                                         handleDuplicateCampaign(e, campaign.id)
                                       }
-                                      className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-300 hover:bg-white/[0.06] transition-colors text-left"
+                                      className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-foreground hover:bg-muted/80 transition-colors text-left"
                                     >
                                       <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                                       Duplicate Campaign
@@ -368,7 +374,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                                 )}
                               </>
                             ) : (
-                              <div className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-500">
+                              <div className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-muted-foreground">
                                 View only access
                               </div>
                             )}
@@ -383,11 +389,11 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                     {/* Header Row: Title, Brand, Status */}
                     <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm min-[400px]:text-base font-semibold text-white group-hover:text-primary transition-colors leading-snug break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] min-h-[36px] sm:min-h-[40px]">
+                        <h3 className="text-sm min-[400px]:text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-snug break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] min-h-[36px] sm:min-h-[40px]">
                           {campaign.name}
                         </h3>
                         {campaign.brand_name && (
-                          <p className="text-xs min-[400px]:text-sm text-slate-400 mt-0.5 break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
+                          <p className="text-xs min-[400px]:text-sm text-muted-foreground mt-0.5 break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
                             {campaign.brand_name}
                           </p>
                         )}
@@ -397,7 +403,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                         {campaign.subcampaigns_count > 0 && (
                           <Badge
                             variant="secondary"
-                            className="text-[10px] bg-white/[0.06] text-slate-300"
+                            className="text-[10px] bg-muted/80 text-foreground"
                           >
                             🗂️ {campaign.subcampaigns_count} subcampaigns
                           </Badge>
@@ -408,22 +414,22 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                     {/* Metrics Row */}
                     <div className="grid grid-cols-3 gap-1 sm:gap-2">
                       <div className="text-center min-w-0">
-                        <div className="text-xs min-[400px]:text-sm font-semibold text-white leading-tight">
+                        <div className="text-xs min-[400px]:text-sm font-semibold text-foreground leading-tight">
                           {campaign.posts_count}
                         </div>
-                        <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-[9px] min-[400px]:text-[10px] text-muted-foreground mt-0.5 truncate">
                           Posts
                         </p>
                       </div>
                       <div className="text-center min-w-0">
-                        <div className="text-xs min-[400px]:text-sm font-semibold text-white leading-tight">
+                        <div className="text-xs min-[400px]:text-sm font-semibold text-foreground leading-tight">
                           {campaign.total_views >= 1000000
                             ? `${(campaign.total_views / 1000000).toFixed(1)}M`
                             : campaign.total_views >= 1000
                               ? `${(campaign.total_views / 1000).toFixed(1)}K`
                               : campaign.total_views}
                         </div>
-                        <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-[9px] min-[400px]:text-[10px] text-muted-foreground mt-0.5 truncate">
                           Reach
                         </p>
                       </div>
@@ -431,7 +437,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                         <div className="text-xs min-[400px]:text-sm font-semibold text-emerald-400 leading-tight">
                           {campaign.avg_engagement_rate.toFixed(1)}%
                         </div>
-                        <p className="text-[9px] min-[400px]:text-[10px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-[9px] min-[400px]:text-[10px] text-muted-foreground mt-0.5 truncate">
                           Engagement
                         </p>
                       </div>
@@ -439,7 +445,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
 
                     {/* Date Range */}
                     {campaign.start_date && campaign.end_date && (
-                      <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-400 mt-2 pt-2 border-t border-white/[0.06]">
+                      <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
                         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="truncate">
                           {new Date(campaign.start_date).toLocaleDateString()} -{" "}
@@ -454,15 +460,15 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
           })}
         </div>
       ) : (
-        <Card className="bg-[#0D0D0D] border-white/[0.08] rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <Card className="bg-card border-border rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-              <Search className="w-6 h-6 text-slate-600" />
+            <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
+              <Search className="w-6 h-6 text-muted-foreground" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">
+            <h3 className="text-base font-semibold text-foreground mb-1">
               No campaigns found
             </h3>
-            <p className="text-sm text-slate-400 text-center mb-6 max-w-md">
+            <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
               Try adjusting your search query or create a new campaign to get
               started
             </p>

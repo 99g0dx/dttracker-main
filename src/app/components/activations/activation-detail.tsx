@@ -16,7 +16,7 @@ export function ActivationDetail({ onNavigate }: ActivationDetailProps) {
   if (!id) {
     return (
       <div className="p-6">
-        <p className="text-slate-400">Invalid activation ID</p>
+        <p className="text-muted-foreground">Invalid activation ID</p>
       </div>
     );
   }
@@ -24,8 +24,8 @@ export function ActivationDetail({ onNavigate }: ActivationDetailProps) {
   if (isLoading) {
     return (
       <div className="p-6">
-        <div className="h-8 w-48 bg-white/[0.04] rounded animate-pulse mb-4" />
-        <div className="h-64 bg-white/[0.04] rounded animate-pulse" />
+        <div className="h-8 w-48 bg-muted/70 rounded animate-pulse mb-4" />
+        <div className="h-64 bg-muted/70 rounded animate-pulse" />
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function ActivationDetail({ onNavigate }: ActivationDetailProps) {
 
   return (
     <div className="p-6">
-      <p className="text-slate-400">Unknown activation type</p>
+      <p className="text-muted-foreground">Unknown activation type</p>
     </div>
   );
 }

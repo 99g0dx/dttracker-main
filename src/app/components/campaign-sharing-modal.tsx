@@ -123,7 +123,7 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
                     return (
                       <div key={member.id} className="flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.08] rounded-lg transition-all duration-200">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
                             {displayName.charAt(0).toUpperCase()}
                           </div>
                           <div>

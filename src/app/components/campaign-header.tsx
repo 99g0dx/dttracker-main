@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { getCampaignCoverGradient } from "../../lib/utils/campaign-gradients";
 
 export interface CampaignHeaderProps {
   name: string;
@@ -44,6 +45,10 @@ export function CampaignHeader({
   isDeleting = false,
 }: CampaignHeaderProps) {
   const isInternal = mode === "internal";
+  const coverGradient = React.useMemo(
+    () => getCampaignCoverGradient(name),
+    [name]
+  );
 
   return (
     <div className="space-y-5">
@@ -166,14 +171,18 @@ export function CampaignHeader({
                 }
               }}
             />
-            <div className="gradient-fallback hidden w-full h-full bg-gradient-to-br from-primary via-primary/80 to-cyan-400 items-center justify-center">
+            <div
+              className={`gradient-fallback hidden w-full h-full ${coverGradient} items-center justify-center`}
+            >
               <h2 className="text-3xl sm:text-5xl font-bold text-white/90">
                 {name.charAt(0).toUpperCase()}
               </h2>
             </div>
           </>
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary via-primary/80 to-cyan-400 flex items-center justify-center relative overflow-hidden">
+          <div
+            className={`w-full h-full ${coverGradient} flex items-center justify-center relative overflow-hidden`}
+          >
             {/* Subtle pattern overlay */}
             <div
               className="absolute inset-0 opacity-10"

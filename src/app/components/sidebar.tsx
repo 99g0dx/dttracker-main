@@ -3,6 +3,7 @@ import { Menu, X, LogOut } from 'lucide-react';
 import { cn } from './ui/utils';
 import logoImage from '../../assets/fcad7446971be733d3427a6b22f8f64253529daf.png';
 import { NotificationsCenter } from './notifications-center';
+import { ThemeToggle } from './theme-toggle';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -242,23 +243,23 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
   return (
     <>
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-[#0A0A0A] border-b border-white/[0.08] flex items-center px-2 z-40">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center px-2 z-40">
         <div className="grid grid-cols-[auto_1fr_auto] items-center w-full gap-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="w-9 h-9 min-h-[36px] rounded-lg bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-all duration-150"
+              className="w-9 h-9 min-h-[36px] rounded-lg bg-sidebar-accent/70 hover:bg-sidebar-accent active:bg-sidebar-accent border border-sidebar-border flex items-center justify-center transition-all duration-150"
               aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
             >
               {sidebarOpen ? (
-                <X className="w-5 h-5 text-slate-300" />
+                <X className="w-5 h-5 text-sidebar-foreground" />
               ) : (
-                <Menu className="w-5 h-5 text-slate-300" />
+                <Menu className="w-5 h-5 text-sidebar-foreground" />
               )}
             </button>
             <button
               onClick={handleLogoClick}
-              className="h-9 min-h-[36px] flex items-center gap-2 rounded-lg px-2 text-white hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150"
+              className="h-9 min-h-[36px] flex items-center gap-2 rounded-lg px-2 text-sidebar-foreground hover:bg-sidebar-accent active:bg-sidebar-accent transition-all duration-150"
               aria-label="Go to dashboard"
             >
               <img src={logoImage} alt="DTTracker" className="w-6 h-6 object-contain" />
@@ -287,7 +288,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 h-[100dvh] w-64 bg-[#0A0A0A] border-r border-white/[0.08] flex flex-col z-50 transition-transform duration-300 ease-in-out",
+          "fixed top-0 h-[100dvh] w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-50 transition-transform duration-300 ease-in-out",
           "lg:translate-x-0",
           sidebarOpen ? "translate-x-0  lg:mt-0" : "-translate-x-full"
         )}
@@ -296,10 +297,10 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
         {/* Logo - Hidden on mobile, visible on desktop */}
         <button
           onClick={handleLogoClick}
-          className="hidden lg:flex h-16 px-6 items-center gap-3 border-b border-white/[0.08] cursor-pointer hover:opacity-80 transition-opacity"
+          className="hidden lg:flex h-16 px-6 items-center gap-3 border-b border-sidebar-border cursor-pointer hover:opacity-80 transition-opacity"
         >
           <img src={logoImage} alt="DTTracker" className="w-8 h-8 object-contain" />
-          <h1 className="text-[15px] font-semibold tracking-tight text-white">
+          <h1 className="text-[15px] font-semibold tracking-tight text-sidebar-foreground">
             DTTracker
           </h1>
         </button>
@@ -314,30 +315,30 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             <>
               {/* Workspace Switcher */}
               <div className="mb-4">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 px-2 mb-2">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground px-2 mb-2">
                   Workspace
                 </div>
                 <div className="relative">
                   <button
                     onClick={() => setWorkspaceMenuOpen((open) => !open)}
-                    className="w-full flex items-center gap-2 px-3 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-200"
+                    className="w-full flex items-center gap-2 px-3 h-9 rounded-md bg-sidebar-accent/70 hover:bg-sidebar-accent border border-sidebar-border text-sidebar-foreground"
                   >
-                    <div className="w-6 h-6 rounded-md bg-white/[0.08] flex items-center justify-center text-[11px] text-white">
+                    <div className="w-6 h-6 rounded-md bg-sidebar-accent flex items-center justify-center text-[11px] text-sidebar-foreground">
                       {workspace?.name?.charAt(0).toUpperCase() || userInitial}
                     </div>
                     <span className="text-[13px] font-medium truncate flex-1 text-left">
                       {workspaceLoading ? "Loading..." : formatWorkspaceName(workspace, workspace?.owner_display_name?.trim() || (workspace?.owner_user_id === user?.id ? userName : undefined))}
                     </span>
-                    <span className="text-[11px] text-slate-500">Switch</span>
+                    <span className="text-[11px] text-muted-foreground">Switch</span>
                   </button>
                   {workspaceMenuOpen && (
-                    <div className="absolute left-0 right-0 mt-2 bg-[#0D0D0D] border border-white/[0.08] rounded-md shadow-xl z-50">
+                    <div className="absolute left-0 right-0 mt-2 bg-popover text-popover-foreground border border-border rounded-md shadow-xl z-50">
                       <button
                         onClick={() => {
                           setActiveWorkspaceId(user?.id || null);
                           setWorkspaceMenuOpen(false);
                         }}
-                        className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
                       >
                         {userName}'s Workspace
                       </button>
@@ -351,14 +352,14 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                               setActiveWorkspaceId(membership.workspace_id);
                               setWorkspaceMenuOpen(false);
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
                           >
                             {formatWorkspaceName(membership.workspaces ?? null, ownerName)}
                           </button>
                         );
                       })}
                       {workspaceList.length === 0 && (
-                        <div className="px-3 py-2 text-xs text-slate-500">
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
                           No shared workspaces yet.
                         </div>
                       )}
@@ -384,22 +385,22 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                     className={cn(
                       'w-full flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 text-sm font-medium',
                       isActive
-                        ? 'bg-white/[0.08] text-white shadow-sm'
+                        ? 'bg-sidebar-accent text-sidebar-foreground shadow-sm'
                         : item.emphasis
-                        ? 'text-amber-200 hover:text-amber-100 active:bg-amber-500/10'
-                        : 'text-slate-400 hover:text-slate-200 active:bg-white/[0.04]'
+                        ? 'text-amber-600 hover:text-amber-700 active:bg-amber-500/10 dark:text-amber-300 dark:hover:text-amber-200'
+                        : 'text-muted-foreground hover:text-sidebar-foreground active:bg-sidebar-accent/80'
                     )}
                   >
                     <span className={cn(
                       'transition-colors duration-150',
-                      isActive ? 'text-primary' : item.emphasis ? 'text-amber-400' : 'text-slate-500'
+                      isActive ? 'text-sidebar-primary' : item.emphasis ? 'text-amber-500' : 'text-muted-foreground'
                     )}>
                       {item.icon}
                     </span>
                     <div className="flex-1 flex items-center justify-between min-w-0">
                       <span>{item.name}</span>
                       {item.tag && (
-                        <span className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 rounded px-1.5 py-0.5 whitespace-nowrap">
+                        <span className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-red-600 dark:text-cyan-300 bg-red-100/70 dark:bg-cyan-500/10 border border-red-200 dark:border-cyan-500/20 rounded px-1.5 py-0.5 whitespace-nowrap">
                           {item.tag}
                         </span>
                       )}
@@ -412,7 +413,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
 
           {adminNavItems.length > 0 && (
             <div className="mt-6">
-              <div className="px-3 text-[10px] uppercase tracking-[0.2em] text-amber-300/70 mb-2">
+              <div className="px-3 text-[10px] uppercase tracking-[0.2em] text-amber-700/70 dark:text-amber-300/70 mb-2">
                 Company
               </div>
               <ul className="space-y-1">
@@ -425,13 +426,13 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                         className={cn(
                           'w-full flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 text-sm font-medium',
                           isActive
-                            ? 'bg-amber-500/20 text-white shadow-sm'
-                            : 'text-amber-200 hover:text-amber-100 active:bg-amber-500/10'
+                            ? 'bg-amber-500/20 text-amber-800 dark:text-amber-100 shadow-sm'
+                            : 'text-amber-600 hover:text-amber-700 active:bg-amber-500/10 dark:text-amber-300 dark:hover:text-amber-200'
                         )}
                       >
                         <span className={cn(
                           'transition-colors duration-150',
-                          isActive ? 'text-amber-300' : 'text-amber-400'
+                          isActive ? 'text-amber-600 dark:text-amber-300' : 'text-amber-500'
                         )}>
                           {item.icon}
                         </span>
@@ -448,18 +449,23 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
           
         </nav>
 
+        {/* Theme Toggle */}
+        <div className="px-3 pb-2">
+          <ThemeToggle />
+        </div>
+
         {/* User */}
-        <div className="p-3 border-t border-white/[0.08]">
+        <div className="p-3 border-t border-sidebar-border">
           <div 
             onClick={() => handleNavigate('/subscription')}
-            className="flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150 cursor-pointer mb-1"
+            className="flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg hover:bg-sidebar-accent active:bg-sidebar-accent transition-all duration-150 cursor-pointer mb-1"
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white text-[13px] font-medium">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white text-[13px] font-medium">
               {userInitial}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-white truncate">{userName}</p>
-              <p className="text-[11px] text-slate-500 truncate">
+              <p className="text-[13px] font-medium text-sidebar-foreground truncate">{userName}</p>
+              <p className="text-[11px] text-muted-foreground truncate">
                 {billing?.agency_role === 'agency' || billing?.agency_role === 'super_agency'
                   ? 'Agency'
                   : billing?.plan?.tier
@@ -470,7 +476,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
           </div>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg hover:bg-white/[0.04] active:bg-white/[0.06] transition-all duration-150 text-slate-400 hover:text-white"
+            className="w-full flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg hover:bg-sidebar-accent active:bg-sidebar-accent transition-all duration-150 text-muted-foreground hover:text-sidebar-foreground"
           >
             <LogOut className="w-4 h-4" />
             <span className="text-sm">Sign out</span>

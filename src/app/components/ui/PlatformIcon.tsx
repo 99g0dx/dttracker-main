@@ -79,7 +79,7 @@ export function PlatformIcon({
       role="img"
       aria-label={ariaLabel}
       title={title ?? label}
-      className={cn("text-slate-400", className)}
+      className={cn("text-muted-foreground", className)}
       {...props}
     >
       <IconComponent className={icon} />

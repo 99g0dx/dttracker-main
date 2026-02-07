@@ -13,13 +13,10 @@ function Switch({
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        // Compact, subtle track
-        "peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-all outline-none disabled:cursor-not-allowed disabled:opacity-50",
-        // Soft neutral states
-        "data-[state=unchecked]:bg-white/[0.04] data-[state=unchecked]:border-white/[0.08]",
-        "data-[state=checked]:bg-white/[0.10] data-[state=checked]:border-white/[0.16]",
-        // Accessible focus ring
-        "focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]",
+        "peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        "data-[state=unchecked]:bg-muted data-[state=unchecked]:border-border",
+        "data-[state=checked]:bg-primary data-[state=checked]:border-primary",
+        "focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className,
       )}
       {...props}
@@ -28,8 +25,8 @@ function Switch({
         data-slot="switch-thumb"
         className={cn(
           "pointer-events-none block size-4 rounded-full transition-transform shadow-sm",
-          "data-[state=unchecked]:translate-x-0.5 data-[state=unchecked]:bg-slate-500",
-          "data-[state=checked]:translate-x-[18px] data-[state=checked]:bg-white",
+          "data-[state=unchecked]:translate-x-0.5 data-[state=unchecked]:bg-foreground",
+          "data-[state=checked]:translate-x-[18px] data-[state=checked]:bg-primary-foreground",
         )}
       />
     </SwitchPrimitive.Root>
