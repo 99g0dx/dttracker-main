@@ -1,5 +1,5 @@
 export const CONTEST_WINNER_COUNT = 20;
-export const CONTEST_MIN_PRIZE_POOL = 300_000;
+export const CONTEST_MIN_PRIZE_POOL = 2000;
 
 export function buildPrizeStructure(
   totalBudget: number

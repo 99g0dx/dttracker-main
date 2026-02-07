@@ -71,7 +71,7 @@ export const PostCard = React.memo(
     const platformIcon = normalizePlatform(post.platform);
 
     return (
-      <Card className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors">
+      <Card className="bg-card border-border hover:border-border/80 transition-colors">
         <CardContent className="p-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -80,7 +80,7 @@ export const PostCard = React.memo(
                   #{post.rank}
                 </span>
               )}
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-cyan-400/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-red-400/20 dark:to-cyan-400/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
                 <span className="text-xs font-semibold text-primary">
                   {creatorName.charAt(0).toUpperCase()}
                 </span>
@@ -122,25 +122,25 @@ export const PostCard = React.memo(
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.03] border border-white/[0.08] px-2 py-0.5 text-xs text-slate-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 border border-border px-2 py-0.5 text-xs text-foreground">
                 <Heart className="w-3.5 h-3.5 text-pink-400" />
                 {likesFormatted.value}
                 {likesFormatted.growth && (
-                  <span className="text-[10px] font-normal text-slate-400">
+                  <span className="text-[10px] font-normal text-muted-foreground">
                     ({likesFormatted.growth})
                   </span>
                 )}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.03] border border-white/[0.08] px-2 py-0.5 text-xs text-slate-300">
-                <MessageCircle className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 border border-border px-2 py-0.5 text-xs text-foreground">
+                <MessageCircle className="w-3.5 h-3.5 text-red-600 dark:text-cyan-400" />
                 {commentsFormatted.value}
                 {commentsFormatted.growth && (
-                  <span className="text-[10px] font-normal text-slate-400">
+                  <span className="text-[10px] font-normal text-muted-foreground">
                     ({commentsFormatted.growth})
                   </span>
                 )}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.03] border border-white/[0.08] px-2 py-0.5 text-xs text-slate-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 border border-border px-2 py-0.5 text-xs text-foreground">
                 <Share2 className="w-3.5 h-3.5 text-purple-400" />
                 {sharesValue}
               </span>
@@ -151,12 +151,12 @@ export const PostCard = React.memo(
             <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Rate
             </span>
-            <span className="text-sm font-semibold text-emerald-400">
+            <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
               {rateValue}
             </span>
           </div>
           {post.last_scraped_at && (
-            <div className="mt-1 text-[10px] text-slate-500">
+            <div className="mt-1 text-[10px] text-muted-foreground">
               Last updated {formatRelativeTime(post.last_scraped_at)}
             </div>
           )}
@@ -166,7 +166,7 @@ export const PostCard = React.memo(
               <Button
                 size="sm"
                 variant="outline"
-                className="min-h-[44px] flex-1 border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+                className="min-h-[44px] flex-1 border-border bg-muted/60 hover:bg-muted text-foreground"
                 asChild
               >
                 <a
@@ -182,7 +182,7 @@ export const PostCard = React.memo(
               <Button
                 size="sm"
                 variant="outline"
-                className="min-h-[44px] flex-1 border-white/[0.08] bg-white/[0.03] text-slate-500"
+                className="min-h-[44px] flex-1 border-border bg-muted/60 text-muted-foreground"
                 disabled
               >
                 <ExternalLink className="w-4 h-4" />
@@ -210,7 +210,7 @@ export const PostCard = React.memo(
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md border border-border bg-muted/60 text-foreground hover:bg-muted flex items-center justify-center transition-colors"
                       aria-label="More actions"
                     >
                       <MoreHorizontal className="w-4 h-4" />

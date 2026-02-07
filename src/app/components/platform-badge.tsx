@@ -15,9 +15,9 @@ const platformColors: Record<Platform, string> = {
   youtube:
     "bg-gradient-to-r from-red-500/15 to-red-500/10 text-red-400 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.15)]",
   twitter:
-    "bg-gradient-to-r from-sky-500/15 to-blue-500/10 text-sky-400 border-sky-500/30 shadow-[0_0_12px_rgba(14,165,233,0.15)]",
+    "bg-gradient-to-r from-rose-500/15 dark:from-sky-500/15 to-red-500/10 dark:to-blue-500/10 text-rose-600 dark:text-sky-400 border-rose-500/30 dark:border-sky-500/30 shadow-[0_0_12px_rgba(225,29,72,0.15)] dark:shadow-[0_0_12px_rgba(14,165,233,0.15)]",
   facebook:
-    "bg-gradient-to-r from-blue-600/15 to-blue-600/10 text-blue-400 border-blue-600/30 shadow-[0_0_12px_rgba(37,99,235,0.15)]",
+    "bg-gradient-to-r from-red-600/15 dark:from-blue-600/15 to-red-600/10 dark:to-blue-600/10 text-red-600 dark:text-blue-400 border-red-500/30 dark:border-blue-600/30 shadow-[0_0_12px_rgba(220,38,38,0.15)] dark:shadow-[0_0_12px_rgba(37,99,235,0.15)]",
 };
 
 const platformNames: Record<Platform, string> = {

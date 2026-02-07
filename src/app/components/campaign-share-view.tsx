@@ -583,8 +583,8 @@ export function CampaignShareView() {
             <Card className="bg-[#0D0D0D] border-white/[0.08]">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                    <MessageCircle className="w-5 h-5 text-cyan-400" />
+                  <div className="w-10 h-10 rounded-lg bg-red-100/70 dark:bg-cyan-500/10 flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-red-600 dark:text-cyan-400" />
                   </div>
                 </div>
                 <div className="text-2xl font-semibold text-white mb-1">

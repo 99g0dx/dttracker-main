@@ -306,17 +306,20 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       brand_owner: {
         icon: <Crown className="w-3 h-3" />,
         label: "Owner",
-        color: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+        color:
+          "text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-400/10 border-amber-200 dark:border-amber-400/20",
       },
       agency_admin: {
         icon: <Shield className="w-3 h-3" />,
         label: "Operator",
-        color: "text-purple-400 bg-purple-400/10 border-purple-400/20",
+        color:
+          "text-purple-700 dark:text-purple-400 bg-purple-100/70 dark:bg-purple-400/10 border-purple-200 dark:border-purple-400/20",
       },
       agency_ops: {
         icon: <Eye className="w-3 h-3" />,
         label: "Operator",
-        color: "text-slate-300 bg-slate-300/10 border-slate-300/20",
+        color:
+          "text-slate-600 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-400/10 border-slate-200 dark:border-slate-400/20",
       },
       brand_member: {
         icon: <Users className="w-3 h-3" />,
@@ -341,7 +344,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-center py-12">
-          <p className="text-slate-400">Loading team members...</p>
+          <p className="text-muted-foreground">Loading team members...</p>
         </div>
       </div>
     );
@@ -350,14 +353,14 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
   if (!billingLoading && billing != null && !canAccessTeam) {
     return (
       <div className="space-y-6">
-        <Card className="border-white/[0.08] bg-white/[0.02]">
+        <Card className="border-border bg-card">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <Shield className="w-12 h-12 text-slate-500 mb-4" />
-              <h2 className="text-xl font-semibold text-white">
+              <Shield className="w-12 h-12 text-muted-foreground mb-4" />
+              <h2 className="text-xl font-semibold text-foreground">
                 Team is available on Pro and Agency plans
               </h2>
-              <p className="mt-2 text-sm text-slate-400 max-w-md">
+              <p className="mt-2 text-sm text-muted-foreground max-w-md">
                 Upgrade your plan to invite teammates, manage roles, and
                 collaborate on campaigns.
               </p>
@@ -381,15 +384,15 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate("/")}
-            className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-9 h-9 flex-shrink-0 rounded-md bg-muted/60 hover:bg-muted border border-border flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               Team
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Manage workspace access and permissions
             </p>
           </div>
@@ -402,7 +405,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
               disabled={
                 showBulkInviteModal || showInviteModal || seatLimitReached
               }
-              className="h-9 px-4 flex-1 sm:flex-none bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300 hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+              className="h-9 px-4 flex-1 sm:flex-none bg-muted/70 hover:bg-muted border-border text-foreground hover:text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
               title={seatLimitReached ? "Seat limit reached" : undefined}
             >
               {showBulkInviteModal ? (
@@ -433,33 +436,33 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <div className="text-2xl font-semibold text-white">
+            <div className="text-2xl font-semibold text-foreground">
               {activeMembers.length}
             </div>
-            <p className="text-sm text-slate-400 mt-1">Active Members</p>
+            <p className="text-sm text-muted-foreground mt-1">Active Members</p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <div className="text-2xl font-semibold text-amber-400">
+            <div className="text-2xl font-semibold text-amber-700 dark:text-amber-400">
               {pendingInvites.length}
             </div>
-            <p className="text-sm text-slate-400 mt-1">Pending Invites</p>
+            <p className="text-sm text-muted-foreground mt-1">Pending Invites</p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="text-2xl font-semibold text-primary">
               {adminCount}
             </div>
-            <p className="text-sm text-slate-400 mt-1">Admins</p>
+            <p className="text-sm text-muted-foreground mt-1">Admins</p>
           </CardContent>
         </Card>
       </div>
       {seatLimitReached && (
-        <div className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="rounded-lg border border-amber-200 dark:border-amber-400/20 bg-amber-100/80 dark:bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
           {seatLimit === -1
             ? "Unlimited seats are enabled for this workspace."
             : `Seat limit reached (${projectedSeats}/${seatLimit}). Upgrade to invite more teammates.`}
@@ -467,17 +470,17 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
       )}
 
       {/* Active Members */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-0">
-          <div className="p-6 border-b border-white/[0.06]">
-            <h3 className="font-medium text-white">Active Members</h3>
-            <p className="text-sm text-slate-500 mt-1">
+          <div className="p-6 border-b border-border">
+            <h3 className="font-medium text-foreground">Active Members</h3>
+            <p className="text-sm text-muted-foreground mt-1">
               {activeMembers.length} member
               {activeMembers.length !== 1 ? "s" : ""} with active access
             </p>
           </div>
 
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-border">
             {activeMembers.map((member) => {
               const badge = getRoleBadge(member.role, member.scopes);
               const scopesSummary = getScopesSummary(member);
@@ -499,16 +502,16 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
               return (
                 <div
                   key={member.id || member.user_id}
-                  className="p-4 hover:bg-white/[0.02] transition-colors"
+                  className="p-4 hover:bg-card transition-colors"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-foreground font-semibold flex-shrink-0">
                         {memberInitial}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium text-white">
+                          <h4 className="font-medium text-foreground">
                             {memberName}
                           </h4>
                           {isCurrentUser && (
@@ -517,10 +520,10 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-slate-400 mb-2">
+                        <p className="text-sm text-muted-foreground mb-2">
                           {secondaryLine}
                         </p>
-                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span
                             className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${badge.color}`}
                           >
@@ -547,7 +550,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                                 rolePreset,
                               });
                             }}
-                            className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors disabled:opacity-60"
+                            className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center transition-colors disabled:opacity-60"
                             disabled={roleUpdatingId === member.id}
                             title={
                               roleUpdatingId === member.id
@@ -556,9 +559,9 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                             }
                           >
                             {roleUpdatingId === member.id ? (
-                              <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                              <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
                             ) : (
-                              <MoreVertical className="w-4 h-4 text-slate-400" />
+                              <MoreVertical className="w-4 h-4 text-muted-foreground" />
                             )}
                           </button>
                           <button
@@ -583,7 +586,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                             {deletingMemberId === member.id ? (
                               <Loader2 className="w-4 h-4 text-red-400 animate-spin" />
                             ) : (
-                              <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                              <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-400" />
                             )}
                           </button>
                         </div>
@@ -598,46 +601,46 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
 
       {/* Pending Invites */}
       {pendingInvites.length > 0 && (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-0">
-            <div className="p-6 border-b border-white/[0.06]">
-              <h3 className="font-medium text-white">Pending Invites</h3>
-              <p className="text-sm text-slate-500 mt-1">
+            <div className="p-6 border-b border-border">
+              <h3 className="font-medium text-foreground">Pending Invites</h3>
+              <p className="text-sm text-muted-foreground mt-1">
                 {pendingInvites.length} invitation
                 {pendingInvites.length !== 1 ? "s" : ""} awaiting acceptance
               </p>
             </div>
 
-            <div className="divide-y divide-white/[0.04]">
+            <div className="divide-y divide-border">
               {pendingInvites.map((invite) => {
                 const badge = getRoleBadge(invite.role);
 
                 return (
                   <div
                     key={invite.id}
-                    className="p-4 hover:bg-white/[0.02] transition-colors"
+                    className="p-4 hover:bg-card transition-colors"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1">
-                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0">
-                          <Mail className="w-5 h-5 text-slate-500" />
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <Mail className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-white">
+                            <h4 className="font-medium text-foreground">
                               {invite.email}
                             </h4>
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-400/10 text-amber-400 text-xs rounded border border-amber-400/20">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-100/70 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 text-xs rounded border border-amber-200 dark:border-amber-400/20">
                               <Clock className="w-3 h-3" />
                               Pending
                             </span>
                           </div>
                           {invite.inviter_name && (
-                            <p className="text-sm text-slate-500 mb-2">
+                            <p className="text-sm text-muted-foreground mb-2">
                               Invited by {invite.inviter_name}
                             </p>
                           )}
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span
                               className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${badge.color}`}
                             >
@@ -704,15 +707,15 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         description={
           pendingRoleChange ? (
             <div className="space-y-4">
-              <div className="text-sm text-slate-400">
+              <div className="text-sm text-muted-foreground">
                 Update access for{" "}
-                <span className="text-white">
+                <span className="text-foreground">
                   {pendingRoleChange.memberName}
                 </span>
                 .
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-2">
                   Access Level
                 </label>
                 <select
@@ -728,7 +731,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
                         : prev
                     );
                   }}
-                  className="w-full h-10 px-3 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white focus:bg-white/[0.06] focus:border-white/[0.2] transition-colors [&>option]:bg-[#0D0D0D] [&>option]:text-white [&>optgroup]:bg-[#0D0D0D] [&>optgroup]:text-slate-400 [&>optgroup]:font-semibold"
+                  className="w-full h-10 px-3 rounded-md bg-muted/70 border border-border text-sm text-foreground focus:bg-muted focus:border-primary/50 transition-colors [&>option]:bg-card [&>option]:text-foreground [&>optgroup]:bg-card [&>optgroup]:text-muted-foreground [&>optgroup]:font-semibold"
                 >
                   <optgroup label="Team Role">
                     <option value="agency_admin">Admin</option>
@@ -893,25 +896,25 @@ function InviteModal({
         onUpgrade={() => (window.location.href = "/subscription")}
       />
       <Card
-        className="bg-[#0D0D0D] border-white/[0.08] max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+        className="bg-card border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <CardContent className="p-0">
-          <div className="sticky top-0 bg-[#0D0D0D]/95 backdrop-blur-xl border-b border-white/[0.08] px-8 py-6 z-10">
+          <div className="sticky top-0 bg-card/95 backdrop-blur-xl border-b border-border px-8 py-6 z-10">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-white tracking-tight">
+                <h2 className="text-xl font-semibold text-foreground tracking-tight">
                   Invite Team Member
                 </h2>
-                <p className="text-sm text-slate-500 mt-1.5">
+                <p className="text-sm text-muted-foreground mt-1.5">
                   Add someone to your workspace (all roles have full access)
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="w-9 h-9 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-all duration-200"
+                className="w-9 h-9 rounded-lg hover:bg-muted flex items-center justify-center transition-all duration-200"
               >
-                <X className="w-4.5 h-4.5 text-slate-400" />
+                <X className="w-4.5 h-4.5 text-muted-foreground" />
               </button>
             </div>
           </div>
@@ -923,7 +926,7 @@ function InviteModal({
               </div>
             )}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+              <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
                 Email <span className="text-red-400">*</span>
               </label>
               <Input
@@ -931,12 +934,12 @@ function InviteModal({
                 placeholder="colleague@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600 focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 rounded-lg"
+                className="h-12 bg-muted/70 border-border text-foreground placeholder:text-muted-foreground focus:bg-muted focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 rounded-lg"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+              <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
                 Role <span className="text-red-400">*</span>
               </label>
               <div className="relative">
@@ -945,7 +948,7 @@ function InviteModal({
                   onChange={(e) =>
                     setRolePreset(e.target.value as InviteData["rolePreset"])
                   }
-                  className="w-full h-12 pl-4 pr-12 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm font-medium focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 appearance-none cursor-pointer [&>option]:bg-[#0D0D0D] [&>option]:text-white"
+                  className="w-full h-12 pl-4 pr-12 bg-muted/70 border border-border rounded-lg text-foreground text-sm font-medium focus:bg-muted focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 appearance-none cursor-pointer [&>option]:bg-card [&>option]:text-foreground"
                 >
                   <option value="agency_admin">Operator (Agency Admin)</option>
                   <option value="brand_member">Operator (Brand Member)</option>
@@ -957,7 +960,7 @@ function InviteModal({
                     height="16"
                     viewBox="0 0 16 16"
                     fill="none"
-                    className="text-slate-400"
+                    className="text-muted-foreground"
                   >
                     <path
                       d="M4 6L8 10L12 6"
@@ -972,26 +975,26 @@ function InviteModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+              <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
                 Message{" "}
-                <span className="text-slate-600 font-normal">(Optional)</span>
+                <span className="text-muted-foreground font-normal">(Optional)</span>
               </label>
               <textarea
                 placeholder="Add a personal message to the invitation..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white placeholder:text-slate-600 text-sm focus:bg-white/[0.06] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 resize-none"
+                className="w-full px-4 py-3 bg-muted/70 border border-border rounded-lg text-foreground placeholder:text-muted-foreground text-sm focus:bg-muted focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 resize-none"
               />
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-[#0D0D0D]/95 backdrop-blur-xl border-t border-white/[0.08] px-8 py-5">
+          <div className="sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border px-8 py-5">
             <div className="flex gap-3">
               <Button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex-1 h-12 bg-primary hover:bg-primary/90 text-black font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 style={
                   {
                     backgroundClip: "unset",
@@ -1005,7 +1008,7 @@ function InviteModal({
               <Button
                 onClick={onClose}
                 variant="outline"
-                className="h-12 px-8 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] hover:border-white/[0.15] text-slate-300 hover:text-white transition-all duration-200 rounded-lg font-medium"
+                className="h-12 px-8 bg-muted/70 hover:bg-muted border-border hover:border-border text-foreground hover:text-foreground transition-all duration-200 rounded-lg font-medium"
               >
                 Cancel
               </Button>

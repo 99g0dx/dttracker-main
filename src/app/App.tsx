@@ -247,7 +247,7 @@ function AppRoutes() {
   return (
     <ToastProvider>
       <RouteProgress isActive={routeProgress || isSwitching} />
-      <div className="dark h-[100dvh] w-full overflow-hidden bg-[#0A0A0A] text-foreground flex flex-col">
+      <div className="h-[100dvh] w-full overflow-hidden bg-background text-foreground flex flex-col">
         {!isPublicRoute && (
           <>
             <Sidebar

@@ -113,7 +113,7 @@ export function Analytics() {
         {/* Gradient glow effect */}
         <div className="absolute -inset-[1px] bg-gradient-to-br from-primary/10 via-purple-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
         
-        <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
+        <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(225,29,72,0.12)] dark:hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
           {/* Top gradient accent */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
           
@@ -283,9 +283,9 @@ export function Analytics() {
 
         {/* Posts by Month */}
         <div className="group relative">
-          <div className="absolute -inset-[1px] bg-gradient-to-br from-primary/10 via-cyan-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
+          <div className="absolute -inset-[1px] bg-gradient-to-br from-primary/10 via-red-500/10 dark:via-cyan-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
           
-          <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
+          <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(225,29,72,0.12)] dark:hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
             
             <CardHeader>
@@ -340,9 +340,9 @@ export function Analytics() {
         transition={{ delay: 0.4, duration: 0.5 }}
         className="group relative"
       >
-        <div className="absolute -inset-[1px] bg-gradient-to-br from-emerald-500/10 via-cyan-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
+        <div className="absolute -inset-[1px] bg-gradient-to-br from-emerald-500/10 via-red-500/10 dark:via-cyan-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
         
-        <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
+        <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgba(225,29,72,0.12)] dark:hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-500 overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent"></div>
           
           <CardHeader>
@@ -364,7 +364,7 @@ export function Analytics() {
                   
                   <div className="relative flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-secondary/40 to-secondary/20 hover:from-secondary/60 hover:to-secondary/30 transition-all border border-border/30 hover:border-primary/30">
                     {/* Rank badge */}
-                    <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-primary/25">
+                    <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-primary/25">
                       {index + 1}
                     </div>
                     
@@ -392,13 +392,13 @@ export function Analytics() {
                       })()}
                     </div>
                     <div className="text-right">
-                      <div className="text-xl bg-gradient-to-br from-primary to-cyan-400 bg-clip-text text-transparent font-bold">
+                      <div className="text-xl bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 bg-clip-text text-transparent font-bold">
                         {(performer.views / 1000000).toFixed(1)}M
                       </div>
                       <p className="text-xs text-muted-foreground">views</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-xl font-bold bg-gradient-to-br from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                      <div className="text-xl font-bold bg-gradient-to-br from-emerald-400 to-red-400 dark:to-cyan-400 bg-clip-text text-transparent">
                         {performer.engagement}%
                       </div>
                       <p className="text-xs text-muted-foreground">engagement</p>
@@ -420,7 +420,7 @@ export function Analytics() {
       >
         {[
           { title: 'Total Likes', value: '1.2M', change: '+15.3%', icon: Heart, color: 'from-pink-500 to-rose-500' },
-          { title: 'Total Comments', value: '68K', change: '+12.8%', icon: MessageCircle, color: 'from-blue-500 to-cyan-500' },
+          { title: 'Total Comments', value: '68K', change: '+12.8%', icon: MessageCircle, color: 'from-red-500 dark:from-blue-500 to-rose-500 dark:to-cyan-500' },
           { title: 'Total Shares', value: '45K', change: '+18.7%', icon: Share2, color: 'from-purple-500 to-indigo-500' }
         ].map((stat, index) => (
           <motion.div
@@ -433,7 +433,7 @@ export function Analytics() {
           >
             <div className={`absolute -inset-[1px] bg-gradient-to-br ${stat.color} rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-sm`}></div>
             
-            <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] group-hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-300 overflow-hidden">
+            <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] group-hover:shadow-[0_20px_60px_rgba(225,29,72,0.12)] dark:group-hover:shadow-[0_20px_60px_rgba(14,165,233,0.1)] transition-all duration-300 overflow-hidden">
               <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${stat.color}`}></div>
               
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

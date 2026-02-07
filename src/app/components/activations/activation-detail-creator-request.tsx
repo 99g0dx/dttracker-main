@@ -77,19 +77,19 @@ export function ActivationDetailCreatorRequest({
       <div className="flex items-center gap-4">
         <button
           onClick={() => onNavigate("/activations")}
-          className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
+          className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Users className="w-5 h-5 text-violet-400 flex-shrink-0" />
-            <span className="text-xs text-slate-500">Creator Request</span>
+            <span className="text-xs text-muted-foreground">Creator Request</span>
           </div>
-          <h1 className="text-xl font-semibold text-white truncate">
+          <h1 className="text-xl font-semibold text-foreground truncate">
             {activation.title}
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted-foreground">
             {typedInvitations.length} invitation
             {typedInvitations.length !== 1 ? "s" : ""}
           </p>
@@ -97,10 +97,10 @@ export function ActivationDetailCreatorRequest({
         <span
           className={`text-xs font-medium px-2 py-1 rounded border ${
             activation.status === "live"
-              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
               : activation.status === "completed"
-                ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                : "bg-slate-500/20 text-slate-400 border-slate-500/30"
+                ? "bg-red-100/70 dark:bg-blue-500/20 text-red-700 dark:text-blue-400 border-red-200 dark:border-blue-500/30"
+                : "bg-slate-500/20 text-muted-foreground border-slate-500/30"
           }`}
         >
           {statusLabel}
@@ -108,35 +108,35 @@ export function ActivationDetailCreatorRequest({
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Deadline</p>
-            <p className="font-medium text-white flex items-center gap-2 mt-1">
+            <p className="text-xs text-muted-foreground">Deadline</p>
+            <p className="font-medium text-foreground flex items-center gap-2 mt-1">
               <Calendar className="w-4 h-4" />
               {format(new Date(activation.deadline), "MMM d")}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Total invited</p>
-            <p className="font-medium text-white mt-1">
+            <p className="text-xs text-muted-foreground">Total invited</p>
+            <p className="font-medium text-foreground mt-1">
               {formatAmount(totalInvited)}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Locked</p>
-            <p className="font-medium text-white mt-1">
+            <p className="text-xs text-muted-foreground">Locked</p>
+            <p className="font-medium text-foreground mt-1">
               {formatAmount(lockedAmount)}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Spent</p>
-            <p className="font-medium text-white mt-1">
+            <p className="text-xs text-muted-foreground">Spent</p>
+            <p className="font-medium text-foreground mt-1">
               {formatAmount(spentAmount)} /{" "}
               {formatAmount(activation.total_budget)}
             </p>
@@ -145,33 +145,33 @@ export function ActivationDetailCreatorRequest({
       </div>
 
       {activation.brief && (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500 mb-2">Brief</p>
-            <p className="text-sm text-slate-300 whitespace-pre-wrap">
+            <p className="text-xs text-muted-foreground mb-2">Brief</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">
               {activation.brief}
             </p>
           </CardContent>
         </Card>
       )}
 
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-4">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">
+          <h3 className="text-sm font-medium text-foreground mb-3">
             Invitations
           </h3>
           {isLoading ? (
-            <div className="flex items-center gap-2 text-slate-400 py-4">
+            <div className="flex items-center gap-2 text-muted-foreground py-4">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span className="text-sm">Loading...</span>
             </div>
           ) : typedInvitations.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4">No invitations yet.</p>
+            <p className="text-sm text-muted-foreground py-4">No invitations yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-slate-500 border-b border-white/[0.08]">
+                  <tr className="text-left text-muted-foreground border-b border-border">
                     <th className="pb-2 pr-4">Creator</th>
                     <th className="pb-2 pr-4">Rate</th>
                     <th className="pb-2 pr-4">Status</th>
@@ -189,35 +189,35 @@ export function ActivationDetailCreatorRequest({
                     return (
                       <tr
                         key={inv.id}
-                        className="border-b border-white/[0.06] last:border-0"
+                        className="border-b border-border/60 last:border-0"
                       >
-                        <td className="py-3 pr-4 text-white">{creatorName}</td>
-                        <td className="py-3 pr-4 text-slate-300">
+                        <td className="py-3 pr-4 text-foreground">{creatorName}</td>
+                        <td className="py-3 pr-4 text-foreground">
                           {formatAmount(Number(inv.quoted_rate))}
                         </td>
                         <td className="py-3 pr-4">
                           <span
                             className={`text-xs font-medium px-2 py-0.5 rounded ${
                               inv.status === "accepted"
-                                ? "bg-emerald-500/20 text-emerald-400"
+                                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                                 : inv.status === "pending"
-                                  ? "bg-amber-500/20 text-amber-400"
+                                  ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
                                   : inv.status === "declined"
-                                    ? "bg-slate-500/20 text-slate-400"
+                                    ? "bg-slate-500/20 text-muted-foreground"
                                     : inv.status === "completed"
-                                      ? "bg-blue-500/20 text-blue-400"
-                                      : "bg-slate-500/20 text-slate-400"
+                                      ? "bg-red-100/70 dark:bg-blue-500/20 text-red-700 dark:text-blue-400"
+                                      : "bg-slate-500/20 text-muted-foreground"
                             }`}
                           >
                             {invStatusLabel[inv.status] ?? inv.status}
                           </span>
                         </td>
-                        <td className="py-3 pr-4 text-slate-400">
+                        <td className="py-3 pr-4 text-muted-foreground">
                           {inv.invited_at
                             ? format(new Date(inv.invited_at), "MMM d")
                             : "—"}
                         </td>
-                        <td className="py-3 pr-4 text-slate-400">
+                        <td className="py-3 pr-4 text-muted-foreground">
                           {inv.responded_at
                             ? format(new Date(inv.responded_at), "MMM d")
                             : "—"}
@@ -227,7 +227,7 @@ export function ActivationDetailCreatorRequest({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-white/[0.08] text-xs"
+                              className="border-border text-xs"
                               disabled={cancelInvitation.isPending}
                               onClick={() => cancelInvitation.mutate(inv.id)}
                             >
@@ -242,7 +242,7 @@ export function ActivationDetailCreatorRequest({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-white/[0.08] text-xs"
+                              className="border-border text-xs"
                               disabled={releasePayment.isPending}
                               onClick={() => releasePayment.mutate(inv.id)}
                             >

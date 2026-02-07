@@ -125,7 +125,7 @@ function PlatformSelect({
         const value = e.target.value as Platform | "all";
         onChange(value === "all" ? [] : [value]);
       }}
-      className="h-9 px-3 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+      className="h-9 px-3 pr-8 bg-muted/70 border border-border/70 rounded-lg text-sm text-foreground appearance-none cursor-pointer hover:bg-muted/80 focus:bg-muted/80 focus:border-primary/50 transition-all"
     >
       <option value="all">All Platforms</option>
       {platforms.map((platform) => (
@@ -665,29 +665,29 @@ export function Creators({ onNavigate }: CreatorsProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate?.("/")}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               Creator Library
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Access restricted for your current role.
             </p>
           </div>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="w-12 h-12 rounded-lg bg-white/[0.06] flex items-center justify-center mb-4">
-              <Eye className="w-6 h-6 text-slate-400" />
+            <div className="w-12 h-12 rounded-lg bg-muted/80 flex items-center justify-center mb-4">
+              <Eye className="w-6 h-6 text-muted-foreground" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">
+            <h3 className="text-base font-semibold text-foreground mb-1">
               No access
             </h3>
-            <p className="text-sm text-slate-400 mb-4 text-center max-w-md">
+            <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
               You need workspace access to view the creator library.
             </p>
           </CardContent>
@@ -702,21 +702,21 @@ export function Creators({ onNavigate }: CreatorsProps) {
         <div className="flex items-center gap-2.5 sm:gap-5">
           <button
             onClick={() => onNavigate?.("/")}
-            className="w-10 h-10 sm:w-11 sm:h-11 min-h-[44px] min-w-[44px] flex-shrink-0 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-all duration-150"
+            className="w-10 h-10 sm:w-11 sm:h-11 min-h-[44px] min-w-[44px] flex-shrink-0 rounded-lg bg-muted/60 hover:bg-muted/80 active:bg-muted/80 border border-border flex items-center justify-center transition-all duration-150"
             style={{ boxShadow: "var(--shadow-card)" }}
             aria-label="Back to dashboard"
           >
-            <ArrowLeft className="w-4 h-4 text-white" />
+            <ArrowLeft className="w-4 h-4 text-foreground" />
           </button>
           <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 rounded-xl bg-white/[0.06] flex items-center justify-center">
-              <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 rounded-xl bg-muted/80 flex items-center justify-center">
+              <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight leading-tight">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground tracking-tight leading-tight">
                 Creator Library
               </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1 line-clamp-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">
                 Manage your creator network and contacts
               </p>
             </div>
@@ -730,7 +730,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
             {activeCreatorTab === "community" ? (
               <button
                 onClick={() => setShowImportFansDialog(true)}
-                className="h-11 min-h-[44px] px-4 sm:px-5 bg-white hover:bg-white/95 active:bg-white/90 text-black text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 min-h-[44px] px-4 sm:px-5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!canEditCreators}
                 title={
                   !canEditCreators
@@ -744,7 +744,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
             ) : (
               <button
                 onClick={handleOpenAddDialog}
-                className="h-11 min-h-[44px] px-4 sm:px-5 bg-white hover:bg-white/95 active:bg-white/90 text-black text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 min-h-[44px] px-4 sm:px-5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium flex items-center justify-center gap-2 rounded-lg transition-all duration-150 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!canEditCreators}
                 title={
                   !canEditCreators
@@ -760,7 +760,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="relative h-11 min-h-[44px] px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                  className="relative h-11 min-h-[44px] px-3 rounded-lg bg-muted/40 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
                   aria-label="Creator actions"
                 >
                   <MoreHorizontal className="w-4 h-4" />
@@ -768,7 +768,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     ? "Requests"
                     : "Actions"}
                   {activeCreatorTab === "discover" && totalItems > 0 && (
-                    <span className="ml-1 min-w-[20px] h-5 px-1.5 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center">
+                    <span className="ml-1 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center">
                       {totalItems}
                     </span>
                   )}
@@ -820,8 +820,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
               onClick={() => setActiveCreatorTab("my_network")}
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "my_network"
-                  ? "bg-white text-black shadow-sm"
-                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
               }`}
             >
               My Network
@@ -830,8 +830,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
               onClick={() => setActiveCreatorTab("discover")}
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "discover"
-                  ? "bg-white text-black shadow-sm"
-                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
               }`}
             >
               Discover
@@ -840,8 +840,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
               onClick={() => setActiveCreatorTab("favorites")}
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "favorites"
-                  ? "bg-white text-black shadow-sm"
-                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
               }`}
             >
               Favorites
@@ -850,8 +850,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
               onClick={() => setActiveCreatorTab("community")}
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "community"
-                  ? "bg-white text-black shadow-sm"
-                  : "bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] text-slate-300 hover:border-white/[0.1]"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
               }`}
             >
               Community
@@ -861,38 +861,38 @@ export function Creators({ onNavigate }: CreatorsProps) {
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3 sm:gap-5">
             <Card
-              className="bg-[#0D0D0D] border-white/[0.08] transition-all duration-150 active:border-white/[0.12]"
+              className="bg-card border-border transition-all duration-150 active:border-border/80"
               style={{ boxShadow: "var(--shadow-stat)" }}
             >
               <CardContent className="p-3.5 sm:p-6">
                 <div
-                  className="text-2xl sm:text-4xl font-semibold text-white tracking-tight"
+                  className="text-2xl sm:text-4xl font-semibold text-foreground tracking-tight"
                   style={{ letterSpacing: "var(--letter-spacing-tight)" }}
                 >
                   {activeCreatorTab === "community" 
                     ? (fanStats?.total_fans || 0)
                     : creators.length}
                 </div>
-                <p className="text-[11px] sm:text-sm text-slate-400 mt-1 sm:mt-2 font-medium">
+                <p className="text-[11px] sm:text-sm text-muted-foreground mt-1 sm:mt-2 font-medium">
                   {activeCreatorTab === "community" ? "Total Fans" : "Total Creators"}
                 </p>
               </CardContent>
             </Card>
 
             <Card
-              className="bg-[#0D0D0D] border-white/[0.08] transition-all duration-150 active:border-white/[0.12]"
+              className="bg-card border-border transition-all duration-150 active:border-border/80"
               style={{ boxShadow: "var(--shadow-stat)" }}
             >
               <CardContent className="p-3.5 sm:p-6">
                 <div
-                  className="text-2xl sm:text-4xl font-semibold text-purple-400 tracking-tight"
+                  className="text-2xl sm:text-4xl font-semibold text-purple-600 dark:text-purple-400 tracking-tight"
                   style={{ letterSpacing: "var(--letter-spacing-tight)" }}
                 >
                   {activeCreatorTab === "community"
                     ? (fanStats?.total_followers ? formatFollowers(fanStats.total_followers) : "0")
                     : creators.reduce((sum, c) => sum + c.totalPosts, 0)}
                 </div>
-                <p className="text-[11px] sm:text-sm text-slate-400 mt-1 sm:mt-2 font-medium">
+                <p className="text-[11px] sm:text-sm text-muted-foreground mt-1 sm:mt-2 font-medium">
                   {activeCreatorTab === "community" ? "Total Followers" : "Total Posts"}
                 </p>
               </CardContent>
@@ -903,7 +903,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
                   type="search"
                   placeholder="Search creators by name, handle, email, or location..."
@@ -914,12 +914,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </div>
               <button
                 onClick={() => setFiltersOpen(true)}
-                className="h-11 sm:h-12 min-h-[44px] px-4 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] active:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.1] text-sm text-slate-300 flex items-center justify-center gap-2 transition-all duration-150 w-full sm:w-auto"
+                className="h-11 sm:h-12 min-h-[44px] px-4 rounded-lg bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 hover:border-border/70 text-sm text-foreground flex items-center justify-center gap-2 transition-all duration-150 w-full sm:w-auto"
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden xs:inline">Filters</span>
                 {activeCreatorFilterCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-white text-black text-xs flex items-center justify-center font-semibold">
+                  <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
                     {activeCreatorFilterCount}
                   </span>
                 )}
@@ -944,7 +944,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         | "location"
                     );
                   }}
-                  className="h-11 sm:h-12 w-full sm:w-[220px] px-3 sm:px-4 pr-8 bg-white/[0.04] border border-white/[0.1] rounded-lg text-sm text-white appearance-none cursor-pointer hover:bg-white/[0.06] active:bg-white/[0.08] focus:bg-white/[0.06] focus:border-primary/50 transition-all duration-150"
+                  className="h-11 sm:h-12 w-full sm:w-[220px] px-3 sm:px-4 pr-8 bg-muted/70 border border-border/70 rounded-lg text-sm text-foreground appearance-none cursor-pointer hover:bg-muted/80 active:bg-muted/80 focus:bg-muted/80 focus:border-primary/50 transition-all duration-150"
                   style={{ boxShadow: "var(--shadow-card)" }}
                 >
                   <option value="none">Sort: Default</option>
@@ -958,7 +958,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     setSortDirection(sortDirection === "asc" ? "desc" : "asc")
                   }
                   disabled={!sortField}
-                  className="h-11 sm:h-12 w-11 sm:w-12 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-11 sm:h-12 w-11 sm:w-12 rounded-lg bg-muted/40 hover:bg-muted/80 active:bg-muted/80 border border-border text-foreground flex items-center justify-center transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ boxShadow: "var(--shadow-card)" }}
                   aria-label="Toggle sort direction"
                 >
@@ -975,12 +975,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
               postsRange.min ||
               postsRange.max ||
               searchQuery) && (
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>
                   Showing {filteredAndSortedCreators.length} of{" "}
                   {creators.length}
                 </span>
-                <span className="text-slate-500">•</span>
+                <span className="text-muted-foreground">•</span>
                 {selectedPlatforms.length > 0 && (
                   <span>{selectedPlatforms.length} platform(s)</span>
                 )}
@@ -1001,7 +1001,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 )}
                 <button
                   onClick={clearAllFilters}
-                  className="ml-auto h-8 px-3 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] text-xs text-slate-300 hover:text-white transition-all"
+                  className="ml-auto h-8 px-3 rounded-full bg-muted/70 hover:bg-muted/80 border border-border/70 text-xs text-foreground hover:text-foreground transition-all"
                 >
                   Clear all
                 </button>
@@ -1011,35 +1011,35 @@ export function Creators({ onNavigate }: CreatorsProps) {
           {activeCreatorTab === "community" ? (
             // Community Fans Display
             communityFansLoading ? (
-              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <Card className="bg-card border-border">
                 <CardContent className="flex flex-col items-center justify-center py-16">
-                  <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-                    <UsersIcon className="w-6 h-6 text-slate-600 animate-pulse" />
+                  <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
+                    <UsersIcon className="w-6 h-6 text-muted-foreground animate-pulse" />
                   </div>
-                  <p className="text-sm text-slate-400">Loading fans...</p>
+                  <p className="text-sm text-muted-foreground">Loading fans...</p>
                 </CardContent>
               </Card>
             ) : communityFansData.length > 0 ? (
-              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <Card className="bg-card border-border">
                 <CardContent className="p-3 sm:p-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {communityFansData.map((fan) => (
                       <Card
                         key={fan.id}
-                        className="bg-white/[0.02] border-white/[0.08] hover:border-white/[0.12] transition-colors"
+                        className="bg-muted/40 border-border hover:border-border/80 transition-colors"
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <PlatformIcon platform={fan.platform} size="sm" />
-                                <h3 className="text-sm font-semibold text-white truncate">
+                                <h3 className="text-sm font-semibold text-foreground truncate">
                                   {fan.name || fan.handle}
                                 </h3>
                               </div>
-                              <p className="text-xs text-slate-400 mb-2">@{fan.handle}</p>
+                              <p className="text-xs text-muted-foreground mb-2">@{fan.handle}</p>
                               {fan.follower_count && (
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-muted-foreground">
                                   {formatFollowers(fan.follower_count)} followers
                                 </p>
                               )}
@@ -1056,9 +1056,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                   toast.success('Fan removed');
                                 }
                               }}
-                              className="w-8 h-8 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors flex-shrink-0"
+                              className="w-8 h-8 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center transition-colors flex-shrink-0"
                             >
-                              <X className="w-4 h-4 text-slate-400" />
+                              <X className="w-4 h-4 text-muted-foreground" />
                             </button>
                           </div>
                         </CardContent>
@@ -1068,10 +1068,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="bg-[#0D0D0D] border-white/[0.08]">
+              <Card className="bg-card border-border">
                 <CardContent className="flex flex-col items-center justify-center py-16">
-                  <UsersIcon className="w-12 h-12 text-slate-600 mb-4" />
-                  <p className="text-slate-400">No fans imported yet</p>
+                  <UsersIcon className="w-12 h-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No fans imported yet</p>
                   <Button
                     onClick={() => setShowImportFansDialog(true)}
                     className="mt-4"
@@ -1083,26 +1083,26 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </Card>
             )
           ) : isCreatorsLoading ? (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="w-12 h-12 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4">
-                  <UsersIcon className="w-6 h-6 text-slate-600 animate-pulse" />
+                <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
+                  <UsersIcon className="w-6 h-6 text-muted-foreground animate-pulse" />
                 </div>
-                <p className="text-sm text-slate-400">Loading creators...</p>
+                <p className="text-sm text-muted-foreground">Loading creators...</p>
               </CardContent>
             </Card>
           ) : filteredAndSortedCreators.length > 0 ? (
             <Card
-              className="bg-[#0D0D0D] border-white/[0.08]"
+              className="bg-card border-border"
               style={{ boxShadow: "var(--shadow-card)" }}
             >
               <CardContent className="p-3 sm:p-5">
                 {selectedCreatorIds.size > 0 && (
                   <div
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5 p-3 sm:p-4 rounded-lg bg-white/[0.03] border border-white/[0.08]"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5 p-3 sm:p-4 rounded-lg bg-muted/60 border border-border"
                     style={{ boxShadow: "var(--shadow-card)" }}
                   >
-                    <span className="text-sm text-slate-400 font-medium">
+                    <span className="text-sm text-muted-foreground font-medium">
                       {selectedCreatorIds.size} selected
                     </span>
                     <div className="flex flex-wrap gap-2">
@@ -1117,7 +1117,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                           setSelectedCreatorIds(new Set());
                           setShowChatbotModal(true);
                         }}
-                        className="border-white/[0.08]"
+                        className="border-border"
                       >
                         Create Request
                       </Button>
@@ -1136,7 +1136,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             }
                           }
                         }}
-                        className="border-white/[0.08]"
+                        className="border-border"
                       >
                         Add to Activation
                       </Button>
@@ -1144,7 +1144,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         variant="outline"
                         size="sm"
                         onClick={handleExportCSV}
-                        className="border-white/[0.08]"
+                        className="border-border"
                       >
                         Export
                       </Button>
@@ -1152,7 +1152,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => setSelectedCreatorIds(new Set())}
-                        className="border-white/[0.08]"
+                        className="border-border"
                       >
                         Deselect All
                       </Button>
@@ -1250,10 +1250,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="flex flex-col items-center justify-center py-16">
-                <UsersIcon className="w-12 h-12 text-slate-600 mb-4" />
-                <p className="text-slate-400">
+                <UsersIcon className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
                   {activeCreatorTab === "my_network"
                     ? "No creators in your network yet"
                     : activeCreatorTab === "discover"
@@ -1285,16 +1285,16 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     {paginatedCreators.map((creator) => (
                       <Card
                         key={creator.id}
-                        className="bg-[#0D0D0D] border-white/[0.08] hover:border-white/[0.12] transition-colors"
+                        className="bg-card border-border hover:border-border/80 transition-colors"
                       >
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-cyan-400/20 border border-primary/30 flex items-center justify-center text-xs font-semibold text-primary">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-red-400/20 dark:to-cyan-400/20 border border-primary/30 flex items-center justify-center text-xs font-semibold text-primary">
                                 {creator.name?.charAt(0).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-white truncate">
+                                <p className="text-sm font-medium text-foreground truncate">
                                   {creator.name}
                                 </p>
                                 <CreatorHandleLink
@@ -1319,19 +1319,19 @@ export function Creators({ onNavigate }: CreatorsProps) {
                             })()}
                           </div>
                           <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
+                            <div className="rounded-md border border-border bg-muted/40 px-2 py-1.5">
                               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                                 Followers
                               </p>
-                              <p className="text-sm text-white mt-0.5">
+                              <p className="text-sm text-foreground mt-0.5">
                                 {formatFollowers(creator.follower_count)}
                               </p>
                             </div>
-                            <div className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5">
+                            <div className="rounded-md border border-border bg-muted/40 px-2 py-1.5">
                               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                                 Engagement
                               </p>
-                              <p className="text-sm text-emerald-400 mt-0.5">
+                              <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-0.5">
                                 {creator.avg_engagement}%
                               </p>
                             </div>
@@ -1343,7 +1343,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                   setRequestCreatorId(creator.id);
                                   setShowSingleCreatorRequestModal(true);
                                 }}
-                                className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
+                                className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium transition-colors"
                               >
                                 Request Creator
                               </button>
@@ -1353,7 +1353,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openViewDialog(creator)}
-                                className="min-h-[44px] flex-1 border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+                                className="min-h-[44px] flex-1 border-border bg-muted/60 hover:bg-muted/80 text-foreground"
                               >
                                 <Eye className="w-4 h-4" />
                                 View
@@ -1362,7 +1362,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                 <>
                                   <button
                                     onClick={() => openEditDialog(creator)}
-                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
+                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center transition-colors"
                                     aria-label="Edit creator"
                                   >
                                     <Edit2 className="w-4 h-4" />
@@ -1394,7 +1394,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                 ) : (
                                   <button
                                     onClick={() => addCreator(creator)}
-                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 flex items-center justify-center transition-colors"
+                                    className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center transition-colors"
                                     aria-label="Add creator"
                                   >
                                     <Plus className="w-4 h-4" />
@@ -1410,9 +1410,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   <div className="hidden lg:block overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-white/[0.08] hover:bg-transparent">
+                        <TableRow className="border-border hover:bg-transparent">
                           {activeCreatorTab === "discover" && (
-                            <TableHead className="text-slate-400 font-medium w-12">
+                            <TableHead className="text-muted-foreground font-medium w-12">
                               <input
                                 type="checkbox"
                                 checked={
@@ -1430,47 +1430,47 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                     );
                                   }
                                 }}
-                                className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
+                                className="w-4 h-4 rounded border-border/70 bg-muted/60 checked:bg-primary checked:border-primary cursor-pointer"
                               />
                             </TableHead>
                           )}
-                          <TableHead className="text-slate-400 font-medium">
+                          <TableHead className="text-muted-foreground font-medium">
                             Creator
                           </TableHead>
                           {activeCreatorTab === "my_network" && (
-                            <TableHead className="text-slate-400 font-medium">
+                            <TableHead className="text-muted-foreground font-medium">
                               Contact
                             </TableHead>
                           )}
-                          <TableHead className="text-slate-400 font-medium">
+                          <TableHead className="text-muted-foreground font-medium">
                             Platform
                           </TableHead>
-                          <TableHead className="text-slate-400 font-medium">
+                          <TableHead className="text-muted-foreground font-medium">
                             Niche
                           </TableHead>
-                          <TableHead className="text-slate-400 font-medium text-right">
+                          <TableHead className="text-muted-foreground font-medium text-right">
                             Followers
                           </TableHead>
-                          <TableHead className="text-slate-400 font-medium text-right">
+                          <TableHead className="text-muted-foreground font-medium text-right">
                             Campaigns
                           </TableHead>
-                          <TableHead className="text-slate-400 font-medium text-right">
+                          <TableHead className="text-muted-foreground font-medium text-right">
                             Posts
                           </TableHead>
-                          <TableHead className="text-slate-400 font-medium text-right">
+                          <TableHead className="text-muted-foreground font-medium text-right">
                             Engagement
                           </TableHead>
                           {activeCreatorTab === "my_network" && (
-                            <TableHead className="text-slate-400 font-medium text-center">
+                            <TableHead className="text-muted-foreground font-medium text-center">
                               Actions
                             </TableHead>
                           )}
                           {activeCreatorTab === "discover" && (
                             <>
-                              <TableHead className="text-slate-400 font-medium text-right">
+                              <TableHead className="text-muted-foreground font-medium text-right">
                                 Actions
                               </TableHead>
-                              <TableHead className="text-slate-400 font-medium text-right w-20">
+                              <TableHead className="text-muted-foreground font-medium text-right w-20">
                                 Add
                               </TableHead>
                             </>
@@ -1481,7 +1481,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         {paginatedCreators.map((creator) => (
                           <TableRow
                             key={creator.id}
-                            className="border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+                            className="border-border/60 hover:bg-muted/40 transition-colors"
                           >
                             {activeCreatorTab === "discover" && (
                               <TableCell>
@@ -1495,12 +1495,12 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                       removeCreator(creator.id);
                                     }
                                   }}
-                                  className="w-4 h-4 rounded border-white/[0.2] bg-white/[0.03] checked:bg-primary checked:border-primary cursor-pointer"
+                                  className="w-4 h-4 rounded border-border/70 bg-muted/60 checked:bg-primary checked:border-primary cursor-pointer"
                                 />
                               </TableCell>
                             )}
                             <TableCell>
-                              <div className="font-medium text-white text-sm">
+                              <div className="font-medium text-foreground text-sm">
                                 {creator.name}
                               </div>
                               <CreatorHandleLink
@@ -1513,17 +1513,17 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               <TableCell>
                                 <div className="space-y-1.5 min-w-[180px]">
                                   {creator.email && (
-                                    <div className="text-sm text-white">
+                                    <div className="text-sm text-foreground">
                                       {creator.email}
                                     </div>
                                   )}
                                   {creator.phone && (
-                                    <div className="text-sm text-white">
+                                    <div className="text-sm text-foreground">
                                       {creator.phone}
                                     </div>
                                   )}
                                   {!creator.email && !creator.phone && (
-                                    <span className="text-xs text-slate-500">
+                                    <span className="text-xs text-muted-foreground">
                                       No contact info
                                     </span>
                                   )}
@@ -1546,27 +1546,27 @@ export function Creators({ onNavigate }: CreatorsProps) {
                               })()}
                             </TableCell>
                             <TableCell>
-                              <span className="text-sm text-slate-300">
+                              <span className="text-sm text-foreground">
                                 {creator.niche || "-"}
                               </span>
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className="text-white font-medium text-sm">
+                              <span className="text-foreground font-medium text-sm">
                                 {formatFollowers(creator.follower_count)}
                               </span>
                             </TableCell>
-                            <TableCell className="text-right text-slate-300">
+                            <TableCell className="text-right text-foreground">
                               <span className="text-sm">
                                 {creator.campaigns}
                               </span>
                             </TableCell>
-                            <TableCell className="text-right text-slate-300">
+                            <TableCell className="text-right text-foreground">
                               <span className="text-sm">
                                 {creator.totalPosts}
                               </span>
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className="text-emerald-400 font-medium text-sm">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium text-sm">
                                 {creator.avg_engagement}%
                               </span>
                             </TableCell>
@@ -1575,17 +1575,17 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => openViewDialog(creator)}
-                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-muted/80 flex items-center justify-center transition-colors"
                                     aria-label="View creator"
                                   >
-                                    <Eye className="w-5 h-5 text-slate-400" />
+                                    <Eye className="w-5 h-5 text-muted-foreground" />
                                   </button>
                                   <button
                                     onClick={() => openEditDialog(creator)}
-                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-md hover:bg-muted/80 flex items-center justify-center transition-colors"
                                     aria-label="Edit creator"
                                   >
-                                    <Edit2 className="w-5 h-5 text-slate-400" />
+                                    <Edit2 className="w-5 h-5 text-muted-foreground" />
                                   </button>
                                   <button
                                     type="button"
@@ -1611,7 +1611,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                       setRequestCreatorId(creator.id);
                                       setShowSingleCreatorRequestModal(true);
                                     }}
-                                    className="h-7 px-3 rounded-md bg-primary hover:bg-primary/90 text-black text-xs font-medium transition-colors"
+                                    className="h-7 px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium transition-colors"
                                   >
                                     Request Creator
                                   </button>
@@ -1628,7 +1628,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                                   ) : (
                                     <button
                                       onClick={() => addCreator(creator)}
-                                      className="h-7 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-slate-300 text-xs font-medium transition-colors"
+                                      className="h-7 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground text-xs font-medium transition-colors"
                                     >
                                       Add
                                     </button>
@@ -1644,9 +1644,9 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </CardContent>
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="p-4 border-t border-white/[0.08]">
+                  <div className="p-4 border-t border-border">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-slate-400">
+                      <p className="text-sm text-muted-foreground">
                         Showing {startIndex + 1}-
                         {Math.min(endIndex, filteredAndSortedCreators.length)}{" "}
                         of {filteredAndSortedCreators.length} creators
@@ -1730,18 +1730,18 @@ export function Creators({ onNavigate }: CreatorsProps) {
       </div>
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="bg-[#0D0D0D] border-white/[0.08] w-[92vw] max-w-md p-4 sm:p-6">
+        <DialogContent className="bg-card border-border w-[92vw] max-w-md p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg font-semibold text-white">
+            <DialogTitle className="text-base sm:text-lg font-semibold text-foreground">
               Filters
             </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm text-slate-400">
+            <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
               Filter creators by platform, niche, location, and followers.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Platform
               </p>
               <PlatformSelect
@@ -1750,13 +1750,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Niche
               </label>
               <select
                 value={selectedNiche}
                 onChange={(e) => setSelectedNiche(e.target.value)}
-                className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                className="h-10 sm:h-11 w-full rounded-md bg-muted/60 border border-border px-3 text-sm sm:text-base text-foreground"
               >
                 <option value="all">All Niches</option>
                 {uniqueNiches
@@ -1769,13 +1769,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Location
               </label>
               <select
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
-                className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                className="h-10 sm:h-11 w-full rounded-md bg-muted/60 border border-border px-3 text-sm sm:text-base text-foreground"
               >
                 <option value="all">All Locations</option>
                 {uniqueLocations
@@ -1788,7 +1788,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Followers
               </label>
               <div className="flex flex-wrap gap-2">
@@ -1807,7 +1807,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       const val = raw === "" ? "" : String(parseInt(raw) || 0);
                       setFollowerRange({ ...followerRange, min: val });
                     }}
-                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                    className="h-10 sm:h-11 w-full rounded-md bg-muted/60 border border-border px-3 text-sm sm:text-base text-foreground"
                   />
                 </div>
                 <div className="flex-1 min-w-[120px]">
@@ -1825,13 +1825,13 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       const val = raw === "" ? "" : String(parseInt(raw) || 0);
                       setFollowerRange({ ...followerRange, max: val });
                     }}
-                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                    className="h-10 sm:h-11 w-full rounded-md bg-muted/60 border border-border px-3 text-sm sm:text-base text-foreground"
                   />
                 </div>
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Posts
               </label>
               <div className="flex flex-wrap gap-2">
@@ -1843,7 +1843,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setPostsRange({ ...postsRange, min: e.target.value })
                     }
-                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                    className="h-10 sm:h-11 w-full rounded-md bg-muted/60 border border-border px-3 text-sm sm:text-base text-foreground"
                   />
                 </div>
                 <div className="flex-1 min-w-[120px]">
@@ -1854,7 +1854,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setPostsRange({ ...postsRange, max: e.target.value })
                     }
-                    className="h-10 sm:h-11 w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 text-sm sm:text-base text-white"
+                    className="h-10 sm:h-11 w-full rounded-md bg-muted/60 border border-border px-3 text-sm sm:text-base text-foreground"
                   />
                 </div>
               </div>
@@ -1881,10 +1881,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
       {/* Add/Edit Dialog */}
       {(addDialogOpen || editDialogOpen) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="bg-[#1A1A1A] border-white/[0.08] max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <Card className="bg-card border-border max-w-md w-full max-h-[90vh] overflow-y-auto">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">
+                <h3 className="text-lg font-semibold text-foreground">
                   {addDialogOpen ? "Add Creator" : "Edit Creator"}
                 </h3>
                 <button
@@ -1903,14 +1903,14 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       location: "",
                     });
                   }}
-                  className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-md hover:bg-muted/80 flex items-center justify-center transition-colors"
                 >
-                  <X className="w-4 h-4 text-slate-400" />
+                  <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Name *
                   </label>
                   <Input
@@ -1919,11 +1919,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Handle/Username *
                   </label>
                   <Input
@@ -1932,11 +1932,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, handle: e.target.value })
                     }
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Email
                   </label>
                   <Input
@@ -1946,11 +1946,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Phone
                   </label>
                   <Input
@@ -1959,11 +1959,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
                     }
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Platform
                   </label>
                   <select
@@ -1974,7 +1974,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         platform: e.target.value as any,
                       })
                     }
-                    className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-white"
+                    className="w-full h-10 px-3 bg-muted/60 border border-border rounded-md text-foreground"
                   >
                     <option value="instagram">Instagram</option>
                     <option value="tiktok">TikTok</option>
@@ -1984,7 +1984,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Followers
                   </label>
                   <Input
@@ -2001,11 +2001,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       const num = parseInt(raw) || 0;
                       setFormData({ ...formData, follower_count: num });
                     }}
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Avg. Engagement (%)
                   </label>
                   <Input
@@ -2019,11 +2019,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         avg_engagement: parseFloat(e.target.value) || 0,
                       })
                     }
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Niche
                   </label>
                   <Input
@@ -2032,11 +2032,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, niche: e.target.value })
                     }
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Location
                   </label>
                   <Input
@@ -2045,7 +2045,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, location: e.target.value })
                     }
-                    className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                    className="h-10 bg-muted/60 border-border text-foreground"
                   />
                 </div>
                 <div className="flex gap-3 pt-2">
@@ -2073,7 +2073,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                       setEditDialogOpen(false);
                     }}
                     variant="outline"
-                    className="h-9 px-4 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                    className="h-9 px-4 bg-muted/60 hover:bg-muted/80 border-border text-foreground"
                   >
                     Cancel
                   </Button>
@@ -2087,10 +2087,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
       {/* View Dialog */}
       {viewDialogOpen && selectedCreator && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="bg-[#1A1A1A] border-white/[0.08] max-w-md w-full">
+          <Card className="bg-card border-border max-w-md w-full">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-white">
+                <h3 className="text-lg font-semibold text-foreground">
                   Creator Profile
                 </h3>
                 <button
@@ -2098,18 +2098,18 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     setViewDialogOpen(false);
                     setSelectedCreator(null);
                   }}
-                  className="w-8 h-8 rounded-md hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-md hover:bg-muted/80 flex items-center justify-center transition-colors"
                 >
-                  <X className="w-4 h-4 text-slate-400" />
+                  <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
               <div className="space-y-4">
-                <div className="flex items-center gap-4 pb-4 border-b border-white/[0.08]">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white font-semibold text-xl">
+                <div className="flex items-center gap-4 pb-4 border-b border-border">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-foreground font-semibold text-xl">
                     {selectedCreator.name.charAt(0)}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-white text-lg">
+                    <h4 className="font-semibold text-foreground text-lg">
                       {selectedCreator.name}
                     </h4>
                     {(() => {
@@ -2138,41 +2138,41 @@ export function Creators({ onNavigate }: CreatorsProps) {
                 </div>
 
                 <div className="grid grid-cols-4 gap-3">
-                  <div className="col-span-2 p-3 rounded-lg bg-white/[0.03]">
-                    <div className="text-2xl font-semibold text-white">
+                  <div className="col-span-2 p-3 rounded-lg bg-muted/60">
+                    <div className="text-2xl font-semibold text-foreground">
                       {formatFollowers(selectedCreator.follower_count)}
                     </div>
-                    <p className="text-xs text-slate-500">Followers</p>
+                    <p className="text-xs text-muted-foreground">Followers</p>
                   </div>
-                  <div className="col-span-2 p-3 rounded-lg bg-white/[0.03]">
-                    <div className="text-2xl font-semibold text-emerald-400">
+                  <div className="col-span-2 p-3 rounded-lg bg-muted/60">
+                    <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
                       {selectedCreator.avg_engagement}%
                     </div>
-                    <p className="text-xs text-slate-500">Engagement</p>
+                    <p className="text-xs text-muted-foreground">Engagement</p>
                   </div>
-                  <div className="col-span-1 p-3 rounded-lg bg-white/[0.03]">
-                    <div className="text-2xl font-semibold text-white">
+                  <div className="col-span-1 p-3 rounded-lg bg-muted/60">
+                    <div className="text-2xl font-semibold text-foreground">
                       {selectedCreator.campaigns}
                     </div>
-                    <p className="text-xs text-slate-500">Campaigns</p>
+                    <p className="text-xs text-muted-foreground">Campaigns</p>
                   </div>
-                  <div className="col-span-1 p-3 rounded-lg bg-white/[0.03]">
-                    <div className="text-2xl font-semibold text-white">
+                  <div className="col-span-1 p-3 rounded-lg bg-muted/60">
+                    <div className="text-2xl font-semibold text-foreground">
                       {selectedCreator.totalPosts}
                     </div>
-                    <p className="text-xs text-slate-500">Posts</p>
+                    <p className="text-xs text-muted-foreground">Posts</p>
                   </div>
-                  <div className="col-span-2 p-3 rounded-lg bg-white/[0.03]">
-                    <div className="text-sm font-semibold text-white truncate">
+                  <div className="col-span-2 p-3 rounded-lg bg-muted/60">
+                    <div className="text-sm font-semibold text-foreground truncate">
                       {selectedCreator.niche || "—"}
                     </div>
-                    <p className="text-xs text-slate-500">Niche</p>
+                    <p className="text-xs text-muted-foreground">Niche</p>
                   </div>
                 </div>
 
                 <div className="space-y-3 pt-2">
                   <div>
-                    <label className="text-xs text-slate-500">Handle </label>
+                    <label className="text-xs text-muted-foreground">Handle </label>
                     <CreatorHandleLink
                       handle={selectedCreator.handle}
                       platform={selectedCreator.platform}
@@ -2183,20 +2183,20 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     <>
                       {selectedCreator.email && (
                         <div>
-                          <label className="text-xs text-slate-500">
+                          <label className="text-xs text-muted-foreground">
                             Email
                           </label>
-                          <div className="text-sm text-white mt-1">
+                          <div className="text-sm text-foreground mt-1">
                             {selectedCreator.email}
                           </div>
                         </div>
                       )}
                       {selectedCreator.phone && (
                         <div>
-                          <label className="text-xs text-slate-500">
+                          <label className="text-xs text-muted-foreground">
                             Phone
                           </label>
-                          <div className="text-sm text-white mt-1">
+                          <div className="text-sm text-foreground mt-1">
                             {selectedCreator.phone}
                           </div>
                         </div>
@@ -2207,11 +2207,11 @@ export function Creators({ onNavigate }: CreatorsProps) {
 
                 {/* Request Creator CTA - Show for All Creators */}
                 {activeCreatorTab === "discover" && (
-                  <div className="mt-6 pt-6 border-t border-white/[0.08]">
-                    <h4 className="text-base font-semibold text-white mb-2">
+                  <div className="mt-6 pt-6 border-t border-border">
+                    <h4 className="text-base font-semibold text-foreground mb-2">
                       Want to work with this creator?
                     </h4>
-                    <p className="text-sm text-slate-400 mb-4">
+                    <p className="text-sm text-muted-foreground mb-4">
                       Submit a request and our team will reach out and confirm
                       availability, pricing, and delivery timeline.
                     </p>
@@ -2221,7 +2221,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                         setShowSingleCreatorRequestModal(true);
                         setViewDialogOpen(false);
                       }}
-                      className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-black text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                      className="w-full h-9 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                     >
                       Request this creator
                     </button>
@@ -2326,21 +2326,21 @@ export function Creators({ onNavigate }: CreatorsProps) {
           if (!open) setRequestCreatorId(null);
         }}
       >
-        <DialogContent className="bg-[#0D0D0D] border-white/[0.08] max-w-2xl max-h-[90vh] overflow-y-auto text-base">
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto text-base">
           <DialogHeader>
-            <DialogTitle className="text-white text-base font-semibold">
+            <DialogTitle className="text-foreground text-base font-semibold">
               Creator Request
             </DialogTitle>
-            <DialogDescription className="text-slate-400 text-xs">
+            <DialogDescription className="text-muted-foreground text-xs">
               Request creators at quoted rates. Funds lock when they accept.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-3">
-            <Card className="bg-white/[0.04] border-white/[0.08]">
+            <Card className="bg-muted/70 border-border">
               <CardContent className="p-3 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-400">Available balance</p>
-                  <p className="text-base font-semibold text-white">
+                  <p className="text-xs text-muted-foreground">Available balance</p>
+                  <p className="text-base font-semibold text-foreground">
                     {new Intl.NumberFormat("en-NG", {
                       style: "currency",
                       currency: "NGN",
@@ -2356,7 +2356,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
                     setShowSingleCreatorRequestModal(false);
                     onNavigate?.("/wallet");
                   }}
-                  className="border-white/[0.08] text-xs"
+                  className="border-border text-xs"
                 >
                   Fund Wallet
                 </Button>

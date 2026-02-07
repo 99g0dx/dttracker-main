@@ -53,19 +53,19 @@ export function ActivationDetailSMPanel({
       <div className="flex items-center gap-4">
         <button
           onClick={() => onNavigate('/activations')}
-          className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
+          className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border flex items-center justify-center"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <ThumbsUp className="w-5 h-5 text-cyan-400 flex-shrink-0" />
-            <span className="text-xs text-slate-500">SM Panel</span>
+            <ThumbsUp className="w-5 h-5 text-red-600 dark:text-cyan-400 flex-shrink-0" />
+            <span className="text-xs text-muted-foreground">SM Panel</span>
           </div>
-          <h1 className="text-xl font-semibold text-white truncate">
+          <h1 className="text-xl font-semibold text-foreground truncate">
             {activation.title}
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted-foreground">
             {approvedCount}
             {activation.max_participants
               ? `/${formatNumber(activation.max_participants)}`
@@ -77,7 +77,7 @@ export function ActivationDetailSMPanel({
               {activation.platforms.map((p) => (
                 <div
                   key={p}
-                  className="flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5"
+                  className="flex items-center gap-1 rounded-md bg-muted/80 px-2 py-0.5"
                 >
                   <PlatformIcon
                     platform={
@@ -85,7 +85,7 @@ export function ActivationDetailSMPanel({
                     }
                     size="sm"
                   />
-                  <span className="text-xs text-slate-400 capitalize">{p}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{p}</span>
                 </div>
               ))}
             </div>
@@ -94,10 +94,10 @@ export function ActivationDetailSMPanel({
         <span
           className={`text-xs font-medium px-2 py-1 rounded border ${
             activation.status === 'live'
-              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
               : activation.status === 'completed'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-              : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+              ? 'bg-red-100/70 dark:bg-blue-500/20 text-red-700 dark:text-blue-400 border-red-200 dark:border-blue-500/30'
+              : 'bg-slate-500/20 text-muted-foreground border-slate-500/30'
           }`}
         >
           {statusLabel}
@@ -105,35 +105,35 @@ export function ActivationDetailSMPanel({
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Deadline</p>
-            <p className="font-medium text-white flex items-center gap-2 mt-1">
+            <p className="text-xs text-muted-foreground">Deadline</p>
+            <p className="font-medium text-foreground flex items-center gap-2 mt-1">
               <Calendar className="w-4 h-4" />
               {format(new Date(activation.deadline), 'MMM d')}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Task</p>
-            <p className="font-medium text-white capitalize mt-1">
+            <p className="text-xs text-muted-foreground">Task</p>
+            <p className="font-medium text-foreground capitalize mt-1">
               {activation.task_type ?? '-'}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Spent</p>
-            <p className="font-medium text-white mt-1">
+            <p className="text-xs text-muted-foreground">Spent</p>
+            <p className="font-medium text-foreground mt-1">
               {formatAmount(spentAmount)} / {formatAmount(activation.total_budget)}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">{baseRateLabel}</p>
-            <p className="font-medium text-white mt-1">
+            <p className="text-xs text-muted-foreground">{baseRateLabel}</p>
+            <p className="font-medium text-foreground mt-1">
               {formatAmount(
                 Number(activation.base_rate ?? activation.payment_per_action ?? 0)
               )}
@@ -144,15 +144,15 @@ export function ActivationDetailSMPanel({
 
       <div>
         <div className="flex justify-between text-sm mb-2">
-          <span className="text-slate-400">Progress</span>
-          <span className="text-white">
+          <span className="text-muted-foreground">Progress</span>
+          <span className="text-foreground">
             {approvedCount}
             {activation.max_participants
               ? ` / ${activation.max_participants}`
               : ''}
           </span>
         </div>
-        <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+        <div className="h-2 bg-muted/80 rounded-full overflow-hidden">
           <div
             className="h-full bg-primary transition-all"
             style={{ width: `${Math.min(progress, 100)}%` }}
@@ -161,23 +161,23 @@ export function ActivationDetailSMPanel({
       </div>
 
       {activation.brief && (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <h3 className="text-sm font-medium text-slate-400 mb-2">Brief</h3>
-            <p className="text-white whitespace-pre-wrap">{activation.brief}</p>
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">Brief</h3>
+            <p className="text-foreground whitespace-pre-wrap">{activation.brief}</p>
           </CardContent>
         </Card>
       )}
 
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-6">
-          <h3 className="text-sm font-medium text-slate-400 mb-4">
+          <h3 className="text-sm font-medium text-muted-foreground mb-4">
             Completions
           </h3>
           {submissions.length === 0 ? (
             <div className="py-12 text-center">
-              <p className="text-slate-400">No completions yet</p>
-              <p className="text-slate-500 text-sm mt-1">
+              <p className="text-muted-foreground">No completions yet</p>
+              <p className="text-muted-foreground text-sm mt-1">
                 Completions will appear when creators submit from Dobble Tap
               </p>
             </div>
@@ -186,32 +186,32 @@ export function ActivationDetailSMPanel({
               {submissions.map((s) => (
                 <div
                   key={s.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-white/[0.03] border border-white/[0.06]"
+                  className="flex items-center justify-between p-4 rounded-lg bg-muted/60 border border-border/60"
                 >
                   <div>
-                    <p className="font-medium text-white">
+                    <p className="font-medium text-foreground">
                       @{s.creator_handle ?? 'Unknown'}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {format(new Date(s.submitted_at), 'MMM d, HH:mm')} •{' '}
                       {s.status}
                       {s.tier && (
                         <>
                           {' • '}
-                          <span className="text-slate-400">{s.tier}</span>
+                          <span className="text-muted-foreground">{s.tier}</span>
                         </>
                       )}
                       {s.creator_followers != null && (
                         <>
                           {' • '}
-                          <span className="text-slate-400">
+                          <span className="text-muted-foreground">
                             {formatNumber(s.creator_followers)} followers
                           </span>
                         </>
                       )}
                     </p>
                     {s.proof_comment_text && (
-                      <p className="text-xs text-slate-400 mt-1 italic max-w-md truncate">
+                      <p className="text-xs text-muted-foreground mt-1 italic max-w-md truncate">
                         "{s.proof_comment_text}"
                       </p>
                     )}

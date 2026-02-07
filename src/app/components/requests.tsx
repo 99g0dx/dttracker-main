@@ -62,44 +62,51 @@ const statusConfig: Record<
 > = {
   suggested: {
     label: "Owner Approval Pending",
-    color: "text-amber-400",
-    bgColor: "bg-amber-400/10 border-amber-400/20",
+    color: "text-amber-700 dark:text-amber-400",
+    bgColor:
+      "bg-amber-100/70 dark:bg-amber-400/10 border-amber-200 dark:border-amber-400/20",
     icon: <FileText className="w-4 h-4" />,
   },
   submitted: {
     label: "Submitted",
-    color: "text-blue-400",
-    bgColor: "bg-blue-400/10 border-blue-400/20",
+    color: "text-red-700 dark:text-blue-400",
+    bgColor:
+      "bg-red-100/70 dark:bg-blue-400/10 border-red-200 dark:border-blue-400/20",
     icon: <FileText className="w-4 h-4" />,
   },
   reviewing: {
     label: "Reviewing",
-    color: "text-yellow-400",
-    bgColor: "bg-yellow-400/10 border-yellow-400/20",
+    color: "text-yellow-700 dark:text-yellow-400",
+    bgColor:
+      "bg-yellow-100/70 dark:bg-yellow-400/10 border-yellow-200 dark:border-yellow-400/20",
     icon: <Clock className="w-4 h-4" />,
   },
   quoted: {
     label: "Quoted",
-    color: "text-purple-400",
-    bgColor: "bg-purple-400/10 border-purple-400/20",
+    color: "text-purple-700 dark:text-purple-400",
+    bgColor:
+      "bg-purple-100/70 dark:bg-purple-400/10 border-purple-200 dark:border-purple-400/20",
     icon: <DollarSign className="w-4 h-4" />,
   },
   approved: {
     label: "Approved",
-    color: "text-green-400",
-    bgColor: "bg-green-400/10 border-green-400/20",
+    color: "text-green-700 dark:text-green-400",
+    bgColor:
+      "bg-green-100/70 dark:bg-green-400/10 border-green-200 dark:border-green-400/20",
     icon: <CheckCircle2 className="w-4 h-4" />,
   },
   in_fulfillment: {
     label: "In Fulfillment",
-    color: "text-indigo-400",
-    bgColor: "bg-indigo-400/10 border-indigo-400/20",
+    color: "text-indigo-700 dark:text-indigo-400",
+    bgColor:
+      "bg-indigo-100/70 dark:bg-indigo-400/10 border-indigo-200 dark:border-indigo-400/20",
     icon: <Clock className="w-4 h-4" />,
   },
   delivered: {
     label: "Delivered",
-    color: "text-emerald-400",
-    bgColor: "bg-emerald-400/10 border-emerald-400/20",
+    color: "text-emerald-700 dark:text-emerald-400",
+    bgColor:
+      "bg-emerald-100/70 dark:bg-emerald-400/10 border-emerald-200 dark:border-emerald-400/20",
     icon: <CheckCircle2 className="w-4 h-4" />,
   },
 };
@@ -454,16 +461,16 @@ export function Requests({ onNavigate }: RequestsProps) {
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate?.("/")}
-            className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 min-h-[44px] flex-shrink-0 rounded-md bg-muted/60 hover:bg-muted active:bg-muted border border-border flex items-center justify-center transition-colors"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground">
               Creator Requests
             </h1>
-            <p className="text-sm sm:text-base text-slate-400 mt-1 sm:mt-2">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
               Track your creator requests and their status
             </p>
           </div>
@@ -475,7 +482,7 @@ export function Requests({ onNavigate }: RequestsProps) {
         {Object.entries(statusConfig).map(([status, config]) => (
           <Card
             key={status}
-            className="bg-white/[0.02] border-white/[0.08] rounded-xl overflow-hidden cursor-pointer active:bg-white/[0.04] transition-colors"
+            className="bg-card border-border rounded-xl overflow-hidden cursor-pointer active:bg-muted/70 transition-colors"
             style={{ boxShadow: "var(--shadow-card)" }}
             onClick={() =>
               setStatusFilter(
@@ -493,10 +500,10 @@ export function Requests({ onNavigate }: RequestsProps) {
                   {config.icon}
                 </div>
                 <div>
-                  <p className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+                  <p className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
                     {statusCounts[status as CreatorRequestStatus]}
                   </p>
-                  <p className="text-[10px] min-[400px]:text-xs text-slate-400 truncate">
+                  <p className="text-[10px] min-[400px]:text-xs text-muted-foreground truncate">
                     {config.label}
                   </p>
                 </div>
@@ -508,23 +515,23 @@ export function Requests({ onNavigate }: RequestsProps) {
 
       {/* Filters */}
       <Card
-        className="bg-white/[0.02] border-white/[0.08] rounded-xl overflow-hidden"
+        className="bg-card border-border rounded-xl overflow-hidden"
         style={{ boxShadow: "var(--shadow-card)" }}
       >
         <CardContent className="p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search requests..."
-                className="pl-9 h-10 sm:h-9 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+                className="pl-9 h-10 sm:h-9 bg-muted/60 border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-400" />
+              <Filter className="w-4 h-4 text-muted-foreground" />
               <select
                 value={statusFilter}
                 onChange={(e) =>
@@ -532,7 +539,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                     e.target.value as CreatorRequestStatus | "all"
                   )
                 }
-                className="flex flex-wrap w-[117px] h-10 sm:h-9 px-3 pr-8 bg-white/[0.03] border border-white/[0.08] rounded-lg text-[10px] text-white appearance-none cursor-pointer hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/50 transition-all"
+                className="flex flex-wrap w-[117px] h-10 sm:h-9 px-3 pr-8 bg-muted/60 border border-border rounded-lg text-[10px] text-foreground appearance-none cursor-pointer hover:bg-muted focus:bg-muted focus:border-primary/50 transition-all"
               >
                 <option value="all">All Status</option>
                 {Object.entries(statusConfig).map(([status, config]) => (
@@ -542,8 +549,8 @@ export function Requests({ onNavigate }: RequestsProps) {
                 ))}
               </select>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
-              <span className="rounded-full border border-white/[0.1] px-2 py-1">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border border-border px-2 py-1">
                 Owner Approval
               </span>
               <span className="w-[139px] h-[35px]">
@@ -556,7 +563,7 @@ export function Requests({ onNavigate }: RequestsProps) {
 
       {/* Requests List */}
       {isLoading ? (
-        <Card className="bg-white/[0.02] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center justify-between">
               <Skeleton className="h-4 w-28" />
@@ -570,9 +577,9 @@ export function Requests({ onNavigate }: RequestsProps) {
           </CardContent>
         </Card>
       ) : filteredRequests.length === 0 ? (
-        <Card className="bg-white/[0.02] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-8 text-center">
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               {searchQuery || statusFilter !== "all"
                 ? "No requests found matching your filters."
                 : "No requests yet. Create your first request from the Creator Library."}
@@ -595,7 +602,7 @@ export function Requests({ onNavigate }: RequestsProps) {
           >
             {showRefreshShimmer && (
               <div className="sticky top-0 z-10">
-                <Skeleton className="h-1 w-full rounded-none bg-white/[0.08]" />
+                <Skeleton className="h-1 w-full rounded-none bg-muted" />
               </div>
             )}
             {mobileVirtualWindow.paddingTop > 0 && (
@@ -612,8 +619,8 @@ export function Requests({ onNavigate }: RequestsProps) {
                   : "Approved";
               const ownerApprovalTone =
                 ownerApproval === "Pending"
-                  ? "bg-amber-500/10 text-amber-300 border-amber-400/30"
-                  : "bg-emerald-500/10 text-emerald-300 border-emerald-400/30";
+                  ? "bg-amber-100/70 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-400/20"
+                  : "bg-emerald-100/70 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-400/20";
               const canDelete =
                 isOwner ||
                 (request.user_id === user?.id &&
@@ -626,7 +633,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                       ? `${request.id}-${mobileVirtualWindow.startIndex + index}`
                       : request.id
                   }
-                  className="bg-white/[0.02] border-white/[0.08] rounded-xl overflow-hidden active:bg-white/[0.04] transition-colors cursor-pointer"
+                  className="bg-card border-border rounded-xl overflow-hidden active:bg-muted/70 transition-colors cursor-pointer"
                   style={{ boxShadow: "var(--shadow-card)" }}
                   onMouseEnter={() => prefetchRequestDetail(request.id)}
                   onClick={() => openViewDialog(request)}
@@ -639,7 +646,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                         {status.icon}
                         {status.label}
                       </div>
-                      <span className="text-xs text-slate-500 capitalize">
+                      <span className="text-xs text-muted-foreground capitalize">
                         {request.campaign_type?.replace("_", " ") || "N/A"}
                       </span>
                       <span
@@ -649,11 +656,11 @@ export function Requests({ onNavigate }: RequestsProps) {
                       </span>
                     </div>
                     {request.campaign_brief && (
-                      <p className="text-sm text-slate-300 line-clamp-3 break-words">
+                      <p className="text-sm text-foreground line-clamp-3 break-words">
                         {request.campaign_brief}
                       </p>
                     )}
-                    <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5" />
                         {format(parseISO(request.created_at), "MMM d, yyyy")}
@@ -678,7 +685,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                             e.stopPropagation();
                             await openEditSuggestion(request.id);
                           }}
-                          className="border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300"
+                          className="border-emerald-200 dark:border-emerald-400/30 bg-emerald-100/70 dark:bg-emerald-500/10 hover:bg-emerald-200/80 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                         >
                           Edit &amp; Send
                         </Button>
@@ -690,7 +697,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                           e.stopPropagation();
                           openViewDialog(request);
                         }}
-                        className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+                        className="border-border bg-muted/60 hover:bg-muted text-foreground"
                       >
                         View
                       </Button>
@@ -703,9 +710,9 @@ export function Requests({ onNavigate }: RequestsProps) {
                             setDeleteConfirmId(request.id);
                           }
                         }}
-                        className={`border-red-500/20 bg-red-500/10 text-red-400 ${
+                        className={`border-red-200 dark:border-red-500/30 bg-red-100/70 dark:bg-red-500/10 text-red-700 dark:text-red-400 ${
                           canDelete
-                            ? "hover:bg-red-500/20"
+                            ? "hover:bg-red-200/80 dark:hover:bg-red-500/20"
                             : "opacity-40 cursor-not-allowed"
                         }`}
                         disabled={deleteRequestMutation.isPending || !canDelete}
@@ -722,7 +729,7 @@ export function Requests({ onNavigate }: RequestsProps) {
               <div style={{ height: mobileVirtualWindow.paddingBottom }} />
             )}
           </div>
-          <Card className="hidden lg:block bg-white/[0.02] border-white/[0.08]">
+          <Card className="hidden lg:block bg-card border-border">
             <CardContent className="p-0">
               <div
                 ref={desktopTableRef}
@@ -734,11 +741,11 @@ export function Requests({ onNavigate }: RequestsProps) {
               >
                 {showRefreshShimmer && (
                   <div className="sticky top-0 z-10">
-                    <Skeleton className="h-1 w-full rounded-none bg-white/[0.08]" />
+                    <Skeleton className="h-1 w-full rounded-none bg-muted" />
                   </div>
                 )}
                 <table className="min-w-[860px] w-full text-sm">
-                  <thead className="sticky top-0 z-10 bg-[#0D0D0D] text-slate-400">
+                  <thead className="sticky top-0 z-10 bg-muted/60 text-muted-foreground">
                     <tr>
                       <th className="text-left px-4 py-3 font-medium">
                         Status
@@ -780,8 +787,8 @@ export function Requests({ onNavigate }: RequestsProps) {
                           : "Approved";
                       const ownerApprovalTone =
                         ownerApproval === "Pending"
-                          ? "bg-amber-500/10 text-amber-300 border-amber-400/30"
-                          : "bg-emerald-500/10 text-emerald-300 border-emerald-400/30";
+                          ? "bg-amber-100/70 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-400/20"
+                          : "bg-emerald-100/70 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-400/20";
                       const canDelete =
                         isOwner ||
                         (request.user_id === user?.id &&
@@ -793,7 +800,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                       return (
                         <tr
                           key={rowKey}
-                          className="border-t border-white/[0.06] hover:bg-white/[0.03] cursor-pointer"
+                          className="border-t border-border hover:bg-muted/60 cursor-pointer"
                           onMouseEnter={() => prefetchRequestDetail(request.id)}
                           onClick={() => openViewDialog(request)}
                         >
@@ -805,16 +812,16 @@ export function Requests({ onNavigate }: RequestsProps) {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="text-slate-200">
+                            <div className="text-foreground">
                               {campaignNames[request.campaign_id || ""] ||
                                 "Campaign"}
                             </div>
-                            <div className="text-xs text-slate-500 capitalize">
+                            <div className="text-xs text-muted-foreground capitalize">
                               {request.campaign_type?.replace("_", " ") ||
                                 "N/A"}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-slate-200">
+                          <td className="px-4 py-3 text-foreground">
                             {requesterLabel}
                           </td>
                           <td className="px-4 py-3">
@@ -824,7 +831,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                               {ownerApproval}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-400">
+                          <td className="px-4 py-3 text-muted-foreground">
                             {format(
                               parseISO(request.created_at),
                               "MMM d, yyyy"
@@ -840,7 +847,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                                     e.stopPropagation();
                                     await openEditSuggestion(request.id);
                                   }}
-                                  className="border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300"
+                                  className="border-emerald-200 dark:border-emerald-400/30 bg-emerald-100/70 dark:bg-emerald-500/10 hover:bg-emerald-200/80 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                                 >
                                   Edit &amp; Send
                                 </Button>
@@ -852,7 +859,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                                   e.stopPropagation();
                                   openViewDialog(request);
                                 }}
-                                className="border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-slate-300"
+                                className="border-border bg-muted/60 hover:bg-muted text-foreground"
                               >
                                 View
                               </Button>
@@ -865,9 +872,9 @@ export function Requests({ onNavigate }: RequestsProps) {
                                     setDeleteConfirmId(request.id);
                                   }
                                 }}
-                                className={`border-red-500/20 bg-red-500/10 text-red-400 ${
+                                className={`border-red-200 dark:border-red-500/30 bg-red-100/70 dark:bg-red-500/10 text-red-700 dark:text-red-400 ${
                                   canDelete
-                                    ? "hover:bg-red-500/20"
+                                    ? "hover:bg-red-200/80 dark:hover:bg-red-500/20"
                                     : "opacity-40 cursor-not-allowed"
                                 }`}
                                 disabled={
@@ -900,14 +907,14 @@ export function Requests({ onNavigate }: RequestsProps) {
 
       {/* Request Detail Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="w-[92vw] max-w-3xl max-h-[85vh] overflow-hidden flex flex-col bg-[#0D0D0D] border-white/[0.08] rounded-xl top-[50%] left-[50%] right-auto bottom-auto translate-x-[-50%] translate-y-[-50%] p-5 sm:p-6">
+        <DialogContent className="w-[92vw] max-w-3xl max-h-[85vh] overflow-hidden flex flex-col bg-card border-border rounded-xl top-[50%] left-[50%] right-auto bottom-auto translate-x-[-50%] translate-y-[-50%] p-5 sm:p-6">
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <DialogTitle className="text-xl sm:text-2xl font-semibold text-white">
+                <DialogTitle className="text-xl sm:text-2xl font-semibold text-foreground">
                   Request Details
                 </DialogTitle>
-                <DialogDescription className="text-sm text-slate-400 mt-1">
+                <DialogDescription className="text-sm text-muted-foreground mt-1">
                   {selectedRequest && (
                     <>
                       Status:{" "}
@@ -929,7 +936,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                       onClick={async () => {
                         await openEditSuggestion(selectedRequest.id);
                       }}
-                      className="h-9 sm:h-10 min-h-[36px] px-3 sm:px-4 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 flex items-center gap-2"
+                      className="h-9 sm:h-10 min-h-[36px] px-3 sm:px-4 border-emerald-200 dark:border-emerald-400/30 bg-emerald-100/70 dark:bg-emerald-500/10 hover:bg-emerald-200/80 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center gap-2"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span className="hidden sm:inline">Edit & Send</span>
@@ -950,9 +957,9 @@ export function Requests({ onNavigate }: RequestsProps) {
                           setViewDialogOpen(false);
                           setDeleteConfirmId(selectedRequest.id);
                         }}
-                        className={`h-9 sm:h-10 min-h-[36px] px-3 sm:px-4 border-red-500/30 bg-red-500/10 text-red-400 flex items-center gap-2 ${
+                        className={`h-9 sm:h-10 min-h-[36px] px-3 sm:px-4 border-red-200 dark:border-red-500/30 bg-red-100/70 dark:bg-red-500/10 text-red-700 dark:text-red-400 flex items-center gap-2 ${
                           canDeleteSelected
-                            ? "hover:bg-red-500/20"
+                            ? "hover:bg-red-200/80 dark:hover:bg-red-500/20"
                             : "opacity-40 cursor-not-allowed"
                         }`}
                         disabled={
@@ -973,34 +980,34 @@ export function Requests({ onNavigate }: RequestsProps) {
             <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 py-4 px-1 sm:px-0">
               {/* Campaign Information */}
               <section className="space-y-3">
-                <h3 className="text-base sm:text-lg font-semibold text-white">
+                <h3 className="text-base sm:text-lg font-semibold text-foreground">
                   Campaign Information
                 </h3>
                 <div
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl bg-card border border-border"
                   style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
                 >
                   <div>
-                    <p className="text-xs text-slate-400 mb-1.5">
+                    <p className="text-xs text-muted-foreground mb-1.5">
                       Campaign Type
                     </p>
-                    <p className="text-sm text-white capitalize font-medium">
+                    <p className="text-sm text-foreground capitalize font-medium">
                       {requestDetails.campaign_type?.replace("_", " ") || "N/A"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 mb-1.5">
+                    <p className="text-xs text-muted-foreground mb-1.5">
                       Linked Campaign
                     </p>
-                    <p className="text-sm text-white font-medium">
+                    <p className="text-sm text-foreground font-medium">
                       {campaignName || "Not linked"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 mb-1.5">
+                    <p className="text-xs text-muted-foreground mb-1.5">
                       Owner Approval
                     </p>
-                    <p className="text-sm text-white font-medium">
+                    <p className="text-sm text-foreground font-medium">
                       {requestDetails.submission_type === "suggestion" &&
                       requestDetails.status === "suggested"
                         ? "Pending"
@@ -1008,17 +1015,17 @@ export function Requests({ onNavigate }: RequestsProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 mb-1.5">
+                    <p className="text-xs text-muted-foreground mb-1.5">
                       Requested By
                     </p>
-                    <p className="text-sm text-white font-medium">
+                    <p className="text-sm text-foreground font-medium">
                       {requesterNames[requestDetails.user_id] || "Unknown"}
                     </p>
                   </div>
                   {requestDetails.deadline && (
                     <div>
-                      <p className="text-xs text-slate-400 mb-1.5">Deadline</p>
-                      <p className="text-sm text-white font-medium">
+                      <p className="text-xs text-muted-foreground mb-1.5">Deadline</p>
+                      <p className="text-sm text-foreground font-medium">
                         {format(
                           parseISO(requestDetails.deadline),
                           "MMM d, yyyy"
@@ -1028,18 +1035,18 @@ export function Requests({ onNavigate }: RequestsProps) {
                   )}
                   {requestDetails.urgency && (
                     <div>
-                      <p className="text-xs text-slate-400 mb-1.5">Urgency</p>
-                      <p className="text-sm text-white capitalize font-medium">
+                      <p className="text-xs text-muted-foreground mb-1.5">Urgency</p>
+                      <p className="text-sm text-foreground capitalize font-medium">
                         {requestDetails.urgency.replace("_", " ")}
                       </p>
                     </div>
                   )}
                   {requestDetails.posts_per_creator && (
                     <div>
-                      <p className="text-xs text-slate-400 mb-1.5">
+                      <p className="text-xs text-muted-foreground mb-1.5">
                         Posts per Creator
                       </p>
-                      <p className="text-sm text-white font-medium">
+                      <p className="text-sm text-foreground font-medium">
                         {requestDetails.posts_per_creator}
                       </p>
                     </div>
@@ -1050,14 +1057,14 @@ export function Requests({ onNavigate }: RequestsProps) {
               {/* Campaign Brief */}
               {requestDetails.campaign_brief && (
                 <section className="space-y-3">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
                     Campaign Brief
                   </h3>
                   <div
-                    className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                    className="p-4 sm:p-5 rounded-xl bg-card border border-border"
                     style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
                   >
-                    <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                       {requestDetails.campaign_brief}
                     </p>
                   </div>
@@ -1067,14 +1074,14 @@ export function Requests({ onNavigate }: RequestsProps) {
               {/* Operator Briefing */}
               {requestDetails.suggestion_reason && (
                 <section className="space-y-3">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
                     Operator Briefing
                   </h3>
                   <div
-                    className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                    className="p-4 sm:p-5 rounded-xl bg-card border border-border"
                     style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
                   >
-                    <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                       {requestDetails.suggestion_reason}
                     </p>
                   </div>
@@ -1084,14 +1091,14 @@ export function Requests({ onNavigate }: RequestsProps) {
               {/* Deliverables */}
               {requestDetails.deliverables?.length > 0 && (
                 <section className="space-y-3">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
                     Deliverables
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {requestDetails.deliverables.map((deliverable, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white text-xs font-medium capitalize"
+                        className="px-3 py-1.5 rounded-lg bg-muted border border-border text-foreground text-xs font-medium capitalize"
                       >
                         {deliverable.replace("_", " ")}
                       </span>
@@ -1103,14 +1110,14 @@ export function Requests({ onNavigate }: RequestsProps) {
               {/* Usage Rights */}
               {requestDetails.usage_rights && (
                 <section className="space-y-3">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
                     Usage Rights
                   </h3>
                   <div
-                    className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.06]"
+                    className="p-4 rounded-lg bg-card border border-border"
                     style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
                   >
-                    <p className="text-sm text-white capitalize font-medium">
+                    <p className="text-sm text-foreground capitalize font-medium">
                       {requestDetails.usage_rights.replace("_", " ")}
                     </p>
                   </div>
@@ -1120,7 +1127,7 @@ export function Requests({ onNavigate }: RequestsProps) {
               {/* Requested Creators + Quotes */}
               {requestDetails.items?.length > 0 && (
                 <section className="space-y-3">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
                     Requested Creators ({requestDetails.items.length})
                   </h3>
                   <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
@@ -1136,17 +1143,17 @@ export function Requests({ onNavigate }: RequestsProps) {
                       return (
                         <div
                           key={item.id}
-                          className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3"
+                          className="p-4 rounded-xl bg-card border border-border space-y-3"
                           style={{
                             boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)",
                           }}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-white">
+                              <p className="text-sm font-medium text-foreground">
                                 {creator.name}
                               </p>
-                              <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                 <span>@{creator.handle}</span>
                                 {(() => {
                                   const platformIcon = normalizePlatform(
@@ -1172,13 +1179,13 @@ export function Requests({ onNavigate }: RequestsProps) {
                                 })()}
                               </div>
                             </div>
-                            <div className="px-2.5 py-1 rounded-md bg-white/[0.06] border border-white/[0.1] text-xs text-white capitalize font-medium flex-shrink-0">
+                            <div className="px-2.5 py-1 rounded-md bg-muted border border-border text-xs text-foreground capitalize font-medium flex-shrink-0">
                               {item.status || "pending"}
                             </div>
                           </div>
 
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="text-sm text-white font-medium">
+                            <div className="text-sm text-foreground font-medium">
                               {quoteLabel}
                             </div>
                             {canRespond && (
@@ -1193,7 +1200,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                                       decision: "approved",
                                     })
                                   }
-                                  className="h-9 min-h-[36px] border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                  className="h-9 min-h-[36px] border-emerald-200 dark:border-emerald-400/30 bg-emerald-100/70 dark:bg-emerald-500/10 hover:bg-emerald-200/80 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                                   disabled={respondToQuoteMutation.isPending}
                                 >
                                   Approve
@@ -1208,7 +1215,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                                       decision: "rejected",
                                     })
                                   }
-                                  className="h-9 min-h-[36px] border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                                  className="h-9 min-h-[36px] border-red-200 dark:border-red-500/30 bg-red-100/70 dark:bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-200/80 dark:hover:bg-red-500/20"
                                   disabled={respondToQuoteMutation.isPending}
                                 >
                                   Reject
@@ -1218,7 +1225,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                           </div>
 
                           {item.quote_notes && (
-                            <div className="text-xs text-slate-400 leading-relaxed">
+                            <div className="text-xs text-muted-foreground leading-relaxed">
                               {item.quote_notes}
                             </div>
                           )}
@@ -1234,33 +1241,33 @@ export function Requests({ onNavigate }: RequestsProps) {
                 requestDetails.contact_person_email ||
                 requestDetails.contact_person_phone) && (
                 <section className="space-y-3">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
                     Contact Information
                   </h3>
                   <div
-                    className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3"
+                    className="p-4 sm:p-5 rounded-xl bg-card border border-border space-y-3"
                     style={{ boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)" }}
                   >
                     {requestDetails.contact_person_name && (
                       <div>
-                        <p className="text-xs text-slate-400 mb-1">Name</p>
-                        <p className="text-sm text-white font-medium">
+                        <p className="text-xs text-muted-foreground mb-1">Name</p>
+                        <p className="text-sm text-foreground font-medium">
                           {requestDetails.contact_person_name}
                         </p>
                       </div>
                     )}
                     {requestDetails.contact_person_email && (
                       <div>
-                        <p className="text-xs text-slate-400 mb-1">Email</p>
-                        <p className="text-sm text-white font-medium break-all">
+                        <p className="text-xs text-muted-foreground mb-1">Email</p>
+                        <p className="text-sm text-foreground font-medium break-all">
                           {requestDetails.contact_person_email}
                         </p>
                       </div>
                     )}
                     {requestDetails.contact_person_phone && (
                       <div>
-                        <p className="text-xs text-slate-400 mb-1">Phone</p>
-                        <p className="text-sm text-white font-medium">
+                        <p className="text-xs text-muted-foreground mb-1">Phone</p>
+                        <p className="text-sm text-foreground font-medium">
                           {requestDetails.contact_person_phone}
                         </p>
                       </div>

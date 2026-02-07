@@ -1222,7 +1222,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                                 setOpenMenuKey(null);
                               }}
                               disabled={workingId === user.user_id}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-sky-300 hover:bg-sky-500/10 disabled:opacity-50"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-sky-300 hover:bg-red-100/80 dark:hover:bg-sky-500/10 disabled:opacity-50"
                             >
                               <RefreshCcw className="h-4 w-4" />
                               {workingId === user.user_id
@@ -1399,7 +1399,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                             setOpenMenuKey(null);
                           }}
                           disabled={workingId === "bulk-reset"}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-sky-300 hover:bg-sky-500/10 disabled:opacity-50"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-sky-300 hover:bg-red-100/80 dark:hover:bg-sky-500/10 disabled:opacity-50"
                         >
                           {workingId === "bulk-reset"
                             ? "Sending..."

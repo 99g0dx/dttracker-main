@@ -186,7 +186,7 @@ export function PostingPlanGenerator({
                         className="rounded border-white/[0.08]"
                       />
                       <div className="flex items-center gap-2 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white text-xs font-semibold">
                           {creator.name.charAt(0)}
                         </div>
                         <div>

@@ -132,7 +132,7 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
           </div>
           <div className="w-full h-2 bg-white/[0.05] rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-primary to-cyan-400 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-primary to-red-400 dark:to-cyan-400 transition-all duration-300"
               style={{ width: `${(currentStep / 2) * 100}%` }}
             />
           </div>

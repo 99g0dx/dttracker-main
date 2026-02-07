@@ -54,7 +54,7 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
               onSelect={() => handleSelect(() => onNavigate('/dashboard'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
             >
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-cyan-400/20">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-red-400/20 dark:to-cyan-400/20">
                 <LayoutDashboard className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1">
@@ -107,7 +107,7 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
               onSelect={() => handleSelect(() => onNavigate('/wallet'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
             >
-              <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-cyan-500/20">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-red-500/20 dark:to-cyan-500/20">
                 <Wallet className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="flex-1">
@@ -148,7 +148,7 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
               onSelect={() => handleSelect(() => onNavigate('/campaigns/new'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
             >
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-cyan-400/20">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-red-400/20 dark:to-cyan-400/20">
                 <Plus className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1">
@@ -162,7 +162,7 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
               onSelect={() => handleSelect(() => console.log('Refresh data'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
             >
-              <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-cyan-500/20">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-red-500/20 dark:to-cyan-500/20">
                 <RefreshCw className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="flex-1">

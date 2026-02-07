@@ -66,11 +66,11 @@ export function ResponsiveConfirmDialog({
   const content = (
     <>
       <div className="space-y-2">
-        <div className="text-base font-semibold text-white">{title}</div>
+        <div className="text-base font-semibold text-foreground">{title}</div>
         {description && (
           <div
             className={cn(
-              "text-sm text-slate-400",
+              "text-sm text-muted-foreground",
               typeof description === "string" && "line-clamp-3"
             )}
           >
@@ -91,7 +91,7 @@ export function ResponsiveConfirmDialog({
           className={cn(
             "min-h-[44px] w-full flex items-center justify-center gap-2",
             !isMobile && "w-auto",
-            confirmVariant === "default" && "bg-white text-black hover:bg-white/90"
+            confirmVariant === "default" && "bg-primary text-primary-foreground hover:bg-primary/90"
           )}
         >
           {confirmLoading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -101,7 +101,7 @@ export function ResponsiveConfirmDialog({
           variant="outline"
           onClick={handleClose}
           className={cn(
-            "min-h-[44px] w-full border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]",
+            "min-h-[44px] w-full border-border bg-muted/60 text-foreground hover:bg-muted/80",
             !isMobile && "w-auto"
           )}
         >
@@ -116,7 +116,7 @@ export function ResponsiveConfirmDialog({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent
           className={cn(
-            "bg-[#0D0D0D] border-white/[0.08] rounded-t-2xl max-h-[60vh] overflow-y-auto",
+            "bg-card border-border rounded-t-2xl max-h-[60vh] overflow-y-auto",
             className
           )}
         >
@@ -134,7 +134,7 @@ export function ResponsiveConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-[92vw] max-w-[345px] sm:max-w-[345px] left-[50%] -translate-x-1/2 bg-[#0D0D0D] border-white/[0.08] p-4",
+          "w-[92vw] max-w-[345px] sm:max-w-[345px] left-[50%] -translate-x-1/2 bg-card border-border p-4",
           className
         )}
       >

@@ -231,19 +231,19 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
 
       {/* Scraping Status Banner - Show prominently when scraping */}
       {shouldShowScrapingBanner && (
-        <Card className="border-blue-500/40 bg-blue-500/10 shadow-lg shadow-blue-500/10">
+        <Card className="border-red-200 dark:border-blue-500/40 bg-red-100/70 dark:bg-blue-500/10 shadow-lg shadow-red-500/15 dark:shadow-blue-500/10">
           <CardContent className="p-5">
             <div className="flex items-start gap-4">
-              <Loader2 className="h-6 w-6 text-blue-400 flex-shrink-0 animate-spin mt-0.5" />
+              <Loader2 className="h-6 w-6 text-red-600 dark:text-blue-400 flex-shrink-0 animate-spin mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-blue-400 mb-1">
+                <p className="text-base font-semibold text-red-600 dark:text-blue-400 mb-1">
                   {scrapeJob?.status === 'queued' 
                     ? 'Scraping queued...' 
                     : scrapeJob?.status === 'running'
                     ? 'Scraping in progress...'
                     : 'Initializing scraping...'}
                 </p>
-                <p className="text-sm text-blue-300/90 leading-relaxed">
+                <p className="text-sm text-red-700/90 dark:text-blue-300/90 leading-relaxed">
                   {scrapeJob?.status === 'queued'
                     ? 'Your scrape job is queued and will start shortly. This usually takes 10-30 seconds.'
                     : scrapeJob?.status === 'running'
@@ -251,7 +251,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                     : 'Setting up the scraping job. This will only take a moment...'}
                 </p>
                 {scrapeJob?.started_at && (
-                  <p className="text-xs text-blue-300/70 mt-2">
+                  <p className="text-xs text-red-700/70 dark:text-blue-300/70 mt-2">
                     Started {new Date(scrapeJob.started_at).toLocaleTimeString()}
                   </p>
                 )}
@@ -301,8 +301,8 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
             <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Total Uses</p>
             {isScraping && !scrapeStats ? (
               <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
-                <p className="text-sm text-blue-400">Collecting data...</p>
+                <Loader2 className="h-4 w-4 text-red-600 dark:text-blue-400 animate-spin" />
+                <p className="text-sm text-red-600 dark:text-blue-400">Collecting data...</p>
               </div>
             ) : (
               <>
@@ -451,7 +451,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
               </p>
             )}
             {shouldShowLoading && !scrapeStats && (
-              <p className="text-sm text-blue-400 mt-1">
+              <p className="text-sm text-red-600 dark:text-blue-400 mt-1">
                 {isScraping ? 'Collecting videos...' : 'Initializing...'}
               </p>
             )}
@@ -460,9 +460,9 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
             {shouldShowLoading || videosLoading ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-center gap-3 py-8">
-                  <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                  <Loader2 className="h-5 w-5 text-red-600 dark:text-blue-400 animate-spin" />
                   <div className="text-center">
-                    <p className="text-sm font-medium text-blue-400">
+                    <p className="text-sm font-medium text-red-600 dark:text-blue-400">
                       {isScraping 
                         ? 'Scraping in progress...' 
                         : isWaitingForScrape
@@ -508,9 +508,9 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                 {topPostsLoading || shouldShowLoading ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-center gap-3 py-12">
-                      <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                      <Loader2 className="h-5 w-5 text-red-600 dark:text-blue-400 animate-spin" />
                       <div className="text-center">
-                        <p className="text-sm font-medium text-blue-400">
+                        <p className="text-sm font-medium text-red-600 dark:text-blue-400">
                           {isScraping 
                             ? 'Scraping in progress...' 
                             : isWaitingForScrape
@@ -573,9 +573,9 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                 {recentPostsLoading || shouldShowLoading ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-center gap-3 py-12">
-                      <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                      <Loader2 className="h-5 w-5 text-red-600 dark:text-blue-400 animate-spin" />
                       <div className="text-center">
-                        <p className="text-sm font-medium text-blue-400">
+                        <p className="text-sm font-medium text-red-600 dark:text-blue-400">
                           {isScraping 
                             ? 'Scraping in progress...' 
                             : isWaitingForScrape

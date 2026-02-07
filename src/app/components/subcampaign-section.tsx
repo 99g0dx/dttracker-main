@@ -29,18 +29,18 @@ export function SubcampaignSection({
   const { data: subcampaigns = [], isLoading } = useSubcampaigns(parentCampaignId);
 
   return (
-    <Card className="bg-[#0D0D0D] border-white/[0.08]">
+    <Card className="bg-card border-border">
       <CardContent className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-semibold text-white">Subcampaigns</h3>
-            <p className="text-sm text-slate-400 mt-1">
+            <h3 className="text-base font-semibold text-foreground">Subcampaigns</h3>
+            <p className="text-sm text-muted-foreground mt-1">
               Organize workstreams under the parent campaign
             </p>
           </div>
           <Button
             onClick={() => setDialogOpen(true)}
-            className="h-9 px-3 bg-primary hover:bg-primary/90 text-black"
+            className="h-9 px-3 bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Subcampaign
@@ -48,13 +48,13 @@ export function SubcampaignSection({
         </div>
 
         {isLoading ? (
-          <div className="py-6 text-sm text-slate-400">Loading subcampaigns...</div>
+          <div className="py-6 text-sm text-muted-foreground">Loading subcampaigns...</div>
         ) : subcampaigns.length === 0 ? (
-          <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-6 text-center">
-            <p className="text-sm text-slate-300 mb-2">
+          <div className="rounded-lg border border-border bg-muted/40 p-6 text-center">
+            <p className="text-sm text-foreground mb-2">
               No subcampaigns yet
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Add subcampaigns to split workstreams without losing the parent view.
             </p>
           </div>
@@ -64,14 +64,14 @@ export function SubcampaignSection({
               <button
                 key={subcampaign.id}
                 onClick={() => navigate(`/campaigns/${subcampaign.id}`)}
-                className="text-left rounded-lg border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] transition-colors p-4"
+                className="text-left rounded-lg border border-border bg-muted/40 hover:bg-muted/60 transition-colors p-4"
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-white truncate">
+                    <h4 className="text-sm font-semibold text-foreground truncate">
                       {subcampaign.name}
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {new Date(subcampaign.created_at).toLocaleDateString()}
                     </p>
                   </div>
@@ -79,22 +79,22 @@ export function SubcampaignSection({
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <div className="text-sm font-semibold text-white">
+                    <div className="text-sm font-semibold text-foreground">
                       {subcampaign.posts_count}
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Posts</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Posts</p>
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-white">
+                    <div className="text-sm font-semibold text-foreground">
                       {formatCompactNumber(subcampaign.total_views)}
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Views</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Views</p>
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-emerald-400">
+                    <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                       {subcampaign.avg_engagement_rate.toFixed(1)}%
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Engagement</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Engagement</p>
                   </div>
                 </div>
               </button>
