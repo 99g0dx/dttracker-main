@@ -63,6 +63,23 @@ async function queueSync(
 }
 
 /**
+ * Map internal sync types to Dobbletap webhook event types
+ * These are consumed by /webhooks/dttracker in Dobbletap
+ */
+function getEventTypeForSyncType(syncType: SyncType): string | null {
+  const events: Record<SyncType, string> = {
+    activation: 'campaign_created',
+    activation_update: 'activation_updated',
+    activation_submission: 'submission_created',
+    activation_submission_review: 'review_decision',
+    creator_request: 'creator_request_created',
+    creator_request_update: 'creator_request_updated',
+    creator_request_invitation: 'offer_sent',
+  };
+  return events[syncType] || null;
+}
+
+/**
  * Sync data to Dobble Tap with automatic retry and queue fallback
  */
 export async function syncToDobbleTap(
@@ -92,6 +109,21 @@ export async function syncToDobbleTap(
   const queueOnFailure = options.queueOnFailure ?? true;
   const maxRetries = options.maxRetries ?? MAX_RETRIES;
 
+  const eventType = getEventTypeForSyncType(syncType);
+  if (!eventType) {
+    return {
+      success: false,
+      synced: false,
+      error: `No Dobbletap event mapping for sync type: ${syncType}`,
+    };
+  }
+
+  const requestBody = {
+    eventType,
+    timestamp: new Date().toISOString(),
+    data: payload,
+  };
+
   let lastError: string | undefined;
   let attempt = 0;
 
@@ -103,7 +135,7 @@ export async function syncToDobbleTap(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${syncApiKey}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -259,13 +291,13 @@ export async function processSyncQueue(
  */
 function getEndpointForSyncType(syncType: SyncType): string | null {
   const endpoints: Record<SyncType, string> = {
-    activation: '/api/sync/activation',
-    activation_update: '/api/sync/activation/update',
-    activation_submission: '/api/sync/activation/submission',
-    activation_submission_review: '/api/sync/activation/submission/review',
-    creator_request: '/api/sync/creator-request',
-    creator_request_update: '/api/sync/creator-request/update',
-    creator_request_invitation: '/api/sync/creator-request/invitation',
+    activation: '/webhooks/dttracker',
+    activation_update: '/webhooks/dttracker',
+    activation_submission: '/webhooks/dttracker',
+    activation_submission_review: '/webhooks/dttracker',
+    creator_request: '/webhooks/dttracker',
+    creator_request_update: '/webhooks/dttracker',
+    creator_request_invitation: '/webhooks/dttracker',
   };
   return endpoints[syncType] || null;
 }
