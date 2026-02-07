@@ -203,61 +203,56 @@ export async function getOrCreate(
       };
     }
 
-    // First, try to find existing creator by platform + handle
-    const { data: existing, error: fetchError } = await supabase
-      .from("creators")
-      .select("*")
-      .eq("platform", platform)
-      .eq("handle", handle)
-      .maybeSingle();
-
-    if (fetchError && fetchError.code !== "PGRST116") {
-      // PGRST116 = no rows returned
-      return { data: null, error: fetchError };
-    }
-
-    let creator: Creator;
-
-    if (existing) {
-      // Creator exists globally, use it
-      creator = existing;
-    } else {
-      // Create new creator
-      const creatorData: CreatorInsert = {
-        user_id: user.id,
-        name: name || handle,
-        handle,
-        platform,
-        follower_count: followerCount || 0,
-        avg_engagement: 0,
-        email: email || null,
-        phone: phone || null,
-        niche: niche || null,
-        location: location || null,
-        source_type: sourceType || "manual",
-        imported_by_user_id: user.id,
-        // created_by_workspace_id: user.id, // Track who introduced this creator
-      };
-
-      const { data: created, error: createError } = await supabase
-        .from("creators")
-        .insert(creatorData)
-        .select()
-        .single();
-
-      if (createError) {
-        return { data: null, error: createError };
+    // Use the get_or_create_creator RPC which runs as SECURITY DEFINER
+    // to bypass RLS visibility restrictions. This handles the case where a
+    // creator exists in another workspace (invisible to the current user
+    // due to RLS) but the unique index prevents creating a duplicate.
+    const { data: creatorId, error: rpcError } = await supabase.rpc(
+      "get_or_create_creator",
+      {
+        p_platform: platform,
+        p_handle: handle,
+        p_name: name || null,
+        p_user_id: user.id,
+        p_follower_count: followerCount || 0,
+        p_email: email || null,
+        p_phone: phone || null,
+        p_niche: niche || null,
+        p_location: location || null,
+        p_source_type: sourceType || "manual",
+        p_imported_by_user_id: user.id,
       }
+    );
 
-      creator = created;
+    if (rpcError || !creatorId) {
+      return {
+        data: null,
+        error: rpcError || new Error("Failed to get or create creator"),
+      };
     }
 
-    // Ensure creator is in workspace_creators (for My Network)
+    // Ensure creator is in workspace_creators (for My Network) so RLS
+    // allows subsequent reads
     await ensureWorkspaceCreator(
       targetWorkspaceId,
-      creator.id,
+      creatorId as string,
       sourceType || "manual"
     );
+
+    // Now fetch the full creator object (RLS will allow it since we just
+    // added them to workspace_creators)
+    const { data: creator, error: fetchError } = await supabase
+      .from("creators")
+      .select("*")
+      .eq("id", creatorId as string)
+      .single();
+
+    if (fetchError || !creator) {
+      return {
+        data: null,
+        error: fetchError || new Error("Creator created but could not be fetched"),
+      };
+    }
 
     return { data: creator, error: null };
   } catch (err) {

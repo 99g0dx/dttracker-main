@@ -840,10 +840,10 @@ useEffect(() => {
           <button
             onClick={() => onNavigate('/campaigns/new')}
             className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-            aria-label="Track new campaign"
+            aria-label="Create new campaign"
           >
             <CampaignIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">Track Campaign</span>
+            <span className="hidden sm:inline">Create Campaign</span>
           </button>
           <button
             onClick={handleExportCSV}

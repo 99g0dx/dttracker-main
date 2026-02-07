@@ -303,12 +303,12 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
               >
                 <CardContent className="p-0">
                   {/* Cover Image Header */}
-                  <div className="relative w-full h-24 sm:h-28 bg-gradient-to-br from-primary to-cyan-400">
+                  <div className="relative w-full h-24 sm:h-28 bg-gradient-to-br from-primary to-cyan-400 overflow-hidden flex items-center justify-center">
                     {campaign.cover_image_url ? (
                       <img
                         src={campaign.cover_image_url}
                         alt={campaign.name}
-                        className="w-full h-full object-cover"
+                        className="w-full min-w-full h-full object-cover object-center"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

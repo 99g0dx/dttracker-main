@@ -50,6 +50,24 @@ export const PostCard = React.memo(
       last_like_growth?: number | null;
       last_comment_growth?: number | null;
     };
+
+    // Derive display status from per-post freshness fields
+    const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+    const lastSuccess = (post as { last_success_at?: string | null }).last_success_at;
+    const lastAttemptStatus = (post as { last_attempt_status?: string | null }).last_attempt_status;
+    const nextRetry = (post as { next_retry_at?: string | null }).next_retry_at;
+    const isCoolingDown = nextRetry ? new Date(nextRetry).getTime() > Date.now() : false;
+
+    const derivedStatus: string = (() => {
+      if (!lastSuccess && post.status !== "scraped") return post.status; // pending, scraping, etc.
+      if (lastSuccess) {
+        const msSinceSuccess = Date.now() - new Date(lastSuccess).getTime();
+        if (msSinceSuccess < SIX_HOURS_MS) return "scraped";
+        if (lastAttemptStatus === "failed" || lastAttemptStatus === "empty")
+          return "failed"; // shows "Update delayed"
+      }
+      return post.status;
+    })();
     const viewsFormatted = formatWithGrowth(
       post.views,
       postWithGrowth.last_view_growth
@@ -102,7 +120,7 @@ export const PostCard = React.memo(
                   aria-label={`${getPlatformLabel(platformIcon)} post`}
                 />
               )}
-              {showStatusBadge && <StatusBadge status={post.status} />}
+              {showStatusBadge && <StatusBadge status={derivedStatus as any} />}
             </div>
           </div>
 
@@ -157,7 +175,7 @@ export const PostCard = React.memo(
           </div>
           {post.last_scraped_at && (
             <div className="mt-1 text-[10px] text-slate-500">
-              Scraped {formatRelativeTime(post.last_scraped_at)}
+              Last updated {formatRelativeTime(post.last_scraped_at)}
             </div>
           )}
 
@@ -194,19 +212,22 @@ export const PostCard = React.memo(
                 <Button
                   size="sm"
                   onClick={() => onScrape(post.id)}
-                  disabled={!hasPostUrl || isScraping}
+                  disabled={!hasPostUrl || isScraping || isCoolingDown}
+                  title={
+                    isCoolingDown && nextRetry
+                      ? `Retry available ${formatRelativeTime(nextRetry)}`
+                      : undefined
+                  }
                   className={`min-h-[44px] flex-1 ${
-                    post.status === "failed"
-                      ? "bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/20"
-                      : post.status === "pending"
-                        ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
-                        : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
+                    derivedStatus === "failed" || derivedStatus === "pending"
+                      ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
+                      : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
                   }`}
                 >
                   <RefreshCw
                     className={`w-4 h-4 ${isScraping ? "animate-spin" : ""}`}
                   />
-                  Refresh
+                  {isCoolingDown ? "Cooling down" : "Refresh"}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

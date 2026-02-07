@@ -55,8 +55,8 @@ const statusConfig = {
     className: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   },
   failed: {
-    label: "Failed",
-    className: "bg-red-500/10 text-red-400 border-red-500/20",
+    label: "Update delayed",
+    className: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   },
 };
 

@@ -77,6 +77,10 @@ interface ScrapeRequest {
   isAutoScrape?: boolean; // Flag to indicate auto-scraping vs manual
   /** Optional: requesting user id for agency bypass when called from scrape-all-posts (JWT may not be forwarded) */
   request_user_id?: string | null;
+  /** Optional: from scrape-job-worker; run id to update on success/failure */
+  run_id?: string | null;
+  /** Optional: override Apify actor (primary/fallback from parser_versions) */
+  actor_id?: string | null;
 }
 
 interface ScrapedMetrics {
@@ -93,7 +97,7 @@ interface ScrapedMetrics {
  * Scrape TikTok post metrics using RapidAPI video info endpoint
  */
 
-async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
+async function scrapeTikTok(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
   try {
     const apifyToken = Deno.env.get("APIFY_TOKEN");
     if (!apifyToken) {
@@ -112,7 +116,7 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
       normalizedUrl = "https://" + normalizedUrl;
     }
 
-    const actorId = "clockworks~tiktok-scraper";
+    const actorId = actorOverride ?? "clockworks~tiktok-scraper";
     const apifyUrl =
       "https://api.apify.com/v2/acts/" +
       encodeURIComponent(actorId) +
@@ -759,11 +763,11 @@ async function scrapeTikTok(postUrl: string): Promise<ScrapedMetrics> {
  * Scrape Instagram post metrics using Apify
  * Actor: apify/instagram-scraper
  */
-async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
+async function scrapeInstagram(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
   try {
     const apifyToken = Deno.env.get("APIFY_TOKEN");
     const apifyActorId =
-      Deno.env.get("APIFY_INSTAGRAM_ACTOR_ID") ?? "apify~instagram-scraper";
+      actorOverride ?? Deno.env.get("APIFY_INSTAGRAM_ACTOR_ID") ?? "apify~instagram-scraper";
 
     console.log("=== Instagram Scraping (Apify) ===");
     console.log("Post URL:", postUrl);
@@ -903,7 +907,7 @@ async function scrapeInstagram(postUrl: string): Promise<ScrapedMetrics> {
  * Scrape YouTube video metrics using Apify (streamers/youtube-scraper).
  * Token (in order): APIFY_YOUTUBE_TOKEN, APIFY_TOKEN, APIFY_API_TOKEN.
  */
-async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
+async function scrapeYouTube(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
   try {
     const apifyToken =
       Deno.env.get("APIFY_YOUTUBE_TOKEN") ??
@@ -924,7 +928,7 @@ async function scrapeYouTube(postUrl: string): Promise<ScrapedMetrics> {
       normalizedUrl = "https://" + normalizedUrl;
     }
 
-    const actorId = "streamers~youtube-scraper";
+    const actorId = actorOverride ?? "streamers~youtube-scraper";
     const apifyUrl =
       "https://api.apify.com/v2/acts/" +
       encodeURIComponent(actorId) +
@@ -1267,15 +1271,16 @@ async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
  */
 async function scrapePost(
   platform: string,
-  postUrl: string
+  postUrl: string,
+  actorIdOverride?: string | null
 ): Promise<ScrapedMetrics> {
   switch (platform) {
     case "tiktok":
-      return await scrapeTikTok(postUrl);
+      return await scrapeTikTok(postUrl, actorIdOverride);
     case "instagram":
-      return await scrapeInstagram(postUrl);
+      return await scrapeInstagram(postUrl, actorIdOverride);
     case "youtube":
-      return await scrapeYouTube(postUrl);
+      return await scrapeYouTube(postUrl, actorIdOverride);
     case "twitter":
       return await scrapeTwitter(postUrl);
     case "facebook":
@@ -1527,6 +1532,8 @@ serve(async (req) => {
       platform,
       isAutoScrape = false,
       request_user_id: bodyRequestUserId,
+      run_id: runId,
+      actor_id: actorIdOverride,
     } = requestBody;
 
     if (!postId || !postUrl || !platform) {
@@ -1726,9 +1733,10 @@ serve(async (req) => {
     }
 
     // Scrape the post
+    const startTime = Date.now();
     let metrics: ScrapedMetrics;
     try {
-      metrics = await scrapePost(platform, postUrl);
+      metrics = await scrapePost(platform, postUrl, actorIdOverride ?? undefined);
     } catch (scrapeError) {
       const errorMessage =
         scrapeError instanceof Error
@@ -1736,16 +1744,50 @@ serve(async (req) => {
           : String(scrapeError);
       console.error("Scraping failed:", errorMessage);
 
-      // Update post status to failed
+      // Classify error type
+      const errLower = errorMessage.toLowerCase();
+      let errorType: string = "unknown";
+      if (/blocked|403|forbidden/i.test(errLower)) errorType = "blocked";
+      else if (/challenge|captcha|verify/i.test(errLower)) errorType = "challenge";
+      else if (/empty|no.*items|no.*data|dataset/i.test(errLower)) errorType = "empty";
+      else if (/timeout|timed.?out|deadline|ETIMEDOUT/i.test(errLower)) errorType = "timeout";
+      else if (/parse|JSON|unexpected/i.test(errLower)) errorType = "parse_error";
+
+      const failNowIso = new Date().toISOString();
+
+      if (runId) {
+        await supabase
+          .from("scrape_runs")
+          .update({
+            status: "failed",
+            finished_at: failNowIso,
+            duration_ms: Date.now() - startTime,
+            error_raw: errorMessage.substring(0, 2000),
+            is_valid: false,
+            error_type: errorType,
+          })
+          .eq("id", runId);
+      }
+
+      // Update post attempt fields but do NOT overwrite metrics
       await supabase
         .from("posts")
-        .update({ status: "failed" })
+        .update({
+          status: "failed",
+          last_attempt_at: failNowIso,
+          last_attempt_status: "failed",
+          last_attempt_error: errorMessage.substring(0, 500),
+          last_attempt_items_count: 0,
+          updated_at: failNowIso,
+        })
         .eq("id", postId);
 
       return new Response(
         JSON.stringify({
           success: false,
+          valid: false,
           error: errorMessage,
+          error_type: errorType,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1764,6 +1806,58 @@ serve(async (req) => {
       engagement_rate: Number(engagementRate.toFixed(2)),
     };
 
+    // Validity check: metrics are valid only when we got real data (not all zeros)
+    const totalMetricsSum =
+      scrapedMetrics.views + scrapedMetrics.likes + scrapedMetrics.comments + scrapedMetrics.shares;
+    const isValid = totalMetricsSum > 0;
+    const nowIso = new Date().toISOString();
+
+    // Always record the attempt on the post (even if invalid)
+    const attemptPayload: Record<string, unknown> = {
+      last_attempt_at: nowIso,
+      last_attempt_status: isValid ? "succeeded" : "empty",
+      last_attempt_items_count: isValid ? 1 : 0,
+      updated_at: nowIso,
+    };
+
+    if (!isValid) {
+      // Metrics are all zeros — treat as invalid (soft-block / empty dataset).
+      // Do NOT overwrite existing metrics; mark attempt but keep old values.
+      console.warn(
+        `[scrape-post] Invalid metrics (all zeros) for post ${postId}. Keeping previous metrics.`
+      );
+
+      attemptPayload.last_attempt_error = "Empty metrics (all zeros) — likely soft-block or empty dataset";
+
+      await supabase.from("posts").update(attemptPayload).eq("id", postId);
+
+      if (runId) {
+        await supabase
+          .from("scrape_runs")
+          .update({
+            status: "succeeded",
+            finished_at: nowIso,
+            duration_ms: Date.now() - startTime,
+            items_count: 0,
+            is_valid: false,
+            error_type: "empty",
+          })
+          .eq("id", runId);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          valid: false,
+          reason: "Empty metrics (all zeros). Previous metrics preserved.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
+
     // Compute growth since last scrape
     const prevViews = (post as { views?: number }).views ?? 0;
     const prevLikes = (post as { likes?: number }).likes ?? 0;
@@ -1772,7 +1866,17 @@ serve(async (req) => {
     const lastLikeGrowth = scrapedMetrics.likes - prevLikes;
     const lastCommentGrowth = scrapedMetrics.comments - prevComments;
 
-    // Update post in database
+    // Store last valid metrics snapshot
+    const validMetricsSnapshot = {
+      views: scrapedMetrics.views,
+      likes: scrapedMetrics.likes,
+      comments: scrapedMetrics.comments,
+      shares: scrapedMetrics.shares,
+      engagement_rate: scrapedMetrics.engagement_rate,
+      fetched_at: nowIso,
+    };
+
+    // Update post in database (only when valid)
     const updatePayload: Record<string, unknown> = {
       views: scrapedMetrics.views,
       likes: scrapedMetrics.likes,
@@ -1780,8 +1884,16 @@ serve(async (req) => {
       shares: scrapedMetrics.shares,
       engagement_rate: scrapedMetrics.engagement_rate,
       status: "scraped",
-      last_scraped_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      last_scraped_at: nowIso,
+      last_success_at: nowIso,
+      last_attempt_at: nowIso,
+      last_attempt_status: "succeeded",
+      last_attempt_error: null,
+      last_attempt_items_count: 1,
+      next_retry_at: null,
+      cooldown_until: null,
+      valid_metrics: validMetricsSnapshot,
+      updated_at: nowIso,
       canonical_url: postUrl, // Save the URL used for scraping
       last_view_growth: lastViewGrowth,
       last_like_growth: lastLikeGrowth,
@@ -1874,6 +1986,20 @@ serve(async (req) => {
       throw updateError;
     }
 
+    // Creator data quality: only on success, set last_scraped_at / data_status / last_successful_scrape_at
+    const creatorIdToTouch =
+      creatorMatch.creatorId ?? (post as { creator_id?: string | null }).creator_id ?? null;
+    if (creatorIdToTouch) {
+      await supabase
+        .from("creators")
+        .update({
+          last_scraped_at: new Date().toISOString(),
+          data_status: "fresh",
+          last_successful_scrape_at: new Date().toISOString(),
+        })
+        .eq("id", creatorIdToTouch);
+    }
+
     await supabase.from("campaign_platform_scrapes").upsert(
       {
         campaign_id: post.campaign_id,
@@ -1915,9 +2041,24 @@ serve(async (req) => {
       }
     }
 
+    if (runId) {
+      await supabase
+        .from("scrape_runs")
+        .update({
+          status: "succeeded",
+          finished_at: nowIso,
+          duration_ms: Date.now() - startTime,
+          items_count: 1,
+          is_valid: true,
+          error_type: null,
+        })
+        .eq("id", runId);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
+        valid: true,
         metrics: scrapedMetrics,
         post: updatedPost
           ? {

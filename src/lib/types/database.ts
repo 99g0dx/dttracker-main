@@ -211,6 +211,15 @@ export interface Post {
   last_view_growth?: number | null;
   last_like_growth?: number | null;
   last_comment_growth?: number | null;
+  /** Per-post scrape tracking (validity / freshness) */
+  last_success_at?: string | null;
+  last_attempt_at?: string | null;
+  last_attempt_status?: string | null;
+  last_attempt_error?: string | null;
+  last_attempt_items_count?: number | null;
+  next_retry_at?: string | null;
+  cooldown_until?: string | null;
+  valid_metrics?: Record<string, unknown> | null;
 }
 
 export interface PostMetric {

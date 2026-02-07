@@ -13,10 +13,10 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
 // Campaign card skeleton for list view
 function CampaignCardSkeleton() {
   return (
-    <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg overflow-hidden">
-      {/* Cover image skeleton */}
-      <Skeleton className="w-full h-32" />
-
+    <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-xl overflow-hidden">
+      <div className="p-3 pb-0">
+        <Skeleton className="w-full aspect-[4/3] rounded-2xl" />
+      </div>
       <div className="p-5 space-y-3">
         {/* Title */}
         <Skeleton className="h-6 w-2/3" />
