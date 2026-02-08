@@ -78,27 +78,27 @@ export function SoundTrackNew({ onNavigate }: SoundTrackNewProps) {
       <div className="flex items-center gap-4">
         <button
           onClick={() => onNavigate('/sounds')}
-          className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
           aria-label="Back to sounds"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Track a Sound</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Track a Sound</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Paste a TikTok, Instagram Reel, or YouTube Shorts link
           </p>
         </div>
       </div>
 
       {/* Form Card */}
-      <Card className="border-white/5 bg-white/5">
+      <Card className="border-border/50 bg-muted/30">
         <CardHeader>
-          <CardTitle className="text-lg text-white flex items-center gap-2">
+          <CardTitle className="text-lg text-foreground flex items-center gap-2">
             <Music2 className="h-5 w-5 text-primary" />
             Sound URL
           </CardTitle>
-          <CardDescription className="text-slate-400">
+          <CardDescription className="text-muted-foreground">
             We'll automatically detect the platform and start tracking the sound's performance
           </CardDescription>
         </CardHeader>
@@ -114,9 +114,9 @@ export function SoundTrackNew({ onNavigate }: SoundTrackNewProps) {
                   setError(null);
                 }}
                 disabled={createMutation.isPending}
-                className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-500"
+                className="bg-muted/40 border-border text-foreground placeholder:text-muted-foreground"
               />
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Supported: TikTok videos/music, Instagram Reels, YouTube Shorts
               </p>
             </div>
@@ -167,17 +167,17 @@ export function SoundTrackNew({ onNavigate }: SoundTrackNewProps) {
       </Card>
 
       {/* Info Card */}
-      <Card className="border-white/5 bg-white/5">
+      <Card className="border-border/50 bg-muted/30">
         <CardHeader>
-          <CardTitle className="text-base text-white">How it works</CardTitle>
+          <CardTitle className="text-base text-foreground">How it works</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-slate-400">
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
           <div className="flex items-start gap-3">
             <div className="rounded-full bg-primary/10 p-1.5 mt-0.5">
               <div className="h-2 w-2 rounded-full bg-primary" />
             </div>
             <div>
-              <p className="font-medium text-white mb-1">1. Paste a link</p>
+              <p className="font-medium text-foreground mb-1">1. Paste a link</p>
               <p>Share any TikTok video, Instagram Reel, or YouTube Shorts link</p>
             </div>
           </div>
@@ -186,7 +186,7 @@ export function SoundTrackNew({ onNavigate }: SoundTrackNewProps) {
               <div className="h-2 w-2 rounded-full bg-primary" />
             </div>
             <div>
-              <p className="font-medium text-white mb-1">2. We resolve the sound</p>
+              <p className="font-medium text-foreground mb-1">2. We resolve the sound</p>
               <p>We extract the sound ID and start tracking its usage across the platform</p>
             </div>
           </div>
@@ -195,7 +195,7 @@ export function SoundTrackNew({ onNavigate }: SoundTrackNewProps) {
               <div className="h-2 w-2 rounded-full bg-primary" />
             </div>
             <div>
-              <p className="font-medium text-white mb-1">3. Continuous monitoring</p>
+              <p className="font-medium text-foreground mb-1">3. Continuous monitoring</p>
               <p>We automatically refresh data to show how the sound performs over time</p>
             </div>
           </div>

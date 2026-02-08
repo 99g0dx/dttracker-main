@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { syncToDobbleTap } from '../_shared/dobble-tap-sync.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,7 +44,8 @@ serve(async (req) => {
             follower_count,
             avg_engagement,
             niche,
-            location
+            location,
+            dobble_tap_user_id
           )
         )
       `)
@@ -55,7 +57,15 @@ serve(async (req) => {
     }
 
     // Extract creators from the nested structure
-    const creators = request.creator_request_items?.map((item: any) => item.creators).filter(Boolean) || [];
+    const creators =
+      request.creator_request_items?.map((item: any) => item.creators).filter(Boolean) || [];
+    const dttrackerCreatorIds = creators.map((c: any) => c.id).filter(Boolean);
+    const dobbleTapCreatorIds = creators
+      .map((c: any) => c.dobble_tap_user_id)
+      .filter(Boolean);
+    const missingDobbleTapIds = creators
+      .filter((c: any) => !c.dobble_tap_user_id)
+      .map((c: any) => c.id);
 
     // Build email content
     const campaignTypeLabels: Record<string, string> = {
@@ -241,11 +251,71 @@ serve(async (req) => {
       throw new Error(`Resend Error: ${JSON.stringify(resData)}`);
     }
 
+    // Sync creator request to Dobbletap (don't fail if sync fails)
+    let syncResult = null;
+    try {
+      if (dobbleTapCreatorIds.length === 0) {
+        console.error(
+          'No Dobbletap creator IDs available for request sync',
+          { request_id: request.id, dttrackerCreatorIds }
+        );
+        syncResult = {
+          success: false,
+          synced: false,
+          error: 'No Dobbletap creator IDs available for request sync',
+        };
+      } else {
+        syncResult = await syncToDobbleTap(
+          supabase,
+          'creator_request',
+          '/webhooks/dttracker',
+          {
+            request_id: request.id,
+            campaign_type: request.campaign_type,
+            campaign_brief: request.campaign_brief,
+            deliverables: request.deliverables,
+            posts_per_creator: request.posts_per_creator,
+            usage_rights: request.usage_rights,
+            deadline: request.deadline,
+            urgency: request.urgency,
+            contact_person_name: request.contact_person_name,
+            contact_person_email: request.contact_person_email,
+            contact_person_phone: request.contact_person_phone,
+            campaign_id: request.campaign_id,
+            creator_ids: dobbleTapCreatorIds,
+            total_creators: dobbleTapCreatorIds.length,
+            dttracker_creator_ids: dttrackerCreatorIds,
+            missing_dobble_tap_creator_ids: missingDobbleTapIds,
+          },
+          request.id
+        );
+      }
+
+      if (syncResult.synced) {
+        console.log('Creator request synced to Dobbletap successfully');
+        // Update database to reflect sync status
+        await supabase
+          .from('creator_requests')
+          .update({
+            synced_to_dobble_tap: true,
+            dobble_tap_request_id: syncResult.dobbleTapId || null,
+          })
+          .eq('id', request.id);
+      } else {
+        console.error('Failed to sync creator request to Dobbletap:', syncResult.error);
+      }
+    } catch (syncError) {
+      console.error('Exception during Dobbletap sync:', syncError);
+      // Don't throw - request was created and email sent successfully
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         request_id: request.id,
         email_sent: true,
+        synced_to_dobbletap: syncResult?.synced || false,
+        sync_error: syncResult?.error || null,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

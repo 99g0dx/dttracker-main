@@ -233,7 +233,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -242,7 +242,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <AlertTriangle className="w-12 h-12 text-red-400" />
-        <p className="text-slate-400">Failed to load subscription details</p>
+        <p className="text-muted-foreground">Failed to load subscription details</p>
         <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     );
@@ -257,15 +257,15 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
       <div className="flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => onNavigate("/settings")}
-          className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-9 h-9 flex-shrink-0 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-2">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground mb-2">
             Subscription & Seats
           </h1>
-          <p className="text-sm sm:text-base text-slate-400">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Choose a plan, toggle billing, and set seats before checkout.
           </p>
         </div>
@@ -340,17 +340,17 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
         </Card>
       )}
 
-      <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-6xl mx-auto">
+      <Card className="bg-card border-border max-w-6xl mx-auto">
         <CardContent className="p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm text-slate-400 mb-1">Billing cycle</p>
-            <div className="inline-flex rounded-lg border border-white/[0.08] bg-black/40 p-1">
+            <p className="text-sm text-muted-foreground mb-1">Billing cycle</p>
+            <div className="inline-flex rounded-lg border border-border bg-muted/60 p-1">
               <button
                 onClick={() => setBillingCycle("monthly")}
                 className={`px-3 py-1.5 text-sm rounded-md ${
                   billingCycle === "monthly"
-                    ? "bg-white text-black"
-                    : "text-slate-400"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground"
                 }`}
               >
                 Monthly
@@ -359,8 +359,8 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                 onClick={() => setBillingCycle("yearly")}
                 className={`px-3 py-1.5 text-sm rounded-md ${
                   billingCycle === "yearly"
-                    ? "bg-white text-black"
-                    : "text-slate-400"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground"
                 }`}
               >
                 Yearly
@@ -371,31 +371,31 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-slate-400">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-muted-foreground">
             <div>
-              <p className="text-slate-500">Active campaigns</p>
-              <p className="text-white text-sm">
+              <p className="text-muted-foreground">Active campaigns</p>
+              <p className="text-foreground text-sm">
                 {billing?.usage.active_campaigns_count ?? 0} /{" "}
                 {renderLimit(billing?.plan.max_active_campaigns ?? null)}
               </p>
             </div>
             <div>
-              <p className="text-slate-500">Creators per campaign</p>
-              <p className="text-white text-sm">
+              <p className="text-muted-foreground">Creators per campaign</p>
+              <p className="text-foreground text-sm">
                 {renderLimit(billing?.plan.max_creators_per_campaign ?? null)}
               </p>
             </div>
             <div>
-              <p className="text-slate-500">Scrape interval</p>
-              <p className="text-white text-sm">
+              <p className="text-muted-foreground">Scrape interval</p>
+              <p className="text-foreground text-sm">
                 {billing?.plan
                   ? formatInterval(billing.plan.scrape_interval_minutes)
                   : "-"}
               </p>
             </div>
             <div>
-              <p className="text-slate-500">Team seats</p>
-              <p className="text-white text-sm">
+              <p className="text-muted-foreground">Team seats</p>
+              <p className="text-foreground text-sm">
                 {billing?.seats_used ?? 1} / {billing?.seats_total ?? 1}
               </p>
             </div>
@@ -418,7 +418,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
           return (
             <Card
               key={tier}
-              className={`bg-[#0D0D0D] border-white/[0.08] cursor-pointer transition-all ${
+              className={`bg-card border-border cursor-pointer transition-all ${
                 isSelected
                   ? "border-primary/60 shadow-lg shadow-primary/20"
                   : ""
@@ -428,34 +428,34 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-500">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
                       {tier}
                     </p>
-                    <h3 className="text-lg font-semibold text-white capitalize">
+                    <h3 className="text-lg font-semibold text-foreground capitalize">
                       {tier === "free" ? "Free" : tier}
                     </h3>
                   </div>
                   {isCurrentPlan && (
-                    <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-slate-200">
+                    <span className="text-xs px-2 py-1 rounded-full bg-muted/40 text-foreground">
                       Current
                     </span>
                   )}
                 </div>
 
                 <div>
-                  <p className="text-3xl font-semibold text-white">
+                  <p className="text-3xl font-semibold text-foreground">
                     {tierPlan
                       ? formatPrice(tierPlan.base_price_cents, currency)
                       : "-"}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     {tier === "free"
                       ? "No credit card required"
                       : `per ${billingCycle}`}
                   </p>
                 </div>
 
-                <div className="space-y-2 text-xs text-slate-400">
+                <div className="space-y-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Check className="w-3 h-3 text-emerald-400" />
                     <span>
@@ -492,18 +492,18 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
         })}
       </div>
 
-      <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-6xl mx-auto">
+      <Card className="bg-card border-border max-w-6xl mx-auto">
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <p className="text-sm text-slate-400">Selected plan</p>
-              <h3 className="text-xl font-semibold text-white capitalize">
+              <p className="text-sm text-muted-foreground">Selected plan</p>
+              <h3 className="text-xl font-semibold text-foreground capitalize">
                 {selectedTier} ({billingCycle})
               </h3>
             </div>
             <div className="text-right">
-              <p className="text-sm text-slate-500">Total today</p>
-              <p className="text-2xl font-semibold text-white">
+              <p className="text-sm text-muted-foreground">Total today</p>
+              <p className="text-2xl font-semibold text-foreground">
                 {formatPrice(totalPrice, currency)}
               </p>
             </div>
@@ -512,8 +512,8 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
           {selectedTier !== "free" && (
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <p className="text-sm text-slate-400">Seats</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm text-muted-foreground">Seats</p>
+                <p className="text-xs text-muted-foreground">
                   Included seats: {selectedPlan?.included_seats ?? 1}. Extra
                   seats are {formatPrice(seatPrice, currency)} each.
                 </p>
@@ -527,8 +527,8 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                   <Minus className="w-4 h-4" />
                 </Button>
                 <div className="min-w-[80px] text-center">
-                  <p className="text-sm text-slate-400">Extra seats</p>
-                  <p className="text-lg font-semibold text-white">
+                  <p className="text-sm text-muted-foreground">Extra seats</p>
+                  <p className="text-lg font-semibold text-foreground">
                     {extraSeats}
                   </p>
                 </div>
@@ -540,8 +540,8 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
-                <div className="text-sm text-slate-400">
-                  Total seats: <span className="text-white">{totalSeats}</span>
+                <div className="text-sm text-muted-foreground">
+                  Total seats: <span className="text-foreground">{totalSeats}</span>
                 </div>
               </div>
             </div>
@@ -550,7 +550,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
           <Button
             onClick={handleCheckout}
             disabled={isCheckoutDisabled}
-            className="w-full h-12 bg-primary hover:bg-primary/90 text-black font-medium"
+            className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
           >
             {createCheckout.isPending || updateSeats.isPending ? (
               <span className="flex items-center gap-2">

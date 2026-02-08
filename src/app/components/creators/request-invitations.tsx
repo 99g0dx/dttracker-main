@@ -41,33 +41,33 @@ export function RequestInvitations({ onNavigate }: RequestInvitationsProps) {
         <button
           type="button"
           onClick={() => onNavigate("/creators")}
-          className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
+          className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div>
-          <h1 className="text-xl font-semibold text-white">
+          <h1 className="text-xl font-semibold text-foreground">
             Creator invitations
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted-foreground">
             Invitations from brands to collaborate at a quoted rate
           </p>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 text-slate-400 py-8">
+        <div className="flex items-center gap-2 text-muted-foreground py-8">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span className="text-sm">Loading invitations...</span>
         </div>
       ) : error ? (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
             <p className="text-sm text-red-400">{error.message}</p>
             <Button
               variant="outline"
               size="sm"
-              className="mt-4 border-white/[0.08]"
+              className="mt-4 border-border"
               onClick={() => onNavigate("/creators")}
             >
               Back to Creators
@@ -75,16 +75,16 @@ export function RequestInvitations({ onNavigate }: RequestInvitationsProps) {
           </CardContent>
         </Card>
       ) : invitations.length === 0 ? (
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-8 text-center">
-            <Mail className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-            <p className="text-slate-400 mb-1">No invitations yet</p>
-            <p className="text-sm text-slate-500">
+            <Mail className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground mb-1">No invitations yet</p>
+            <p className="text-sm text-muted-foreground">
               When brands invite you to a creator request, they’ll show up here.
             </p>
             <Button
               variant="outline"
-              className="mt-4 border-white/[0.08]"
+              className="mt-4 border-border"
               onClick={() => onNavigate("/creators")}
             >
               Back to Creators
@@ -95,7 +95,7 @@ export function RequestInvitations({ onNavigate }: RequestInvitationsProps) {
         <div className="space-y-4">
           {pendingInvitations.length > 0 && (
             <>
-              <h2 className="text-sm font-medium text-slate-400">
+              <h2 className="text-sm font-medium text-muted-foreground">
                 Pending ({pendingInvitations.length})
               </h2>
               {pendingInvitations.map(
@@ -116,7 +116,7 @@ export function RequestInvitations({ onNavigate }: RequestInvitationsProps) {
 
           {otherInvitations.length > 0 && (
             <>
-              <h2 className="text-sm font-medium text-slate-400 mt-6">
+              <h2 className="text-sm font-medium text-muted-foreground mt-6">
                 Past invitations
               </h2>
               {otherInvitations.map(
@@ -164,33 +164,33 @@ function InvitationCard({
   const status = invitation.status;
 
   return (
-    <Card className="bg-[#0D0D0D] border-white/[0.08]">
+    <Card className="bg-card border-border">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-medium text-white">{title}</h3>
+            <h3 className="font-medium text-foreground">{title}</h3>
             {deadline && (
-              <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                 <Calendar className="w-3 h-3" />
                 Deadline: {format(new Date(deadline), "MMM d, yyyy")}
               </p>
             )}
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="text-lg font-semibold text-white">
+            <p className="text-lg font-semibold text-foreground">
               {formatAmount(Number(invitation.quoted_rate))}
             </p>
-            <p className="text-xs text-slate-500 capitalize">{status}</p>
+            <p className="text-xs text-muted-foreground capitalize">{status}</p>
           </div>
         </div>
 
         {brief && (
-          <p className="text-sm text-slate-400 line-clamp-3">{brief}</p>
+          <p className="text-sm text-muted-foreground line-clamp-3">{brief}</p>
         )}
 
         {invitation.deliverable_description && (
-          <p className="text-xs text-slate-500">
-            <span className="text-slate-400">Deliverable:</span>{" "}
+          <p className="text-xs text-muted-foreground">
+            <span className="text-muted-foreground">Deliverable:</span>{" "}
             {invitation.deliverable_description}
           </p>
         )}
@@ -199,7 +199,7 @@ function InvitationCard({
           <div className="flex gap-2 pt-2">
             <Button
               size="sm"
-              className="bg-primary text-black hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={onAccept}
               disabled={isAccepting || isDeclining}
             >
@@ -215,7 +215,7 @@ function InvitationCard({
             <Button
               size="sm"
               variant="outline"
-              className="border-white/[0.08]"
+              className="border-border"
               onClick={onDecline}
               disabled={isAccepting || isDeclining}
             >
@@ -232,7 +232,7 @@ function InvitationCard({
         )}
 
         {status === "accepted" && activationId && (
-          <p className="text-xs text-slate-400 pt-2">
+          <p className="text-xs text-muted-foreground pt-2">
             Submit your deliverable from the{" "}
             <button
               type="button"

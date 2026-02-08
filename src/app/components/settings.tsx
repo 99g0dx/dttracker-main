@@ -630,7 +630,7 @@ export function Settings({ onNavigate }: SettingsProps) {
       'text-purple-700 dark:text-purple-400 bg-purple-100/70 dark:bg-purple-400/10 border-purple-200 dark:border-purple-400/20',
     brand_member: 'text-primary bg-primary/10 border-primary/20',
     agency_ops:
-      'text-slate-600 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-400/10 border-slate-200 dark:border-slate-400/20',
+      'text-muted-foreground dark:text-muted-foreground bg-slate-100/70 dark:bg-slate-400/10 border-slate-200 dark:border-slate-400/20',
   };
 
   const statusStyles: Record<string, string> = {
@@ -819,7 +819,7 @@ export function Settings({ onNavigate }: SettingsProps) {
             <div className="mt-4 flex flex-col items-center gap-3">
               {mfaQr ? (
                 mfaQr.startsWith('data:') ? (
-                  <img src={mfaQr} alt="MFA QR Code" className="h-40 w-40 rounded-lg bg-white p-2" />
+                  <img src={mfaQr} alt="MFA QR Code" className="h-40 w-40 rounded-lg bg-card p-2" />
                 ) : (
                   <div className="w-full rounded-lg border border-border bg-muted/60 p-3 text-xs text-foreground">
                     {mfaQr}

@@ -113,7 +113,7 @@ const handleResend = async () => {
   const isExistingUser = authMode === 'login';
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center gap-6 text-center">
           <img src={logoImage} alt="DTTracker" className="w-10 h-10 object-contain" />
@@ -125,10 +125,10 @@ const handleResend = async () => {
                 <CheckCircle className="w-8 h-8 text-green-500" />
               </div>
               <div className="space-y-2">
-                <h1 className="text-2xl font-semibold text-white">
+                <h1 className="text-2xl font-semibold text-foreground">
                   Verified!
                 </h1>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   Your email has been verified. Redirecting you now...
                 </p>
               </div>
@@ -141,35 +141,35 @@ const handleResend = async () => {
               </div>
               
               <div className="space-y-2">
-                <h1 className="text-2xl font-semibold text-white">
+                <h1 className="text-2xl font-semibold text-foreground">
                   Check your email
                 </h1>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   We sent a verification link to
                 </p>
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-foreground">
                   {userEmail}
                 </p>
               </div>
 
               <div className="w-full max-w-sm space-y-4">
-                <div className="p-4 rounded-lg bg-white/[0.03] border border-white/[0.08]">
-                  <p className="text-xs text-slate-400 text-left">
+                <div className="p-4 rounded-lg bg-muted/40 border border-border">
+                  <p className="text-xs text-muted-foreground text-left">
                     Click the link in the email to verify your account. The page will automatically update once verified.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <div className="flex-1 h-px bg-white/[0.08]" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex-1 h-px bg-muted/70" />
                   <span>Didn't receive it?</span>
-                  <div className="flex-1 h-px bg-white/[0.08]" />
+                  <div className="flex-1 h-px bg-muted/70" />
                 </div>
               {userEmail && !linkClicked && (
                 <Button 
                   onClick={handleResend} 
                   disabled={resendCooldown > 0 || isResending}
                   variant="outline"
-                  className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-muted/40 border-border text-foreground hover:bg-muted/60 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isResending 
                     ? 'Sending...' 
@@ -179,7 +179,7 @@ const handleResend = async () => {
                 </Button>
               )}
                 {resendCooldown > 0 && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     Please wait {resendCooldown}s before requesting another email
                   </p>
                 )}
@@ -187,7 +187,7 @@ const handleResend = async () => {
 
               <button
                 onClick={() => navigate('/login')}
-                className="text-sm text-slate-400 hover:text-white transition-colors"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Back to login
               </button>

@@ -39,17 +39,15 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    const {
-      creator_id: dobbleTapCreatorId,
-      profile_photo,
-      bio,
-      location,
-      social_accounts = [],
-    } = body;
+    const { eventType, timestamp, creators } = body;
 
-    if (!dobbleTapCreatorId) {
+    // Validate payload structure
+    if (!Array.isArray(creators) || creators.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'creator_id required' }),
+        JSON.stringify({
+          error: 'creators array required with at least one creator',
+          received: body
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -57,142 +55,186 @@ serve(async (req) => {
       );
     }
 
-    if (!Array.isArray(social_accounts) || social_accounts.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'social_accounts array required with at least one account' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const primary = social_accounts[0];
-    const platform = primary.platform || 'tiktok';
-    const handle = primary.handle?.replace(/^@/, '') || 'unknown';
-    const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
-    const name = handle;
-
-    let { data: creator, error: creatorError } = await supabase
-      .from('creators')
-      .select('id')
-      .eq('dobble_tap_user_id', dobbleTapCreatorId)
-      .maybeSingle();
-
-    if (creatorError) {
-      return new Response(
-        JSON.stringify({ error: creatorError.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
+    const results = [];
+    const errors = [];
     const now = new Date().toISOString();
 
-    if (!creator) {
-      const { data: existingByHandle, error: lookupError } = await supabase
-        .from('creators')
-        .select('id')
-        .eq('platform', platform)
-        .eq('handle', handleWithAt)
-        .maybeSingle();
+    // Process each creator in the batch
+    for (const creatorData of creators) {
+      try {
+        const {
+          creator_id: dobbleTapCreatorId,
+          handle,
+          platform,
+          followerCount,
+          email,
+          phone,
+          verificationStatus,
+          profilePhoto,
+          bio,
+          location,
+        } = creatorData;
 
-      if (lookupError) {
-        return new Response(
-          JSON.stringify({ error: lookupError.message }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-
-      if (existingByHandle) {
-        creator = existingByHandle;
-        await supabase
-          .from('creators')
-          .update({
-            dobble_tap_user_id: dobbleTapCreatorId,
-            profile_photo: profile_photo || null,
-            bio: bio || null,
-            location: location || null,
-            status: 'active',
-            last_active_at: now,
-            updated_at: now,
-            follower_count: primary.followers ?? 0,
-          })
-          .eq('id', creator.id);
-      } else {
-        const { data: newCreator, error: insertError } = await supabase
-          .from('creators')
-          .insert({
-            user_id: null,
-            dobble_tap_user_id: dobbleTapCreatorId,
-            name,
-            handle: handleWithAt,
-            platform,
-            follower_count: primary.followers || 0,
-            avg_engagement: 0,
-            profile_photo: profile_photo || null,
-            bio: bio || null,
-            location: location || null,
-            status: 'active',
-            last_active_at: now,
-          })
-          .select('id')
-          .single();
-
-        if (insertError) {
-          return new Response(
-            JSON.stringify({ error: insertError.message }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            }
-          );
+        if (!dobbleTapCreatorId) {
+          errors.push({
+            creator: creatorData,
+            error: 'creator_id required',
+          });
+          continue;
         }
-        creator = newCreator;
+
+        if (!handle) {
+          errors.push({
+            creator_id: dobbleTapCreatorId,
+            error: 'handle required',
+          });
+          continue;
+        }
+
+        // Normalize handle
+        const normalizedHandle = handle.startsWith('@') ? handle : `@${handle}`;
+        const creatorPlatform = platform || 'tiktok';
+        const name = handle.replace(/^@/, '');
+
+        // Check if creator already exists by dobble_tap_user_id
+        let { data: creator, error: creatorError } = await supabase
+          .from('creators')
+          .select('id')
+          .eq('dobble_tap_user_id', dobbleTapCreatorId)
+          .maybeSingle();
+
+        if (creatorError) {
+          errors.push({
+            creator_id: dobbleTapCreatorId,
+            error: creatorError.message,
+          });
+          continue;
+        }
+
+        if (!creator) {
+          // Check if creator exists by handle/platform
+          const { data: existingByHandle, error: lookupError } = await supabase
+            .from('creators')
+            .select('id')
+            .eq('platform', creatorPlatform)
+            .eq('handle', normalizedHandle)
+            .maybeSingle();
+
+          if (lookupError) {
+            errors.push({
+              creator_id: dobbleTapCreatorId,
+              error: lookupError.message,
+            });
+            continue;
+          }
+
+          if (existingByHandle) {
+            // Update existing creator with dobble_tap_user_id
+            creator = existingByHandle;
+            await supabase
+              .from('creators')
+              .update({
+                dobble_tap_user_id: dobbleTapCreatorId,
+                profile_photo: profilePhoto || null,
+                bio: bio || null,
+                location: location || null,
+                status: verificationStatus === 'verified' ? 'active' : 'inactive',
+                last_active_at: now,
+                updated_at: now,
+                follower_count: followerCount || 0,
+                email: email || null,
+                phone: phone || null,
+              })
+              .eq('id', creator.id);
+          } else {
+            // Create new creator
+            const { data: newCreator, error: insertError } = await supabase
+              .from('creators')
+              .insert({
+                user_id: null,
+                dobble_tap_user_id: dobbleTapCreatorId,
+                name,
+                handle: normalizedHandle,
+                platform: creatorPlatform,
+                follower_count: followerCount || 0,
+                avg_engagement: 0,
+                profile_photo: profilePhoto || null,
+                bio: bio || null,
+                location: location || null,
+                email: email || null,
+                phone: phone || null,
+                status: verificationStatus === 'verified' ? 'active' : 'inactive',
+                last_active_at: now,
+              })
+              .select('id')
+              .single();
+
+            if (insertError) {
+              errors.push({
+                creator_id: dobbleTapCreatorId,
+                error: insertError.message,
+              });
+              continue;
+            }
+            creator = newCreator;
+          }
+        } else {
+          // Update existing creator
+          await supabase
+            .from('creators')
+            .update({
+              profile_photo: profilePhoto || null,
+              bio: bio || null,
+              location: location || null,
+              email: email || null,
+              phone: phone || null,
+              status: verificationStatus === 'verified' ? 'active' : 'inactive',
+              last_active_at: now,
+              updated_at: now,
+              follower_count: followerCount || 0,
+            })
+            .eq('id', creator.id);
+        }
+
+        const creatorId = creator.id;
+
+        // Create/update social account entry
+        await supabase
+          .from('creator_social_accounts')
+          .upsert(
+            {
+              creator_id: creatorId,
+              platform: creatorPlatform,
+              handle: normalizedHandle,
+              followers: followerCount || 0,
+              verified_at: verificationStatus === 'verified' ? now : null,
+              last_synced_at: now,
+            },
+            { onConflict: 'creator_id,platform' }
+          );
+
+        results.push({
+          dobble_tap_creator_id: dobbleTapCreatorId,
+          dttracker_creator_id: creatorId,
+          status: 'synced',
+        });
+
+      } catch (err) {
+        errors.push({
+          creator: creatorData,
+          error: (err as Error).message,
+        });
       }
-    } else {
-      await supabase
-        .from('creators')
-        .update({
-          profile_photo: profile_photo || null,
-          bio: bio || null,
-          location: location || null,
-          status: 'active',
-          last_active_at: now,
-          updated_at: now,
-        })
-        .eq('id', creator.id);
-    }
-
-    const creatorId = creator.id;
-
-    for (const acc of social_accounts) {
-      const plat = acc.platform || 'tiktok';
-      const h = acc.handle?.replace(/^@/, '') || '';
-      if (!h) continue;
-
-      await supabase
-        .from('creator_social_accounts')
-        .upsert(
-          {
-            creator_id: creatorId,
-            platform: plat,
-            handle: h.startsWith('@') ? h : `@${h}`,
-            followers: acc.followers || 0,
-            verified_at: acc.verified_at || null,
-            last_synced_at: now,
-          },
-          { onConflict: 'creator_id,platform' }
-        );
     }
 
     return new Response(
-      JSON.stringify({ success: true, creator_id: creatorId }),
+      JSON.stringify({
+        success: true,
+        synced: results.length,
+        failed: errors.length,
+        results,
+        errors: errors.length > 0 ? errors : undefined,
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

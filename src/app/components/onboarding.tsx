@@ -110,27 +110,27 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-2xl">
         {/* Progress Indicator */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-slate-400">Step {currentStep} of 2</span>
-            <span className="text-sm text-slate-400">
+            <span className="text-sm text-muted-foreground">Step {currentStep} of 2</span>
+            <span className="text-sm text-muted-foreground">
               {Math.round((currentStep / 2) * 100)}% Complete
             </span>
           </div>
-          <div className="w-full h-2 bg-white/[0.05] rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-muted/60 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-primary to-red-400 dark:to-cyan-400 transition-all duration-300"
               style={{ width: `${(currentStep / 2) * 100}%` }}
@@ -138,7 +138,7 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
           </div>
         </div>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08] shadow-2xl">
+        <Card className="bg-card border-border shadow-2xl">
           <CardContent className="p-8">
             {/* Step 1: Welcome & Name */}
             {currentStep === 1 && (
@@ -147,17 +147,17 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <Sparkles className="w-8 h-8 text-primary" />
                   </div>
-                  <h2 className="text-2xl font-semibold text-white mb-2">
+                  <h2 className="text-2xl font-semibold text-foreground mb-2">
                     Welcome to DTTracker!
                   </h2>
-                  <p className="text-slate-400">
+                  <p className="text-muted-foreground">
                     Let's get you set up in just a few steps
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">
                       Full Name *
                     </label>
                     <Input
@@ -167,13 +167,13 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, fullName: e.target.value })
                       }
-                      className="h-11 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-500"
+                      className="h-11 bg-muted/50 border-border/70 text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Company / Organization <span className="text-slate-500">(optional)</span>
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">
+                      Company / Organization <span className="text-muted-foreground">(optional)</span>
                     </label>
                     <Input
                       type="text"
@@ -182,7 +182,7 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, company: e.target.value })
                       }
-                      className="h-11 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-500"
+                      className="h-11 bg-muted/50 border-border/70 text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -191,7 +191,7 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                   <Button
                     onClick={handleNext}
                     disabled={!formData.fullName.trim()}
-                    className="h-11 px-6 bg-primary hover:bg-primary/90 text-black font-medium"
+                    className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                   >
                     Continue
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -204,17 +204,17 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
             {currentStep === 2 && (
               <div className="space-y-6">
                 <div className="text-center mb-8">
-                  <h2 className="text-2xl font-semibold text-white mb-2">
+                  <h2 className="text-2xl font-semibold text-foreground mb-2">
                     Tell us about yourself
                   </h2>
-                  <p className="text-slate-400">
+                  <p className="text-muted-foreground">
                     Help us personalize your experience
                   </p>
                 </div>
 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-3">
+                    <label className="block text-sm font-medium text-muted-foreground mb-3">
                       What's your role? *
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -231,22 +231,22 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                             className={`p-4 rounded-lg border-2 transition-all text-left ${
                               isSelected
                                 ? "border-primary bg-primary/10"
-                                : "border-white/[0.1] bg-white/[0.02] hover:border-white/[0.2] hover:bg-white/[0.04]"
+                                : "border-border/70 bg-muted/30 hover:border-border/80 hover:bg-muted/50"
                             }`}
                           >
                             <div className="flex items-center gap-3">
                               <div
                                 className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                                   isSelected
-                                    ? "bg-primary text-black"
-                                    : "bg-white/[0.05] text-slate-400"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted/60 text-muted-foreground"
                                 }`}
                               >
                                 <Icon className="w-5 h-5" />
                               </div>
                               <span
                                 className={`font-medium ${
-                                  isSelected ? "text-white" : "text-slate-300"
+                                  isSelected ? "text-foreground" : "text-muted-foreground"
                                 }`}
                               >
                                 {role.label}
@@ -259,7 +259,7 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-3">
+                    <label className="block text-sm font-medium text-muted-foreground mb-3">
                       What's your primary use case? *
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -276,22 +276,22 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                             className={`p-4 rounded-lg border-2 transition-all text-left ${
                               isSelected
                                 ? "border-primary bg-primary/10"
-                                : "border-white/[0.1] bg-white/[0.02] hover:border-white/[0.2] hover:bg-white/[0.04]"
+                                : "border-border/70 bg-muted/30 hover:border-border/80 hover:bg-muted/50"
                             }`}
                           >
                             <div className="flex items-center gap-3">
                               <div
                                 className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                                   isSelected
-                                    ? "bg-primary text-black"
-                                    : "bg-white/[0.05] text-slate-400"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted/60 text-muted-foreground"
                                 }`}
                               >
                                 <Icon className="w-5 h-5" />
                               </div>
                               <span
                                 className={`font-medium ${
-                                  isSelected ? "text-white" : "text-slate-300"
+                                  isSelected ? "text-foreground" : "text-muted-foreground"
                                 }`}
                               >
                                 {useCase.label}
@@ -308,7 +308,7 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                   <Button
                     onClick={handleBack}
                     variant="outline"
-                    className="h-11 px-6 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-white"
+                    className="h-11 px-6 bg-muted/50 hover:bg-muted/70 border-border/70 text-foreground"
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back
@@ -321,7 +321,7 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
                       isSubmitting ||
                       completeOnboarding.isPending
                     }
-                    className="h-11 px-6 bg-primary hover:bg-primary/90 text-black font-medium"
+                    className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                   >
                     {isSubmitting || completeOnboarding.isPending ? (
                       <>
@@ -344,4 +344,3 @@ export function Onboarding({ onNavigate }: OnboardingProps) {
     </div>
   );
 }
-

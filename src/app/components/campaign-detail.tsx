@@ -1661,7 +1661,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <div
                 className={`gradient-fallback hidden w-full h-full ${coverGradient} items-center justify-center`}
               >
-                <h2 className="text-3xl sm:text-5xl font-bold text-white/90">
+                <h2 className="text-3xl sm:text-5xl font-bold text-foreground/90">
                   {campaign.name.charAt(0).toUpperCase()}
                 </h2>
               </div>
@@ -1679,7 +1679,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   backgroundSize: "24px 24px",
                 }}
               />
-              <h2 className="text-3xl sm:text-5xl font-bold text-white/90 relative z-10">
+              <h2 className="text-3xl sm:text-5xl font-bold text-foreground/90 relative z-10">
                 {campaign.name.charAt(0).toUpperCase()}
               </h2>
             </div>

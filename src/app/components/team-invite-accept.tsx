@@ -198,23 +198,23 @@ export function TeamInviteAccept() {
         return {
           icon: <Eye className="w-4 h-4" />,
           label: "Viewer",
-          color: "text-slate-400",
+          color: "text-muted-foreground",
         };
       default:
         return {
           icon: <Users className="w-4 h-4" />,
           label: workspaceRoleLabel(role as any),
-          color: "text-slate-400",
+          color: "text-muted-foreground",
         };
     }
   };
 
   if (authLoading || inviteLoading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading invite...</p>
+          <p className="text-muted-foreground">Loading invite...</p>
         </div>
       </div>
     );
@@ -222,22 +222,22 @@ export function TeamInviteAccept() {
 
   if (!token || inviteError || !invite) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-        <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-md w-full">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="bg-card border-border max-w-md w-full">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
               <XCircle className="w-6 h-6 text-red-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
               Invalid Invite
             </h2>
-            <p className="text-slate-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               {inviteError?.message ||
                 "This invite link is invalid or has expired."}
             </p>
             <Button
               onClick={() => navigate("/home")}
-              className="bg-primary hover:bg-primary/90 text-black"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               Go to Home
             </Button>
@@ -251,19 +251,19 @@ export function TeamInviteAccept() {
   const isExpired = new Date(invite.expires_at) < new Date();
   if (isExpired) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-        <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-md w-full">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="bg-card border-border max-w-md w-full">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
               <Clock className="w-6 h-6 text-amber-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
               Invite Expired
             </h2>
-            <p className="text-slate-400 mb-6">This invite link has expired.</p>
+            <p className="text-muted-foreground mb-6">This invite link has expired.</p>
             <Button
               onClick={() => navigate("/home")}
-              className="bg-primary hover:bg-primary/90 text-black"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               Go to Home
             </Button>
@@ -276,21 +276,21 @@ export function TeamInviteAccept() {
   // Check if already accepted
   if (invite.accepted_at) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-        <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-md w-full">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="bg-card border-border max-w-md w-full">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-6 h-6 text-emerald-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
               Already Accepted
             </h2>
-            <p className="text-slate-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               This invite has already been accepted.
             </p>
             <Button
               onClick={() => navigate("/team")}
-              className="bg-primary hover:bg-primary/90 text-black"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               Go to Team Page
             </Button>
@@ -303,36 +303,36 @@ export function TeamInviteAccept() {
   const roleInfo = getRoleInfo(invite.role);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-      <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-lg w-full">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <Card className="bg-card border-border max-w-lg w-full">
         <CardContent className="p-8">
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Mail className="w-8 h-8 text-primary" />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">
+            <h2 className="text-2xl font-semibold text-foreground mb-2">
               Team Invitation
             </h2>
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               You've been invited to join a workspace
             </p>
           </div>
 
           {/* Invite Details */}
           <div className="space-y-4 mb-8">
-            <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+            <div className="p-4 bg-muted/30 border border-border/60 rounded-lg">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-slate-400">Invited Email</span>
+                <span className="text-sm text-muted-foreground">Invited Email</span>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-slate-400" />
-                <span className="text-white font-medium">{invite.email}</span>
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                <span className="text-foreground font-medium">{invite.email}</span>
               </div>
             </div>
 
-            <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+            <div className="p-4 bg-muted/30 border border-border/60 rounded-lg">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-slate-400">Role</span>
+                <span className="text-sm text-muted-foreground">Role</span>
               </div>
               <div className={`flex items-center gap-2 ${roleInfo.color}`}>
                 {roleInfo.icon}
@@ -341,23 +341,23 @@ export function TeamInviteAccept() {
             </div>
 
             {invite.inviter_name && (
-              <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+              <div className="p-4 bg-muted/30 border border-border/60 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-slate-400">Invited By</span>
+                  <span className="text-sm text-muted-foreground">Invited By</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-slate-400" />
-                  <span className="text-white">{invite.inviter_name}</span>
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-foreground">{invite.inviter_name}</span>
                 </div>
               </div>
             )}
 
             {invite.message && (
-              <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+              <div className="p-4 bg-muted/30 border border-border/60 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-slate-400">Message</span>
+                  <span className="text-sm text-muted-foreground">Message</span>
                 </div>
-                <p className="text-white">{invite.message}</p>
+                <p className="text-foreground">{invite.message}</p>
               </div>
             )}
           </div>
@@ -369,20 +369,20 @@ export function TeamInviteAccept() {
               <div className="space-y-4">
                 {/* Email (read-only, pre-filled) */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Email
                   </label>
                   <Input
                     type="email"
                     value={invite.email}
                     disabled
-                    className="h-10 bg-white/[0.02] border-white/[0.06] text-slate-400 cursor-not-allowed"
+                    className="h-10 bg-muted/30 border-border/60 text-muted-foreground cursor-not-allowed"
                   />
                 </div>
 
                 {/* Full Name */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Full Name (optional)
                   </label>
                   <Input
@@ -392,13 +392,13 @@ export function TeamInviteAccept() {
                     onChange={(e) =>
                       setSignupData({ ...signupData, fullName: e.target.value })
                     }
-                    className="h-10 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-500"
+                    className="h-10 bg-muted/50 border-border/70 text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Password
                   </label>
                   <div className="relative">
@@ -409,12 +409,12 @@ export function TeamInviteAccept() {
                       onChange={(e) =>
                         setSignupData({ ...signupData, password: e.target.value })
                       }
-                      className="h-10 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-500 pr-10"
+                      className="h-10 bg-muted/50 border-border/70 text-foreground placeholder:text-muted-foreground pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                     >
                       {showPassword ? (
                         <EyeOff className="w-4 h-4" />
@@ -423,14 +423,14 @@ export function TeamInviteAccept() {
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Must be at least 8 characters
                   </p>
                 </div>
 
                 {/* Confirm Password */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Confirm Password
                   </label>
                   <div className="relative">
@@ -444,14 +444,14 @@ export function TeamInviteAccept() {
                           confirmPassword: e.target.value,
                         })
                       }
-                      className="h-10 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-500 pr-10"
+                      className="h-10 bg-muted/50 border-border/70 text-foreground placeholder:text-muted-foreground pr-10"
                     />
                     <button
                       type="button"
                       onClick={() =>
                         setShowConfirmPassword(!showConfirmPassword)
                       }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="w-4 h-4" />
@@ -474,7 +474,7 @@ export function TeamInviteAccept() {
               <Button
                 type="submit"
                 disabled={isSigningUp || acceptInviteMutation.isPending}
-                className="w-full h-11 bg-primary hover:bg-primary/90 text-black font-medium"
+                className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
               >
                 {isSigningUp || acceptInviteMutation.isPending ? (
                   <>
@@ -494,7 +494,7 @@ export function TeamInviteAccept() {
                 type="button"
                 onClick={() => navigate("/login")}
                 variant="outline"
-                className="w-full h-11 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-white"
+                className="w-full h-11 bg-muted/50 hover:bg-muted/70 border-border/70 text-foreground"
               >
                 Already have an account? Sign In
               </Button>
@@ -511,7 +511,7 @@ export function TeamInviteAccept() {
               <Button
                 onClick={() => navigate("/login")}
                 variant="outline"
-                className="w-full h-11 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-white"
+                className="w-full h-11 bg-muted/50 hover:bg-muted/70 border-border/70 text-foreground"
               >
                 Sign In with Different Account
               </Button>
@@ -520,7 +520,7 @@ export function TeamInviteAccept() {
             <Button
               onClick={handleAccept}
               disabled={isProcessing || acceptInviteMutation.isPending}
-              className="w-full h-11 bg-primary hover:bg-primary/90 text-black font-medium"
+              className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
             >
               {isProcessing || acceptInviteMutation.isPending ? (
                 <>

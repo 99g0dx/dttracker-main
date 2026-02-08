@@ -69,7 +69,7 @@ export function CompanyAdminRoute({ children }: CompanyAdminRouteProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-slate-400">
+      <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
         Loading...
       </div>
     );
@@ -81,7 +81,7 @@ export function CompanyAdminRoute({ children }: CompanyAdminRouteProps) {
 
   if (!mfaReady) {
     return (
-      <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-slate-400">
+      <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
         Verifying admin security...
       </div>
     );
@@ -90,9 +90,9 @@ export function CompanyAdminRoute({ children }: CompanyAdminRouteProps) {
   if (!isDesktop) {
     return (
       <div className="flex h-full min-h-[60vh] items-center justify-center px-6">
-        <div className="max-w-md rounded-xl border border-white/[0.08] bg-[#0D0D0D] p-6 text-center">
-          <h2 className="text-lg font-semibold text-white">Desktop Required</h2>
-          <p className="mt-2 text-sm text-slate-400">
+        <div className="max-w-md rounded-xl border border-border bg-card p-6 text-center">
+          <h2 className="text-lg font-semibold text-foreground">Desktop Required</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             Admin access is restricted to desktop devices. Please switch to a larger screen.
           </p>
         </div>
@@ -103,9 +103,9 @@ export function CompanyAdminRoute({ children }: CompanyAdminRouteProps) {
   if (!mfaEnabled) {
     return (
       <div className="flex h-full min-h-[50vh] items-center justify-center px-6">
-        <div className="max-w-md rounded-xl border border-white/[0.08] bg-[#0D0D0D] p-6 text-center">
-          <h2 className="text-lg font-semibold text-white">MFA Required</h2>
-          <p className="mt-2 text-sm text-slate-400">
+        <div className="max-w-md rounded-xl border border-border bg-card p-6 text-center">
+          <h2 className="text-lg font-semibold text-foreground">MFA Required</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             Admin access requires multi-factor authentication. Enable MFA on your account before continuing.
           </p>
           {mfaError && <p className="mt-2 text-xs text-red-400">{mfaError}</p>}

@@ -460,7 +460,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
             onClick={() => handleNavigate('/subscription')}
             className="flex items-center gap-3 px-3 h-11 min-h-[44px] rounded-lg hover:bg-sidebar-accent active:bg-sidebar-accent transition-all duration-150 cursor-pointer mb-1"
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white text-[13px] font-medium">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-foreground text-[13px] font-medium">
               {userInitial}
             </div>
             <div className="flex-1 min-w-0">

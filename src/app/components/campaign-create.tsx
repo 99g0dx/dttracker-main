@@ -39,18 +39,18 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate('/campaigns')}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Read-only access
           </h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               You do not have permission to create campaigns.
             </p>
           </CardContent>
@@ -215,13 +215,13 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
       <div className="flex items-center gap-3 sm:gap-4">
         <button
           onClick={handleCancel}
-          className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-9 h-9 flex-shrink-0 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Create Campaign</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">Set up a new campaign to track your creator partnerships</p>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Create Campaign</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Set up a new campaign to track your creator partnerships</p>
         </div>
       </div>
 
@@ -229,18 +229,18 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Form - 2 columns */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="p-6 space-y-5">
                 {/* Campaign Name */}
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Campaign Name <span className="text-red-400">*</span>
                   </label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Summer Launch 2024"
-                    className={`h-10 bg-white/[0.03] border-white/[0.08] text-white ${errors.name ? 'border-red-500' : ''}`}
+                    className={`h-10 bg-muted/40 border-border text-foreground ${errors.name ? 'border-red-500' : ''}`}
                   />
                   {errors.name && (
                     <p className="text-red-400 text-xs mt-1.5">{errors.name}</p>
@@ -249,14 +249,14 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
 
                 {/* Brand Name */}
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Brand Name / Artist <span className="text-red-400">*</span>
                   </label>
                   <Input
                     value={formData.brandName}
                     onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
                     placeholder="e.g., Nike, Taylor Swift"
-                    className={`h-10 bg-white/[0.03] border-white/[0.08] text-white ${errors.brandName ? 'border-red-500' : ''}`}
+                    className={`h-10 bg-muted/40 border-border text-foreground ${errors.brandName ? 'border-red-500' : ''}`}
                   />
                   {errors.brandName && (
                     <p className="text-red-400 text-xs mt-1.5">{errors.brandName}</p>
@@ -266,7 +266,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                 {/* Parent Campaign (optional) */}
                 {showParentSelect && (
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Parent Campaign (optional)
                     </label>
                     <Select
@@ -275,7 +275,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                         setParentCampaignId(value === 'none' ? null : value)
                       }
                     >
-                      <SelectTrigger className="h-10 bg-white/[0.03] border-white/[0.08] text-white">
+                      <SelectTrigger className="h-10 bg-muted/40 border-border text-foreground">
                         <SelectValue placeholder="Select a parent campaign" />
                       </SelectTrigger>
                       <SelectContent>
@@ -287,7 +287,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-slate-500 mt-2">
+                    <p className="text-xs text-muted-foreground mt-2">
                       Parent campaigns group related subcampaigns under one view.
                     </p>
                   </div>
@@ -296,19 +296,19 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                 {/* Date Range */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Start Date
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="h-10 w-full rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-between px-3 transition-colors"
+                          className="h-10 w-full rounded-md bg-muted/40 hover:bg-muted/60 border border-border text-sm text-muted-foreground flex items-center justify-between px-3 transition-colors"
                         >
-                          <span className={formData.startDate ? 'text-white' : 'text-slate-500'}>
+                          <span className={formData.startDate ? 'text-foreground' : 'text-muted-foreground'}>
                             {formatDateLabel(formData.startDate)}
                           </span>
-                          <CalendarIcon className="w-4 h-4 text-slate-500" />
+                          <CalendarIcon className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -329,19 +329,19 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                     </Popover>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       End Date
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="h-10 w-full rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-between px-3 transition-colors"
+                          className="h-10 w-full rounded-md bg-muted/40 hover:bg-muted/60 border border-border text-sm text-muted-foreground flex items-center justify-between px-3 transition-colors"
                         >
-                          <span className={formData.endDate ? 'text-white' : 'text-slate-500'}>
+                          <span className={formData.endDate ? 'text-foreground' : 'text-muted-foreground'}>
                             {formatDateLabel(formData.endDate)}
                           </span>
-                          <CalendarIcon className="w-4 h-4 text-slate-500" />
+                          <CalendarIcon className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -370,7 +370,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Notes / Brief
                   </label>
                   <textarea
@@ -378,7 +378,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="Campaign objectives, target audience, key messages..."
                     rows={4}
-                    className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none text-sm"
+                    className="w-full px-4 py-3 bg-muted/40 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none text-sm"
                   />
                 </div>
               </CardContent>
@@ -388,13 +388,13 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
           {/* Sidebar - 1 column */}
           <div className="space-y-6">
             {/* Cover Image */}
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
-                <label className="block text-sm font-medium text-white mb-3">
+                <label className="block text-sm font-medium text-foreground mb-3">
                   Cover Image (Optional)
                 </label>
                 {!coverImagePreview ? (
-                  <div className="border-2 border-dashed border-white/[0.08] rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
                     <input
                       type="file"
                       accept="image/*"
@@ -403,11 +403,11 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                       id="cover-upload"
                     />
                     <label htmlFor="cover-upload" className="cursor-pointer">
-                      <div className="w-12 h-12 mx-auto mb-3 bg-white/[0.03] rounded-lg flex items-center justify-center">
-                        <Upload className="w-6 h-6 text-slate-500" />
+                      <div className="w-12 h-12 mx-auto mb-3 bg-muted/40 rounded-lg flex items-center justify-center">
+                        <Upload className="w-6 h-6 text-muted-foreground" />
                       </div>
-                      <p className="text-sm text-slate-300 mb-1">Upload image</p>
-                      <p className="text-xs text-slate-500">PNG, JPG up to 5MB</p>
+                      <p className="text-sm text-muted-foreground mb-1">Upload image</p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
                     </label>
                   </div>
                 ) : (
@@ -442,7 +442,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
               <Button
                 type="submit"
                 disabled={isUploading || createCampaignMutation.isPending}
-                className="w-full h-10 bg-primary hover:bg-primary/90 text-black font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading || createCampaignMutation.isPending ? 'Creating...' : 'Create Campaign'}
               </Button>
@@ -450,7 +450,7 @@ export function CampaignCreate({ onNavigate }: CampaignCreateProps) {
                 type="button"
                 onClick={handleCancel}
                 disabled={isUploading || createCampaignMutation.isPending}
-                className="w-full h-10 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-10 rounded-md bg-muted/40 hover:bg-muted/60 border border-border text-sm text-muted-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>

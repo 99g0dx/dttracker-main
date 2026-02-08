@@ -152,14 +152,14 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] text-white p-6">
+    <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onNavigate("/admin")}
-            className="text-slate-400 hover:text-white"
+            className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -173,21 +173,21 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
-              <p className="text-slate-400 text-sm">Runs</p>
+              <p className="text-muted-foreground text-sm">Runs</p>
               <p className="text-xl font-medium">{summary.total}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-sm">Succeeded</p>
+              <p className="text-muted-foreground text-sm">Succeeded</p>
               <p className="text-xl font-medium text-emerald-400">{summary.succeeded}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-sm">Success rate</p>
+              <p className="text-muted-foreground text-sm">Success rate</p>
               <p className="text-xl font-medium">
                 {summary.total ? `${((100 * summary.succeeded) / summary.total).toFixed(1)}%` : "—"}
               </p>
             </div>
             <div className="space-y-2">
-              <p className="text-slate-400 text-sm">By platform</p>
+              <p className="text-muted-foreground text-sm">By platform</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(summary.byPlatform).map(([platform, v]) => (
                   <span
@@ -199,7 +199,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                   </span>
                 ))}
                 {Object.keys(summary.byPlatform).length === 0 && (
-                  <span className="text-slate-500 text-sm">—</span>
+                  <span className="text-muted-foreground text-sm">—</span>
                 )}
               </div>
             </div>
@@ -211,7 +211,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Recent runs</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
-              <Filter className="w-4 h-4 text-slate-400" />
+              <Filter className="w-4 h-4 text-muted-foreground" />
               <select
                 value={runsRange}
                 onChange={(e) => setRunsRange(e.target.value as "24h" | "7d")}
@@ -246,14 +246,14 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
           </CardHeader>
           <CardContent>
             {runsLoading ? (
-              <div className="flex items-center justify-center py-8 text-slate-400">
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="w-6 h-6 animate-spin" />
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-slate-400 border-b border-slate-700">
+                    <tr className="text-left text-muted-foreground border-b border-slate-700">
                       <th className="py-2 pr-2">Job ID</th>
                       <th className="py-2 pr-2">Platform</th>
                       <th className="py-2 pr-2">Actor</th>
@@ -269,7 +269,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                       <tr key={r.id} className="border-b border-slate-800">
                         <td className="py-2 pr-2 font-mono text-xs">{r.job_id?.slice(0, 8)}…</td>
                         <td className="py-2 pr-2">{r.scrape_jobs?.platform ?? "—"}</td>
-                        <td className="py-2 pr-2 text-slate-300">{truncate(r.actor_id, 24)}</td>
+                        <td className="py-2 pr-2 text-muted-foreground">{truncate(r.actor_id, 24)}</td>
                         <td className="py-2 pr-2">
                           <span
                             className={cn(
@@ -292,7 +292,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                   </tbody>
                 </table>
                 {(runs as RunRow[]).length === 0 && (
-                  <p className="py-6 text-center text-slate-500">No runs in this range.</p>
+                  <p className="py-6 text-center text-muted-foreground">No runs in this range.</p>
                 )}
               </div>
             )}
@@ -345,14 +345,14 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
           </CardHeader>
           <CardContent>
             {jobsLoading ? (
-              <div className="flex items-center justify-center py-8 text-slate-400">
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="w-6 h-6 animate-spin" />
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-slate-400 border-b border-slate-700">
+                    <tr className="text-left text-muted-foreground border-b border-slate-700">
                       {jobsStatus === "failed" && (
                         <th className="py-2 pr-2 w-10">
                           <input
@@ -397,7 +397,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                               j.status === "success" && "text-emerald-400",
                               j.status === "failed" && "text-red-400",
                               j.status === "running" && "text-amber-400",
-                              j.status === "cooldown" && "text-slate-400"
+                              j.status === "cooldown" && "text-muted-foreground"
                             )}
                           >
                             {j.status}
@@ -416,7 +416,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                   </tbody>
                 </table>
                 {(jobs as JobRow[]).length === 0 && (
-                  <p className="py-6 text-center text-slate-500">No jobs.</p>
+                  <p className="py-6 text-center text-muted-foreground">No jobs.</p>
                 )}
               </div>
             )}

@@ -319,7 +319,7 @@ export function TeamManagement({ onNavigate }: TeamManagementProps) {
         icon: <Eye className="w-3 h-3" />,
         label: "Operator",
         color:
-          "text-slate-600 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-400/10 border-slate-200 dark:border-slate-400/20",
+          "text-muted-foreground dark:text-muted-foreground bg-slate-100/70 dark:bg-slate-400/10 border-slate-200 dark:border-slate-400/20",
       },
       brand_member: {
         icon: <Users className="w-3 h-3" />,

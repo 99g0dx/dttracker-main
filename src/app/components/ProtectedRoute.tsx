@@ -83,8 +83,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -101,10 +101,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (banStatus.banned) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-lg rounded-xl border border-red-500/30 bg-red-500/5 p-8 text-center">
-          <h2 className="text-2xl font-semibold text-white">Account Banned</h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <h2 className="text-2xl font-semibold text-foreground">Account Banned</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             Your account has been suspended. Please contact support for assistance.
           </p>
           {banStatus.bannedUntil && (
@@ -127,10 +127,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (passwordResetRequired && location.pathname !== '/reset-password') {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-lg rounded-xl border border-purple-500/30 bg-purple-500/5 p-8 text-center">
-          <h2 className="text-2xl font-semibold text-white">Password Reset Required</h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <h2 className="text-2xl font-semibold text-foreground">Password Reset Required</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             Your account requires a password update before you can continue.
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
@@ -171,10 +171,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       message = 'Your free access has ended. Please upgrade to continue.';
     }
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-        <div className="max-w-lg rounded-xl border border-white/[0.08] bg-[#0D0D0D] p-8 text-center">
-          <h2 className="text-2xl font-semibold text-white">{title}</h2>
-          <p className="mt-2 text-sm text-slate-400">{message}</p>
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-lg rounded-xl border border-border bg-card p-8 text-center">
+          <h2 className="text-2xl font-semibold text-foreground">{title}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{message}</p>
           <div className="mt-6 flex items-center justify-center gap-3">
             <Button onClick={() => (window.location.href = '/subscription')}>
               Manage Subscription

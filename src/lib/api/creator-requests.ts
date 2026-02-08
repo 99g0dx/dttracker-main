@@ -86,6 +86,13 @@ export async function createRequest(
       return { data: null, error: requestError || new Error('Failed to create request') };
     }
 
+    if (import.meta.env.DEV) {
+      console.log('[creator-requests] creating request items', {
+        requestId: createdRequest.id,
+        creatorIds,
+      });
+    }
+
     // Insert request items (creator associations) - only for small selections
     const MAX_EXPLICIT_CREATORS = 25;
     if (creatorIds.length > 0 && creatorIds.length <= MAX_EXPLICIT_CREATORS) {
@@ -371,9 +378,12 @@ export async function getRequestById(id: string): Promise<ApiResponse<CreatorReq
       .from('creator_requests')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) {
+      if ((error as any).code === 'PGRST116') {
+        return { data: null, error: null };
+      }
       console.error('Error fetching creator request:', error);
       return { data: null, error };
     }

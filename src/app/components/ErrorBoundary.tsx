@@ -82,30 +82,30 @@ export class ErrorBoundary extends Component<Props, State> {
       const isDev = import.meta.env.DEV;
 
       return (
-        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-6 space-y-4">
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-card border border-border rounded-lg p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-white">Something went wrong</h2>
+                <h2 className="text-xl font-semibold text-foreground">Something went wrong</h2>
                 {this.props.componentName && (
-                  <p className="text-xs text-slate-500 mt-0.5">in {this.props.componentName}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">in {this.props.componentName}</p>
                 )}
               </div>
             </div>
 
-            <div className="bg-white/[0.02] rounded-md p-3 border border-white/[0.05]">
-              <p className="text-slate-300 text-sm">{errorMessage}</p>
+            <div className="bg-muted/30 rounded-md p-3 border border-border/50">
+              <p className="text-muted-foreground text-sm">{errorMessage}</p>
             </div>
 
             {isDev && this.state.errorInfo && (
-              <details className="bg-white/[0.02] rounded-md p-3 border border-white/[0.05]">
-                <summary className="text-xs text-slate-400 cursor-pointer mb-2">
+              <details className="bg-muted/30 rounded-md p-3 border border-border/50">
+                <summary className="text-xs text-muted-foreground cursor-pointer mb-2">
                   Error Details (Dev Mode)
                 </summary>
-                <pre className="text-xs text-slate-500 overflow-auto max-h-40">
+                <pre className="text-xs text-muted-foreground overflow-auto max-h-40">
                   {this.state.error?.stack}
                   {'\n\n'}
                   {this.state.errorInfo.componentStack}
@@ -140,7 +140,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {!isDev && (
-              <p className="text-xs text-slate-500 text-center pt-2">
+              <p className="text-xs text-muted-foreground text-center pt-2">
                 If this problem persists, please contact support.
               </p>
             )}

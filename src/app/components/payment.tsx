@@ -245,7 +245,7 @@ export function Payment({ onNavigate }: PaymentProps) {
   if (plansLoading || billingLoading) {
     return (
       <div className="max-w-2xl mx-auto flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -256,85 +256,85 @@ export function Payment({ onNavigate }: PaymentProps) {
       <div className="flex items-center gap-4">
         <button
           onClick={() => onNavigate('/subscription')}
-          className="w-10 h-10 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-10 h-10 rounded-lg bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-slate-400" />
+          <ArrowLeft className="w-5 h-5 text-muted-foreground" />
         </button>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Complete Your Purchase</h1>
-          <p className="text-sm text-slate-400 mt-1">Secure checkout powered by Paystack</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Complete Your Purchase</h1>
+          <p className="text-sm text-muted-foreground mt-1">Secure checkout powered by Paystack</p>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Order Summary */}
         <div className="lg:col-span-1">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] sticky top-6">
+          <Card className="bg-card border-border sticky top-6">
             <CardContent className="p-6">
-              <h3 className="font-semibold text-white mb-4">Order Summary</h3>
+              <h3 className="font-semibold text-foreground mb-4">Order Summary</h3>
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-medium text-white">
+                    <p className="font-medium text-foreground">
                       DTTracker {selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {billingCycle === 'yearly' ? 'Yearly subscription (20% off)' : 'Monthly subscription'}
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Seats included: {includedSeats}
                     </p>
                   </div>
-                  <p className="font-semibold text-white">
+                  <p className="font-semibold text-foreground">
                     {selectedPlan ? formatPrice(selectedPlan.base_price_cents, currency) : '--'}
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-white/[0.06]">
+                <div className="pt-3 border-t border-border/60">
                   <div className="flex justify-between items-center">
-                    <p className="text-sm text-slate-400">Subtotal (before tax)</p>
-                    <p className="text-slate-300">
+                    <p className="text-sm text-muted-foreground">Subtotal (before tax)</p>
+                    <p className="text-muted-foreground">
                       {selectedPlan ? formatPrice(totalPrice, currency) : '--'}
                     </p>
                   </div>
                   {allowExtraSeats && extraSeats > 0 && (
                     <div className="flex justify-between items-center mt-2">
-                      <p className="text-sm text-slate-400">Extra seats x{extraSeats}</p>
-                      <p className="text-slate-300">
+                      <p className="text-sm text-muted-foreground">Extra seats x{extraSeats}</p>
+                      <p className="text-muted-foreground">
                         {formatPrice(extraSeats * extraSeatPrice, currency)}
                       </p>
                     </div>
                   )}
                   <div className="flex justify-between items-center mt-2">
-                    <p className="text-sm text-slate-400">Tax</p>
-                    <p className="text-slate-300">Calculated at checkout</p>
+                    <p className="text-sm text-muted-foreground">Tax</p>
+                    <p className="text-muted-foreground">Calculated at checkout</p>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-white/[0.06]">
+                <div className="pt-3 border-t border-border/60">
                   <div className="flex justify-between items-center">
-                    <p className="font-semibold text-white">Total</p>
-                    <p className="text-xl font-semibold text-white">
+                    <p className="font-semibold text-foreground">Total</p>
+                    <p className="text-xl font-semibold text-foreground">
                       {selectedPlan ? formatPrice(totalPrice, currency) : '--'}
                     </p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Billed {billingCycle} • Cancel anytime
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-2 pt-4 border-t border-white/[0.06]">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="space-y-2 pt-4 border-t border-border/60">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Shield className="w-4 h-4 text-emerald-400" />
                   <span>Secure checkout via Paystack</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   <span>Cancel anytime</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Lock className="w-4 h-4 text-emerald-400" />
                   <span>Secure payment processing</span>
                 </div>
@@ -345,22 +345,22 @@ export function Payment({ onNavigate }: PaymentProps) {
 
         {/* Payment Section */}
         <div className="lg:col-span-2 space-y-4">
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
                 <div>
-                  <h3 className="font-semibold text-white">Billing cycle</h3>
-                  <p className="text-sm text-slate-400">
+                  <h3 className="font-semibold text-foreground">Billing cycle</h3>
+                  <p className="text-sm text-muted-foreground">
                     Toggle yearly to save 20%.
                   </p>
                 </div>
-                <div className="inline-flex rounded-lg border border-white/[0.08] bg-black/40 p-1">
+                <div className="inline-flex rounded-lg border border-border bg-black/40 p-1">
                   <button
                     onClick={() => setBillingCycle('monthly')}
                     className={`px-3 py-1.5 text-sm rounded-md ${
                       billingCycle === 'monthly'
-                        ? 'bg-white text-black'
-                        : 'text-slate-400'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground'
                     }`}
                   >
                     Monthly
@@ -369,8 +369,8 @@ export function Payment({ onNavigate }: PaymentProps) {
                     onClick={() => setBillingCycle('yearly')}
                     className={`px-3 py-1.5 text-sm rounded-md ${
                       billingCycle === 'yearly'
-                        ? 'bg-white text-black'
-                        : 'text-slate-400'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground'
                     }`}
                   >
                     Yearly
@@ -379,11 +379,11 @@ export function Payment({ onNavigate }: PaymentProps) {
               </div>
 
               {selectedPlan && (
-                <div className="bg-white/[0.03] rounded-lg p-4 mb-6 border border-white/[0.06]">
+                <div className="bg-muted/40 rounded-lg p-4 mb-6 border border-border/60">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                      <p className="text-sm text-slate-400">Seats</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm text-muted-foreground">Seats</p>
+                      <p className="text-xs text-muted-foreground">
                         Included: {includedSeats}.{' '}
                         {allowExtraSeats
                           ? `Extra seats are ${formatPrice(extraSeatPrice, currency)} each.`
@@ -400,8 +400,8 @@ export function Payment({ onNavigate }: PaymentProps) {
                           <Minus className="w-4 h-4" />
                         </Button>
                         <div className="min-w-[90px] text-center">
-                          <p className="text-xs text-slate-400">Extra seats</p>
-                          <p className="text-lg font-semibold text-white">{extraSeats}</p>
+                          <p className="text-xs text-muted-foreground">Extra seats</p>
+                          <p className="text-lg font-semibold text-foreground">{extraSeats}</p>
                         </div>
                         <Button
                           variant="outline"
@@ -410,24 +410,24 @@ export function Payment({ onNavigate }: PaymentProps) {
                         >
                           <Plus className="w-4 h-4" />
                         </Button>
-                        <div className="text-sm text-slate-400">
-                          Total seats: <span className="text-white">{totalSeats}</span>
+                        <div className="text-sm text-muted-foreground">
+                          Total seats: <span className="text-foreground">{totalSeats}</span>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-400">
-                        Total seats: <span className="text-white">{totalSeats}</span>
+                      <div className="text-sm text-muted-foreground">
+                        Total seats: <span className="text-foreground">{totalSeats}</span>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              <div className="bg-white/[0.03] rounded-lg p-4 mb-6 border border-white/[0.06]">
+              <div className="bg-muted/40 rounded-lg p-4 mb-6 border border-border/60">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <p className="text-sm text-slate-400">Payment provider</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm text-muted-foreground">Payment provider</p>
+                    <p className="text-xs text-muted-foreground">
                       Choose how you'd like to pay for your subscription.
                     </p>
                   </div>
@@ -437,8 +437,8 @@ export function Payment({ onNavigate }: PaymentProps) {
                       onClick={() => setProvider('paystack')}
                       className={`px-4 py-2 rounded-md border text-sm transition-colors ${
                         provider === 'paystack'
-                          ? 'bg-white text-black border-white'
-                          : 'border-white/[0.12] text-slate-300 hover:border-white/[0.3]'
+                          ? 'bg-primary text-primary-foreground border-border'
+                          : 'border-border/80 text-muted-foreground hover:border-border/80'
                       }`}
                     >
                       Paystack
@@ -448,8 +448,8 @@ export function Payment({ onNavigate }: PaymentProps) {
                       onClick={() => setProvider('stripe')}
                       className={`px-4 py-2 rounded-md border text-sm transition-colors ${
                         provider === 'stripe'
-                          ? 'bg-white text-black border-white'
-                          : 'border-white/[0.12] text-slate-300 hover:border-white/[0.3]'
+                          ? 'bg-primary text-primary-foreground border-border'
+                          : 'border-border/80 text-muted-foreground hover:border-border/80'
                       }`}
                     >
                       Stripe
@@ -466,7 +466,7 @@ export function Payment({ onNavigate }: PaymentProps) {
               </div>
 
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-lg bg-[#00C3F7]/10 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <svg className="w-8 h-8" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect width="120" height="120" rx="20" fill="#00C3F7"/>
                     <path d="M30 60L50 40V80L30 60Z" fill="white"/>
@@ -475,10 +475,10 @@ export function Payment({ onNavigate }: PaymentProps) {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white">
+                  <h3 className="font-semibold text-foreground">
                     {provider === 'stripe' ? 'Pay with Stripe' : 'Pay with Paystack'}
                   </h3>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground">
                     {provider === 'stripe'
                       ? 'Credit card, Apple Pay, Google Pay & more'
                       : 'Credit card, debit card, bank transfer & more'}
@@ -486,13 +486,13 @@ export function Payment({ onNavigate }: PaymentProps) {
                 </div>
               </div>
 
-              <div className="bg-white/[0.03] rounded-lg p-4 mb-6 border border-white/[0.06]">
-                <p className="text-sm text-slate-300 mb-2">
+              <div className="bg-muted/40 rounded-lg p-4 mb-6 border border-border/60">
+                <p className="text-sm text-muted-foreground mb-2">
                   {provider === 'stripe'
                     ? "You'll be redirected to Stripe's secure checkout to complete your payment."
                     : "You'll be redirected to Paystack's secure checkout to complete your payment."}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {provider === 'stripe'
                     ? 'Stripe supports global cards and local payment methods based on your region.'
                     : 'Paystack accepts cards from all countries and converts to your local currency at checkout.'}
@@ -502,12 +502,12 @@ export function Payment({ onNavigate }: PaymentProps) {
               {/* Plan features preview */}
               {selectedPlan && (
                 <div className="mb-6">
-                  <h4 className="text-sm font-medium text-white mb-3">
+                  <h4 className="text-sm font-medium text-foreground mb-3">
                     What's included in {selectedTier}:
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {planHighlights.map((item) => (
-                      <div key={item} className="flex items-center gap-2 text-sm text-slate-400">
+                      <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                         <span>{item}</span>
                       </div>
@@ -574,8 +574,8 @@ export function Payment({ onNavigate }: PaymentProps) {
                 disabled={isCheckoutDisabled}
                 className={`w-full h-12 font-medium ${
                   provider === 'stripe'
-                    ? 'bg-white text-black hover:bg-white/90'
-                    : 'bg-[#00C3F7] text-black hover:bg-[#00C3F7]/90'
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }`}
               >
                 {createCheckout.isPending ? (
@@ -598,7 +598,7 @@ export function Payment({ onNavigate }: PaymentProps) {
                 )}
               </Button>
 
-              <p className="text-xs text-center text-slate-500 mt-4">
+              <p className="text-xs text-center text-muted-foreground mt-4">
                 By continuing, you agree to our Terms of Service and Privacy Policy.
                 Your subscription will automatically renew each billing cycle until canceled.
               </p>
@@ -606,11 +606,11 @@ export function Payment({ onNavigate }: PaymentProps) {
           </Card>
 
           {/* Security Notice */}
-          <div className="flex items-start gap-3 p-4 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+          <div className="flex items-start gap-3 p-4 bg-muted/40 rounded-lg border border-border/60">
             <Lock className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-white mb-1">Secure Payment</p>
-              <p className="text-xs text-slate-400">
+              <p className="text-sm font-medium text-foreground mb-1">Secure Payment</p>
+              <p className="text-xs text-muted-foreground">
                 Your payment information is processed securely by{' '}
                 {provider === 'stripe' ? 'Stripe' : 'Paystack'}. We never see or store your card details.
                 {provider === 'stripe'
@@ -622,21 +622,21 @@ export function Payment({ onNavigate }: PaymentProps) {
 
           {/* Accepted Payment Methods */}
           <div className="flex items-center justify-center gap-4 pt-4 flex-wrap">
-            <span className="text-xs text-slate-500">Accepted payment methods:</span>
+            <span className="text-xs text-muted-foreground">Accepted payment methods:</span>
             <div className="flex items-center gap-3 flex-wrap">
               {provider === 'stripe' ? (
                 <>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Visa</div>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Mastercard</div>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Apple Pay</div>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Google Pay</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">Visa</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">Mastercard</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">Apple Pay</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">Google Pay</div>
                 </>
               ) : (
                 <>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Visa</div>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Mastercard</div>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">Bank Transfer</div>
-                  <div className="px-2 py-1 bg-white/[0.05] rounded text-xs text-slate-400">USSD</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">Visa</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">Mastercard</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">Bank Transfer</div>
+                  <div className="px-2 py-1 bg-muted/60 rounded text-xs text-muted-foreground">USSD</div>
                 </>
               )}
             </div>

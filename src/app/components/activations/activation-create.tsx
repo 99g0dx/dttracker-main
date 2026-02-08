@@ -326,15 +326,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               handleBackToTypeSelection();
               onNavigate("/activations");
             }}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold text-white">
+            <h1 className="text-xl font-semibold text-foreground">
               {isEditMode ? 'Edit Activation' : 'Create Activation'}
             </h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               {isEditMode ? 'Update activation details' : 'Choose the type of activation'}
             </p>
           </div>
@@ -342,7 +342,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
 
         <div className="grid md:grid-cols-2 gap-6">
           <Card
-            className="bg-[#0D0D0D] border-white/[0.08] hover:border-primary/50 cursor-pointer transition-colors"
+            className="bg-card border-border hover:border-primary/50 cursor-pointer transition-colors"
             onClick={() => {
               setActivationType("contest");
               setStep("form");
@@ -350,8 +350,8 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           >
             <CardContent className="p-6">
               <Trophy className="w-12 h-12 text-amber-400 mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">Contest</h3>
-              <p className="text-sm text-slate-400">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Contest</h3>
+              <p className="text-sm text-muted-foreground">
                 Performance-based prizes for top performing creators. Set a
                 prize pool and number of winners.
               </p>
@@ -362,7 +362,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           </Card>
 
           <Card
-            className="bg-[#0D0D0D] border-white/[0.08] hover:border-primary/50 cursor-pointer transition-colors"
+            className="bg-card border-border hover:border-primary/50 cursor-pointer transition-colors"
             onClick={() => {
               setActivationType("sm_panel");
               setStep("form");
@@ -370,10 +370,10 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           >
             <CardContent className="p-6">
               <ThumbsUp className="w-12 h-12 text-red-600 dark:text-cyan-400 mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">
+              <h3 className="text-lg font-semibold text-foreground mb-2">
                 SM Panel
               </h3>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-muted-foreground">
                 Micro-task campaigns for likes, shares, comments. Pay per action
                 with a total budget.
               </p>
@@ -395,23 +395,23 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={handleBackToTypeSelection}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold text-white">
+            <h1 className="text-xl font-semibold text-foreground">
               Create {isContest ? "Contest" : "SM Panel"}
             </h1>
-            <p className="text-sm text-slate-400">Fill in the details</p>
+            <p className="text-sm text-muted-foreground">Fill in the details</p>
           </div>
         </div>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-400">Available balance</p>
-              <p className="text-lg font-semibold text-white">
+              <p className="text-sm text-muted-foreground">Available balance</p>
+              <p className="text-lg font-semibold text-foreground">
                 {formatAmount(availableBalance)}
               </p>
             </div>
@@ -419,17 +419,17 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               variant="outline"
               size="sm"
               onClick={() => onNavigate("/wallet")}
-              className="border-white/[0.08]"
+              className="border-border"
             >
               Fund Wallet
             </Button>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6 space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-300 block mb-2">
+              <label className="text-sm font-medium text-muted-foreground block mb-2">
                 Title *
               </label>
               <Input
@@ -438,12 +438,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   setForm((f) => ({ ...f, title: e.target.value }))
                 }
                 placeholder="e.g. Lipstick Video Challenge"
-                className="bg-white/[0.04] border-white/[0.08]"
+                className="bg-input-background border-input"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-300 block mb-2">
+              <label className="text-sm font-medium text-muted-foreground block mb-2">
                 Brief / Description *
               </label>
               <textarea
@@ -453,12 +453,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                 }
                 placeholder="Describe the activation..."
                 rows={4}
-                className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-slate-500"
+                className="w-full px-3 py-2 rounded-lg bg-input-background border border-input text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-300 block mb-2">
+              <label className="text-sm font-medium text-muted-foreground block mb-2">
                 Platforms
               </label>
               <div className="flex flex-wrap gap-2">
@@ -484,32 +484,32 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       platform={p.id as "tiktok" | "instagram" | "youtube"}
                       size="sm"
                     />
-                    <span className="text-sm text-slate-300">{p.label}</span>
+                    <span className="text-sm text-muted-foreground">{p.label}</span>
                   </label>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-300 block mb-2">
+              <label className="text-sm font-medium text-muted-foreground block mb-2">
                 Deadline *
               </label>
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="h-11 w-full rounded-md bg-white/[0.04] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-between px-3 transition-colors text-left"
+                    className="h-11 w-full rounded-md bg-input-background hover:bg-muted/60 border border-input text-sm text-foreground flex items-center justify-between px-3 transition-colors text-left"
                   >
                     <span
                       className={
-                        form.deadline ? "text-white" : "text-slate-500"
+                        form.deadline ? "text-foreground" : "text-muted-foreground"
                       }
                     >
                       {form.deadline
                         ? format(parseISO(form.deadline), "MMM d, yyyy")
                         : "Select date"}
                     </span>
-                    <CalendarIcon className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                    <CalendarIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -534,7 +534,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
             {isContest ? (
               <>
                 <div>
-                  <label className="text-sm font-medium text-slate-300 block mb-2">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
                     Total Prize Pool (NGN) *
                   </label>
                   <Input
@@ -549,9 +549,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       setForm((f) => ({ ...f, total_budget: num }));
                     }}
                     placeholder="500,000"
-                    className="bg-white/[0.04] border-white/[0.08]"
+                    className="bg-input-background border-input"
                   />
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Minimum: ₦{formatNumber(CONTEST_MIN_PRIZE_POOL)} (or 0 for test mode)
                   </p>
                   {form.total_budget > 0 && totalCost > availableBalance && (
@@ -565,14 +565,14 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     </div>
                   )}
                   {form.total_budget === 0 && (
-                    <div className="flex items-center gap-2 mt-2 text-blue-400 text-sm">
+                    <div className="flex items-center gap-2 mt-2 text-red-600 dark:text-blue-400 text-sm">
                       <span>
                         🧪 Test mode: Zero budget activation (no funds required)
                       </span>
                     </div>
                   )}
                   {form.total_budget > 0 && (
-                    <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                    <div className="mt-3 p-3 rounded-lg bg-muted/40 border border-border">
                       <ServiceFeeDisplay
                         baseAmount={form.total_budget}
                         serviceFeeRate={serviceFeeRate}
@@ -581,15 +581,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     </div>
                   )}
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-muted-foreground">
                   Number of Winners: {CONTEST_WINNER_COUNT} (fixed)
                 </p>
-                <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] p-4">
-                  <p className="text-sm font-medium text-slate-300 mb-2">
+                <div className="rounded-lg bg-muted/40 border border-border p-4">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
                     Prize Distribution (automatic)
                   </p>
                   {form.total_budget >= CONTEST_MIN_PRIZE_POOL && (
-                    <div className="text-sm text-slate-400 space-y-1">
+                    <div className="text-sm text-muted-foreground space-y-1">
                       <p>
                         1st place: 25% = ₦
                         {formatNumber(form.total_budget * 0.25)}
@@ -606,22 +606,22 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                         4th–20th: 50% total (₦
                         {formatNumber((form.total_budget * 0.5) / 17)} each)
                       </p>
-                      <p className="pt-1 text-slate-500">Total: 100%</p>
+                      <p className="pt-1 text-muted-foreground">Total: 100%</p>
                     </div>
                   )}
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Prize breakdown updates automatically based on pool
                   </p>
                 </div>
-                <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] p-4">
-                  <p className="text-sm font-medium text-slate-300 mb-2">
+                <div className="rounded-lg bg-muted/40 border border-border p-4">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
                     Multiple Entries
                   </p>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground">
                     Max 5 posts per creator • Cumulative scoring • Views 1x,
                     Likes 2x, Comments 3x
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Creators can submit multiple posts. Their ranking will be
                     based on combined performance.
                   </p>
@@ -630,7 +630,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
             ) : (
               <>
                 <div>
-                  <label className="text-sm font-medium text-slate-300 block mb-2">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
                     Task Type
                   </label>
                   <select
@@ -641,7 +641,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                         task_type: e.target.value as TaskType,
                       }))
                     }
-                    className="h-9 px-3 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white w-full"
+                    className="h-9 px-3 rounded-lg bg-input-background border border-input text-foreground w-full"
                   >
                     <option value="like">Like</option>
                     <option value="comment">Comment</option>
@@ -650,7 +650,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-300 block mb-2">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
                     Target URL *
                   </label>
                   <Input
@@ -659,11 +659,11 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       setForm((f) => ({ ...f, target_url: e.target.value }))
                     }
                     placeholder="https://instagram.com/p/abc123"
-                    className="bg-white/[0.04] border-white/[0.08]"
+                    className="bg-input-background border-input"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-300 block mb-2">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
                     Total Budget (NGN) *
                   </label>
                   <Input
@@ -678,7 +678,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       setForm((f) => ({ ...f, total_budget: num }));
                     }}
                     placeholder="100,000"
-                    className="bg-white/[0.04] border-white/[0.08]"
+                    className="bg-input-background border-input"
                   />
                   {totalCost > availableBalance && (
                     <div className="flex items-center gap-2 mt-2 text-amber-400 text-sm">
@@ -691,7 +691,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     </div>
                   )}
                   {form.total_budget > 0 && (
-                    <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                    <div className="mt-3 p-3 rounded-lg bg-muted/40 border border-border">
                       <ServiceFeeDisplay
                         baseAmount={form.total_budget}
                         serviceFeeRate={serviceFeeRate}
@@ -701,7 +701,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-300 block mb-2">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
                     Base Rate (Nano tier) (NGN) *
                   </label>
                   <Input
@@ -714,15 +714,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       setForm((f) => ({ ...f, base_rate: num }));
                     }}
                     placeholder="200"
-                    className="bg-white/[0.04] border-white/[0.08]"
+                    className="bg-input-background border-input"
                   />
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Nano tier base. Larger creators earn more (tiered
                     multipliers).
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-slate-300 mb-2">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
                     Pricing Structure (task: {form.task_type})
                   </h3>
                   <PricingTable
@@ -738,7 +738,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                 {form.task_type === "comment" && (
                   <>
                     <div>
-                      <label className="text-sm font-medium text-slate-300 block mb-2">
+                      <label className="text-sm font-medium text-muted-foreground block mb-2">
                         Required Comment (optional)
                       </label>
                       <textarea
@@ -751,14 +751,14 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                         }
                         placeholder="Leave blank to let creators write their own..."
                         rows={3}
-                        className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-slate-500"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-input text-foreground placeholder:text-muted-foreground"
                       />
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         If specified, all creators must comment this exact text
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-slate-300 block mb-2">
+                      <label className="text-sm font-medium text-muted-foreground block mb-2">
                         Comment Guidelines (optional)
                       </label>
                       <textarea
@@ -771,7 +771,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                         }
                         placeholder="E.g., Comment must be positive and mention the product name..."
                         rows={3}
-                        className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-slate-500"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-input text-foreground placeholder:text-muted-foreground"
                       />
                     </div>
                   </>
@@ -784,12 +784,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       onChange={(e) =>
                         setForm((f) => ({
                           ...f,
-                          auto_approve: e.target.checked,
-                        }))
-                      }
+                        auto_approve: e.target.checked,
+                      }))
+                    }
                       className="rounded"
                     />
-                    <span className="text-sm text-slate-300">
+                    <span className="text-sm text-muted-foreground">
                       Auto-approve submissions
                     </span>
                   </label>
@@ -799,7 +799,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
 
             {/* Visibility Selector */}
             <div>
-              <label className="text-sm font-medium text-slate-300 block mb-2">
+              <label className="text-sm font-medium text-muted-foreground block mb-2">
                 Visibility
               </label>
               <div className="flex gap-3">
@@ -808,36 +808,36 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   onClick={() => setForm((f) => ({ ...f, visibility: "public", community_fan_ids: [] }))}
                   className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
                     form.visibility === "public"
-                      ? "bg-white/[0.06] border-white/[0.2] text-white"
-                      : "bg-white/[0.02] border-white/[0.08] text-slate-300 hover:border-white/[0.12]"
+                      ? "bg-muted/60 border-border text-foreground"
+                      : "bg-muted/30 border-border/60 text-muted-foreground hover:border-border"
                   }`}
                 >
                   <div className="text-sm font-medium mb-1">Public</div>
-                  <div className="text-xs text-slate-400">Visible to all creators</div>
+                  <div className="text-xs text-muted-foreground">Visible to all creators</div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, visibility: "community" }))}
                   className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
                     form.visibility === "community"
-                      ? "bg-white/[0.06] border-white/[0.2] text-white"
-                      : "bg-white/[0.02] border-white/[0.08] text-slate-300 hover:border-white/[0.12]"
+                      ? "bg-muted/60 border-border text-foreground"
+                      : "bg-muted/30 border-border/60 text-muted-foreground hover:border-border"
                   }`}
                 >
                   <div className="text-sm font-medium mb-1">Community</div>
-                  <div className="text-xs text-slate-400">Only imported fans</div>
+                  <div className="text-xs text-muted-foreground">Only imported fans</div>
                 </button>
               </div>
               {form.visibility === "community" && communityFans.length > 0 && (
                 <div className="mt-3">
-                  <label className="text-sm font-medium text-slate-300 block mb-2">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
                     Select Fans (optional - leave empty for all imported fans)
                   </label>
-                  <div className="max-h-40 overflow-y-auto border border-white/[0.08] rounded-lg p-2 space-y-2">
+                  <div className="max-h-40 overflow-y-auto border border-border rounded-lg p-2 space-y-2">
                     {communityFans.map((fan) => (
                       <label
                         key={fan.id}
-                        className="flex items-center gap-2 p-2 rounded hover:bg-white/[0.03] cursor-pointer"
+                        className="flex items-center gap-2 p-2 rounded hover:bg-muted/40 cursor-pointer"
                       >
                         <input
                           type="checkbox"
@@ -856,15 +856,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                           className="rounded"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-slate-300">
+                          <div className="text-sm text-foreground">
                             {fan.name || fan.handle}
                           </div>
-                          <div className="text-xs text-slate-500">@{fan.handle} • {fan.platform}</div>
+                          <div className="text-xs text-muted-foreground">@{fan.handle} • {fan.platform}</div>
                         </div>
                       </label>
                     ))}
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     {form.community_fan_ids.length === 0
                       ? "All imported fans will see this activation"
                       : `${form.community_fan_ids.length} fan${form.community_fan_ids.length !== 1 ? "s" : ""} selected`}
@@ -884,7 +884,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               <Button
                 variant="outline"
                 onClick={handleBackToTypeSelection}
-                className="border-white/[0.08]"
+                className="border-border"
               >
                 Back
               </Button>
@@ -923,7 +923,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   (form.total_budget > 0 && totalCost > availableBalance) ||
                   createActivation.isPending
                 }
-                className="bg-primary text-black hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {createActivation.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -946,34 +946,34 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               setStep("form");
               // Don't reset form here as user might want to review before publishing
             }}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center"
+            className="w-11 h-11 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold text-white">
+            <h1 className="text-xl font-semibold text-foreground">
               Review & Publish
             </h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Confirm to publish activation
             </p>
           </div>
         </div>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6 space-y-4">
             <div>
-              <p className="text-sm text-slate-400">Title</p>
-              <p className="font-medium text-white">{form.title}</p>
+              <p className="text-sm text-muted-foreground">Title</p>
+              <p className="font-medium text-foreground">{form.title}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-400">Type</p>
-              <p className="font-medium text-white capitalize">
+              <p className="text-sm text-muted-foreground">Type</p>
+              <p className="font-medium text-foreground capitalize">
                 {activationType === "sm_panel" ? "SM Panel" : activationType}
               </p>
             </div>
             <div>
-              <p className="text-sm text-slate-400">Budget</p>
+              <p className="text-sm text-muted-foreground">Budget</p>
               <div className="mt-2">
                 <ServiceFeeDisplay
                   baseAmount={form.total_budget}
@@ -983,12 +983,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               </div>
             </div>
             <div>
-              <p className="text-sm text-slate-400">Visibility</p>
-              <p className="font-medium text-white capitalize">
+              <p className="text-sm text-muted-foreground">Visibility</p>
+              <p className="font-medium text-foreground capitalize">
                 {form.visibility === "community" ? "Community Only" : "Public"}
               </p>
               {form.visibility === "community" && (
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {form.community_fan_ids.length === 0
                     ? "All imported fans"
                     : `${form.community_fan_ids.length} selected fan${form.community_fan_ids.length !== 1 ? "s" : ""}`}
@@ -997,15 +997,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
             </div>
             {form.deadline && (
               <div>
-                <p className="text-sm text-slate-400">Deadline</p>
-                <p className="font-medium text-white">
+                <p className="text-sm text-muted-foreground">Deadline</p>
+                <p className="font-medium text-foreground">
                   {format(new Date(form.deadline), "PPpp")}
                 </p>
               </div>
             )}
 
-            <div className="border-t border-white/[0.08] pt-4 mt-4">
-              <p className="text-sm text-slate-400 mb-2">
+            <div className="border-t border-border pt-4 mt-4">
+              <p className="text-sm text-muted-foreground mb-2">
                 Wallet balance: {formatAmount(availableBalance)}
               </p>
               {!canPublish && (
@@ -1019,14 +1019,14 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               <Button
                 variant="outline"
                 onClick={() => onNavigate(`/activations/${createdId}`)}
-                className="border-white/[0.08]"
+                className="border-border"
               >
                 Save as Draft
               </Button>
               <Button
                 onClick={handlePublish}
                 disabled={!canPublish || publishActivation.isPending}
-                className="bg-primary text-black hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {publishActivation.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />

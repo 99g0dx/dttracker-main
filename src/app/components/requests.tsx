@@ -111,6 +111,27 @@ const statusConfig: Record<
   },
 };
 
+function formatQuoteAmount(
+  cents: number | null | undefined,
+  currency: string | null | undefined
+): string | null {
+  if (cents === null || cents === undefined) return null;
+  const amount = cents / 100;
+  const code = (currency || "NGN").toUpperCase();
+  const locale = code === "NGN" ? "en-NG" : "en-US";
+  const maxFraction = code === "NGN" ? 0 : 2;
+
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: maxFraction,
+    }).format(amount);
+  } catch {
+    return `${code} ${amount.toFixed(2)}`;
+  }
+}
+
 export function Requests({ onNavigate }: RequestsProps) {
   const queryClient = useQueryClient();
   const { data: requests = [], isLoading, isFetching } = useCreatorRequests();
@@ -1137,9 +1158,13 @@ export function Requests({ onNavigate }: RequestsProps) {
                         requestDetails.user_id === user?.id &&
                         item.status === "quoted";
                       const quoteLabel =
-                        item.quoted_amount_cents != null
-                          ? `${item.quoted_currency || "USD"} ${(item.quoted_amount_cents / 100).toFixed(2)}`
-                          : "Awaiting quote";
+                        formatQuoteAmount(
+                          item.quoted_amount_cents,
+                          item.quoted_currency
+                        ) || "Awaiting quote";
+                      const quotedAtLabel = item.quoted_at
+                        ? format(parseISO(item.quoted_at), "MMM d, yyyy")
+                        : null;
                       return (
                         <div
                           key={item.id}
@@ -1185,8 +1210,16 @@ export function Requests({ onNavigate }: RequestsProps) {
                           </div>
 
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="text-sm text-foreground font-medium">
-                              {quoteLabel}
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Quote</p>
+                              <p className="text-sm text-foreground font-medium">
+                                {quoteLabel}
+                              </p>
+                              {quotedAtLabel && (
+                                <p className="text-xs text-muted-foreground">
+                                  Received {quotedAtLabel}
+                                </p>
+                              )}
                             </div>
                             {canRespond && (
                               <div className="flex items-center gap-2">
@@ -1203,7 +1236,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                                   className="h-9 min-h-[36px] border-emerald-200 dark:border-emerald-400/30 bg-emerald-100/70 dark:bg-emerald-500/10 hover:bg-emerald-200/80 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                                   disabled={respondToQuoteMutation.isPending}
                                 >
-                                  Approve
+                                  Accept
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -1225,8 +1258,13 @@ export function Requests({ onNavigate }: RequestsProps) {
                           </div>
 
                           {item.quote_notes && (
-                            <div className="text-xs text-muted-foreground leading-relaxed">
-                              {item.quote_notes}
+                            <div className="p-3 rounded-lg bg-muted/40 border border-border">
+                              <p className="text-xs text-muted-foreground mb-1">
+                                Creator Message
+                              </p>
+                              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                                {item.quote_notes}
+                              </p>
                             </div>
                           )}
                         </div>

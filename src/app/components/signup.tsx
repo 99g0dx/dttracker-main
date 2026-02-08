@@ -212,11 +212,11 @@ export function Signup({ onNavigate }: SignupProps) {
     formData.password === formData.confirmPassword;
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <button
           onClick={() => onNavigate("/home")}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-400 mb-12 transition-colors"
+          className="flex items-center gap-2 text-muted-foreground hover:text-muted-foreground mb-12 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm">Back</span>
@@ -229,18 +229,18 @@ export function Signup({ onNavigate }: SignupProps) {
               alt="DTTracker"
               className="w-7 h-7 object-contain"
             />
-            <span className="font-semibold text-white">DTTracker</span>
+            <span className="font-semibold text-foreground">DTTracker</span>
           </div>
-          <h1 className="text-2xl font-semibold text-white mb-2">
+          <h1 className="text-2xl font-semibold text-foreground mb-2">
             Create account
           </h1>
-          <p className="text-sm text-slate-500">Start your 14-day free trial</p>
+          <p className="text-sm text-muted-foreground">Start your 14-day free trial</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Full Name */}
           <div>
-            <label className="block text-sm text-slate-400 mb-2">
+            <label className="block text-sm text-muted-foreground mb-2">
               Full Name <span className="text-red-400">*</span>
             </label>
             <Input
@@ -250,10 +250,10 @@ export function Signup({ onNavigate }: SignupProps) {
               placeholder="Enter your full name"
               value={formData.fullName}
               onChange={(e) => updateFormData("fullName", e.target.value)}
-              className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] ${
+              className={`h-10 bg-muted/40 text-foreground placeholder:text-muted-foreground focus:bg-muted/60 ${
                 errors.fullName
                   ? "border-red-500/50 focus:border-red-500"
-                  : "border-white/[0.08] focus:border-white/[0.15]"
+                  : "border-border focus:border-border/80"
               }`}
             />
             {errors.fullName && (
@@ -266,7 +266,7 @@ export function Signup({ onNavigate }: SignupProps) {
 
           {/* Email */}
           <div>
-            <label className="block text-sm text-slate-400 mb-2">
+            <label className="block text-sm text-muted-foreground mb-2">
               Email <span className="text-red-400">*</span>
             </label>
             <Input
@@ -277,18 +277,18 @@ export function Signup({ onNavigate }: SignupProps) {
               value={formData.email}
               onChange={(e) => updateFormData("email", e.target.value)}
               onBlur={() => handleBlur("email")}
-              className={`h-10 bg-white/[0.03] text-white ${
+              className={`h-10 bg-muted/40 text-foreground ${
                 errors.email
                   ? "border-red-500/50 focus:border-red-500"
-                  : "border-white/[0.08] focus:border-white/[0.15]"
+                  : "border-border focus:border-border/80"
               }`}
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label className="block text-sm text-slate-400 mb-2">
-              Phone <span className="text-slate-600">(optional)</span>
+            <label className="block text-sm text-muted-foreground mb-2">
+              Phone <span className="text-muted-foreground">(optional)</span>
             </label>
             <Input
               name="tel"
@@ -297,13 +297,13 @@ export function Signup({ onNavigate }: SignupProps) {
               placeholder="Enter your phone number"
               value={formData.phone}
               onChange={(e) => updateFormData("phone", e.target.value)}
-              className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15]"
+              className="h-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:bg-muted/60 focus:border-border/80"
             />
           </div>
 
           {/* Password */}
           <div>
-            <label className="block text-sm text-slate-400 mb-2">
+            <label className="block text-sm text-muted-foreground mb-2">
               Password <span className="text-red-400">*</span>
             </label>
             <div className="relative">
@@ -315,16 +315,16 @@ export function Signup({ onNavigate }: SignupProps) {
                 value={formData.password}
                 onChange={(e) => updateFormData("password", e.target.value)}
                 onBlur={() => handleBlur("password")}
-                className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] pr-10 ${
+                className={`h-10 bg-muted/40 text-foreground placeholder:text-muted-foreground focus:bg-muted/60 pr-10 ${
                   errors.password
                     ? "border-red-500/50 focus:border-red-500"
-                    : "border-white/[0.08] focus:border-white/[0.15]"
+                    : "border-border focus:border-border/80"
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-400 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
               >
                 {showPassword ? (
                   <EyeOff className="w-4 h-4" />
@@ -345,7 +345,7 @@ export function Signup({ onNavigate }: SignupProps) {
             {formData.password && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-muted-foreground">
                     Password strength
                   </span>
                   <span
@@ -367,7 +367,7 @@ export function Signup({ onNavigate }: SignupProps) {
                       className={`h-1 flex-1 rounded-full transition-colors ${
                         level <= passwordStrength.score
                           ? passwordStrength.color
-                          : "bg-white/[0.06]"
+                          : "bg-muted/60"
                       }`}
                     />
                   ))}
@@ -392,11 +392,11 @@ export function Signup({ onNavigate }: SignupProps) {
                       {item.check ? (
                         <Check className="w-3 h-3 text-green-500" />
                       ) : (
-                        <X className="w-3 h-3 text-slate-600" />
+                        <X className="w-3 h-3 text-muted-foreground" />
                       )}
                       <span
                         className={
-                          item.check ? "text-slate-400" : "text-slate-600"
+                          item.check ? "text-muted-foreground" : "text-muted-foreground"
                         }
                       >
                         {item.label}
@@ -410,7 +410,7 @@ export function Signup({ onNavigate }: SignupProps) {
 
           {/* Confirm Password */}
           <div>
-            <label className="block text-sm text-slate-400 mb-2">
+            <label className="block text-sm text-muted-foreground mb-2">
               Confirm Password <span className="text-red-400">*</span>
             </label>
             <div className="relative">
@@ -424,19 +424,19 @@ export function Signup({ onNavigate }: SignupProps) {
                   updateFormData("confirmPassword", e.target.value)
                 }
                 onBlur={() => handleBlur("confirmPassword")}
-                className={`h-10 bg-white/[0.03] text-white placeholder:text-slate-600 focus:bg-white/[0.05] pr-10 ${
+                className={`h-10 bg-muted/40 text-foreground placeholder:text-muted-foreground focus:bg-muted/60 pr-10 ${
                   errors.confirmPassword
                     ? "border-red-500/50 focus:border-red-500"
                     : formData.confirmPassword &&
                         formData.password === formData.confirmPassword
                       ? "border-green-500/50 focus:border-green-500"
-                      : "border-white/[0.08] focus:border-white/[0.15]"
+                      : "border-border focus:border-border/80"
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-400 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
               >
                 {showConfirmPassword ? (
                   <EyeOff className="w-4 h-4" />
@@ -463,36 +463,36 @@ export function Signup({ onNavigate }: SignupProps) {
           <Button
             type="submit"
             disabled={isLoading || !isFormValid}
-            className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-medium mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Creating account..." : "Continue"}
           </Button>
         </form>
 
         <div className="mt-6 text-center">
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted-foreground">
             Already have an account?{" "}
           </span>
           <button
             onClick={() => onNavigate("/login")}
-            className="text-sm text-white hover:text-slate-300 transition-colors"
+            className="text-sm text-foreground hover:text-muted-foreground transition-colors"
           >
             Sign in
           </button>
         </div>
 
-        <p className="text-xs text-slate-600 mt-8 text-center">
+        <p className="text-xs text-muted-foreground mt-8 text-center">
           By continuing, you agree to our{" "}
           <a
             href="#"
-            className="text-slate-500 hover:text-slate-400 transition-colors"
+            className="text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             Terms
           </a>{" "}
           and{" "}
           <a
             href="#"
-            className="text-slate-500 hover:text-slate-400 transition-colors"
+            className="text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             Privacy Policy
           </a>

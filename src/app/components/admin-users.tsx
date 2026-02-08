@@ -933,7 +933,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
 
   if (accessLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center text-slate-400">
+      <div className="min-h-[60vh] flex items-center justify-center text-muted-foreground">
         Checking access...
       </div>
     );
@@ -941,19 +941,19 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
 
   if (!isCompanyAdmin) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center text-slate-400">
+      <div className="min-h-[60vh] flex items-center justify-center text-muted-foreground">
         You do not have access to this page.
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] px-4 sm:px-6 py-6">
+    <div className="min-h-screen bg-background px-4 sm:px-6 py-6">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-white">Admin Users</h1>
-            <p className="text-sm text-slate-400">
+            <h1 className="text-2xl font-semibold text-foreground">Admin Users</h1>
+            <p className="text-sm text-muted-foreground">
               Search, manage access, and update subscriptions.
             </p>
           </div>
@@ -962,11 +962,11 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
           </Button>
         </div>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-1 items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.03] px-3 py-2">
-                <Search className="h-4 w-4 text-slate-500" />
+              <div className="flex flex-1 items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={(e) => {
@@ -975,7 +975,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                     setCursorStack([]);
                   }}
                   placeholder="Search name or email"
-                  className="h-8 border-0 bg-transparent text-sm text-white placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="h-8 border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -987,7 +987,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                       "rounded-md border px-3 py-1 text-xs font-medium",
                       statusFilter === status
                         ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-white/[0.08] text-slate-400 hover:text-slate-200"
+                        : "border-border text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {status === "all"
@@ -1006,7 +1006,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                     setPage(0);
                     setCursorStack([]);
                   }}
-                  className="rounded-md border border-white/[0.08] bg-[#0A0A0A] px-3 py-1 text-xs text-slate-300"
+                  className="rounded-md border border-border bg-background px-3 py-1 text-xs text-muted-foreground"
                 >
                   <option value="all">All Plans</option>
                   {planOptions.map((plan) => (
@@ -1023,9 +1023,9 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-0">
-            <div className="hidden md:grid grid-cols-[0.2fr_1.2fr_1.2fr_1fr_1fr_0.9fr_1.1fr] gap-4 px-4 py-3 text-xs uppercase tracking-wide text-slate-500 border-b border-white/[0.08]">
+            <div className="hidden md:grid grid-cols-[0.2fr_1.2fr_1.2fr_1fr_1fr_0.9fr_1.1fr] gap-4 px-4 py-3 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -1034,7 +1034,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                     visibleUsers.every((user) => selectedIds.has(user.user_id))
                   }
                   onChange={(event) => selectAllVisible(event.target.checked)}
-                  className="h-4 w-4 rounded border-white/[0.2] bg-white/[0.03]"
+                  className="h-4 w-4 rounded border-border/70 bg-muted/40"
                 />
               </div>
               <span>User</span>
@@ -1052,7 +1052,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                 ))}
               </div>
             ) : visibleUsers.length === 0 ? (
-              <div className="p-6 text-center text-sm text-slate-400">
+              <div className="p-6 text-center text-sm text-muted-foreground">
                 No users found.
               </div>
             ) : (
@@ -1076,7 +1076,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                   return (
                     <div
                       key={rowKey}
-                      className="grid md:grid-cols-[0.2fr_1.2fr_1.2fr_1fr_1fr_0.9fr_1.1fr] gap-4 px-4 py-4 text-sm text-slate-200"
+                      className="grid md:grid-cols-[0.2fr_1.2fr_1.2fr_1fr_1fr_0.9fr_1.1fr] gap-4 px-4 py-4 text-sm text-foreground"
                       onMouseEnter={() => prefetchStats(user.user_id)}
                     >
                       <div className="flex items-center">
@@ -1084,32 +1084,32 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                           type="checkbox"
                           checked={selectedIds.has(user.user_id)}
                           onChange={() => toggleSelect(user.user_id)}
-                          className="h-4 w-4 rounded border-white/[0.2] bg-white/[0.03]"
+                          className="h-4 w-4 rounded border-border/70 bg-muted/40"
                         />
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-white/[0.05] flex items-center justify-center text-xs text-slate-400">
+                        <div className="h-10 w-10 rounded-full bg-muted/60 flex items-center justify-center text-xs text-muted-foreground">
                           <Users className="h-4 w-4" />
                         </div>
                         <div>
-                          <div className="font-medium text-white">
+                          <div className="font-medium text-foreground">
                             {user.full_name || "Unnamed User"}
                           </div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-muted-foreground">
                             Joined {formatDate(user.created_at)}
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col justify-center gap-1 text-xs text-slate-400">
-                        <span className="text-sm text-slate-200">
+                      <div className="flex flex-col justify-center gap-1 text-xs text-muted-foreground">
+                        <span className="text-sm text-foreground">
                           {user.email || "—"}
                         </span>
                         <span>
                           Last sign-in {formatDate(user.last_sign_in_at)}
                         </span>
                       </div>
-                      <div className="flex flex-col justify-center gap-1 text-xs text-slate-400">
-                        <span className="text-sm text-slate-200">
+                      <div className="flex flex-col justify-center gap-1 text-xs text-muted-foreground">
+                        <span className="text-sm text-foreground">
                           {user.workspace_name || "—"}
                         </span>
                         <span>
@@ -1118,13 +1118,13 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                             : "No workspace"}
                         </span>
                       </div>
-                      <div className="flex flex-col justify-center gap-1 text-xs text-slate-400">
-                        <span className="text-sm text-slate-200">
+                      <div className="flex flex-col justify-center gap-1 text-xs text-muted-foreground">
+                        <span className="text-sm text-foreground">
                           {user.plan_slug || "—"}
                         </span>
                         <span>{toTitle(user.subscription_status)}</span>
                       </div>
-                      <div className="flex flex-col justify-center gap-1 text-xs text-slate-400">
+                      <div className="flex flex-col justify-center gap-1 text-xs text-muted-foreground">
                         <span
                           className={cn(
                             "inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs",
@@ -1157,14 +1157,14 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                         {openMenuKey === rowKey && (
                           <div
                             data-admin-user-menu="open"
-                            className="absolute right-0 mt-2 mb-2 w-60 min-h-[261px] rounded-lg border border-white/[0.1] bg-[#0A0A0A] shadow-xl z-10 p-0"
+                            className="absolute right-0 mt-2 mb-2 w-60 min-h-[261px] rounded-lg border border-border/70 bg-background shadow-xl z-10 p-0"
                           >
                             <button
                               onClick={() => {
                                 openStats(user);
                                 setOpenMenuKey(null);
                               }}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted/60"
                             >
                               <Users className="h-4 w-4" />
                               View Stats
@@ -1174,7 +1174,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                                 openEdit(user);
                                 setOpenMenuKey(null);
                               }}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06]"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted/60"
                             >
                               <Pencil className="h-4 w-4" />
                               Edit Subscription
@@ -1229,7 +1229,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                                 ? "Sending..."
                                 : "Reset Password"}
                             </button>
-                            <div className="h-px bg-white/[0.08]" />
+                            <div className="h-px bg-muted/70" />
                             {user.is_banned ? (
                               <button
                                 onClick={() => {
@@ -1292,13 +1292,13 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
           </CardContent>
         </Card>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted-foreground">
           <span>Showing {visibleUsers.length} users on this page</span>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             {selectedIds.size > 0 && (
               <div className="w-full sm:w-auto">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     {selectedIds.size} selected
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1343,16 +1343,16 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                           openMenuKey === "bulk-actions" ? null : "bulk-actions"
                         )
                       }
-                      className="border-white/[0.2] text-slate-200 hover:bg-white/[0.06]"
+                      className="border-border/70 text-foreground hover:bg-muted/60"
                     >
                       Bulk Actions
                     </Button>
                     {openMenuKey === "bulk-actions" && (
                       <div
                         data-admin-user-menu="open"
-                        className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-xl border border-white/[0.12] bg-[#0D0D0D] shadow-xl"
+                        className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-xl border border-border/80 bg-card shadow-xl"
                       >
-                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                           Account access
                         </div>
                         <button
@@ -1390,7 +1390,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                             : "Force Logout"}
                         </button>
 
-                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                           Passwords
                         </div>
                         <button
@@ -1430,7 +1430,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                             : "Clear Password Reset"}
                         </button>
 
-                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                           Subscription
                         </div>
                         <button
@@ -1439,14 +1439,14 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                             setOpenMenuKey(null);
                           }}
                           disabled={workingId === "bulk-update"}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.06] disabled:opacity-50"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted/60 disabled:opacity-50"
                         >
                           {workingId === "bulk-update"
                             ? "Updating..."
                             : "Bulk Update"}
                         </button>
 
-                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                        <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                           Destructive
                         </div>
                         <button
@@ -1461,7 +1461,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                             ? "Deleting..."
                             : "Delete Users"}
                         </button>
-                        <div className="px-3 py-2 text-[11px] text-slate-500">
+                        <div className="px-3 py-2 text-[11px] text-muted-foreground">
                           Actions apply to all selected users.
                         </div>
                       </div>
@@ -1509,29 +1509,29 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
 
       {editUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-lg rounded-xl border border-white/[0.1] bg-[#0D0D0D] p-6">
+          <div className="w-full max-w-lg rounded-xl border border-border/70 bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">Edit User</h2>
-                <p className="text-xs text-slate-400">{editUser.email}</p>
+                <h2 className="text-lg font-semibold text-foreground">Edit User</h2>
+                <p className="text-xs text-muted-foreground">{editUser.email}</p>
               </div>
               <button
                 onClick={closeEdit}
-                className="text-slate-500 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mt-4 space-y-3 text-sm text-slate-300">
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
               <div>
-                <label className="block text-xs text-slate-500 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   Plan
                 </label>
                 <select
                   value={planSlug}
                   onChange={(e) => setPlanSlug(e.target.value)}
-                  className="w-full rounded-md border border-white/[0.08] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
                 >
                   <option value="">No change</option>
                   {plans.map((plan) => (
@@ -1542,13 +1542,13 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   Status
                 </label>
                 <select
                   value={planStatus}
                   onChange={(e) => setPlanStatus(e.target.value)}
-                  className="w-full rounded-md border border-white/[0.08] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
                 >
                   {[
                     "active",
@@ -1565,14 +1565,14 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   Total Seats (optional)
                 </label>
                 <Input
                   value={seatOverride}
                   onChange={(e) => setSeatOverride(e.target.value)}
                   placeholder="e.g. 5"
-                  className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                  className="h-10 bg-muted/40 border-border text-foreground"
                 />
               </div>
             </div>
@@ -1596,54 +1596,54 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
 
       {statsUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-lg rounded-xl border border-white/[0.1] bg-[#0D0D0D] p-6">
+          <div className="w-full max-w-lg rounded-xl border border-border/70 bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   Account Stats
                 </h2>
-                <p className="text-xs text-slate-400">{statsUser.email}</p>
+                <p className="text-xs text-muted-foreground">{statsUser.email}</p>
               </div>
               <button
                 onClick={() => setStatsUser(null)}
-                className="text-slate-500 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
             </div>
             {statsLoading ? (
-              <div className="py-6 text-center text-sm text-slate-400">
+              <div className="py-6 text-center text-sm text-muted-foreground">
                 Loading stats...
               </div>
             ) : (
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-200">
-                <div className="rounded-lg border border-white/[0.08] p-3">
-                  <div className="text-xs text-slate-500">Campaigns</div>
-                  <div className="text-lg font-semibold text-white">
+              <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-foreground">
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-xs text-muted-foreground">Campaigns</div>
+                  <div className="text-lg font-semibold text-foreground">
                     {stats?.total_campaigns ?? 0}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/[0.08] p-3">
-                  <div className="text-xs text-slate-500">Requests</div>
-                  <div className="text-lg font-semibold text-white">
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-xs text-muted-foreground">Requests</div>
+                  <div className="text-lg font-semibold text-foreground">
                     {stats?.total_requests ?? 0}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/[0.08] p-3">
-                  <div className="text-xs text-slate-500">Creators</div>
-                  <div className="text-lg font-semibold text-white">
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-xs text-muted-foreground">Creators</div>
+                  <div className="text-lg font-semibold text-foreground">
                     {stats?.total_creators ?? 0}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/[0.08] p-3">
-                  <div className="text-xs text-slate-500">Posts</div>
-                  <div className="text-lg font-semibold text-white">
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-xs text-muted-foreground">Posts</div>
+                  <div className="text-lg font-semibold text-foreground">
                     {stats?.total_posts ?? 0}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/[0.08] p-3 col-span-2">
-                  <div className="text-xs text-slate-500">Total Views</div>
-                  <div className="text-lg font-semibold text-white">
+                <div className="rounded-lg border border-border p-3 col-span-2">
+                  <div className="text-xs text-muted-foreground">Total Views</div>
+                  <div className="text-lg font-semibold text-foreground">
                     {stats?.total_views ?? 0}
                   </div>
                 </div>
@@ -1655,33 +1655,33 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
 
       {bulkEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-lg rounded-xl border border-white/[0.1] bg-[#0D0D0D] p-6">
+          <div className="w-full max-w-lg rounded-xl border border-border/70 bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   Bulk Update Subscriptions
                 </h2>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-foreground">
                   Applying to {selectedIds.size} selected users.
                 </p>
               </div>
               <button
                 onClick={() => setBulkEditOpen(false)}
-                className="text-slate-500 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mt-4 space-y-3 text-sm text-slate-300">
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
               <div>
-                <label className="block text-xs text-slate-500 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   Plan
                 </label>
                 <select
                   value={bulkPlanSlug}
                   onChange={(e) => setBulkPlanSlug(e.target.value)}
-                  className="w-full rounded-md border border-white/[0.08] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
                 >
                   <option value="">No change</option>
                   {plans.map((plan) => (
@@ -1692,13 +1692,13 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   Status
                 </label>
                 <select
                   value={bulkPlanStatus}
                   onChange={(e) => setBulkPlanStatus(e.target.value)}
-                  className="w-full rounded-md border border-white/[0.08] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
                 >
                   {[
                     "active",
@@ -1715,14 +1715,14 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   Total Seats (optional)
                 </label>
                 <Input
                   value={bulkSeatOverride}
                   onChange={(e) => setBulkSeatOverride(e.target.value)}
                   placeholder="e.g. 5"
-                  className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                  className="h-10 bg-muted/40 border-border text-foreground"
                 />
               </div>
             </div>
@@ -1744,10 +1744,10 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
 
       {bulkResultOpen && bulkResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-xl border border-white/[0.1] bg-[#0D0D0D] p-6">
+          <div className="w-full max-w-md rounded-xl border border-border/70 bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   {bulkResult.title}
                 </h2>
                 <p
@@ -1763,7 +1763,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
               </div>
               <button
                 onClick={() => setBulkResultOpen(false)}
-                className="text-slate-500 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
@@ -1777,10 +1777,10 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
 
       {actionResultOpen && actionResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-xl border border-white/[0.1] bg-[#0D0D0D] p-6">
+          <div className="w-full max-w-md rounded-xl border border-border/70 bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   {actionResult.title}
                 </h2>
                 <p
@@ -1796,7 +1796,7 @@ export function AdminUsers({ onNavigate }: AdminUsersProps) {
               </div>
               <button
                 onClick={() => setActionResultOpen(false)}
-                className="text-slate-500 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>

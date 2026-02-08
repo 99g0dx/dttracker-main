@@ -75,15 +75,15 @@ export function BillingSuccess({ onNavigate }: BillingSuccessProps) {
   if (hasError) {
     return (
       <div className="max-w-lg mx-auto mt-12">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-3">
+            <h2 className="text-2xl font-semibold text-foreground mb-3">
               Payment Verification Failed
             </h2>
-            <p className="text-slate-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               We couldn't verify your payment. If you were charged, please contact support.
             </p>
             <div className="flex gap-3 justify-center">
@@ -96,7 +96,7 @@ export function BillingSuccess({ onNavigate }: BillingSuccessProps) {
               </Button>
               <Button
                 onClick={() => window.location.href = 'mailto:support@dobbletap.com'}
-                className="h-10 px-6 bg-primary hover:bg-primary/90 text-white"
+                className="h-10 px-6 bg-primary hover:bg-primary/90 text-foreground"
               >
                 Contact Support
               </Button>
@@ -111,24 +111,24 @@ export function BillingSuccess({ onNavigate }: BillingSuccessProps) {
   if (isVerified) {
     return (
       <div className="max-w-lg mx-auto mt-12">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-8 h-8 text-emerald-400" />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-3">
+            <h2 className="text-2xl font-semibold text-foreground mb-3">
               Payment Successful!
             </h2>
-            <p className="text-slate-400 mb-2">
+            <p className="text-muted-foreground mb-2">
               Welcome to DTTracker Pro! Your subscription is now active.
             </p>
-            <p className="text-sm text-slate-500 mb-8">
+            <p className="text-sm text-muted-foreground mb-8">
               Redirecting to dashboard...
             </p>
             <div className="flex gap-3 justify-center">
               <Button
                 onClick={() => onNavigate('/dashboard')}
-                className="h-10 px-6 bg-primary hover:bg-primary/90 text-white"
+                className="h-10 px-6 bg-primary hover:bg-primary/90 text-foreground"
               >
                 Go to Dashboard
               </Button>
@@ -149,23 +149,23 @@ export function BillingSuccess({ onNavigate }: BillingSuccessProps) {
   // Loading/Verifying state
   return (
     <div className="max-w-lg mx-auto mt-12">
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
-          <h2 className="text-2xl font-semibold text-white mb-3">
+          <h2 className="text-2xl font-semibold text-foreground mb-3">
             Verifying Payment...
           </h2>
-          <p className="text-slate-400 mb-2">
+          <p className="text-muted-foreground mb-2">
             Please wait while we confirm your payment with Paystack.
           </p>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             This usually takes just a few seconds.
           </p>
 
           {reference && (
-            <p className="text-xs text-slate-600 mt-6">
+            <p className="text-xs text-muted-foreground mt-6">
               Reference: {reference || trxref}
             </p>
           )}

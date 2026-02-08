@@ -50,38 +50,38 @@ export function CreatorProfileModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#0D0D0D] border-white/[0.08] max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start gap-4">
-            <div className="w-20 h-20 rounded-full bg-white/[0.06] flex-shrink-0 overflow-hidden">
+            <div className="w-20 h-20 rounded-full bg-muted/40 flex-shrink-0 overflow-hidden">
               {photo ? (
                 <img src={photo} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-slate-500">
+                <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-muted-foreground">
                   {(creator.name || handle || '?').charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <DialogTitle className="text-white truncate">
+                <DialogTitle className="text-foreground truncate">
                   {handle || creator.handle}
                 </DialogTitle>
                 {onToggleFavorite && !creator.id.startsWith('manual-') && (
                   <button
                     onClick={() => onToggleFavorite(creator.id)}
                     aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                    className="p-1 rounded hover:bg-white/[0.06]"
+                    className="p-1 rounded hover:bg-muted/50"
                   >
                     <Heart
                       className={`w-5 h-5 ${
-                        isFavorite ? 'fill-rose-500 text-rose-500' : 'text-slate-500'
+                        isFavorite ? 'fill-rose-500 text-rose-500' : 'text-muted-foreground'
                       }`}
                     />
                   </button>
                 )}
               </div>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {creator.name || creator.display_name || 'Creator'}
               </p>
               {inMyNetwork && (
@@ -96,20 +96,20 @@ export function CreatorProfileModal({
         <div className="space-y-4 mt-4">
           {accounts.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-slate-400 mb-2">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">
                 Social Accounts
               </h4>
               <div className="space-y-2">
                 {accounts.map((acc: any) => (
                   <div
                     key={acc.id}
-                    className="flex items-center justify-between py-2 border-b border-white/[0.06]"
+                    className="flex items-center justify-between py-2 border-b border-border/60"
                   >
                     <div className="flex items-center gap-2">
                       <PlatformIcon platform={acc.platform} size="sm" />
-                      <span className="text-white">{acc.handle}</span>
+                      <span className="text-foreground">{acc.handle}</span>
                     </div>
-                    <span className="text-slate-500 text-sm">
+                    <span className="text-muted-foreground text-sm">
                       {formatFollowers(acc.followers || 0)} followers
                     </span>
                   </div>
@@ -120,30 +120,30 @@ export function CreatorProfileModal({
 
           {stats && (stats.avg_engagement_rate > 0 || stats.campaigns_completed > 0) && (
             <div>
-              <h4 className="text-sm font-medium text-slate-400 mb-2">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">
                 Performance
               </h4>
               <div className="grid grid-cols-2 gap-3">
                 {stats.avg_engagement_rate > 0 && (
-                  <div className="p-3 rounded-lg bg-white/[0.03]">
-                    <p className="text-xs text-slate-500">Avg Engagement</p>
+                  <div className="p-3 rounded-lg bg-muted/40">
+                    <p className="text-xs text-muted-foreground">Avg Engagement</p>
                     <p className="text-lg font-semibold text-emerald-400">
                       {stats.avg_engagement_rate}%
                     </p>
                   </div>
                 )}
                 {stats.campaigns_completed > 0 && (
-                  <div className="p-3 rounded-lg bg-white/[0.03]">
-                    <p className="text-xs text-slate-500">Campaigns Completed</p>
-                    <p className="text-lg font-semibold text-white">
+                  <div className="p-3 rounded-lg bg-muted/40">
+                    <p className="text-xs text-muted-foreground">Campaigns Completed</p>
+                    <p className="text-lg font-semibold text-foreground">
                       {stats.campaigns_completed}
                     </p>
                   </div>
                 )}
                 {stats.total_reach > 0 && (
-                  <div className="p-3 rounded-lg bg-white/[0.03] col-span-2">
-                    <p className="text-xs text-slate-500">Total Reach</p>
-                    <p className="text-lg font-semibold text-white">
+                  <div className="p-3 rounded-lg bg-muted/40 col-span-2">
+                    <p className="text-xs text-muted-foreground">Total Reach</p>
+                    <p className="text-lg font-semibold text-foreground">
                       {formatFollowers(stats.total_reach)}
                     </p>
                   </div>
@@ -154,8 +154,8 @@ export function CreatorProfileModal({
 
           {(creator.location || creator.niche) && (
             <div>
-              <h4 className="text-sm font-medium text-slate-400 mb-2">Details</h4>
-              <div className="space-y-1 text-sm text-white">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Details</h4>
+              <div className="space-y-1 text-sm text-foreground">
                 {creator.location && (
                   <p>Location: {creator.location}</p>
                 )}
@@ -166,8 +166,8 @@ export function CreatorProfileModal({
 
           {inMyNetwork && (creator.email || creator.phone) && (
             <div>
-              <h4 className="text-sm font-medium text-slate-400 mb-2">Contact</h4>
-              <div className="space-y-1 text-sm text-white">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Contact</h4>
+              <div className="space-y-1 text-sm text-foreground">
                 {creator.email && <p>Email: {creator.email}</p>}
                 {creator.phone && <p>Phone: {creator.phone}</p>}
               </div>
@@ -176,18 +176,18 @@ export function CreatorProfileModal({
 
           {(creator as any).bio && (
             <div>
-              <h4 className="text-sm font-medium text-slate-400 mb-2">Bio</h4>
-              <p className="text-sm text-slate-300 whitespace-pre-wrap">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Bio</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {(creator as any).bio}
               </p>
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2 pt-4 border-t border-white/[0.08]">
+          <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
             {onRequest && (
               <Button
                 onClick={() => onRequest(creator)}
-                className="bg-primary text-black hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Request Creator
               </Button>
@@ -196,7 +196,7 @@ export function CreatorProfileModal({
               <Button
                 variant="outline"
                 onClick={() => onAddToActivation(creator)}
-                className="border-white/[0.08]"
+                className="border-border"
               >
                 Add to Activation
               </Button>
@@ -205,7 +205,7 @@ export function CreatorProfileModal({
               <Button
                 variant="outline"
                 onClick={() => onEdit(creator)}
-                className="border-white/[0.08]"
+                className="border-border"
               >
                 Edit
               </Button>

@@ -800,28 +800,28 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
       <div className="flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => onNavigate("/creators")}
-          className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-9 h-9 flex-shrink-0 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
             Creator Scraper
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Extract creator information from screenshots using AI
           </p>
         </div>
       </div>
 
       {/* Mode Toggle */}
-      <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/[0.08] rounded-lg w-fit">
+      <div className="flex items-center gap-2 p-1 bg-muted/40 border border-border rounded-lg w-fit">
         <button
           onClick={() => setUploadMode("single")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             uploadMode === "single"
-              ? "bg-primary text-black"
-              : "text-slate-400 hover:text-white"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
           style={
             uploadMode === "single"
@@ -835,8 +835,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
           onClick={() => setUploadMode("bulk")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             uploadMode === "bulk"
-              ? "bg-primary text-black"
-              : "text-slate-400 hover:text-white"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
           style={
             uploadMode === "bulk"
@@ -851,11 +851,11 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
       {uploadMode === "single" ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Upload Section */}
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-6 space-y-5">
               {/* Platform Selection */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Platform (Optional)
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[rgba(0,0,0,0)]">
@@ -866,8 +866,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                       onClick={() => setSelectedPlatform(platform)}
                       className={`px-3 py-2 rounded-md text-sm transition-colors ${
                         selectedPlatform === platform
-                          ? "bg-primary text-black"
-                          : "bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] border border-white/[0.08]"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted/40 text-muted-foreground hover:bg-muted/60 border border-border"
                       }`}
                     >
                       {platform}
@@ -878,7 +878,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
 
               {/* Image Upload */}
               {!uploadedImage ? (
-                <div className="border-2 border-dashed border-white/[0.08] rounded-lg p-12 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-primary/50 transition-colors cursor-pointer">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -888,13 +888,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                     id="screenshot-upload"
                   />
                   <label htmlFor="screenshot-upload" className="cursor-pointer">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-white/[0.03] rounded-lg flex items-center justify-center">
-                      <Upload className="w-8 h-8 text-slate-500" />
+                    <div className="w-16 h-16 mx-auto mb-4 bg-muted/40 rounded-lg flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-muted-foreground" />
                     </div>
-                    <p className="text-slate-300 mb-2">
+                    <p className="text-muted-foreground mb-2">
                       Upload screenshot or paste image
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       PNG, JPG up to 10MB
                     </p>
                   </label>
@@ -905,7 +905,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                     <img
                       src={uploadedImage}
                       alt="Uploaded screenshot"
-                      className="w-full rounded-lg border border-white/[0.08]"
+                      className="w-full rounded-lg border border-border"
                     />
                     <button
                       type="button"
@@ -950,10 +950,10 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                               <h4 className="text-sm font-semibold text-red-400 mb-1">
                                 Extraction Failed
                               </h4>
-                              <p className="text-xs text-slate-400 mb-3">
+                              <p className="text-xs text-muted-foreground mb-3">
                                 {extractionError}
                               </p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-muted-foreground">
                                 You can manually enter the creator information
                                 using the form on the right.
                               </p>
@@ -969,18 +969,18 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
           </Card>
 
           {/* Right: Extracted Data Form */}
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
                 {extractedData ? "Review & Edit" : "Creator Information"}
               </h3>
 
               {!extractedData && !extractionError && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-16 h-16 rounded-full bg-white/[0.03] flex items-center justify-center mb-4">
-                    <Sparkles className="w-8 h-8 text-slate-500" />
+                  <div className="w-16 h-16 rounded-full bg-muted/40 flex items-center justify-center mb-4">
+                    <Sparkles className="w-8 h-8 text-muted-foreground" />
                   </div>
-                  <p className="text-slate-400 text-sm">
+                  <p className="text-muted-foreground text-sm">
                     Upload a screenshot and extract creator info to get started
                   </p>
                 </div>
@@ -990,8 +990,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                 <div className="space-y-4">
                   {/* Confidence Scores */}
                   {extractedData && confidence && (
-                    <div className="p-3 bg-white/[0.03] rounded-lg border border-white/[0.08] mb-4">
-                      <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    <div className="p-3 bg-muted/40 rounded-lg border border-border mb-4">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                         Extraction Confidence
                       </h4>
                       <div className="grid grid-cols-3 gap-2 text-xs">
@@ -1001,7 +1001,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                               creatorExtractionApi.getConfidenceLevel(score);
                             return (
                               <div key={field} className="flex justify-between">
-                                <span className="text-slate-500 capitalize">
+                                <span className="text-muted-foreground capitalize">
                                   {field}:
                                 </span>
                                 <span className={confidenceLevel.color}>
@@ -1012,7 +1012,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                           }
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-2">
+                      <p className="text-xs text-muted-foreground mt-2">
                         Review and edit fields with low confidence scores
                       </p>
                     </div>
@@ -1020,7 +1020,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
 
                   {/* Form Fields */}
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Handle/Username *
                     </label>
                     <Input
@@ -1029,13 +1029,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         setFormData({ ...formData, handle: e.target.value })
                       }
                       placeholder="@username"
-                      className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                      className="h-10 bg-muted/40 border-border text-foreground"
                       disabled={isExtracting}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Followers/Subscribers *
                     </label>
                     <Input
@@ -1044,13 +1044,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         setFormData({ ...formData, followers: e.target.value })
                       }
                       placeholder="125K or 1.2M"
-                      className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                      className="h-10 bg-muted/40 border-border text-foreground"
                       disabled={isExtracting}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Category
                     </label>
                     <select
@@ -1058,7 +1058,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, category: e.target.value })
                       }
-                      className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-md text-white"
+                      className="w-full h-10 px-3 bg-muted/40 border border-border rounded-md text-foreground"
                       disabled={isExtracting}
                     >
                       <option value="">Select category</option>
@@ -1071,7 +1071,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Contact Info
                     </label>
                     <Input
@@ -1080,13 +1080,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         setFormData({ ...formData, contact: e.target.value })
                       }
                       placeholder="Email or website"
-                      className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                      className="h-10 bg-muted/40 border-border text-foreground"
                       disabled={isExtracting}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Location
                     </label>
                     <Input
@@ -1095,13 +1095,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         setFormData({ ...formData, location: e.target.value })
                       }
                       placeholder="City, State/Country"
-                      className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                      className="h-10 bg-muted/40 border-border text-foreground"
                       disabled={isExtracting}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Niche/Category
                     </label>
                     <Input
@@ -1110,7 +1110,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         setFormData({ ...formData, niche: e.target.value })
                       }
                       placeholder="Fashion, Tech, Gaming, etc."
-                      className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                      className="h-10 bg-muted/40 border-border text-foreground"
                       disabled={isExtracting}
                     />
                   </div>
@@ -1136,7 +1136,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                     {(!formData.handle ||
                       !formData.followers ||
                       !selectedPlatform) && (
-                      <p className="text-xs text-slate-500 mt-2 text-center">
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
                         Please fill in handle, followers, and select a platform
                       </p>
                     )}
@@ -1150,10 +1150,10 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
         /* Bulk Upload Mode */
         <div className="space-y-6">
           {/* Platform Selection for Bulk */}
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Platform (Optional - applies to all images)
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1164,8 +1164,8 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                       onClick={() => setSelectedPlatform(platform)}
                       className={`px-3 py-2 rounded-md text-sm transition-colors ${
                         selectedPlatform === platform
-                          ? "bg-primary text-black"
-                          : "bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] border border-white/[0.08]"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted/40 text-muted-foreground hover:bg-muted/60 border border-border"
                       }`}
                     >
                       {platform}
@@ -1177,10 +1177,10 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
           </Card>
 
           {/* Upload Section */}
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               {uploadedImages.length === 0 ? (
-                <div className="border-2 border-dashed border-white/[0.08] rounded-lg p-12 text-center hover:border-primary/50 transition-colors">
+                <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-primary/50 transition-colors">
                   <input
                     ref={bulkFileInputRef}
                     type="file"
@@ -1194,13 +1194,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                     htmlFor="bulk-screenshot-upload"
                     className="cursor-pointer block"
                   >
-                    <div className="w-16 h-16 mx-auto mb-4 bg-white/[0.03] rounded-lg flex items-center justify-center">
-                      <Upload className="w-8 h-8 text-slate-500" />
+                    <div className="w-16 h-16 mx-auto mb-4 bg-muted/40 rounded-lg flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-muted-foreground" />
                     </div>
-                    <p className="text-slate-300 mb-2">
+                    <p className="text-muted-foreground mb-2">
                       Upload multiple screenshots
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       PNG, JPG up to 10MB each. Select multiple files.
                     </p>
                   </label>
@@ -1209,10 +1209,10 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-white">
+                      <h3 className="text-sm font-medium text-foreground">
                         {uploadedImages.length} image(s) uploaded
                       </h3>
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {processingStats.success} saved,{" "}
                         {processingStats.failed} failed,{" "}
                         {processingStats.skipped} skipped
@@ -1232,7 +1232,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                          className="h-9 bg-muted/40 hover:bg-muted/60 border-border text-muted-foreground"
                         >
                           <Upload className="w-4 h-4 mr-2" />
                           Add More
@@ -1246,7 +1246,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                               (img) => img.status === "pending"
                             ).length === 0
                           }
-                          className="h-9 bg-primary hover:bg-primary/90 text-black"
+                          className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground"
                           style={{
                             backgroundClip: "unset",
                             WebkitBackgroundClip: "unset",
@@ -1265,7 +1265,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                 img.status === "success" && img.extractedData
                             ).length === 0
                           }
-                          className="h-9 bg-emerald-500 hover:bg-emerald-600 text-white"
+                          className="h-9 bg-emerald-500 hover:bg-emerald-600 text-foreground"
                         >
                           <CheckCircle2 className="w-4 h-4 mr-2" />
                           Confirm & Add All
@@ -1276,7 +1276,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                           <Button
                             onClick={togglePause}
                             variant="outline"
-                            className="h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                            className="h-9 bg-muted/40 hover:bg-muted/60 border-border text-muted-foreground"
                           >
                             {isPaused ? (
                               <>
@@ -1293,7 +1293,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                           <Button
                             onClick={cancelBulkProcessing}
                             variant="outline"
-                            className="h-9 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-red-400"
+                            className="h-9 bg-muted/40 hover:bg-muted/60 border-border text-red-400"
                           >
                             Cancel
                           </Button>
@@ -1323,7 +1323,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                             );
                           case "skipped":
                             return (
-                              <SkipForward className="w-5 h-5 text-slate-500" />
+                              <SkipForward className="w-5 h-5 text-muted-foreground" />
                             );
                           default:
                             return (
@@ -1343,7 +1343,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                           case "skipped":
                             return "border-slate-500/30 bg-slate-500/5";
                           default:
-                            return "border-white/[0.08] bg-white/[0.02]";
+                            return "border-border bg-muted/30";
                         }
                       };
 
@@ -1354,7 +1354,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         >
                           <div className="flex items-start gap-4">
                             {/* Thumbnail */}
-                            <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-white/[0.08]">
+                            <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-border">
                               <img
                                 src={imageItem.dataUrl}
                                 alt={`Upload ${index + 1}`}
@@ -1368,10 +1368,10 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                 <div className="flex items-center gap-2">
                                   {getStatusIcon()}
                                   <div>
-                                    <p className="text-sm font-medium text-white">
+                                    <p className="text-sm font-medium text-foreground">
                                       Image {index + 1}
                                     </p>
-                                    <p className="text-xs text-slate-400">
+                                    <p className="text-xs text-muted-foreground">
                                       {imageItem.file.name}
                                     </p>
                                   </div>
@@ -1386,7 +1386,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                           }
                                           variant="outline"
                                           size="sm"
-                                          className="h-8 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                                          className="h-8 bg-muted/40 hover:bg-muted/60 border-border text-muted-foreground"
                                         >
                                           <RotateCcw className="w-3.5 h-3.5 mr-1" />
                                           Retry
@@ -1400,7 +1400,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                           }
                                           variant="outline"
                                           size="sm"
-                                          className="h-8 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                                          className="h-8 bg-muted/40 hover:bg-muted/60 border-border text-muted-foreground"
                                         >
                                           Skip
                                         </Button>
@@ -1411,7 +1411,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                         }
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 bg-white/[0.03] hover:bg-red-500/10 border-white/[0.08] text-red-400"
+                                        className="h-8 bg-muted/40 hover:bg-red-500/10 border-border text-red-400"
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </Button>
@@ -1422,13 +1422,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                               {/* Status Message */}
                               {imageItem.status === "success" &&
                                 imageItem.extractedData && (
-                                  <div className="mt-2 p-3 bg-white/[0.03] rounded border border-white/[0.08] space-y-2">
-                                    <p className="text-xs text-slate-400 mb-2">
+                                  <div className="mt-2 p-3 bg-muted/40 rounded border border-border space-y-2">
+                                    <p className="text-xs text-muted-foreground mb-2">
                                       Extracted data (editable):
                                     </p>
                                     <div className="grid grid-cols-2 gap-2">
                                       <div>
-                                        <label className="block text-xs text-slate-500 mb-1">
+                                        <label className="block text-xs text-muted-foreground mb-1">
                                           Handle
                                         </label>
                                         <Input
@@ -1440,12 +1440,12 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                               e.target.value
                                             )
                                           }
-                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          className="h-8 text-xs bg-muted/40 border-border text-foreground"
                                           placeholder="@username"
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-xs text-slate-500 mb-1">
+                                        <label className="block text-xs text-muted-foreground mb-1">
                                           Followers
                                         </label>
                                         <Input
@@ -1459,12 +1459,12 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                               e.target.value
                                             )
                                           }
-                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          className="h-8 text-xs bg-muted/40 border-border text-foreground"
                                           placeholder="125K"
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-xs text-slate-500 mb-1">
+                                        <label className="block text-xs text-muted-foreground mb-1">
                                           Contact
                                         </label>
                                         <Input
@@ -1478,12 +1478,12 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                               e.target.value
                                             )
                                           }
-                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          className="h-8 text-xs bg-muted/40 border-border text-foreground"
                                           placeholder="Email"
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-xs text-slate-500 mb-1">
+                                        <label className="block text-xs text-muted-foreground mb-1">
                                           Niche
                                         </label>
                                         <Input
@@ -1495,13 +1495,13 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                                               e.target.value
                                             )
                                           }
-                                          className="h-8 text-xs bg-white/[0.03] border-white/[0.08] text-white"
+                                          className="h-8 text-xs bg-muted/40 border-border text-foreground"
                                           placeholder="Fashion, Tech"
                                         />
                                       </div>
                                     </div>
                                     {imageItem.platform && (
-                                      <p className="text-xs text-slate-500 mt-2">
+                                      <p className="text-xs text-muted-foreground mt-2">
                                         Platform: {imageItem.platform}
                                       </p>
                                     )}
@@ -1519,7 +1519,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
 
                               {imageItem.status === "pending" &&
                                 !isProcessingBulk && (
-                                  <p className="text-xs text-slate-500 mt-2">
+                                  <p className="text-xs text-muted-foreground mt-2">
                                     Waiting to process...
                                   </p>
                                 )}
@@ -1536,9 +1536,9 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
 
           {/* Processing Summary */}
           {showSummary && (
-            <Card className="bg-[#0D0D0D] border-white/[0.08]">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
                   Processing Summary
                 </h3>
                 <div className="grid grid-cols-3 gap-4 mb-4">
@@ -1546,19 +1546,19 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                     <div className="text-2xl font-bold text-emerald-400">
                       {processingStats.success}
                     </div>
-                    <div className="text-sm text-slate-400">Saved</div>
+                    <div className="text-sm text-muted-foreground">Saved</div>
                   </div>
                   <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20">
                     <div className="text-2xl font-bold text-red-400">
                       {processingStats.failed}
                     </div>
-                    <div className="text-sm text-slate-400">Failed</div>
+                    <div className="text-sm text-muted-foreground">Failed</div>
                   </div>
                   <div className="p-4 bg-slate-500/10 rounded-lg border border-slate-500/20">
-                    <div className="text-2xl font-bold text-slate-400">
+                    <div className="text-2xl font-bold text-muted-foreground">
                       {processingStats.skipped}
                     </div>
-                    <div className="text-sm text-slate-400">Skipped</div>
+                    <div className="text-sm text-muted-foreground">Skipped</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -1573,7 +1573,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                         skipped: 0,
                       });
                     }}
-                    className="flex-1 h-10 bg-primary hover:bg-primary/90 text-black"
+                    className="flex-1 h-10 bg-primary hover:bg-primary/90 text-primary-foreground"
                     style={{
                       backgroundClip: "unset",
                       WebkitBackgroundClip: "unset",
@@ -1584,7 +1584,7 @@ export function CreatorScraper({ onNavigate }: CreatorScraperProps) {
                   <Button
                     onClick={() => onNavigate("/creators")}
                     variant="outline"
-                    className="flex-1 h-10 bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08] text-slate-300"
+                    className="flex-1 h-10 bg-muted/40 hover:bg-muted/60 border-border text-muted-foreground"
                   >
                     Back to Library
                   </Button>

@@ -104,3 +104,27 @@ entrypoint = "./functions/dobbletap-webhook-verification-completed/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/activation-publish/index.ts"
+
+# Send Offer to Creator (Brand → Creator activation invite)
+[functions.send-offer-to-activation]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-offer-to-activation/index.ts"
+
+# Creator Request Management
+[functions.create-creator-request]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/create-creator-request/index.ts"
+
+# Creator Quote Callback (Dobbletap → DTTracker when creator quotes)
+[functions.creator-quote-callback]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/creator-quote-callback/index.ts"
+
+# Notify brand when creator quote received
+[functions.notify-creator-quote]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/notify-creator-quote/index.ts"

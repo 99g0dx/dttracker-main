@@ -467,10 +467,10 @@ export function SharedCampaignDashboard() {
   // Show loading state (but not if password is required, as that has its own UI)
   if (isLoading && !requiresPassword && !error) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading campaign...</p>
+          <p className="text-muted-foreground">Loading campaign...</p>
         </div>
       </div>
     );
@@ -479,17 +479,17 @@ export function SharedCampaignDashboard() {
   // Password prompt
   if (requiresPassword) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-        <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-md w-full">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="bg-card border-border max-w-md w-full">
           <CardContent className="p-6">
             <div className="flex flex-col items-center justify-center mb-6">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                 <Lock className="w-6 h-6 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-white mb-2">
+              <h2 className="text-xl font-semibold text-foreground mb-2">
                 Password Required
               </h2>
-              <p className="text-slate-400 text-center">
+              <p className="text-muted-foreground text-center">
                 This shared dashboard is password protected. Please enter the
                 password to continue.
               </p>
@@ -497,7 +497,7 @@ export function SharedCampaignDashboard() {
 
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm text-slate-300 mb-2">
+                <label className="block text-sm text-muted-foreground mb-2">
                   Password
                 </label>
                 <Input
@@ -508,7 +508,7 @@ export function SharedCampaignDashboard() {
                     setPasswordError(null);
                   }}
                   placeholder="Enter password"
-                  className="h-11 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-500 focus:border-primary/50"
+                  className="h-11 bg-muted/50 border-border/70 text-foreground placeholder:text-muted-foreground focus:border-primary/50"
                   autoFocus
                 />
                 {passwordError && (
@@ -519,7 +519,7 @@ export function SharedCampaignDashboard() {
               <Button
                 type="submit"
                 disabled={isLoading || !password.trim()}
-                className="w-full h-11 bg-primary hover:bg-primary/90 text-black font-medium"
+                className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
               >
                 {isLoading ? "Verifying..." : "Access Dashboard"}
               </Button>
@@ -532,21 +532,21 @@ export function SharedCampaignDashboard() {
 
   if ((error || !data) && !requiresPassword) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
-        <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-md w-full text-center">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="bg-card border-border max-w-md w-full text-center">
           <CardContent className="p-6">
             <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
               <Share2 className="w-6 h-6 text-red-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
               Link Expired or Unavailable
             </h2>
-            <p className="text-slate-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               {error || "This share link is no longer valid."}
             </p>
             <Button
               onClick={() => navigate("/login")}
-              className="bg-primary hover:bg-primary/90 text-black"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               Go to DTTracker
             </Button>
@@ -557,9 +557,9 @@ export function SharedCampaignDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="min-h-screen bg-background">
       {/* Header with logo */}
-      <div className="border-b border-white/[0.08] bg-[#0D0D0D]">
+      <div className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -568,7 +568,7 @@ export function SharedCampaignDashboard() {
                 alt="DTTracker"
                 className="w-6 h-6 object-contain"
               />
-              <h1 className="text-xl font-semibold text-white">DTTracker</h1>
+              <h1 className="text-xl font-semibold text-foreground">DTTracker</h1>
             </div>
           </div>
         </div>
@@ -584,8 +584,8 @@ export function SharedCampaignDashboard() {
                 onClick={() => setActiveTab("all")}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   activeTab === "all"
-                    ? "bg-primary text-black border-primary"
-                    : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/40 text-muted-foreground border-border hover:bg-muted/60"
                 }`}
               >
                 All Campaigns
@@ -596,8 +596,8 @@ export function SharedCampaignDashboard() {
                   onClick={() => setActiveTab(subcampaign.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                     activeTab === subcampaign.id
-                      ? "bg-primary text-black border-primary"
-                      : "bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.06]"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/40 text-muted-foreground border-border hover:bg-muted/60"
                   }`}
                 >
                   {subcampaign.name}
@@ -607,7 +607,7 @@ export function SharedCampaignDashboard() {
           )}
 
           {selectedSubcampaign && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Showing {selectedSubcampaign.name} posts and metrics.
             </p>
           )}
@@ -636,7 +636,7 @@ export function SharedCampaignDashboard() {
           {/* Performance Charts - Using shared component */}
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Platform
               </span>
               <div className="flex flex-wrap gap-2">
@@ -652,8 +652,8 @@ export function SharedCampaignDashboard() {
                     aria-pressed={chartPlatformFilter === platform.value}
                     className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
                       chartPlatformFilter === platform.value
-                        ? "bg-primary text-black border-primary"
-                        : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/60"
                     }`}
                   >
                     {platform.label}

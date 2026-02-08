@@ -164,15 +164,15 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate('/sounds')}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Sound Not Found</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sound Not Found</h1>
         </div>
-        <Card className="border-white/5 bg-white/5">
+        <Card className="border-border/50 bg-muted/30">
           <CardContent className="p-6">
-            <p className="text-slate-400">The sound track you're looking for doesn't exist.</p>
+            <p className="text-muted-foreground">The sound track you're looking for doesn't exist.</p>
           </CardContent>
         </Card>
       </div>
@@ -188,21 +188,21 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate('/sounds')}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight text-white">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                 {soundTrack.title || 'Untitled Sound'}
               </h1>
               <PlatformIcon platform={soundTrack.platform as any} />
             </div>
             {soundTrack.artist && (
-              <p className="text-sm text-slate-400 mt-1">{soundTrack.artist}</p>
+              <p className="text-sm text-muted-foreground mt-1">{soundTrack.artist}</p>
             )}
-            <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
               <span>Created {new Date(soundTrack.created_at).toLocaleDateString()}</span>
               {soundTrack.source_url && (
                 <a
@@ -296,9 +296,9 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
 
       {/* KPIs - Use scrape stats if available, otherwise use snapshots */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className={`border-white/5 ${isScraping ? 'bg-white/[0.03] opacity-75' : 'bg-white/5'}`}>
+        <Card className={`border-border/50 ${isScraping ? 'bg-muted/40 opacity-75' : 'bg-muted/30'}`}>
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Total Uses</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Total Uses</p>
             {isScraping && !scrapeStats ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 text-red-600 dark:text-blue-400 animate-spin" />
@@ -306,7 +306,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
               </div>
             ) : (
               <>
-                <p className="text-2xl font-semibold text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {scrapeStats?.total_videos 
                     ? formatNumber(scrapeStats.total_videos)
                     : kpis.totalUses !== null 
@@ -314,7 +314,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                     : '-'}
                 </p>
                 {scrapeStats && (
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {scrapeStats.total_videos} videos found
                   </p>
                 )}
@@ -323,9 +323,9 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-white/5 bg-white/5">
+        <Card className="border-border/50 bg-muted/30">
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">24h Change</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">24h Change</p>
             <div className="flex items-center gap-2">
               {kpis.delta24h && kpis.delta24h.percentage !== null ? (
                 <>
@@ -342,20 +342,20 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                     {kpis.delta24h.isPositive ? '+' : ''}
                     {formatNumber(kpis.delta24h.value)}
                   </p>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground">
                     ({kpis.delta24h.percentage.toFixed(1)}%)
                   </p>
                 </>
               ) : (
-                <p className="text-2xl font-semibold text-slate-500">-</p>
+                <p className="text-2xl font-semibold text-muted-foreground">-</p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-white/5 bg-white/5">
+        <Card className="border-border/50 bg-muted/30">
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">7d Change</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">7d Change</p>
             <div className="flex items-center gap-2">
               {kpis.delta7d && kpis.delta7d.percentage !== null ? (
                 <>
@@ -372,35 +372,35 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                     {kpis.delta7d.isPositive ? '+' : ''}
                     {formatNumber(kpis.delta7d.value)}
                   </p>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground">
                     ({kpis.delta7d.percentage.toFixed(1)}%)
                   </p>
                 </>
               ) : (
-                <p className="text-2xl font-semibold text-slate-500">-</p>
+                <p className="text-2xl font-semibold text-muted-foreground">-</p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-white/5 bg-white/5">
+        <Card className="border-border/50 bg-muted/30">
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Velocity</p>
-            <p className="text-2xl font-semibold text-white">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Velocity</p>
+            <p className="text-2xl font-semibold text-foreground">
               {kpis.velocity !== null
                 ? `${kpis.velocity >= 0 ? '+' : ''}${formatCompactNumber(Math.abs(kpis.velocity))}/hr`
                 : '-'}
             </p>
-            <p className="text-xs text-slate-500 mt-1">Uses per hour</p>
+            <p className="text-xs text-muted-foreground mt-1">Uses per hour</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Chart */}
       {chartData.length > 0 && (
-        <Card className="border-white/5 bg-white/5">
+        <Card className="border-border/50 bg-muted/30">
           <CardHeader>
-            <CardTitle className="text-lg text-white">Uses Over Time</CardTitle>
+            <CardTitle className="text-lg text-foreground">Uses Over Time</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -441,11 +441,11 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
 
       {/* Videos from Scrape Results - Show loading if scraping, otherwise show videos if available */}
       {(shouldShowLoading || scrapeVideos.length > 0) && (
-        <Card className="border-white/5 bg-white/5">
+        <Card className="border-border/50 bg-muted/30">
           <CardHeader>
-            <CardTitle className="text-lg text-white">Videos Using This Sound</CardTitle>
+            <CardTitle className="text-lg text-foreground">Videos Using This Sound</CardTitle>
             {scrapeStats && scrapeStats.total_videos > 0 && (
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {formatNumber(scrapeStats.total_videos)} videos found • 
                 Avg {formatNumber(scrapeStats.avg_views)} views
               </p>
@@ -469,7 +469,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                         ? 'Initializing scraping...'
                         : 'Loading videos...'}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {isScraping 
                         ? 'Videos will appear here automatically when ready (usually 5-10 minutes)'
                         : 'Please wait while we collect video data'}
@@ -493,9 +493,9 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
 
       {/* Posts Tabs - Only show if no scrape videos AND not loading */}
       {!shouldShowLoading && scrapeVideos.length === 0 && (
-        <Card className="border-white/5 bg-white/5">
+        <Card className="border-border/50 bg-muted/30">
           <CardHeader>
-            <CardTitle className="text-lg text-white">Posts Using This Sound</CardTitle>
+            <CardTitle className="text-lg text-foreground">Posts Using This Sound</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'top' | 'recent')}>
@@ -517,7 +517,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                             ? 'Initializing scraping...'
                             : 'Loading videos...'}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {isScraping 
                             ? 'Videos will appear here automatically when ready (usually 5-10 minutes)'
                             : 'Please wait while we collect video data'}
@@ -534,7 +534,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                     {scrapeJob?.status === 'failed' ? (
                       <div>
                         <p className="text-sm font-medium text-red-400 mb-2">Scraping failed</p>
-                        <p className="text-xs text-slate-400 mb-4">
+                        <p className="text-xs text-muted-foreground mb-4">
                           {scrapeJob.error || 'Failed to scrape sound data. Try refreshing or retry the scrape.'}
                         </p>
                         {soundTrack?.source_url && (
@@ -555,7 +555,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-400">
+                      <p className="text-sm text-muted-foreground">
                         No posts found yet. Try refreshing or start a new scrape.
                       </p>
                     )}
@@ -582,7 +582,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                             ? 'Initializing scraping...'
                             : 'Loading videos...'}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {isScraping 
                             ? 'Videos will appear here automatically when ready (usually 5-10 minutes)'
                             : 'Please wait while we collect video data'}
@@ -599,7 +599,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                     {scrapeJob?.status === 'failed' ? (
                       <div>
                         <p className="text-sm font-medium text-red-400 mb-2">Scraping failed</p>
-                        <p className="text-xs text-slate-400 mb-4">
+                        <p className="text-xs text-muted-foreground mb-4">
                           {scrapeJob.error || 'Failed to scrape sound data. Try refreshing or retry the scrape.'}
                         </p>
                         {soundTrack?.source_url && (
@@ -620,7 +620,7 @@ export function SoundTrackDetail({ onNavigate }: SoundTrackDetailProps) {
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-400">
+                      <p className="text-sm text-muted-foreground">
                         No posts found yet. Try refreshing or start a new scrape.
                       </p>
                     )}
@@ -649,7 +649,7 @@ function PostRow({ post }: { post: SoundTrackPost & { latest_metrics: SoundTrack
       href={post.post_url}
       target="_blank"
       rel="noreferrer"
-      className="block p-4 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
+      className="block p-4 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/60 transition-colors"
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -657,11 +657,11 @@ function PostRow({ post }: { post: SoundTrackPost & { latest_metrics: SoundTrack
             <PlatformIcon platform={post.platform as any} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               @{post.creator_handle || 'Unknown'}
             </p>
             {post.created_at_platform && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {formatRelativeTime(post.created_at_platform)}
               </p>
             )}
@@ -670,23 +670,23 @@ function PostRow({ post }: { post: SoundTrackPost & { latest_metrics: SoundTrack
         <div className="flex items-center gap-6 text-sm">
           {metrics?.views !== null && (
             <div className="text-right">
-              <p className="text-slate-400 text-xs">Views</p>
-              <p className="text-white font-medium">{formatNumber(metrics.views)}</p>
+              <p className="text-muted-foreground text-xs">Views</p>
+              <p className="text-foreground font-medium">{formatNumber(metrics.views)}</p>
             </div>
           )}
           {metrics?.likes !== null && (
             <div className="text-right">
-              <p className="text-slate-400 text-xs">Likes</p>
-              <p className="text-white font-medium">{formatNumber(metrics.likes)}</p>
+              <p className="text-muted-foreground text-xs">Likes</p>
+              <p className="text-foreground font-medium">{formatNumber(metrics.likes)}</p>
             </div>
           )}
           {metrics?.comments !== null && (
             <div className="text-right hidden sm:block">
-              <p className="text-slate-400 text-xs">Comments</p>
-              <p className="text-white font-medium">{formatNumber(metrics.comments)}</p>
+              <p className="text-muted-foreground text-xs">Comments</p>
+              <p className="text-foreground font-medium">{formatNumber(metrics.comments)}</p>
             </div>
           )}
-          <ExternalLink className="h-4 w-4 text-slate-500 flex-shrink-0" />
+          <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         </div>
       </div>
     </a>
@@ -699,7 +699,7 @@ function VideoRow({ video }: { video: import('../../lib/api/sound-scrape-jobs').
       href={video.video_url}
       target="_blank"
       rel="noreferrer"
-      className="block p-4 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
+      className="block p-4 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/60 transition-colors"
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -707,11 +707,11 @@ function VideoRow({ video }: { video: import('../../lib/api/sound-scrape-jobs').
             <PlatformIcon platform={video.platform} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               @{video.creator_handle || 'Unknown'}
             </p>
             {video.posted_at && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {formatRelativeTime(video.posted_at)}
               </p>
             )}
@@ -719,18 +719,18 @@ function VideoRow({ video }: { video: import('../../lib/api/sound-scrape-jobs').
         </div>
         <div className="flex items-center gap-6 text-sm">
           <div className="text-right">
-            <p className="text-slate-400 text-xs">Views</p>
-            <p className="text-white font-medium">{formatNumber(video.views)}</p>
+            <p className="text-muted-foreground text-xs">Views</p>
+            <p className="text-foreground font-medium">{formatNumber(video.views)}</p>
           </div>
           <div className="text-right">
-            <p className="text-slate-400 text-xs">Likes</p>
-            <p className="text-white font-medium">{formatNumber(video.likes)}</p>
+            <p className="text-muted-foreground text-xs">Likes</p>
+            <p className="text-foreground font-medium">{formatNumber(video.likes)}</p>
           </div>
           <div className="text-right hidden sm:block">
-            <p className="text-slate-400 text-xs">Comments</p>
-            <p className="text-white font-medium">{formatNumber(video.comments)}</p>
+            <p className="text-muted-foreground text-xs">Comments</p>
+            <p className="text-foreground font-medium">{formatNumber(video.comments)}</p>
           </div>
-          <ExternalLink className="h-4 w-4 text-slate-500 flex-shrink-0" />
+          <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         </div>
       </div>
     </a>

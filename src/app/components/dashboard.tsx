@@ -60,7 +60,6 @@ import { format } from 'date-fns';
 import { subDays, startOfMonth } from 'date-fns';
 import { cn } from './ui/utils';
 
-
 type DateRange = {
   start: Date;
   end: Date;
@@ -1161,7 +1160,7 @@ useEffect(() => {
                           />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center">
-                            <span className="text-2xl font-semibold text-white/90">
+                            <span className="text-2xl font-semibold text-foreground/90">
                               {campaign.name.charAt(0).toUpperCase()}
                             </span>
                           </div>

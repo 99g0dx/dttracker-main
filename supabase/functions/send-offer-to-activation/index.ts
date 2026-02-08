@@ -154,9 +154,11 @@ serve(async (req) => {
       },
     });
 
+    // Sync offer to Dobbletap
+    let syncResult = null;
     if (dobbleTapApi) {
       try {
-        await syncToDobbleTap(
+        syncResult = await syncToDobbleTap(
           supabase,
           'creator_request_invitation',
           '/webhooks/dttracker',
@@ -171,13 +173,29 @@ serve(async (req) => {
           },
           activationId
         );
-      } catch {
-        /* sync optional */
+
+        if (!syncResult.success) {
+          console.error('Failed to sync offer to Dobbletap:', syncResult.error);
+          if (syncResult.retryQueued) {
+            console.log('Offer sync queued for retry');
+          }
+        } else {
+          console.log('Offer successfully synced to Dobbletap');
+        }
+      } catch (err) {
+        console.error('Exception during Dobbletap sync:', err);
       }
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({
+        success: true,
+        syncStatus: syncResult ? {
+          synced: syncResult.synced,
+          error: syncResult.error,
+          retryQueued: syncResult.retryQueued,
+        } : null,
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {

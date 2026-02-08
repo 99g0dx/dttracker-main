@@ -882,12 +882,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           <Button
             variant="outline"
             onClick={() => onNavigate('/')}
-            className="h-9 px-3 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300"
+            className="h-9 px-3 bg-muted/50 hover:bg-muted/70 border-border/70 text-muted-foreground"
           >
           <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </Button>
-          <h1 className="text-xl font-semibold text-white">Admin Dashboard</h1>
+          <h1 className="text-xl font-semibold text-foreground">Admin Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
           <Skeleton className="h-4 w-32" />
@@ -898,7 +898,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           <ChartPanelSkeleton />
           <ChartPanelSkeleton />
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-0">
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRowSkeleton key={i} />
@@ -916,16 +916,16 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           <Button
             variant="outline"
             onClick={() => onNavigate('/')}
-            className="h-9 px-3 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300"
+            className="h-9 px-3 bg-muted/50 hover:bg-muted/70 border-border/70 text-muted-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </Button>
-          <h1 className="text-xl font-semibold text-white">Admin Dashboard</h1>
+          <h1 className="text-xl font-semibold text-foreground">Admin Dashboard</h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-slate-300">You don’t have access to the admin dashboard.</p>
+            <p className="text-muted-foreground">You don’t have access to the admin dashboard.</p>
           </CardContent>
         </Card>
       </div>
@@ -936,15 +936,15 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Admin Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">Admin Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Company‑wide health, requests, and activity.
           </p>
         </div>
         <Button
           variant="outline"
           onClick={() => onNavigate('/')}
-          className="h-10 px-4 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300"
+          className="h-10 px-4 bg-muted/50 hover:bg-muted/70 border-border/70 text-muted-foreground"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to App
@@ -958,20 +958,20 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_1fr] gap-4">
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-white">Company Metrics</div>
-                <p className="text-xs text-slate-500">Switch between requests and account health.</p>
+                <div className="text-sm font-semibold text-foreground">Company Metrics</div>
+                <p className="text-xs text-muted-foreground">Switch between requests and account health.</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setMetricView('requests')}
                   className={`h-9 px-3 rounded-md border text-xs font-semibold transition-colors ${
                     metricView === 'requests'
-                      ? 'bg-primary text-black border-primary'
-                      : 'bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted/60'
                   }`}
                 >
                   Requests
@@ -980,8 +980,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   onClick={() => setMetricView('accounts')}
                   className={`h-9 px-3 rounded-md border text-xs font-semibold transition-colors ${
                     metricView === 'accounts'
-                      ? 'bg-primary text-black border-primary'
-                      : 'bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted/60'
                   }`}
                 >
                   Accounts
@@ -990,7 +990,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-[520px] w-full text-sm">
-                <thead className="text-slate-500 uppercase text-[11px]">
+                <thead className="text-muted-foreground uppercase text-[11px]">
                   <tr>
                     <th className="text-left py-2">Metric</th>
                     <th className="text-left py-2">Value</th>
@@ -1001,25 +1001,25 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   {metricRows.map((row) => (
                     <tr
                       key={row.label}
-                      className={`border-t border-white/[0.06] cursor-pointer transition-colors ${
+                      className={`border-t border-border/60 cursor-pointer transition-colors ${
                         activeMetricKey === row.key
-                          ? 'bg-white/[0.04]'
-                          : 'hover:bg-white/[0.03]'
+                          ? 'bg-muted/50'
+                          : 'hover:bg-muted/40'
                       }`}
                       onClick={() => setActiveMetricKey(row.key)}
                     >
-                      <td className="py-3 text-slate-200">{row.label}</td>
-                      <td className="py-3 text-white font-semibold">{row.value}</td>
+                      <td className="py-3 text-foreground">{row.label}</td>
+                      <td className="py-3 text-foreground font-semibold">{row.value}</td>
                       <td className="py-3">{row.icon}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 mb-3">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mb-3">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-slate-400" />
+                  <BarChart3 className="w-4 h-4 text-muted-foreground" />
                   <span>Metric trend</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1029,8 +1029,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                       onClick={() => setChartRange(range)}
                       className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${
                         chartRange === range
-                          ? 'bg-primary text-black border-primary'
-                          : 'bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted/60'
                       }`}
                     >
                       {range.toUpperCase()}
@@ -1078,11 +1078,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="text-sm font-semibold text-white">Requests by Status</div>
-              <div className="text-xs text-slate-500">
+              <div className="text-sm font-semibold text-foreground">Requests by Status</div>
+              <div className="text-xs text-muted-foreground">
                 {metrics.total.toLocaleString()} total requests
               </div>
             </div>
@@ -1092,7 +1092,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 return (
                   <span
                     key={status}
-                    className="px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.03] text-xs text-slate-300"
+                    className="px-3 py-1 rounded-full border border-border bg-muted/40 text-xs text-muted-foreground"
                     onMouseEnter={() => {
                       requestsByStatus.get(status);
                     }}
@@ -1104,7 +1104,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-[420px] w-full text-sm">
-                <thead className="text-slate-500 uppercase text-[11px]">
+                <thead className="text-muted-foreground uppercase text-[11px]">
                   <tr>
                     <th className="text-left py-2">Status</th>
                     <th className="text-left py-2">Count</th>
@@ -1116,18 +1116,18 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     const count = metrics.statusCounts[status] || 0;
                     const share = metrics.total ? Math.round((count / metrics.total) * 100) : 0;
                     return (
-                      <tr key={status} className="border-t border-white/[0.06]">
-                        <td className="py-3 text-slate-200 capitalize">
+                      <tr key={status} className="border-t border-border/60">
+                        <td className="py-3 text-foreground capitalize">
                           {status.replace("_", " ")}
                         </td>
-                        <td className="py-3 text-white font-semibold">{count}</td>
-                        <td className="py-3 text-slate-400">{share}%</td>
+                        <td className="py-3 text-foreground font-semibold">{count}</td>
+                        <td className="py-3 text-muted-foreground">{share}%</td>
                       </tr>
                     );
                   })}
                   {metrics.total === 0 && (
                     <tr>
-                      <td colSpan={3} className="py-4 text-slate-500">
+                      <td colSpan={3} className="py-4 text-muted-foreground">
                         No requests yet.
                       </td>
                     </tr>
@@ -1139,24 +1139,24 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </Card>
       </div>
 
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-4 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-white">Recent Requests</div>
-              <p className="text-xs text-slate-500">Browse the latest requests across the platform.</p>
+              <div className="text-sm font-semibold text-foreground">Recent Requests</div>
+              <p className="text-xs text-muted-foreground">Browse the latest requests across the platform.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <input
                 value={adminSearchQuery}
                 onChange={(event) => setAdminSearchQuery(event.target.value)}
                 placeholder="Search requests..."
-                className="h-9 w-full sm:w-56 rounded-md bg-white/[0.03] border border-white/[0.08] text-xs text-white px-3"
+                className="h-9 w-full sm:w-56 rounded-md bg-muted/40 border border-border text-xs text-foreground px-3"
               />
               <select
                 value={adminStatusFilter}
                 onChange={(event) => setAdminStatusFilter(event.target.value)}
-                className="h-9 rounded-md bg-white/[0.03] border border-white/[0.08] text-xs text-white px-3"
+                className="h-9 rounded-md bg-muted/40 border border-border text-xs text-foreground px-3"
               >
                 <option value="all">All statuses</option>
                 {statusOptions.map((status) => (
@@ -1168,7 +1168,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <select
                 value={adminUrgencyFilter}
                 onChange={(event) => setAdminUrgencyFilter(event.target.value as any)}
-                className="h-9 rounded-md bg-white/[0.03] border border-white/[0.08] text-xs text-white px-3"
+                className="h-9 rounded-md bg-muted/40 border border-border text-xs text-foreground px-3"
               >
                 <option value="all">All deadlines</option>
                 <option value="urgent">Urgent &lt; 3 days</option>
@@ -1190,7 +1190,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           >
             {requestsRefreshing && (
               <div className="sticky top-0 z-10">
-                <Skeleton className="h-1 w-full rounded-none bg-white/[0.08]" />
+                <Skeleton className="h-1 w-full rounded-none bg-muted/70" />
               </div>
             )}
             {requestVirtualWindow.paddingTop > 0 && (
@@ -1213,14 +1213,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               return (
                 <div
                   key={rowKey}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-white/[0.06] rounded-md p-3 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-border/60 rounded-md p-3 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
                   onMouseEnter={() => prefetchRequestDetail(request.id)}
                   onClick={() => openRequest(request.id)}
                 >
-                  <div className="text-sm text-slate-200">
+                  <div className="text-sm text-foreground">
                     {request.contact_person_name || request.contact_person_email || 'Unknown requester'}
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-muted-foreground">
                     {request.campaign_type || 'Unknown type'} • {new Date(request.created_at).toLocaleDateString()}
                   </div>
                   <div className="flex items-center gap-2">
@@ -1229,7 +1229,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         {deadlineBadge.label}
                       </span>
                     )}
-                    <span className="text-xs text-slate-400 capitalize">{request.status.replace('_', ' ')}</span>
+                    <span className="text-xs text-muted-foreground capitalize">{request.status.replace('_', ' ')}</span>
                   </div>
                 </div>
               );
@@ -1238,24 +1238,24 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <div style={{ height: requestVirtualWindow.paddingBottom }} />
             )}
             {displayRequests.length === 0 && (
-              <div className="text-sm text-slate-500">No requests found.</div>
+              <div className="text-sm text-muted-foreground">No requests found.</div>
             )}
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-500">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
               Page {currentAdminPage} of {totalAdminPages}
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setAdminPage((prev) => Math.max(1, prev - 1))}
-                className="px-2 py-1 rounded border border-white/[0.1] hover:bg-white/[0.06]"
+                className="px-2 py-1 rounded border border-border/70 hover:bg-muted/60"
                 disabled={currentAdminPage === 1}
               >
                 Prev
               </button>
               <button
                 onClick={() => setAdminPage((prev) => Math.min(totalAdminPages, prev + 1))}
-                className="px-2 py-1 rounded border border-white/[0.1] hover:bg-white/[0.06]"
+                className="px-2 py-1 rounded border border-border/70 hover:bg-muted/60"
                 disabled={currentAdminPage === totalAdminPages}
               >
                 Next
@@ -1265,17 +1265,17 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </CardContent>
       </Card>
 
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-4 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-white">Admin Audit Log</div>
-              <p className="text-xs text-slate-500">Security-sensitive actions across the company account.</p>
+              <div className="text-sm font-semibold text-foreground">Admin Audit Log</div>
+              <p className="text-xs text-muted-foreground">Security-sensitive actions across the company account.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
-                className="h-9 px-3 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300"
+                className="h-9 px-3 bg-muted/50 hover:bg-muted/70 border-border/70 text-muted-foreground"
                 onClick={exportAuditCsv}
                 disabled={auditLogs.length === 0}
               >
@@ -1283,7 +1283,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               </Button>
               <Button
                 variant="outline"
-                className="h-9 px-3 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.1] text-slate-300"
+                className="h-9 px-3 bg-muted/50 hover:bg-muted/70 border-border/70 text-muted-foreground"
                 onClick={() => setAuditLimit((prev) => Math.min(prev + 50, 500))}
                 disabled={auditLoading || !auditHasMore}
               >
@@ -1300,7 +1300,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 setAuditCursor(null);
               }}
               placeholder="Search actor / target..."
-              className="h-9 w-full sm:w-56 rounded-md bg-white/[0.03] border border-white/[0.08] text-xs text-white px-3"
+              className="h-9 w-full sm:w-56 rounded-md bg-muted/40 border border-border text-xs text-foreground px-3"
             />
             <select
               value={auditActionFilter}
@@ -1308,7 +1308,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 setAuditActionFilter(event.target.value);
                 setAuditCursor(null);
               }}
-              className="h-9 rounded-md bg-white/[0.03] border border-white/[0.08] text-xs text-white px-3"
+              className="h-9 rounded-md bg-muted/40 border border-border text-xs text-foreground px-3"
             >
               <option value="all">All actions</option>
               {auditActionOptions.map((action) => (
@@ -1323,7 +1323,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 setAuditDateFilter(event.target.value as any);
                 setAuditCursor(null);
               }}
-              className="h-9 rounded-md bg-white/[0.03] border border-white/[0.08] text-xs text-white px-3"
+              className="h-9 rounded-md bg-muted/40 border border-border text-xs text-foreground px-3"
             >
               <option value="all">All time</option>
               <option value="24h">Last 24 hours</option>
@@ -1334,13 +1334,13 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
           <div className="max-h-[420px] overflow-auto space-y-2 pr-1">
             {auditLoading && (
-              <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Loading audit logs...
               </div>
             )}
             {!auditLoading && auditLogs.length === 0 && (
-              <div className="text-sm text-slate-500">No admin actions logged yet.</div>
+              <div className="text-sm text-muted-foreground">No admin actions logged yet.</div>
             )}
             {auditLogs.map((log) => {
               const actorProfile = auditProfiles[log.actor_user_id];
@@ -1353,17 +1353,17 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               return (
               <div
                 key={log.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-white/[0.06] rounded-md p-3 bg-white/[0.02]"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-border/60 rounded-md p-3 bg-muted/30"
               >
                 <div className="space-y-1">
-                  <div className="text-sm text-white capitalize">
+                  <div className="text-sm text-foreground capitalize">
                     {log.action.replace(/_/g, ' ')}
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-muted-foreground">
                     Actor: {actorLabel} • Target: {targetLabel}
                   </div>
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-muted-foreground">
                   {new Date(log.created_at).toLocaleString()}
                 </div>
               </div>
@@ -1375,26 +1375,26 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
       {selectedRequest && (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="bg-[#0D0D0D] border-white/[0.08] w-full max-w-2xl max-h-[90vh] overflow-hidden">
+          <Card className="bg-card border-border w-full max-w-2xl max-h-[90vh] overflow-hidden">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div>
-                  <div className="text-sm text-slate-400">Request Details</div>
-                  <div className="text-lg font-semibold text-white">
+                  <div className="text-sm text-muted-foreground">Request Details</div>
+                  <div className="text-lg font-semibold text-foreground">
                     {selectedRequest.contact_person_name || selectedRequest.contact_person_email || 'Unknown requester'}
                   </div>
                 </div>
                 <button
                   onClick={() => setSelectedRequest(null)}
-                  className="w-9 h-9 rounded-lg hover:bg-white/[0.06] flex items-center justify-center"
+                  className="w-9 h-9 rounded-lg hover:bg-muted/60 flex items-center justify-center"
                 >
-                  <X className="w-4 h-4 text-slate-400" />
+                  <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
 
               <div className="px-6 py-5 space-y-4 overflow-y-auto max-h-[70vh]">
                 {detailLoading && (
-                  <div className="text-sm text-slate-400 flex items-center gap-2">
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Loading request...
                   </div>
@@ -1405,42 +1405,42 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
                 {!detailLoading && (
                   <>
-                    <div className="grid sm:grid-cols-2 gap-4 text-sm text-slate-300">
+                    <div className="grid sm:grid-cols-2 gap-4 text-sm text-muted-foreground">
                       <div>
-                        <div className="text-xs text-slate-500">Campaign Type</div>
+                        <div className="text-xs text-muted-foreground">Campaign Type</div>
                         <div>{selectedRequest.campaign_type || 'Unknown'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">Linked Campaign</div>
+                        <div className="text-xs text-muted-foreground">Linked Campaign</div>
                         <div>{campaignName || 'Not linked'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">Requested</div>
+                        <div className="text-xs text-muted-foreground">Requested</div>
                         <div>{new Date(selectedRequest.created_at).toLocaleString()}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">Contact Email</div>
+                        <div className="text-xs text-muted-foreground">Contact Email</div>
                         <div>{selectedRequest.contact_person_email || 'N/A'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">Contact Phone</div>
+                        <div className="text-xs text-muted-foreground">Contact Phone</div>
                         <div>{selectedRequest.contact_person_phone || 'N/A'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">Deadline</div>
+                        <div className="text-xs text-muted-foreground">Deadline</div>
                         <div>{selectedRequest.deadline ? new Date(selectedRequest.deadline).toLocaleDateString() : 'N/A'}</div>
                       </div>
                     </div>
 
                   <div>
-                      <div className="text-xs text-slate-500 mb-2">Campaign Brief</div>
-                      <div className="text-sm text-slate-300 whitespace-pre-wrap bg-white/[0.03] border border-white/[0.06] rounded-md p-3">
+                      <div className="text-xs text-muted-foreground mb-2">Campaign Brief</div>
+                      <div className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/40 border border-border/60 rounded-md p-3">
                         {selectedRequest.campaign_brief || 'No brief provided.'}
                       </div>
                     </div>
 
                     <div>
-                      <div className="text-xs text-slate-500 mb-2">Requested Creators</div>
+                      <div className="text-xs text-muted-foreground mb-2">Requested Creators</div>
                       <div className="space-y-2">
                         {(selectedRequest.creator_request_items || []).map((item) => {
                           const creator = item.creators;
@@ -1454,21 +1454,21 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                           return (
                             <div
                               key={creator.id}
-                              className="border border-white/[0.06] rounded-md p-3 bg-white/[0.02] space-y-3"
+                              className="border border-border/60 rounded-md p-3 bg-muted/30 space-y-3"
                             >
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
-                                  <div className="text-sm text-slate-200">
+                                  <div className="text-sm text-foreground">
                                     {creator.name || 'Unknown creator'}
                                   </div>
-                                  <div className="text-xs text-slate-500">
+                                  <div className="text-xs text-muted-foreground">
                                     @{creator.handle || 'N/A'} • {creator.platform || 'N/A'}
                                   </div>
                                 </div>
-                                <div className="text-xs text-slate-400">
+                                <div className="text-xs text-muted-foreground">
                                   {creator.follower_count ? creator.follower_count.toLocaleString() : '—'} followers
                                 </div>
-                                <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/[0.1] text-slate-300 capitalize">
+                                <span className="text-[11px] px-2 py-0.5 rounded-full border border-border/70 text-muted-foreground capitalize">
                                   {item.status || 'pending'}
                                 </span>
                               </div>
@@ -1490,7 +1490,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                                       },
                                     }));
                                   }}
-                                  className="h-9 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white px-3"
+                                  className="h-9 rounded-md bg-muted/50 border border-border/70 text-sm text-foreground px-3"
                                 />
                                 <select
                                   value={draft.currency}
@@ -1503,7 +1503,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                                       },
                                     }));
                                   }}
-                                  className="h-9 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white px-2"
+                                  className="h-9 rounded-md bg-muted/50 border border-border/70 text-sm text-foreground px-2"
                                 >
                                   <option value="USD">USD</option>
                                   <option value="GBP">GBP</option>
@@ -1523,7 +1523,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                                       },
                                     }));
                                   }}
-                                  className="h-9 rounded-md bg-white/[0.04] border border-white/[0.1] text-sm text-white px-3"
+                                  className="h-9 rounded-md bg-muted/50 border border-border/70 text-sm text-foreground px-3"
                                 />
                               </div>
                             </div>
@@ -1531,13 +1531,13 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         })}
                         {(!selectedRequest.creator_request_items ||
                           selectedRequest.creator_request_items.length === 0) && (
-                          <div className="text-sm text-slate-500">No creators selected.</div>
+                          <div className="text-sm text-muted-foreground">No creators selected.</div>
                         )}
                       </div>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-xs text-slate-500">Internal Status</div>
+                      <div className="text-xs text-muted-foreground">Internal Status</div>
                       <div className="flex flex-wrap gap-2">
                         {statusOptions.map((status) => (
                           <button
@@ -1547,7 +1547,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                             className={`px-3 py-1 rounded-md text-xs border transition-colors ${
                               selectedRequest.status === status
                                 ? 'bg-primary/10 text-primary border-primary/30'
-                                : 'bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-white/[0.08]'
+                                : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted/70'
                             }`}
                           >
                             {status.replace('_', ' ')}
@@ -1563,7 +1563,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         >
                           {quoteSubmitting ? 'Sending...' : 'Send Quotes'}
                         </Button>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-muted-foreground">
                           Sends per‑creator pricing to the requester.
                         </span>
                       </div>

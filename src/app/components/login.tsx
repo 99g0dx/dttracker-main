@@ -117,11 +117,11 @@ export function Login({ onNavigate }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <button
           onClick={() => onNavigate("/home")}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-400 mb-12 transition-colors"
+          className="flex items-center gap-2 text-muted-foreground hover:text-muted-foreground mb-12 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm">Back</span>
@@ -134,37 +134,37 @@ export function Login({ onNavigate }: LoginProps) {
               alt="DTTracker"
               className="w-7 h-7 object-contain"
             />
-            <span className="font-semibold text-white">DTTracker</span>
+            <span className="font-semibold text-foreground">DTTracker</span>
           </div>
-          <h1 className="text-2xl font-semibold text-white mb-2">Sign in</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-foreground mb-2">Sign in</h1>
+          <p className="text-sm text-muted-foreground">
             Enter your email and password to continue
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-slate-400 mb-2">Email</label>
+            <label className="block text-sm text-muted-foreground mb-2">Email</label>
             <Input
               type="email"
               placeholder="name@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15]"
+              className="h-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:bg-muted/60 focus:border-border/80"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm text-slate-400">Password</label>
+              <label className="block text-sm text-muted-foreground">Password</label>
               <button
                 type="button"
                 onClick={() => {
                   setShowForgotPassword(true);
                   setResetEmail(email);
                 }}
-                className="text-sm text-slate-500 hover:text-slate-400 transition-colors"
+                className="text-sm text-muted-foreground hover:text-muted-foreground transition-colors"
               >
                 Forgot?
               </button>
@@ -176,12 +176,12 @@ export function Login({ onNavigate }: LoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15] pr-10"
+                className="h-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:bg-muted/60 focus:border-border/80 pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-400 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
               >
                 {showPassword ? (
                   <EyeOff className="w-4 h-4" />
@@ -198,11 +198,11 @@ export function Login({ onNavigate }: LoginProps) {
               id="remember"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded border-white/[0.08] bg-white/[0.03] text-white focus:ring-white/[0.15] focus:ring-offset-0"
+              className="w-4 h-4 rounded border-border bg-muted/40 text-primary focus:ring-ring/40 focus:ring-offset-0"
             />
             <label
               htmlFor="remember"
-              className="text-sm text-slate-400 cursor-pointer"
+              className="text-sm text-muted-foreground cursor-pointer"
             >
               Remember me
             </label>
@@ -217,19 +217,19 @@ export function Login({ onNavigate }: LoginProps) {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
 
         <div className="mt-6 text-center">
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted-foreground">
             Don't have an account?{" "}
           </span>
           <button
             onClick={() => onNavigate("/signup")}
-            className="text-sm text-white hover:text-slate-300 transition-colors"
+            className="text-sm text-foreground hover:text-muted-foreground transition-colors"
           >
             Sign up
           </button>
@@ -239,17 +239,17 @@ export function Login({ onNavigate }: LoginProps) {
       {/* Forgot Password Modal */}
       {showForgotPassword && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50 animate-in fade-in duration-200">
-          <div className="bg-[#0D0D0D] border border-white/[0.08] rounded-lg p-6 w-full max-w-sm animate-in zoom-in-95 duration-200">
-            <h2 className="text-xl font-semibold text-white mb-2">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
               Reset password
             </h2>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-muted-foreground mb-6">
               Enter your email and we'll send you a link to reset your password
             </p>
 
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-sm text-muted-foreground mb-2">
                   Email
                 </label>
                 <Input
@@ -258,7 +258,7 @@ export function Login({ onNavigate }: LoginProps) {
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   required
-                  className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15]"
+                  className="h-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:bg-muted/60 focus:border-border/80"
                 />
               </div>
 
@@ -270,14 +270,14 @@ export function Login({ onNavigate }: LoginProps) {
                     setResetEmail("");
                   }}
                   variant="outline"
-                  className="flex-1 h-10 bg-transparent border-white/[0.1] text-white hover:bg-white/[0.04]"
+                  className="flex-1 h-10 bg-transparent border-border/70 text-foreground hover:bg-muted/50"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isResetting}
-                  className="flex-1 h-10 bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50"
+                  className="flex-1 h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-medium disabled:opacity-50"
                 >
                   {isResetting ? "Sending..." : "Send link"}
                 </Button>

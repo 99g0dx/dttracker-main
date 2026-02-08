@@ -53,18 +53,18 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-11 h-11 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to campaigns"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Read-only access
           </h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               You do not have permission to edit this campaign.
             </p>
           </CardContent>
@@ -181,20 +181,20 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               Edit Campaign
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Update campaign details and settings
             </p>
           </div>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
             <FormSkeleton />
           </CardContent>
@@ -210,17 +210,17 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate("/campaigns")}
-            className="w-9 h-9 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Campaign not found
           </h1>
         </div>
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               {error?.message ||
                 "The campaign you are looking for does not exist."}
             </p>
@@ -236,26 +236,26 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
       <div className="flex items-center gap-4">
         <button
           onClick={() => onNavigate(`/campaigns/${id}`)}
-          className="w-9 h-9 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+          className="w-9 h-9 flex-shrink-0 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
             Edit Campaign
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Update campaign details and settings
           </p>
         </div>
       </div>
 
       {/* Form */}
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-6 space-y-6">
           {/* Campaign Name */}
           <div>
-            <label className="block text-sm font-medium text-white mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Campaign Name <span className="text-red-400">*</span>
             </label>
             <Input
@@ -264,14 +264,14 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
                 setFormData({ ...formData, name: e.target.value })
               }
               placeholder="e.g., Summer Launch 2024"
-              className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+              className="h-10 bg-muted/40 border-border text-foreground"
               required
             />
           </div>
 
           {/* Brand Name */}
           <div>
-            <label className="block text-sm font-medium text-white mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Brand Name / Artist <span className="text-red-400">*</span>
             </label>
             <Input
@@ -280,14 +280,14 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
                 setFormData({ ...formData, brandName: e.target.value })
               }
               placeholder="e.g., Nike, Drake, TechCorp"
-              className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+              className="h-10 bg-muted/40 border-border text-foreground"
               required
             />
           </div>
 
           {/* Cover Image */}
           <div>
-            <label className="block text-sm font-medium text-white mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Cover Image
             </label>
             {coverImagePreview || existingCoverImage ? (
@@ -295,17 +295,17 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
                 <img
                   src={coverImagePreview || existingCoverImage || ""}
                   alt="Campaign cover"
-                  className="w-full h-48 object-cover rounded-lg border border-white/[0.08]"
+                  className="w-full h-48 object-cover rounded-lg border border-border"
                 />
                 <button
                   onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-md bg-black/60 hover:bg-black/80 border border-white/[0.12] flex items-center justify-center transition-colors"
+                  className="absolute top-2 right-2 w-8 h-8 rounded-md bg-black/60 hover:bg-black/80 border border-border/80 flex items-center justify-center transition-colors"
                 >
-                  <X className="w-4 h-4 text-white" />
+                  <X className="w-4 h-4 text-foreground" />
                 </button>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-white/[0.08] rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                 <input
                   type="file"
                   accept="image/*"
@@ -314,11 +314,11 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
                   id="cover-upload"
                 />
                 <label htmlFor="cover-upload" className="cursor-pointer">
-                  <Upload className="w-12 h-12 mx-auto mb-3 text-slate-500" />
-                  <p className="text-sm text-slate-300 mb-1">
+                  <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground mb-1">
                     Upload cover image
                   </p>
-                  <p className="text-xs text-slate-500">PNG, JPG up to 5MB</p>
+                  <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
                 </label>
               </div>
             )}
@@ -330,7 +330,7 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
           {/* Date Range */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-white mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Start Date
               </label>
               <Input
@@ -339,11 +339,11 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
                 onChange={(e) =>
                   setFormData({ ...formData, startDate: e.target.value })
                 }
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                className="h-10 bg-muted/40 border-border text-foreground"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 End Date
               </label>
               <Input
@@ -352,14 +352,14 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
                 onChange={(e) =>
                   setFormData({ ...formData, endDate: e.target.value })
                 }
-                className="h-10 bg-white/[0.03] border-white/[0.08] text-white"
+                className="h-10 bg-muted/40 border-border text-foreground"
               />
             </div>
           </div>
 
           {/* Notes/Brief */}
           <div>
-            <label className="block text-sm font-medium text-white mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Notes / Brief
             </label>
             <textarea
@@ -369,7 +369,7 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
               }
               placeholder="Add campaign notes, brief, or objectives..."
               rows={4}
-              className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-md text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-sm resize-none"
+              className="w-full px-3 py-2 bg-muted/40 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-sm resize-none"
             />
           </div>
         </CardContent>
@@ -386,20 +386,20 @@ export function CampaignEdit({ onNavigate }: CampaignEditProps) {
             Delete Campaign
           </button>
         ) : (
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-muted-foreground">
             Only owners can delete campaigns.
           </div>
         )}
         <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate(`/campaigns/${id}`)}
-            className="h-10 px-4 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 transition-colors"
+            className="h-10 px-4 rounded-md bg-muted/40 hover:bg-muted/60 border border-border text-sm text-muted-foreground transition-colors"
           >
             Cancel
           </button>
           <Button
             onClick={handleSave}
-            className="h-10 px-6 bg-primary hover:bg-primary/90 text-black disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-10 px-6 bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={
               !formData.name ||
               !formData.brandName ||

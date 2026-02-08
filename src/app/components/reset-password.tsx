@@ -145,22 +145,22 @@ export function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 mb-8">
           <img src={logoImage} alt="DTTracker" className="w-7 h-7 object-contain" />
-          <span className="font-semibold text-white">DTTracker</span>
+          <span className="font-semibold text-foreground">DTTracker</span>
         </div>
 
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-white mb-2">Set a new password</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-foreground mb-2">Set a new password</h1>
+          <p className="text-sm text-muted-foreground">
             Choose a new password for your account.
           </p>
         </div>
 
         {!sessionReady && (
-          <div className="text-sm text-slate-500">Checking reset link...</div>
+          <div className="text-sm text-muted-foreground">Checking reset link...</div>
         )}
 
         {sessionReady && !hasRecoverySession && (
@@ -174,7 +174,7 @@ export function ResetPassword() {
             </div>
             <Button
               onClick={() => navigate("/login")}
-              className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium"
+              className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
             >
               Back to login
             </Button>
@@ -184,7 +184,7 @@ export function ResetPassword() {
         {sessionReady && hasRecoverySession && (
           <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">
+              <label className="block text-sm text-muted-foreground mb-2">
                 New password
               </label>
               <div className="relative">
@@ -194,12 +194,12 @@ export function ResetPassword() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
-                  className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15] pr-10"
+                  className="h-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:bg-muted/60 focus:border-border/80 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-400 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
                 >
                   {showNewPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -212,7 +212,7 @@ export function ResetPassword() {
               {newPassword && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">Password strength</span>
+                    <span className="text-xs text-muted-foreground">Password strength</span>
                     <span
                       className={`text-xs font-medium ${
                         passwordStrength.strength === "weak"
@@ -232,7 +232,7 @@ export function ResetPassword() {
                         className={`h-1 flex-1 rounded-full transition-colors ${
                           level <= passwordStrength.score
                             ? passwordStrength.color
-                            : "bg-white/[0.06]"
+                            : "bg-muted/60"
                         }`}
                       />
                     ))}
@@ -248,9 +248,9 @@ export function ResetPassword() {
                         {item.check ? (
                           <Check className="w-3 h-3 text-green-500" />
                         ) : (
-                          <X className="w-3 h-3 text-slate-600" />
+                          <X className="w-3 h-3 text-muted-foreground" />
                         )}
-                        <span className={item.check ? "text-slate-400" : "text-slate-600"}>
+                        <span className={item.check ? "text-muted-foreground" : "text-muted-foreground"}>
                           {item.label}
                         </span>
                       </div>
@@ -261,7 +261,7 @@ export function ResetPassword() {
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-2">
+              <label className="block text-sm text-muted-foreground mb-2">
                 Confirm new password
               </label>
               <div className="relative">
@@ -271,14 +271,14 @@ export function ResetPassword() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="h-10 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-slate-600 focus:bg-white/[0.05] focus:border-white/[0.15] pr-10"
+                  className="h-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:bg-muted/60 focus:border-border/80 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() =>
                     setShowConfirmPassword(!showConfirmPassword)
                   }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-400 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -292,7 +292,7 @@ export function ResetPassword() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {isSubmitting ? "Updating..." : "Update password"}
             </Button>

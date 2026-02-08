@@ -143,7 +143,11 @@ export async function syncToDobbleTap(
         return {
           success: true,
           synced: true,
-          dobbleTapId: data.id || data.dobble_tap_id || undefined,
+          dobbleTapId:
+            data.id ||
+            data.dobble_tap_id ||
+            data.dobble_tap_request_id ||
+            undefined,
         };
       }
 

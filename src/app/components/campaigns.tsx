@@ -331,7 +331,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                           className="w-11 h-11 sm:w-7 sm:h-7 rounded-md bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                           aria-label="Open campaign actions"
                         >
-                          <MoreVertical className="w-4 h-4 text-white" />
+                          <MoreVertical className="w-4 h-4 text-foreground" />
                         </button>
 
                         {/* Dropdown Menu */}

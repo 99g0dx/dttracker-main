@@ -10,25 +10,25 @@ interface BillingCancelProps {
 export function BillingCancel({ onNavigate }: BillingCancelProps) {
   return (
     <div className="max-w-lg mx-auto mt-12">
-      <Card className="bg-[#0D0D0D] border-white/[0.08]">
+      <Card className="bg-card border-border">
         <CardContent className="p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-slate-500/20 flex items-center justify-center mx-auto mb-6">
-            <XCircle className="w-8 h-8 text-slate-400" />
+            <XCircle className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h2 className="text-2xl font-semibold text-white mb-3">
+          <h2 className="text-2xl font-semibold text-foreground mb-3">
             Payment Canceled
           </h2>
-          <p className="text-slate-400 mb-2">
+          <p className="text-muted-foreground mb-2">
             Your payment was not completed. No charges were made.
           </p>
-          <p className="text-sm text-slate-500 mb-8">
+          <p className="text-sm text-muted-foreground mb-8">
             You can try again anytime or continue with the free plan.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
               onClick={() => onNavigate('/subscription')}
-              className="h-10 px-6 bg-primary hover:bg-primary/90 text-white"
+              className="h-10 px-6 bg-primary hover:bg-primary/90 text-foreground"
             >
               View Plans
             </Button>
@@ -42,8 +42,8 @@ export function BillingCancel({ onNavigate }: BillingCancelProps) {
             </Button>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-white/[0.06]">
-            <p className="text-sm text-slate-500 mb-4">
+          <div className="mt-8 pt-6 border-t border-border/60">
+            <p className="text-sm text-muted-foreground mb-4">
               Having trouble with payment?
             </p>
             <div className="flex flex-col sm:flex-row gap-2 justify-center text-sm">
@@ -53,10 +53,10 @@ export function BillingCancel({ onNavigate }: BillingCancelProps) {
               >
                 Contact Support
               </a>
-              <span className="hidden sm:inline text-slate-600">|</span>
+              <span className="hidden sm:inline text-muted-foreground">|</span>
               <button
                 onClick={() => onNavigate('/payment?plan=pro')}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 Try Different Payment Method
               </button>
