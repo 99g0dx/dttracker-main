@@ -26,7 +26,7 @@ POST https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/creator-quote-callbac
 
 ### Authentication
 ```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFldHdyb3dwbGxua3VjeXhvb2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MzA4MDEsImV4cCI6MjA4NDEwNjgwMX0.kQceGyBrsZr5OCo8zD0Xs4VvLNKH7YaDAdU9M7wmh9c
+Authorization: Bearer 3d529b3a8701606036a97825c6f0caecd4abdd188faebe256c2fa6b845911be2
 ```
 
 This is **Dobbletap's Supabase anon key**.
@@ -39,7 +39,7 @@ This is **Dobbletap's Supabase anon key**.
 curl -X POST \
   "https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/creator-quote-callback" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFldHdyb3dwbGxua3VjeXhvb2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MzA4MDEsImV4cCI6MjA4NDEwNjgwMX0.kQceGyBrsZr5OCo8zD0Xs4VvLNKH7YaDAdU9M7wmh9c" \
+  -H "Authorization: Bearer 3d529b3a8701606036a97825c6f0caecd4abdd188faebe256c2fa6b845911be2" \
   -d '{
     "request_id": "a39b0a99-d3fa-43da-ac68-24aab3e78395",
     "creator_id": "29f99241-53d1-4f78-b9b0-2169f4a15a49",

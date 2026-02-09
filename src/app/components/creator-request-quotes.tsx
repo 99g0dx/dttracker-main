@@ -14,6 +14,12 @@ interface CreatorRequestQuote {
   deadline: string;
   urgency: string;
   creator_request_items: Array<{
+    id: string;
+    quoted_amount_cents: number;
+    quoted_currency: string;
+    quote_notes: string | null;
+    quoted_at: string;
+    status: string;
     creators: {
       id: string;
       name: string;
@@ -56,6 +62,12 @@ export function CreatorRequestQuotes() {
           deadline,
           urgency,
           creator_request_items (
+            id,
+            quoted_amount_cents,
+            quoted_currency,
+            quote_notes,
+            quoted_at,
+            status,
             creators (
               id,
               name,
@@ -84,29 +96,41 @@ export function CreatorRequestQuotes() {
     try {
       setProcessingQuote(quoteId);
 
-      // Update quote status to accepted
-      const { error: updateError } = await supabase
-        .from('creator_requests')
-        .update({
-          quote_status: 'accepted',
-          quote_reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', quoteId);
-
-      if (updateError) throw updateError;
-
-      // Send formal offer via existing offer endpoint
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
+      // Get current user for review tracking
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         toast.error('Not authenticated');
         return;
       }
 
-      // TODO: Get activation_id from the quote if linked to campaign
-      // For now, we'll need to handle this based on your workflow
-      toast.success('Quote accepted! Sending formal offer to creator...');
+      // Update quote status in creator_requests table
+      const { error: requestError } = await supabase
+        .from('creator_requests')
+        .update({
+          quote_status: 'accepted',
+          quote_reviewed_at: new Date().toISOString(),
+          quote_reviewed_by: user.id,
+        })
+        .eq('id', quoteId);
+
+      if (requestError) throw requestError;
+
+      // Update creator_request_items table for this specific creator
+      const { error: itemError } = await supabase
+        .from('creator_request_items')
+        .update({
+          status: 'accepted',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('request_id', quoteId)
+        .eq('creator_id', creatorId);
+
+      if (itemError) {
+        console.error('Failed to update creator_request_items:', itemError);
+        // Don't fail - the main table was updated
+      }
+
+      toast.success('Quote accepted! Creator will be notified.');
 
       // Refresh the list
       await fetchPendingQuotes();
@@ -119,21 +143,45 @@ export function CreatorRequestQuotes() {
     }
   }
 
-  async function handleDeclineQuote(quoteId: string) {
+  async function handleDeclineQuote(quoteId: string, creatorId: string) {
     try {
       setProcessingQuote(quoteId);
 
-      const { error } = await supabase
+      // Get current user for review tracking
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Not authenticated');
+        return;
+      }
+
+      // Update quote status in creator_requests table
+      const { error: requestError } = await supabase
         .from('creator_requests')
         .update({
           quote_status: 'declined',
           quote_reviewed_at: new Date().toISOString(),
+          quote_reviewed_by: user.id,
         })
         .eq('id', quoteId);
 
-      if (error) throw error;
+      if (requestError) throw requestError;
 
-      toast.success('Quote declined');
+      // Update creator_request_items table for this specific creator
+      const { error: itemError } = await supabase
+        .from('creator_request_items')
+        .update({
+          status: 'declined',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('request_id', quoteId)
+        .eq('creator_id', creatorId);
+
+      if (itemError) {
+        console.error('Failed to update creator_request_items:', itemError);
+        // Don't fail - the main table was updated
+      }
+
+      toast.success('Quote declined. Creator will be notified.');
       await fetchPendingQuotes();
 
     } catch (err) {
@@ -178,8 +226,12 @@ export function CreatorRequestQuotes() {
       </div>
 
       {quotes.map((quote) => {
-        const creator = quote.creator_request_items?.[0]?.creators;
+        const creatorItem = quote.creator_request_items?.[0];
+        const creator = creatorItem?.creators;
         const isProcessing = processingQuote === quote.id;
+
+        // Use the per-creator quoted amount (stored in Naira, despite field name)
+        const quotedAmountNaira = creatorItem?.quoted_amount_cents || quote.quoted_amount;
 
         return (
           <div
@@ -198,7 +250,7 @@ export function CreatorRequestQuotes() {
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-green-400">
-                  ₦{quote.quoted_amount?.toLocaleString() || 'N/A'}
+                  ₦{quotedAmountNaira?.toLocaleString() || 'N/A'}
                 </div>
                 <div className="text-xs text-gray-500">
                   {new Date(quote.quote_received_at).toLocaleDateString()}
@@ -256,7 +308,7 @@ export function CreatorRequestQuotes() {
                 {isProcessing ? 'Processing...' : 'Accept Quote'}
               </button>
               <button
-                onClick={() => handleDeclineQuote(quote.id)}
+                onClick={() => handleDeclineQuote(quote.id, creator?.id)}
                 disabled={isProcessing}
                 className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white py-2 px-4 rounded font-medium transition-colors"
               >

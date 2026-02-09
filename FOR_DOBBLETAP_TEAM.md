@@ -32,7 +32,7 @@ This proves the callback was not received (or failed).
 **Headers**:
 ```
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFldHdyb3dwbGxua3VjeXhvb2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MzA4MDEsImV4cCI6MjA4NDEwNjgwMX0.kQceGyBrsZr5OCo8zD0Xs4VvLNKH7YaDAdU9M7wmh9c
+Authorization: Bearer 3d529b3a8701606036a97825c6f0caecd4abdd188faebe256c2fa6b845911be2
 ```
 
 ⚠️ **IMPORTANT**: You must use your SYNC_API_KEY in the Authorization header.
@@ -56,7 +56,7 @@ When a creator submits a quote, send this payload:
 - `request_id`: Can be EITHER your Dobbletap request ID OR DTTracker's request ID (we'll map it)
 - `creator_id`: Can be EITHER your Dobbletap creator ID OR DTTracker's creator ID (we'll map it)
 - `status`: Must be `"accepted"` for accepted quotes, `"declined"` for declined quotes
-- `quoted_amount`: Amount in KOBO (e.g., 30000 for ₦30,000)
+- `quoted_amount`: Amount in **NAIRA** (e.g., 68000 for ₦68,000) - **NOT in kobo!**
 - `responded_at`: ISO 8601 timestamp
 
 ---
@@ -69,7 +69,7 @@ Use this curl command to test the callback with the real data:
 curl -X POST \
   "https://ucbueapoexnxhttynfzy.supabase.co/functions/v1/creator-quote-callback" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFldHdyb3dwbGxua3VjeXhvb2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MzA4MDEsImV4cCI6MjA4NDEwNjgwMX0.kQceGyBrsZr5OCo8zD0Xs4VvLNKH7YaDAdU9M7wmh9c" \
+  -H "Authorization: Bearer 3d529b3a8701606036a97825c6f0caecd4abdd188faebe256c2fa6b845911be2" \
   -d '{
     "request_id": "a39b0a99-d3fa-43da-ac68-24aab3e78395",
     "creator_id": "29f99241-53d1-4f78-b9b0-2169f4a15a49",
