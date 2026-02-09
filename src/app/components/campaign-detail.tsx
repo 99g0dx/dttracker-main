@@ -1661,7 +1661,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
               <div
                 className={`gradient-fallback hidden w-full h-full ${coverGradient} items-center justify-center`}
               >
-                <h2 className="text-3xl sm:text-5xl font-bold text-foreground/90">
+                <h2 className="text-3xl sm:text-5xl font-bold text-white/90">
                   {campaign.name.charAt(0).toUpperCase()}
                 </h2>
               </div>
@@ -1679,7 +1679,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                   backgroundSize: "24px 24px",
                 }}
               />
-              <h2 className="text-3xl sm:text-5xl font-bold text-foreground/90 relative z-10">
+              <h2 className="text-3xl sm:text-5xl font-bold text-white/90 relative z-10">
                 {campaign.name.charAt(0).toUpperCase()}
               </h2>
             </div>
@@ -1688,11 +1688,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
           {/* Text content with improved spacing and typography */}
           <div className="absolute bottom-6 left-6 right-6">
-            <h2 className="text-xl sm:text-3xl font-bold text-foreground mb-2 drop-shadow-lg">
+            <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg">
               {campaign.name}
             </h2>
             {campaign.brand_name && (
-              <p className="text-sm sm:text-lg text-foreground font-semibold drop-shadow-md">
+              <p className="text-sm sm:text-lg text-white font-semibold drop-shadow-md">
                 {campaign.brand_name}
               </p>
             )}
@@ -2382,7 +2382,11 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                           );
                         })()
                       )}
-                      <span className="text-[10px] font-semibold text-muted-foreground">
+                      <span className={`text-[10px] font-semibold ${
+                        selectedPlatform === platform.value
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
+                      }`}>
                         {creatorPlatformCounts[platform.value] ?? 0}
                       </span>
                     </button>

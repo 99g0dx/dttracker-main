@@ -318,7 +318,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-3xl sm:text-4xl font-bold text-primary-foreground">
+                        <span className="text-3xl sm:text-4xl font-bold text-white">
                           {campaign.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
