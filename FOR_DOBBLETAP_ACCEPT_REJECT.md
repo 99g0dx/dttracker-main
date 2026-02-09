@@ -89,13 +89,13 @@ WHERE request_id = 'request_id'
 
 **Webhook Endpoint** (on Dobbletap side):
 ```
-POST https://your-dobbletap-url.com/webhooks/dttracker/quote-decision
+POST https://qetwrowpllnkucyxoojp.supabase.co/functions/v1/make-server-8061e72e/webhooks/dttracker/quote-decision
 ```
 
 **Headers**:
 ```
 Content-Type: application/json
-Authorization: Bearer <SYNC_API_KEY>
+Authorization: Bearer 3d529b3a8701606036a97825c6f0caecd4abdd188faebe256c2fa6b845911be2
 ```
 
 **Payload Format**:

@@ -311,14 +311,50 @@ export function useRespondToCreatorQuote() {
       if (result.error) {
         throw result.error;
       }
-      return result.data;
+      return { result: result.data, requestId, creatorId, decision };
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (data, variables) => {
       queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detail(variables.requestId) });
       queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detailWithCreators(variables.requestId) });
       queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.detailWithItems(variables.requestId) });
       queryClient.invalidateQueries({ queryKey: creatorRequestsKeys.lists() });
       toast.success(`Creator ${variables.decision === 'approved' ? 'approved' : 'rejected'}`);
+
+      // Trigger webhook notification to Dobbletap
+      // Don't fail the mutation if webhook fails - it's a background notification
+      try {
+        const { supabase } = await import('../lib/supabase');
+        const { data: { user } } = await supabase.auth.getUser();
+
+        // Get the request details to find quoted_amount
+        const { data: requestData, error: requestError } = await supabase
+          .from('creator_request_items')
+          .select('quoted_amount_cents')
+          .eq('request_id', variables.requestId)
+          .eq('creator_id', variables.creatorId)
+          .maybeSingle();
+
+        if (!requestError && requestData) {
+          const { error: webhookError } = await supabase.functions.invoke('notify-dobbletap-quote-decision', {
+            body: {
+              request_id: variables.requestId,
+              creator_id: variables.creatorId,
+              decision: variables.decision === 'approved' ? 'accepted' : 'declined',
+              quoted_amount: requestData.quoted_amount_cents,
+              reviewed_by: user?.id,
+              reviewed_at: new Date().toISOString(),
+            },
+          });
+
+          if (webhookError) {
+            console.error('Failed to send Dobbletap webhook notification:', webhookError);
+            // Don't show error to user - webhook is background process
+          }
+        }
+      } catch (webhookError) {
+        console.error('Error triggering Dobbletap webhook:', webhookError);
+        // Don't fail the mutation - webhook is secondary
+      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to respond: ${error.message}`);

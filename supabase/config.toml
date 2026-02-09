@@ -128,3 +128,9 @@ entrypoint = "./functions/creator-quote-callback/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/notify-creator-quote/index.ts"
+
+# Notify Dobbletap when brand accepts/rejects quote
+[functions.notify-dobbletap-quote-decision]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/notify-dobbletap-quote-decision/index.ts"

@@ -94,40 +94,91 @@ export function CreatorRequestQuotes() {
 
   async function handleAcceptQuote(quoteId: string, quotedAmount: number, creatorId: string) {
     try {
+      console.log('=== ACCEPT QUOTE START ===', { quoteId, quotedAmount, creatorId });
       setProcessingQuote(quoteId);
 
       // Get current user for review tracking
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('User authenticated:', user?.id);
       if (!user) {
         toast.error('Not authenticated');
         return;
       }
 
       // Update quote status in creator_requests table
-      const { error: requestError } = await supabase
+      console.log('Updating creator_requests table...');
+      const { data: updatedRequest, error: requestError, count } = await supabase
         .from('creator_requests')
         .update({
           quote_status: 'accepted',
           quote_reviewed_at: new Date().toISOString(),
           quote_reviewed_by: user.id,
         })
-        .eq('id', quoteId);
+        .eq('id', quoteId)
+        .select();
+
+      console.log('creator_requests update result:', {
+        updatedRequest,
+        requestError,
+        count,
+        rowsAffected: updatedRequest?.length || 0
+      });
 
       if (requestError) throw requestError;
 
+      if (!updatedRequest || updatedRequest.length === 0) {
+        console.error('WARNING: creator_requests update affected 0 rows! RLS might be blocking.');
+        toast.error('Failed to update quote - permission denied');
+        return;
+      }
+
       // Update creator_request_items table for this specific creator
-      const { error: itemError } = await supabase
+      console.log('Updating creator_request_items table...');
+      const { data: updatedItem, error: itemError } = await supabase
         .from('creator_request_items')
         .update({
-          status: 'accepted',
+          status: 'approved',
           updated_at: new Date().toISOString(),
         })
         .eq('request_id', quoteId)
-        .eq('creator_id', creatorId);
+        .eq('creator_id', creatorId)
+        .select();
+
+      console.log('creator_request_items update result:', {
+        updatedItem,
+        itemError,
+        rowsAffected: updatedItem?.length || 0
+      });
 
       if (itemError) {
         console.error('Failed to update creator_request_items:', itemError);
         // Don't fail - the main table was updated
+      }
+
+      if (!updatedItem || updatedItem.length === 0) {
+        console.warn('WARNING: creator_request_items update affected 0 rows!');
+      }
+
+      // Notify Dobbletap of the decision
+      try {
+        const { error: notifyError } = await supabase.functions.invoke('notify-dobbletap-quote-decision', {
+          body: {
+            request_id: quoteId,
+            creator_id: creatorId,
+            decision: 'accepted',
+            quoted_amount: quotedAmount,
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+          }
+        });
+
+        if (notifyError) {
+          console.error('Failed to notify Dobbletap:', notifyError);
+          // Don't fail - database was updated successfully
+        }
+      } catch (notifyErr) {
+        console.error('Error notifying Dobbletap:', notifyErr);
+        // Continue - notification failure shouldn't block the UI
       }
 
       toast.success('Quote accepted! Creator will be notified.');
@@ -179,6 +230,27 @@ export function CreatorRequestQuotes() {
       if (itemError) {
         console.error('Failed to update creator_request_items:', itemError);
         // Don't fail - the main table was updated
+      }
+
+      // Notify Dobbletap of the decision
+      try {
+        const { error: notifyError } = await supabase.functions.invoke('notify-dobbletap-quote-decision', {
+          body: {
+            request_id: quoteId,
+            creator_id: creatorId,
+            decision: 'declined',
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+          }
+        });
+
+        if (notifyError) {
+          console.error('Failed to notify Dobbletap:', notifyError);
+          // Don't fail - database was updated successfully
+        }
+      } catch (notifyErr) {
+        console.error('Error notifying Dobbletap:', notifyErr);
+        // Continue - notification failure shouldn't block the UI
       }
 
       toast.success('Quote declined. Creator will be notified.');
