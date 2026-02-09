@@ -231,7 +231,7 @@ export function ActivityDetailDrawer({
               <div className="space-y-2">
                 {linkedCampaignObjects.map(campaign => (
                   <div key={campaign.id} className="p-2 rounded-md bg-white/[0.03] border border-white/[0.06]">
-                    <div className="text-sm font-medium text-white">{campaign.name}</div>
+                    <div className="text-sm font-medium text-white uppercase">{campaign.name}</div>
                     <div className="text-xs text-slate-500">{campaign.posts || 0} posts</div>
                   </div>
                 ))}

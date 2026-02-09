@@ -68,7 +68,7 @@ import {
   useIsParentCampaign,
   subcampaignsKeys,
 } from "../../hooks/useSubcampaigns";
-import { useScrapeAllPosts, useScrapePost } from "../../hooks/useScraping";
+import { useResetStuckScrapingPosts, useScrapeAllPostsWithPolling, useScrapePost } from "../../hooks/useScraping";
 import { addNotification } from "../../lib/utils/notifications";
 import {
   useCreatorsByCampaign,
@@ -410,12 +410,13 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const deleteAllPostsMutation = useDeleteAllPosts();
   const deleteCampaignMutation = useDeleteCampaign();
   const createManyPostsMutation = useCreateManyPosts();
-  const scrapeAllPostsMutation = useScrapeAllPosts();
+  const { startScraping: startScrapeAll, stopPolling, isPolling: isScrapeAllPolling } = useScrapeAllPostsWithPolling();
   const scrapePostMutation = useScrapePost();
+  const resetStuckMutation = useResetStuckScrapingPosts();
   const activeScrapePostId = scrapePostMutation.isPending
     ? (scrapePostMutation.variables?.postId ?? null)
     : null;
-  const isScrapeAllPending = scrapeAllPostsMutation.isPending;
+  const isScrapeAllPending = isScrapeAllPolling;
 
   // 3-tier smart polling system for auto-refresh
   const lastMutationTimeRef = useRef<number>(0);
@@ -432,7 +433,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
     // Track when mutations occur
     const isMutationPending =
-      scrapeAllPostsMutation.isPending || scrapePostMutation.isPending;
+      isScrapeAllPending || scrapePostMutation.isPending;
     if (isMutationPending) {
       lastMutationTimeRef.current = Date.now();
     }
@@ -461,7 +462,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     const intervalId = setInterval(refetch, 30000);
     return () => clearInterval(intervalId);
   }, [
-    scrapeAllPostsMutation.isPending,
+    isScrapeAllPending,
     scrapePostMutation.isPending,
     id,
     queryClient,
@@ -1343,10 +1344,14 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
         errors: result.errors,
       });
 
+      if (result.posts.length > 0 && result.error_count === 0) {
+        startScrapeAll(id);
+      }
+
       // Close dialog after 3 seconds if successful
       if (result.error_count === 0) {
         setTimeout(() => {
-          setShowImportDialog(false);
+          setShowImportPostsDialog(false);
           setImportResult(null);
         }, 3000);
       }
@@ -1365,8 +1370,15 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const handleScrapeAll = () => {
     if (!id) return;
     if (!ensureCanEdit()) return;
-    scrapeAllPostsMutation.mutate(id);
+    startScrapeAll(id);
     setShowScrapeAllDialog(false);
+  };
+
+  const handleResetStuck = () => {
+    if (!id) return;
+    if (!ensureCanEdit()) return;
+    stopPolling();
+    resetStuckMutation.mutate(id);
   };
 
   const handleDeleteAll = () => {
@@ -1440,7 +1452,10 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const handleDownloadTemplate = () => {
     const template = `creator_name,creator_handle,platform,post_url,posted_date,views,likes,comments,shares
 John Doe,@johndoe,tiktok,https://tiktok.com/@johndoe/video/123,2024-01-15,10000,500,50,20
-Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,300,25,10`;
+Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,300,25,10
+77gocrazy,@77gocrazy,twitter,https://x.com/77gocrazy/status/1234567890,2024-01-17,,,,
+Example User,@example,x,https://x.com/example/status/9876543210,2024-01-18,,,,
+`;
 
     csvUtils.downloadCSV(template, "campaign_posts_template.csv");
     toast.success("Template downloaded");
@@ -1543,7 +1558,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
             <div className="min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1]">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1] uppercase">
                     {campaign.name}
                   </h1>
                   {campaign.brand_name && (
@@ -1688,7 +1703,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
           <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
           {/* Text content with improved spacing and typography */}
           <div className="absolute bottom-6 left-6 right-6">
-            <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg">
+            <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg uppercase">
               {campaign.name}
             </h2>
             {campaign.brand_name && (
@@ -2345,6 +2360,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     { value: "all", label: "All" },
                     { value: "tiktok", label: "TikTok" },
                     { value: "instagram", label: "Instagram" },
+                    { value: "twitter", label: "X" },
                     { value: "youtube", label: "YouTube" },
                   ].map((platform) => (
                     <button
@@ -2622,6 +2638,13 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                     >
                       <RefreshCw className="w-4 h-4" />
                       Scrape all posts
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={handleResetStuck}
+                      disabled={posts.length === 0 || !canEditThisCampaign || resetStuckMutation.isPending}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Reset stuck posts
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={handleExportCSV}
@@ -3771,8 +3794,7 @@ Jane Smith,@janesmith,instagram,https://instagram.com/p/abc123,2024-01-16,5000,3
                         Upload CSV file
                       </p>
                       <p className="text-xs text-muted-foreground mb-3">
-                        Required: creator_name, creator_handle, platform,
-                        post_url
+                        Required: creator_name, creator_handle, platform (tiktok, instagram, youtube, twitter or x, facebook), post_url
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Optional: posted_date, views, likes, comments, shares

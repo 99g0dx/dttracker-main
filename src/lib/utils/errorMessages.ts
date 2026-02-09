@@ -71,6 +71,14 @@ export function getUserFriendlyError(error: unknown, context?: ErrorContext): st
   // Normalize error message (lowercase for matching)
   const normalizedMessage = errorMessage.toLowerCase();
 
+  // Apify/RapidAPI 403/401 - API config issue, not user auth (check before generic auth mappings)
+  if (
+    (normalizedMessage.includes("apify") || normalizedMessage.includes("rapidapi")) &&
+    (normalizedMessage.includes("403") || normalizedMessage.includes("401"))
+  ) {
+    return "Scraping API returned an error. Check your APIFY_TOKEN is valid in Supabase Edge Function secrets and your Apify account has access (paid plan may be required for some scrapers).";
+  }
+
   // Check for specific error patterns
   for (const [key, message] of Object.entries(ERROR_MESSAGES)) {
     if (normalizedMessage.includes(key.toLowerCase())) {

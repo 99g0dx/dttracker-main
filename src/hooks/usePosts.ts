@@ -499,6 +499,24 @@ export function useAddPostWithScrape() {
           toast.warning(
             "Post added successfully, but scraping failed temporarily due to network issues. You can retry scraping this post later."
           );
+        } else if (
+          (errorMessage.toLowerCase().includes("apify") ||
+            errorMessage.toLowerCase().includes("rapidapi")) &&
+          (errorMessage.includes("403") || errorMessage.includes("401"))
+        ) {
+          toast.warning(
+            "Post added successfully, but scraping failed. Check your APIFY_TOKEN in Supabase Edge Function secrets and your Apify account access (paid plan may be required)."
+          );
+        } else if (
+          errorMessage.includes("Unauthorized") ||
+          errorMessage.includes("401") ||
+          errorMessage.includes("403") ||
+          errorMessage.includes("Authentication failed")
+        ) {
+          // Likely Apify/API 403 misreported as auth - show API config hint
+          toast.warning(
+            "Post added successfully, but scraping failed. Check your APIFY_TOKEN in Supabase Edge Function secrets and your Apify account access."
+          );
         } else {
           toast.warning(`Post added but scraping failed: ${errorMessage}`);
         }

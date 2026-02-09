@@ -1168,7 +1168,7 @@ useEffect(() => {
                       </div>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-xs min-[400px]:text-sm sm:text-base font-semibold text-foreground truncate">
+                          <p className="text-xs min-[400px]:text-sm sm:text-base font-semibold text-foreground truncate uppercase">
                             {campaign.name}
                           </p>
                           <p className="text-[10px] min-[400px]:text-xs text-muted-foreground mt-0.5 sm:mt-1 truncate">
@@ -1327,7 +1327,7 @@ useEffect(() => {
                         className="border-b border-border/60 hover:bg-muted/40 transition-colors group cursor-pointer"
                   >
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="font-medium text-sm text-foreground">{campaign.name}</div>
+                      <div className="font-medium text-sm text-foreground uppercase">{campaign.name}</div>
                       <div className="text-xs text-muted-foreground mt-1 sm:hidden">
                         <StatusBadge status={campaign.status} />
                       </div>

@@ -79,7 +79,7 @@ export function CampaignHeader({
             <div className="min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1]">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1] uppercase">
                     {name}
                   </h1>
                   {brandName && (
@@ -201,7 +201,7 @@ export function CampaignHeader({
         <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
         {/* Text content with improved spacing and typography */}
         <div className="absolute bottom-6 left-6 right-6">
-          <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg">
+          <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg uppercase">
             {name}
           </h2>
           {brandName && (

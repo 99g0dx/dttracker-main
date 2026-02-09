@@ -389,7 +389,7 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
                     {/* Header Row: Title, Brand, Status */}
                     <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm min-[400px]:text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-snug break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] min-h-[36px] sm:min-h-[40px]">
+                        <h3 className="text-sm min-[400px]:text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-snug break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] min-h-[36px] sm:min-h-[40px] uppercase">
                           {campaign.name}
                         </h3>
                         {campaign.brand_name && (

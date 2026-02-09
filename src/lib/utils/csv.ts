@@ -38,6 +38,15 @@ export function normalizeColumnName(name: string): string {
 }
 
 /**
+ * Normalize platform value: accept "x" as alias for "twitter"
+ */
+function normalizePlatformValue(platform: string): string {
+  const lower = platform.toLowerCase().trim();
+  if (lower === "x") return "twitter";
+  return lower;
+}
+
+/**
  * Get value from row using normalized column name
  */
 export function getRowValue(row: any, normalizedName: string): string | undefined {
@@ -104,7 +113,8 @@ export async function parseCSV(
           const creatorHandle = getRowValue(row, "creator_handle")
             ?.toString()
             .trim();
-          const platform = getRowValue(row, "platform")?.toString().trim();
+          const rawPlatform = getRowValue(row, "platform")?.toString().trim();
+          const platform = rawPlatform ? normalizePlatformValue(rawPlatform) : "";
           const postUrl = getRowValue(row, "post_url")?.toString().trim();
 
           // Validate required fields early
@@ -154,25 +164,22 @@ export async function parseCSV(
             continue;
           }
 
-          const normalizedPlatform = platform.toLowerCase() as Platform;
-          if (!validPlatforms.includes(normalizedPlatform)) {
+          if (!validPlatforms.includes(platform as Platform)) {
             errors.push({
               row: rowNumber,
-              message: `Invalid platform "${platform}". Must be one of: ${validPlatforms.join(
-                ", "
-              )}`,
+              message: `Invalid platform "${rawPlatform}". Must be one of: tiktok, instagram, youtube, twitter (or x), facebook`,
             });
             continue;
           }
 
-          const cacheKey = `${creatorHandle}:${normalizedPlatform}`;
+          const cacheKey = `${creatorHandle}:${platform}`;
           creatorKeys.add(cacheKey);
           rowData.push({
             row,
             rowNumber,
             creatorName,
             creatorHandle,
-            platform: normalizedPlatform,
+            platform,
             postUrl,
           });
         }

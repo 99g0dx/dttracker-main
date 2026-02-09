@@ -17,16 +17,11 @@ const corsHeaders = {
 // ============================================================
 // API CONFIGURATION
 // ============================================================
-// Primary: Apify actors (TikTok, Instagram, YouTube) + RapidAPI (Twitter)
-// - APIFY_TOKEN: Your Apify API token (TikTok, Instagram, YouTube)
+// Apify actors for all platforms (TikTok, Instagram, YouTube, Twitter)
+// - APIFY_TOKEN: Your Apify API token (required for all platforms)
 // - APIFY_YOUTUBE_TOKEN: Optional; if set, used only for YouTube (else APIFY_TOKEN)
-// - Actors: clockworks~tiktok-scraper, apify~instagram-scraper, streamers~youtube-scraper
-// - RAPIDAPI_KEY: Used for Twitter scraping
-
-// Twitter (RapidAPI)
-const TWITTER_API_BASE_URL = "https://twitter241.p.rapidapi.com";
-const TWITTER_API_HOST = "twitter241.p.rapidapi.com";
-const TWITTER_API_ENDPOINT = "/tweet-v2"; // Uses pid (tweet ID) parameter
+// - Actors: clockworks~tiktok-scraper, apify~instagram-scraper, streamers~youtube-scraper,
+//   kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest
 // ============================================================
 
 const MAX_SCRAPE_ATTEMPTS = 3;
@@ -36,19 +31,20 @@ const RETRY_BACKOFF_BASE_MS = 1500;
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
-  label: string
+  label: string,
+  maxAttempts: number = MAX_SCRAPE_ATTEMPTS
 ): Promise<Response> {
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt < MAX_SCRAPE_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const response = await fetch(url, options);
       const retryable =
         response.status === 429 || (response.status >= 500 && response.status < 600);
       if (!retryable) return response;
-      if (attempt < MAX_SCRAPE_ATTEMPTS - 1) {
+      if (attempt < maxAttempts - 1) {
         const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
         console.warn(
-          `${label} ${response.status}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_SCRAPE_ATTEMPTS})...`
+          `${label} ${response.status}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxAttempts})...`
         );
         await new Promise((r) => setTimeout(r, backoffMs));
         continue;
@@ -56,10 +52,10 @@ async function fetchWithRetry(
       return response;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt < MAX_SCRAPE_ATTEMPTS - 1) {
+      if (attempt < maxAttempts - 1) {
         const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
         console.warn(
-          `${label} network error: ${lastError.message}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_SCRAPE_ATTEMPTS})...`
+          `${label} network error: ${lastError.message}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxAttempts})...`
         );
         await new Promise((r) => setTimeout(r, backoffMs));
       } else {
@@ -67,7 +63,7 @@ async function fetchWithRetry(
       }
     }
   }
-  throw lastError ?? new Error(`${label} failed after ${MAX_SCRAPE_ATTEMPTS} attempts`);
+  throw lastError ?? new Error(`${label} failed after ${maxAttempts} attempts`);
 }
 
 interface ScrapeRequest {
@@ -93,11 +89,30 @@ interface ScrapedMetrics {
   owner_username?: string | null;
 }
 
-/**
- * Scrape TikTok post metrics using RapidAPI video info endpoint
- */
+/** Look up an active fallback actor from the parser_versions table. */
+async function getFallbackActor(
+  supabaseClient: ReturnType<typeof createClient>,
+  platform: string
+): Promise<string | null> {
+  try {
+    const { data } = await supabaseClient
+      .from("parser_versions")
+      .select("actor_id")
+      .eq("platform", platform)
+      .eq("role", "fallback")
+      .eq("is_active", true)
+      .maybeSingle();
+    return data?.actor_id ?? null;
+  } catch (err) {
+    console.warn(`[getFallbackActor] Failed to fetch fallback for ${platform}:`, err);
+    return null;
+  }
+}
 
-async function scrapeTikTok(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
+/**
+ * Scrape TikTok post metrics using Apify (clockworks~tiktok-scraper)
+ */
+async function scrapeTikTok(postUrl: string, actorOverride?: string | null, maxAttempts?: number): Promise<ScrapedMetrics> {
   try {
     const apifyToken = Deno.env.get("APIFY_TOKEN");
     if (!apifyToken) {
@@ -141,7 +156,8 @@ async function scrapeTikTok(postUrl: string, actorOverride?: string | null): Pro
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       },
-      "[scrapeTikTok] Apify"
+      "[scrapeTikTok] Apify",
+      maxAttempts ?? MAX_SCRAPE_ATTEMPTS
     );
 
     console.log(`[scrapeTikTok] Apify response status: ${response.status}`);
@@ -763,7 +779,7 @@ async function scrapeTikTok(postUrl: string, actorOverride?: string | null): Pro
  * Scrape Instagram post metrics using Apify
  * Actor: apify/instagram-scraper
  */
-async function scrapeInstagram(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
+async function scrapeInstagram(postUrl: string, actorOverride?: string | null, maxAttempts?: number): Promise<ScrapedMetrics> {
   try {
     const apifyToken = Deno.env.get("APIFY_TOKEN");
     const apifyActorId =
@@ -813,12 +829,13 @@ async function scrapeInstagram(postUrl: string, actorOverride?: string | null): 
         body: JSON.stringify(input),
       });
 
+      const attempts = maxAttempts ?? MAX_SCRAPE_ATTEMPTS;
       const retryable =
         response.status === 429 || (response.status >= 500 && response.status < 600);
-      if (retryable && attempt < MAX_SCRAPE_ATTEMPTS - 1) {
+      if (retryable && attempt < attempts - 1) {
         const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
         console.warn(
-          `Apify Instagram API ${response.status}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_SCRAPE_ATTEMPTS})...`
+          `Apify Instagram API ${response.status}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${attempts})...`
         );
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
         return fetchWithRetry(attempt + 1);
@@ -907,7 +924,7 @@ async function scrapeInstagram(postUrl: string, actorOverride?: string | null): 
  * Scrape YouTube video metrics using Apify (streamers/youtube-scraper).
  * Token (in order): APIFY_YOUTUBE_TOKEN, APIFY_TOKEN, APIFY_API_TOKEN.
  */
-async function scrapeYouTube(postUrl: string, actorOverride?: string | null): Promise<ScrapedMetrics> {
+async function scrapeYouTube(postUrl: string, actorOverride?: string | null, maxAttempts?: number): Promise<ScrapedMetrics> {
   try {
     const apifyToken =
       Deno.env.get("APIFY_YOUTUBE_TOKEN") ??
@@ -949,7 +966,8 @@ async function scrapeYouTube(postUrl: string, actorOverride?: string | null): Pr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       },
-      "[scrapeYouTube] Apify"
+      "[scrapeYouTube] Apify",
+      maxAttempts ?? MAX_SCRAPE_ATTEMPTS
     );
 
     if (!response.ok) {
@@ -1048,30 +1066,27 @@ async function scrapeYouTube(postUrl: string, actorOverride?: string | null): Pr
   }
 }
 
+const TWITTER_APIFY_ACTOR =
+  "kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest";
+
 /**
- * Scrape Twitter/X post metrics using RapidAPI
- * API: "Twttr API"
+ * Scrape Twitter/X post metrics using Apify
+ * Actor: kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest
  */
-async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
+async function scrapeTwitter(postUrl: string, maxAttempts?: number): Promise<ScrapedMetrics> {
   try {
-    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
+    const apifyToken = Deno.env.get("APIFY_TOKEN");
 
-    console.log("=== Twitter/X Scraping ===");
+    console.log("=== Twitter/X Scraping (Apify) ===");
     console.log("Post URL:", postUrl);
-    console.log("RapidAPI Key present:", !!rapidApiKey);
-    console.log("RapidAPI Key length:", rapidApiKey?.length || 0);
 
-    if (!rapidApiKey) {
+    if (!apifyToken) {
       throw new Error(
-        "RAPIDAPI_KEY not configured. Please set the RAPIDAPI_KEY secret in Supabase Edge Functions."
+        "APIFY_TOKEN not configured. Please set the APIFY_TOKEN secret in Supabase Edge Functions."
       );
     }
 
-    // Twttr API (RapidAPI) - "Twttr API"
-    console.log("Calling Twitter API...");
-
-    // Extract tweet ID (pid) from Twitter/X URL
-    // Twitter URLs: https://x.com/user/status/1234567890 or https://twitter.com/user/status/1234567890
+    // Extract tweet ID from Twitter/X URL
     const tweetIdMatch =
       postUrl.match(/\/status\/(\d+)/) ||
       postUrl.match(/twitter\.com\/.*\/status\/(\d+)/) ||
@@ -1079,186 +1094,138 @@ async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
 
     if (!tweetIdMatch || !tweetIdMatch[1]) {
       throw new Error(
-        "Could not extract tweet ID (pid) from Twitter URL. Please use a full Twitter/X post URL with status ID."
+        "Could not extract tweet ID from Twitter URL. Please use a full Twitter/X post URL with status ID."
       );
     }
 
     const tweetId = tweetIdMatch[1];
-    const twitterApiUrl = `${TWITTER_API_BASE_URL}${TWITTER_API_ENDPOINT}?pid=${tweetId}`;
-    console.log("Twitter API URL:", twitterApiUrl);
-    console.log("Extracted tweet ID (pid):", tweetId);
+    const apifyUrl =
+      "https://api.apify.com/v2/acts/" +
+      encodeURIComponent(TWITTER_APIFY_ACTOR) +
+      "/run-sync-get-dataset-items?token=" +
+      encodeURIComponent(apifyToken);
+
+    const input = {
+      tweetIDs: [tweetId],
+      maxItems: 1,
+    };
+
+    console.log("[scrapeTwitter] Calling Apify actor:", TWITTER_APIFY_ACTOR);
 
     const response = await fetchWithRetry(
-      twitterApiUrl,
+      apifyUrl,
       {
-        method: "GET",
-        headers: {
-          "X-RapidAPI-Key": rapidApiKey,
-          "X-RapidAPI-Host": TWITTER_API_HOST,
-        },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
       },
-      "[scrapeTwitter] RapidAPI"
-    );
-
-    console.log(
-      "Twitter API Response Status:",
-      response.status,
-      response.statusText
+      "[scrapeTwitter] Apify",
+      maxAttempts ?? MAX_SCRAPE_ATTEMPTS
     );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      console.error("Twitter API error:", response.status, errorText);
-      console.error("Full error response:", errorText);
-
-      // Handle specific error cases - throw errors instead of returning fake data
-      if (response.status === 403) {
-        throw new Error(
-          "Twitter API subscription issue (403). Please check your RapidAPI subscription."
-        );
-      }
-
-      if (response.status === 503) {
-        throw new Error(
-          "Twitter API temporarily unavailable (503). Please try again later."
-        );
-      }
-
-      if (response.status === 429) {
-        throw new Error(
-          "Twitter API rate limit exceeded (429). Please wait before trying again."
-        );
-      }
-
-      if (response.status === 502 || response.status === 504) {
-        throw new Error(
-          `Twitter API gateway error (${response.status}). Please try again later.`
-        );
-      }
-
       throw new Error(
-        `Twitter API error (${response.status}): ${errorText.substring(0, 200)}`
+        `Apify Twitter API error (${response.status}): ${errorText.substring(0, 300)}`
       );
     }
 
-    const data = await response.json().catch((err) => {
-      console.error("Failed to parse Twitter API response:", err);
-      throw new Error("Invalid response from Twitter API");
+    const rawResponse = await response.json().catch(() => {
+      throw new Error("Invalid JSON response from Apify Twitter scraper");
     });
 
-    // Log the full response for debugging
-    console.log("=== TWITTER API RESPONSE ===");
-    console.log(
-      "Full Response (first 2000 chars):",
-      JSON.stringify(data, null, 2).substring(0, 2000)
-    );
-    console.log("Response Type:", typeof data);
-    console.log("Is Array:", Array.isArray(data));
-    console.log("Top Level Keys:", Object.keys(data || {}));
-
-    // Extract metrics from Twitter API response
-    // Twttr API structure may vary - check logs to see actual structure
-    const tweetData =
-      data?.data || data?.tweet || data?.result || data?.tweetData || data;
-
-    if (!tweetData) {
-      console.error("Twitter API response missing data:", JSON.stringify(data));
-      throw new Error("Twitter API response missing tweet data");
+    if (rawResponse?.error || rawResponse?.status === "ERROR" || rawResponse?.status === "FAILED") {
+      throw new Error(
+        `Apify Twitter scraper error: ${JSON.stringify(rawResponse.error ?? rawResponse)}`
+      );
     }
 
-    console.log("=== TWITTER RESPONSE STRUCTURE ===");
-    console.log("Has data.data:", !!data?.data);
-    console.log("Has data.tweet:", !!data?.tweet);
-    console.log("Has data.result:", !!data?.result);
-    console.log("TweetData Keys:", Object.keys(tweetData || {}));
-    console.log(
-      "TweetData Sample:",
-      JSON.stringify(tweetData, null, 2).substring(0, 1000)
-    );
+    let items: any[] = [];
+    if (Array.isArray(rawResponse)) {
+      items = rawResponse;
+    } else if (rawResponse?.items && Array.isArray(rawResponse.items)) {
+      items = rawResponse.items;
+    } else if (rawResponse?.data) {
+      items = Array.isArray(rawResponse.data) ? rawResponse.data : rawResponse.data?.items ?? [];
+    }
 
-    // Try multiple possible field names for metrics
-    // Twttr API might use different field names - check logs to see actual structure
-    const publicMetrics =
-      tweetData?.public_metrics || tweetData?.publicMetrics || {};
-    const metrics = tweetData?.metrics || {};
+    if (!items?.length) {
+      throw new Error(
+        "Apify Twitter scraper returned no results. The post may be private, deleted, or unavailable."
+      );
+    }
 
-    console.log("=== STATISTICS OBJECT ===");
-    console.log("Has public_metrics:", !!tweetData?.public_metrics);
-    console.log("Has publicMetrics:", !!tweetData?.publicMetrics);
-    console.log("Has metrics:", !!tweetData?.metrics);
-    console.log("Public Metrics keys:", Object.keys(publicMetrics || {}));
-    console.log("Metrics keys:", Object.keys(metrics || {}));
-    console.log("Full public_metrics:", JSON.stringify(publicMetrics, null, 2));
-    console.log("Full metrics:", JSON.stringify(metrics, null, 2));
+    const tweetData = items[0];
+    if (tweetData?.error) {
+      throw new Error(
+        `Twitter post error: ${typeof tweetData.error === "string" ? tweetData.error : JSON.stringify(tweetData.error)}`
+      );
+    }
 
-    // Helper function to safely extract number values
-    const getNumber = (
-      ...values: (number | string | undefined | null)[]
-    ): number => {
+    const getNumber = (...values: (number | string | undefined | null)[]): number => {
       for (const value of values) {
         if (value !== undefined && value !== null && value !== "") {
           const num = Number(value);
-          if (!isNaN(num) && num >= 0) {
-            return num;
-          }
+          if (!isNaN(num) && num >= 0) return num;
         }
       }
       return 0;
     };
 
-    const extractedMetrics = {
-      views: getNumber(
-        publicMetrics?.impression_count,
-        publicMetrics?.impressionCount,
-        metrics?.impression_count,
-        metrics?.impressionCount,
-        tweetData?.views,
-        tweetData?.view_count
-      ),
-      likes: getNumber(
-        publicMetrics?.like_count,
-        publicMetrics?.likeCount,
-        metrics?.like_count,
-        metrics?.likeCount,
-        tweetData?.likes,
-        tweetData?.like_count,
-        tweetData?.favorite_count,
-        tweetData?.favoriteCount
-      ),
-      comments: getNumber(
-        publicMetrics?.reply_count,
-        publicMetrics?.replyCount,
-        metrics?.reply_count,
-        metrics?.replyCount,
-        tweetData?.comments,
-        tweetData?.comment_count,
-        tweetData?.reply_count,
-        tweetData?.replyCount
-      ),
-      shares: getNumber(
-        publicMetrics?.retweet_count,
-        publicMetrics?.retweetCount,
-        metrics?.retweet_count,
-        metrics?.retweetCount,
-        tweetData?.shares,
-        tweetData?.share_count,
-        tweetData?.retweets,
-        tweetData?.retweet_count,
-        tweetData?.retweetCount
-      ),
-      engagement_rate: 0, // Will be calculated later
-    };
+    const publicMetrics = tweetData?.public_metrics || tweetData?.publicMetrics || {};
+    const metrics = tweetData?.metrics || {};
 
-    console.log("=== TWITTER METRICS EXTRACTED ===");
-    console.log("Views:", extractedMetrics.views);
-    console.log("Likes:", extractedMetrics.likes);
-    console.log("Comments:", extractedMetrics.comments);
-    console.log("Shares:", extractedMetrics.shares);
-    console.log(
-      "Full Metrics Object:",
-      JSON.stringify(extractedMetrics, null, 2)
+    // Apify kaitoeasyapi actor returns camelCase: viewCount, likeCount, replyCount, retweetCount
+    const views = getNumber(
+      tweetData?.viewCount,
+      publicMetrics?.impression_count,
+      publicMetrics?.impressionCount,
+      metrics?.impression_count,
+      tweetData?.views,
+      tweetData?.view_count
     );
-    return extractedMetrics;
+    const likes = getNumber(
+      tweetData?.likeCount,
+      publicMetrics?.like_count,
+      publicMetrics?.likeCount,
+      metrics?.like_count,
+      tweetData?.likes,
+      tweetData?.like_count,
+      tweetData?.favorite_count,
+      tweetData?.favoriteCount
+    );
+    const comments = getNumber(
+      tweetData?.replyCount,
+      publicMetrics?.reply_count,
+      publicMetrics?.replyCount,
+      metrics?.reply_count,
+      tweetData?.reply_count,
+      tweetData?.replyCount,
+      tweetData?.comments,
+      tweetData?.comment_count
+    );
+    const shares = getNumber(
+      tweetData?.retweetCount,
+      publicMetrics?.retweet_count,
+      publicMetrics?.retweetCount,
+      metrics?.retweet_count,
+      tweetData?.retweet_count,
+      tweetData?.retweetCount,
+      tweetData?.retweets
+    );
+
+    const totalEngagements = likes + comments + shares;
+    const engagement_rate = views > 0 ? (totalEngagements / views) * 100 : 0;
+
+    console.log("[scrapeTwitter] Extracted metrics:", { views, likes, comments, shares });
+
+    return {
+      views,
+      likes,
+      comments,
+      shares,
+      engagement_rate: Number(engagement_rate.toFixed(2)),
+    };
   } catch (error) {
     console.error("Twitter scraping error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1267,22 +1234,192 @@ async function scrapeTwitter(postUrl: string): Promise<ScrapedMetrics> {
 }
 
 /**
+ * Extract the numeric aweme_id (video ID) from a TikTok URL.
+ * Handles: /video/123, /v/123, short URLs resolved to /video/123, bare IDs.
+ */
+function extractTikTokAwemeId(postUrl: string): string | null {
+  // Standard: https://www.tiktok.com/@user/video/6811123699203329285
+  const videoMatch = postUrl.match(/\/(?:video|v)\/(\d+)/);
+  if (videoMatch) return videoMatch[1];
+  // Bare numeric ID (unlikely but safe)
+  if (/^\d{15,}$/.test(postUrl.trim())) return postUrl.trim();
+  return null;
+}
+
+/**
+ * Scrape TikTok post metrics using scraptik/tiktok-api (endpoint-based actor).
+ * Input:  { "post_awemeId": "<video_id>" }
+ * Output: TikTok mobile API format with statistics in aweme_detail or aweme_list.
+ */
+async function scrapeTikTokScraptik(
+  postUrl: string,
+  maxAttempts?: number
+): Promise<ScrapedMetrics> {
+  const apifyToken = Deno.env.get("APIFY_TOKEN");
+  if (!apifyToken) {
+    throw new Error("APIFY_TOKEN not configured.");
+  }
+
+  const awemeId = extractTikTokAwemeId(postUrl);
+  if (!awemeId) {
+    throw new Error(
+      `Could not extract TikTok video ID from URL: ${postUrl}. ` +
+      `scraptik~tiktok-api requires a numeric aweme_id (e.g. from /video/123456).`
+    );
+  }
+
+  console.log(`[scrapeTikTokScraptik] aweme_id=${awemeId} from URL: ${postUrl}`);
+
+  const actorId = "scraptik~tiktok-api";
+  const apifyUrl =
+    "https://api.apify.com/v2/acts/" +
+    encodeURIComponent(actorId) +
+    "/run-sync-get-dataset-items?token=" +
+    encodeURIComponent(apifyToken);
+
+  const input = { post_awemeId: awemeId };
+
+  const response = await fetchWithRetry(
+    apifyUrl,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    "[scrapeTikTokScraptik] Apify",
+    maxAttempts ?? MAX_SCRAPE_ATTEMPTS
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "Unknown error");
+    throw new Error(
+      `scraptik TikTok API error (${response.status}): ${errorText.substring(0, 300)}`
+    );
+  }
+
+  const rawResponse = await response.json().catch(() => {
+    throw new Error("Invalid JSON response from scraptik TikTok API");
+  });
+
+  console.log(
+    "[scrapeTikTokScraptik] Response preview:",
+    JSON.stringify(rawResponse).substring(0, 2000)
+  );
+
+  // The actor returns an array; each item may contain aweme_detail or aweme_list
+  let items: any[] = Array.isArray(rawResponse) ? rawResponse : [];
+  if (!items.length && rawResponse?.items) items = rawResponse.items;
+  if (!items.length && rawResponse?.data) {
+    items = Array.isArray(rawResponse.data) ? rawResponse.data : [];
+  }
+
+  if (!items.length) {
+    throw new Error(
+      "scraptik TikTok API returned no results for aweme_id " + awemeId
+    );
+  }
+
+  const item = items[0];
+
+  // scraptik returns TikTok mobile API format:
+  // item.aweme_detail.statistics or item.statistics or item directly
+  const detail = item?.aweme_detail ?? item?.aweme_list?.[0] ?? item;
+  const stats = detail?.statistics ?? detail?.stats ?? {};
+
+  const parseNum = (v: unknown): number => {
+    if (v == null) return 0;
+    if (typeof v === "number" && !isNaN(v)) return Math.floor(v);
+    const n = parseInt(String(v).replace(/[^0-9]/g, ""), 10);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const views = parseNum(
+    stats.play_count ?? stats.playCount ?? stats.views ??
+    detail?.play_count ?? detail?.playCount ?? detail?.views
+  );
+  const likes = parseNum(
+    stats.digg_count ?? stats.diggCount ?? stats.likes ??
+    detail?.digg_count ?? detail?.diggCount ?? detail?.likes
+  );
+  const comments = parseNum(
+    stats.comment_count ?? stats.commentCount ?? stats.comments ??
+    detail?.comment_count ?? detail?.commentCount ?? detail?.comments
+  );
+  const shares = parseNum(
+    stats.share_count ?? stats.shareCount ?? stats.shares ??
+    detail?.share_count ?? detail?.shareCount ?? detail?.shares
+  );
+
+  const totalMetrics = views + likes + comments + shares;
+  if (!totalMetrics) {
+    throw new Error(
+      `scraptik TikTok API returned zero metrics for aweme_id ${awemeId}. ` +
+      `Response: ${JSON.stringify(rawResponse).substring(0, 2000)}`
+    );
+  }
+
+  const ownerUsername =
+    detail?.author?.unique_id ??
+    detail?.author?.uniqueId ??
+    detail?.author?.nickname ??
+    null;
+
+  console.log("[scrapeTikTokScraptik] Extracted metrics:", {
+    views, likes, comments, shares, ownerUsername,
+  });
+
+  return {
+    views,
+    likes,
+    comments,
+    shares,
+    engagement_rate: 0,
+    owner_username: ownerUsername,
+  };
+}
+
+/**
  * Main scraping function that routes to platform-specific scrapers
  */
 async function scrapePost(
   platform: string,
   postUrl: string,
-  actorIdOverride?: string | null
+  supabaseClient: ReturnType<typeof createClient>,
+  actorIdOverride?: string | null,
+  isAutoScrape?: boolean
 ): Promise<ScrapedMetrics> {
+  const maxAttempts = isAutoScrape ? 1 : MAX_SCRAPE_ATTEMPTS;
   switch (platform) {
-    case "tiktok":
-      return await scrapeTikTok(postUrl, actorIdOverride);
+    case "tiktok": {
+      const primaryActor = actorIdOverride ?? "clockworks~tiktok-scraper";
+      try {
+        return await scrapeTikTok(postUrl, primaryActor, maxAttempts);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Only attempt fallback for zero-metrics or no-results errors
+        if (!msg.includes("zero metrics") && !msg.includes("no results")) {
+          throw err;
+        }
+        console.warn(`[scrapePost] Primary TikTok actor (${primaryActor}) failed: ${msg.substring(0, 200)}`);
+        const fallbackActor = await getFallbackActor(supabaseClient, "tiktok");
+        if (!fallbackActor || fallbackActor === primaryActor) {
+          console.warn("[scrapePost] No fallback actor available for TikTok");
+          throw err;
+        }
+        console.log(`[scrapePost] Retrying TikTok with fallback actor: ${fallbackActor}`);
+        // scraptik~tiktok-api uses a different input/output format (aweme_id based)
+        if (fallbackActor === "scraptik~tiktok-api") {
+          return await scrapeTikTokScraptik(postUrl, maxAttempts);
+        }
+        return await scrapeTikTok(postUrl, fallbackActor, maxAttempts);
+      }
+    }
     case "instagram":
-      return await scrapeInstagram(postUrl, actorIdOverride);
+      return await scrapeInstagram(postUrl, actorIdOverride, maxAttempts);
     case "youtube":
-      return await scrapeYouTube(postUrl, actorIdOverride);
+      return await scrapeYouTube(postUrl, actorIdOverride, maxAttempts);
     case "twitter":
-      return await scrapeTwitter(postUrl);
+      return await scrapeTwitter(postUrl, maxAttempts);
     case "facebook":
       console.warn("Facebook scraping not yet implemented");
       return {
@@ -1615,69 +1752,74 @@ serve(async (req) => {
         `[DEBUG] scrape-post: using body request_user_id: ${requestUserId}`
       );
     }
-    // Must pass request_user_id so agency bypass works (auth.uid() is null with service role).
-    console.log(
-      `[DEBUG] scrape-post: calling can_trigger_scrape with request_user_id=${requestUserId}, workspace_id=${campaign.workspace_id}`
-    );
-
-    const { data: scrapeGate, error: gateError } = await supabase.rpc(
-      "can_trigger_scrape",
-      {
-        target_workspace_id: campaign.workspace_id,
-        target_campaign_id: post.campaign_id,
-        target_platform: platform,
-        request_user_id: requestUserId,
-      }
-    );
-
-    if (gateError) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Scrape permission check failed: ${gateError.message}`,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
-    }
-
-    const gate = Array.isArray(scrapeGate) ? scrapeGate[0] : scrapeGate;
-    console.log(
-      `[DEBUG] scrape-post: can_trigger_scrape returned:`,
-      JSON.stringify({
-        allowed: gate?.allowed,
-        tier: gate?.tier,
-        message: gate?.message,
-        reason: gate?.reason,
-      })
-    );
-    if (!gate?.allowed) {
-      const reason = gate?.reason || "not_allowed";
-      const dbMessage = typeof gate?.message === "string" ? gate.message : null;
+    // Scrape interval check: skip when isAutoScrape (bulk) so many posts of same platform can be scraped in one batch
+    if (!isAutoScrape) {
+      // Must pass request_user_id so agency bypass works (auth.uid() is null with service role).
       console.log(
-        `[DEBUG] scrape-post: scrape NOT allowed. reason=${reason}, message=${dbMessage}, request_user_id=${requestUserId}`
+        `[DEBUG] scrape-post: calling can_trigger_scrape with request_user_id=${requestUserId}, workspace_id=${campaign.workspace_id}`
       );
-      const message =
-        reason === "platform_not_allowed"
-          ? "Platform not available on your current plan."
-          : reason === "scrape_interval_not_met"
-            ? "Scrape interval not met. Please wait before scraping again."
-            : reason === "subscription_past_due"
-              ? "Subscription past due. Update payment to resume scraping."
-              : dbMessage || "Scraping not allowed at this time.";
 
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: message,
-        }),
+      const { data: scrapeGate, error: gateError } = await supabase.rpc(
+        "can_trigger_scrape",
         {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
+          target_workspace_id: campaign.workspace_id,
+          target_campaign_id: post.campaign_id,
+          target_platform: platform,
+          request_user_id: requestUserId,
         }
       );
+
+      if (gateError) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Scrape permission check failed: ${gateError.message}`,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
+      }
+
+      const gate = Array.isArray(scrapeGate) ? scrapeGate[0] : scrapeGate;
+      console.log(
+        `[DEBUG] scrape-post: can_trigger_scrape returned:`,
+        JSON.stringify({
+          allowed: gate?.allowed,
+          tier: gate?.tier,
+          message: gate?.message,
+          reason: gate?.reason,
+        })
+      );
+      if (!gate?.allowed) {
+        const reason = gate?.reason || "not_allowed";
+        const dbMessage = typeof gate?.message === "string" ? gate.message : null;
+        console.log(
+          `[DEBUG] scrape-post: scrape NOT allowed. reason=${reason}, message=${dbMessage}, request_user_id=${requestUserId}`
+        );
+        const message =
+          reason === "platform_not_allowed"
+            ? "Platform not available on your current plan."
+            : reason === "scrape_interval_not_met"
+              ? "Scrape interval not met. Please wait before scraping again."
+              : reason === "subscription_past_due"
+                ? "Subscription past due. Update payment to resume scraping."
+                : dbMessage || "Scraping not allowed at this time.";
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: message,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          }
+        );
+      }
+    } else {
+      console.log(`[DEBUG] scrape-post: isAutoScrape=true, skipping scrape interval check`);
     }
 
     // Per-operator scrape limit (manual scrape only; requestUserId already set above when token present)
@@ -1739,7 +1881,7 @@ serve(async (req) => {
     const startTime = Date.now();
     let metrics: ScrapedMetrics;
     try {
-      metrics = await scrapePost(platform, postUrl, actorIdOverride ?? undefined);
+      metrics = await scrapePost(platform, postUrl, supabase, actorIdOverride ?? undefined, isAutoScrape);
     } catch (scrapeError) {
       const errorMessage =
         scrapeError instanceof Error

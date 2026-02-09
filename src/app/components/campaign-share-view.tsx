@@ -505,7 +505,7 @@ export function CampaignShareView() {
         <div className="space-y-6">
           {/* Campaign Header */}
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">
+            <h2 className="text-3xl font-bold text-white mb-2 uppercase">
               {data.campaign.name}
             </h2>
             {data.campaign.brand_name && (

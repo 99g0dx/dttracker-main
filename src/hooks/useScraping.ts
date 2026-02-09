@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import * as scrapingApi from "../lib/api/scraping";
 import { postsKeys } from "./usePosts";
@@ -87,9 +88,15 @@ export function useScrapePost() {
         errorMessage =
           "Scraping service not configured. Please check if API keys (RAPIDAPI_KEY, APIFY_TOKEN) are set in Supabase Edge Function secrets.";
       } else if (
+        (errorMessage.includes("Apify") || errorMessage.includes("RapidAPI")) &&
+        (errorMessage.includes("403") || errorMessage.includes("401"))
+      ) {
+        errorMessage =
+          "Scraping API returned an error. Check your APIFY_TOKEN is valid in Supabase Edge Function secrets and your Apify account has access (paid plan may be required for some scrapers).";
+      } else if (
         errorMessage.includes("Unauthorized") ||
         errorMessage.includes("401") ||
-        errorMessage.includes("403")
+        errorMessage.includes("JWT")
       ) {
         errorMessage =
           "Authentication failed. Please try logging in again or refresh the page.";
@@ -235,10 +242,24 @@ export function useScrapeAllPosts() {
       ) {
         errorMessage =
           "Cannot reach the scraping service. Check that Edge Functions (scrape-post / scrape-all-posts) are deployed and your Supabase URL is correct.";
-      } else if (errorMessage.includes("API error")) {
+      } else if (
+        errorMessage.includes("API error") ||
+        errorMessage.includes("APIFY_TOKEN") ||
+        errorMessage.includes("RAPIDAPI_KEY")
+      ) {
         errorMessage =
-          "Scraping service error. Please check if API keys are configured.";
-      } else if (errorMessage.includes("Unauthorized")) {
+          "Scraping service error. Please check if API keys (APIFY_TOKEN) are configured in Supabase Edge Function secrets.";
+      } else if (
+        (errorMessage.includes("Apify") || errorMessage.includes("RapidAPI")) &&
+        (errorMessage.includes("403") || errorMessage.includes("401"))
+      ) {
+        errorMessage =
+          "Scraping API returned an error. Check your APIFY_TOKEN is valid and your Apify account has access.";
+      } else if (
+        errorMessage.includes("Unauthorized") ||
+        errorMessage.includes("401") ||
+        errorMessage.includes("JWT")
+      ) {
         errorMessage = "Authentication failed. Please try logging in again.";
       } else if (errorMessage.includes("Network")) {
         errorMessage =
@@ -246,6 +267,181 @@ export function useScrapeAllPosts() {
       }
 
       toast.error(`Failed to scrape posts: ${errorMessage}`);
+    },
+  });
+}
+
+/**
+ * Hook to scrape all posts with fire-and-forget + polling for progress.
+ * This avoids client-side timeouts by not waiting for the Edge Function to finish.
+ */
+export function useScrapeAllPostsWithPolling() {
+  const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
+  const [isPolling, setIsPolling] = useState(false);
+  const [progress, setProgress] = useState<{
+    total: number;
+    scraped: number;
+    failed: number;
+    pending: number;
+    scraping: number;
+  } | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const toastIdRef = useRef<string | number | undefined>(undefined);
+
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setIsPolling(false);
+  }, []);
+
+  const startScraping = useCallback(async (campaignId: string) => {
+    setIsPolling(true);
+    setProgress(null);
+
+    // Show initial toast
+    toastIdRef.current = toast.loading("Scraping posts... 0%");
+
+    // Start the edge function request in the background (keeps connection alive)
+    // This runs in parallel with polling — we don't await it here
+    const scrapePromise = scrapingApi.startScrapeAllPosts(campaignId).catch((err) => {
+      console.warn("scrape-all-posts background request error:", err);
+      return { data: null, error: err as Error };
+    });
+
+    // Small initial delay to let the Edge Function mark posts as "scraping"
+    await new Promise((r) => setTimeout(r, 3000));
+
+    // Safety: track how many consecutive "no activity" polls we get
+    let noActivityCount = 0;
+    const MAX_NO_ACTIVITY = 10; // 10 polls * 3s = 30 seconds with zero activity
+
+    // Start polling every 3 seconds
+    pollIntervalRef.current = setInterval(async () => {
+      const pollResult = await scrapingApi.pollScrapeProgress(campaignId);
+      if (pollResult.error || !pollResult.data) return;
+
+      const { total, scraped, failed, pending, scraping, done } = pollResult.data;
+      const processed = scraped + failed;
+      const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+      setProgress(pollResult.data);
+
+      // Update the loading toast with progress
+      toast.loading(
+        `Scraping posts... ${percent}% (${processed}/${total})${scraping > 0 ? ` [${scraping} active]` : ""}`,
+        { id: toastIdRef.current }
+      );
+
+      // Safety timeout: if nothing is happening for too long, stop polling
+      if (scraping === 0 && processed === 0 && pending > 0) {
+        noActivityCount++;
+        if (noActivityCount >= MAX_NO_ACTIVITY) {
+          // Edge function likely never started or crashed
+          stopPolling();
+          toast.dismiss(toastIdRef.current);
+          toast.error("Scraping did not start. Please try again.");
+          return;
+        }
+      } else {
+        noActivityCount = 0;
+      }
+
+      if (done) {
+        stopPolling();
+
+        // Dismiss the loading toast
+        toast.dismiss(toastIdRef.current);
+
+        // Refetch queries
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: postsKeys.lists() }),
+          queryClient.refetchQueries({ queryKey: postsKeys.metrics() }),
+          queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
+          queryClient.refetchQueries({
+            queryKey: campaignsKeys.lists(activeWorkspaceId),
+          }),
+        ]);
+
+        // Get campaign name for notification
+        const campaigns = queryClient.getQueryData(
+          campaignsKeys.lists(activeWorkspaceId)
+        ) as any[];
+        const campaign = campaigns?.find((c: any) => c.id === campaignId);
+        const campaignName = campaign?.name || "Campaign";
+
+        if (failed === 0 && scraped > 0) {
+          toast.success(`Successfully scraped ${scraped} post${scraped !== 1 ? "s" : ""}`);
+          addNotification({
+            type: "bulk_scraped",
+            title: "All posts scraped",
+            message: `All ${scraped} post${scraped !== 1 ? "s" : ""} in "${campaignName}" have been scraped successfully.`,
+          });
+        } else if (scraped === 0 && failed > 0) {
+          toast.error(`Failed to scrape all ${failed} post${failed !== 1 ? "s" : ""}`);
+        } else if (scraped > 0 && failed > 0) {
+          toast.warning(
+            `Scraped ${scraped} post${scraped !== 1 ? "s" : ""}, ${failed} failed`,
+            { duration: 5000 }
+          );
+          addNotification({
+            type: "bulk_scraped",
+            title: "Bulk scraping completed",
+            message: `Scraped ${scraped} post${scraped !== 1 ? "s" : ""} in "${campaignName}". ${failed} failed.`,
+          });
+        } else {
+          toast.success("Scraping complete — no posts needed scraping");
+        }
+      }
+    }, 3000);
+
+    // Also await the background fetch so the connection stays alive
+    // This ensures the edge function doesn't get terminated (EarlyDrop)
+    await scrapePromise;
+  }, [queryClient, activeWorkspaceId, stopPolling]);
+
+  return {
+    startScraping,
+    stopPolling,
+    isPolling,
+    progress,
+  };
+}
+
+/**
+ * Hook to reset posts stuck in "scraping" status (updated_at older than 5 min) back to "pending".
+ * Use when the Edge Function dies before cleanup, leaving posts stuck.
+ */
+export function useResetStuckScrapingPosts() {
+  const queryClient = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
+
+  return useMutation({
+    mutationFn: async (campaignId: string) => {
+      const result = await scrapingApi.resetStuckScrapingPosts(campaignId);
+      if (result.error) throw result.error;
+      return { count: result.data!.count, campaignId };
+    },
+    onSuccess: async (data) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: postsKeys.lists() }),
+        queryClient.refetchQueries({ queryKey: postsKeys.metrics() }),
+        queryClient.refetchQueries({ queryKey: subcampaignsKeys.all }),
+        queryClient.refetchQueries({
+          queryKey: campaignsKeys.lists(activeWorkspaceId),
+        }),
+      ]);
+      const count = data.count;
+      toast.success(
+        count > 0
+          ? `Reset ${count} stuck post${count !== 1 ? "s" : ""} to pending`
+          : "No stuck posts to reset"
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to reset stuck posts: ${error.message}`);
     },
   });
 }

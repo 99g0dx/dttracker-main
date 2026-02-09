@@ -9,13 +9,17 @@ const corsHeaders = {
 
 interface ScrapeAllRequest {
   campaignId: string;
+  chainDepth?: number; // 0 = user-initiated, 1+ = chained from previous run
 }
 
 interface ScrapeAllResult {
   success_count: number;
   error_count: number;
-  errors: Array<{ postId: string; message: string }>;
+  errors: Array<{ postId: string; message: string; post_url?: string; platform?: string }>;
 }
+
+const BATCH_SIZE = 6; // Process at most 6 posts per run to stay within time limit
+const MAX_CHAIN_DEPTH = 5; // Max auto-chained runs per user action
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -35,7 +39,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: ScrapeAllRequest = await req.json();
-    const { campaignId } = body;
+    const { campaignId, chainDepth = 0 } = body;
 
     if (!campaignId) {
       return new Response(
@@ -91,14 +95,15 @@ serve(async (req) => {
     }
 
     console.log("=== Scrape All Posts Started ===");
-    console.log("Campaign ID:", campaignId);
+    console.log("Campaign ID:", campaignId, "| Chain depth:", chainDepth);
     if (user) {
       console.log("User ID:", user.id);
     }
     console.log("Timestamp:", new Date().toISOString());
 
-    if (authHeader) {
-      // Verify the campaign belongs to the user (using RLS with user token check)
+    // Verify campaign ownership only for user-initiated requests (chainDepth 0)
+    // Chained runs use service key and skip this check (first run already verified)
+    if (authHeader && chainDepth === 0) {
       const userClient = createClient(supabaseUrl, supabaseAnonKey, {
         global: {
           headers: { Authorization: authHeader },
@@ -285,12 +290,15 @@ serve(async (req) => {
       );
     }
 
-    // Update status to 'scraping' for posts we'll scrape
-    const postIdsToScrape = postsToScrape.map((p) => p.id);
+    // Take only a batch of posts to process this run
+    const batch = postsToScrape.slice(0, BATCH_SIZE);
+    const batchIds = batch.map((p) => p.id);
+
+    // Mark only this batch as 'scraping' (not all posts)
     await supabase
       .from("posts")
       .update({ status: "scraping" })
-      .in("id", postIdsToScrape);
+      .in("id", batchIds);
 
     const result: ScrapeAllResult = {
       success_count: 0,
@@ -299,23 +307,22 @@ serve(async (req) => {
     };
 
     // Get the scrape-post function URL for internal calls
-    const scrapePostUrl = `${supabaseUrl}/functions/v1/scrape-post`;
+    const scrapePostUrl = `${supabaseUrl}/functions/v1/scrape-all-posts`;
+    const scrapePostFnUrl = `${supabaseUrl}/functions/v1/scrape-post`;
 
     // Scrape each post with rate limiting
-    // Note: Edge functions have execution time limits (60s free, 300s pro)
-    // For large batches, consider processing in chunks or using background jobs
     const startTime = Date.now();
     const MAX_EXECUTION_TIME = 250000; // 250 seconds (leave buffer for cleanup)
     const SAFE_EXECUTION_TIME = MAX_EXECUTION_TIME * 0.85; // Use 85% as safe limit (212.5 seconds)
 
     console.log(
-      `🚀 Starting to scrape ${postsToScrape.length} posts (max time: ${
+      `🚀 Processing batch of ${batch.length} posts (${postsToScrape.length} total need scraping, max time: ${
         MAX_EXECUTION_TIME / 1000
       }s, safe limit: ${SAFE_EXECUTION_TIME / 1000}s)`
     );
 
-    for (let i = 0; i < postsToScrape.length; i++) {
-      const post = postsToScrape[i];
+    for (let i = 0; i < batch.length; i++) {
+      const post = batch[i];
       const elapsedTime = Date.now() - startTime;
       const timeRemaining = MAX_EXECUTION_TIME - elapsedTime;
 
@@ -328,38 +335,61 @@ serve(async (req) => {
         timeRemaining < estimatedTimeForNextPost
       ) {
         const processedCount = i;
-        const remainingCount = postsToScrape.length - i;
+        const remainingInBatch = batch.slice(i).map((p) => p.id);
         console.warn(
           `⏱️ Approaching execution time limit. ` +
             `Elapsed: ${(elapsedTime / 1000).toFixed(1)}s, ` +
             `Remaining: ${(timeRemaining / 1000).toFixed(1)}s, ` +
-            `Processed: ${processedCount}/${postsToScrape.length} posts, ` +
-            `Remaining: ${remainingCount} posts`
+            `Processed: ${processedCount}/${batch.length} in batch, ` +
+            `Reset: ${remainingInBatch.length} posts to pending`
         );
 
-        // Reset remaining posts back to "pending" so they can be scraped later
-        const remainingPostIds = postsToScrape.slice(i).map((p) => p.id);
-        if (remainingPostIds.length > 0) {
+        if (remainingInBatch.length > 0) {
           await supabase
             .from("posts")
             .update({ status: "pending" })
-            .in("id", remainingPostIds);
+            .in("id", remainingInBatch);
 
           console.log(
-            `📋 Reset ${remainingPostIds.length} remaining posts to pending status`
+            `📋 Reset ${remainingInBatch.length} posts to pending status`
           );
+
+          // Chain: fire another run to process the next batch (if under limit)
+          if (chainDepth < MAX_CHAIN_DEPTH) {
+            console.log(
+              `🔗 Chaining run (depth ${chainDepth + 1}/${MAX_CHAIN_DEPTH})`
+            );
+            fetch(scrapePostUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: authHeader
+                  ? authHeader
+                  : `Bearer ${supabaseServiceKey}`,
+                apikey: supabaseServiceKey,
+              },
+              body: JSON.stringify({
+                campaignId,
+                chainDepth: chainDepth + 1,
+              }),
+            }).catch((err) =>
+              console.error("Chained scrape-all-posts request failed:", err)
+            );
+          }
         }
 
         result.errors.push({
           postId: "timeout",
-          message: `Processing stopped early due to execution time limit. ${processedCount} posts processed, ${remainingPostIds.length} posts reset to pending and will be scraped next time.`,
+          message: `Processing stopped early due to execution time limit. ${processedCount} posts processed, ${remainingInBatch.length} reset to pending${chainDepth < MAX_CHAIN_DEPTH ? ", next batch chained." : "."}`,
         });
         break;
       }
 
+      let postFailed = false;
+
       try {
         const progressPercent = (
-          ((i + 1) / postsToScrape.length) *
+          ((i + 1) / batch.length) *
           100
         ).toFixed(1);
         const elapsedSeconds = (elapsedTime / 1000).toFixed(1);
@@ -367,59 +397,74 @@ serve(async (req) => {
           i > 0 ? (elapsedTime / i / 1000).toFixed(1) : "0";
         const estimatedRemaining =
           i > 0
-            ? (((elapsedTime / i) * (postsToScrape.length - i)) / 1000).toFixed(
-                0
-              )
+            ? (((elapsedTime / i) * (batch.length - i)) / 1000).toFixed(0)
             : "?";
 
         console.log(
-          `[${i + 1}/${postsToScrape.length}] (${progressPercent}%) ` +
+          `[${i + 1}/${batch.length}] (${progressPercent}%) ` +
             `Scraping post ${post.id} (${post.platform}) ` +
             `| Elapsed: ${elapsedSeconds}s | Avg: ${avgTimePerPost}s/post | Est. remaining: ${estimatedRemaining}s`
         );
 
-        const POST_SCRAPE_RETRIES = 3; // initial + 2 retries
+        const POST_SCRAPE_RETRIES = 2; // initial + 1 retry (reduced from 3 to save time)
+        const SCRAPE_TIMEOUT_MS = 90000; // 90 second timeout per request (Apify actors typically take 30-90s)
         let lastError: string = "";
         let succeeded = false;
 
         for (let attempt = 0; attempt < POST_SCRAPE_RETRIES && !succeeded; attempt++) {
           if (attempt > 0) {
-            const retryDelayMs = 2000 * attempt;
+            const retryDelayMs = 1000 * attempt; // reduced from 2000 * attempt
             console.log(`Retrying post ${post.id} in ${retryDelayMs}ms (attempt ${attempt + 1}/${POST_SCRAPE_RETRIES})...`);
             await new Promise((r) => setTimeout(r, retryDelayMs));
           }
 
           try {
-            // Call scrape-post function internally
-            const scrapeResponse = await fetch(scrapePostUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: authHeader ?? `Bearer ${supabaseServiceKey}`,
-                apikey: supabaseServiceKey,
-              },
-              body: JSON.stringify({
-                postId: post.id,
-                postUrl: post.post_url,
-                platform: post.platform,
-                isAutoScrape: true,
-                request_user_id: user?.id ?? null,
-              }),
-            });
+            // Add per-request timeout with AbortController
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS);
 
-            if (!scrapeResponse.ok) {
-              const errorText = await scrapeResponse.text();
-              lastError = `HTTP ${scrapeResponse.status}: ${errorText}`;
-              continue;
-            }
+            try {
+              // Call scrape-post function internally
+              const scrapeResponse = await fetch(scrapePostFnUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: authHeader ?? `Bearer ${supabaseServiceKey}`,
+                  apikey: supabaseServiceKey,
+                },
+                body: JSON.stringify({
+                  postId: post.id,
+                  postUrl: post.post_url,
+                  platform: post.platform,
+                  isAutoScrape: true,
+                  request_user_id: user?.id ?? null,
+                }),
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
 
-            const scrapeResult = await scrapeResponse.json();
-            if (scrapeResult.success) {
-              result.success_count++;
-              console.log(`✅ Post ${post.id} scraped successfully`);
-              succeeded = true;
-            } else {
-              lastError = scrapeResult.error || "Unknown scraping error";
+              if (!scrapeResponse.ok) {
+                const errorText = await scrapeResponse.text();
+                lastError = `HTTP ${scrapeResponse.status}: ${errorText}`;
+                continue;
+              }
+
+              const scrapeResult = await scrapeResponse.json();
+              if (scrapeResult.success) {
+                result.success_count++;
+                console.log(`✅ Post ${post.id} scraped successfully`);
+                succeeded = true;
+              } else {
+                lastError = scrapeResult.error || "Unknown scraping error";
+              }
+            } catch (err) {
+              clearTimeout(timeoutId);
+              if (err instanceof DOMException && err.name === 'AbortError') {
+                lastError = `Scrape request timed out after ${SCRAPE_TIMEOUT_MS / 1000} seconds`;
+                console.warn(`⏱️ Post ${post.id} timed out on attempt ${attempt + 1}`);
+              } else {
+                lastError = err instanceof Error ? err.message : String(err);
+              }
             }
           } catch (err) {
             lastError = err instanceof Error ? err.message : String(err);
@@ -427,81 +472,115 @@ serve(async (req) => {
         }
 
         if (!succeeded) {
+          postFailed = true;
           result.error_count++;
-          result.errors.push({ postId: post.id, message: lastError });
-          console.error(`❌ Failed to scrape post ${post.id} after ${POST_SCRAPE_RETRIES} attempts:`, lastError);
+          result.errors.push({
+            postId: post.id,
+            message: lastError,
+            post_url: post.post_url,
+            platform: post.platform,
+          });
+          console.error(
+            `[FAIL] post=${post.id} platform=${post.platform} url=${(post.post_url || "").slice(0, 50)}... error=${lastError}`
+          );
+          const now = new Date().toISOString();
           await supabase
             .from("posts")
-            .update({ status: "failed" })
+            .update({
+              status: "failed",
+              last_attempt_at: now,
+              last_attempt_status: "failed",
+              last_attempt_error: lastError.substring(0, 500),
+            })
             .eq("id", post.id);
         }
       } catch (error) {
+        postFailed = true;
         result.error_count++;
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         result.errors.push({
           postId: post.id,
           message: errorMessage,
+          post_url: post.post_url,
+          platform: post.platform,
         });
-        console.error(`❌ Failed to scrape post ${post.id}:`, errorMessage);
+        console.error(
+          `[FAIL] post=${post.id} platform=${post.platform} url=${(post.post_url || "").slice(0, 50)}... error=${errorMessage}`
+        );
 
+        const now = new Date().toISOString();
         await supabase
           .from("posts")
-          .update({ status: "failed" })
+          .update({
+            status: "failed",
+            last_attempt_at: now,
+            last_attempt_status: "failed",
+            last_attempt_error: errorMessage.substring(0, 500),
+          })
           .eq("id", post.id);
       }
 
       // Adaptive rate limiting: adjust delay based on time remaining
-      // This helps maximize the number of posts scraped before timeout
-      const currentTime = Date.now();
-      const elapsedTimeAfterPost = currentTime - startTime;
-      const timeRemainingAfterPost = MAX_EXECUTION_TIME - elapsedTimeAfterPost;
-      const postsRemaining = postsToScrape.length - (i + 1);
+      // Skip most of the delay after failures to move on quickly
+      if (postFailed) {
+        // Minimal delay after failure — just move on
+        if (i < postsToScrape.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      } else {
+        const currentTime = Date.now();
+        const elapsedTimeAfterPost = currentTime - startTime;
+        const timeRemainingAfterPost = MAX_EXECUTION_TIME - elapsedTimeAfterPost;
+        const postsRemaining = batch.length - (i + 1);
 
-      // Calculate adaptive delay
-      let delay = 2000; // Default 2 seconds
+        // Calculate adaptive delay
+        let delay = 2000; // Default 2 seconds
 
-      if (postsRemaining > 0) {
-        // If we have very little time left, reduce delay significantly
-        if (timeRemainingAfterPost < 10000) {
-          delay = 500; // 0.5 seconds if less than 10s remaining
-        } else if (timeRemainingAfterPost < 30000) {
-          delay = 1000; // 1 second if less than 30s remaining
-        } else if (timeRemainingAfterPost < 60000) {
-          delay = 1500; // 1.5 seconds if less than 60s remaining
+        if (postsRemaining > 0) {
+          if (timeRemainingAfterPost < 10000) {
+            delay = 500;
+          } else if (timeRemainingAfterPost < 30000) {
+            delay = 1000;
+          } else if (timeRemainingAfterPost < 60000) {
+            delay = 1500;
+          }
+
+          const estimatedTimeForRemaining = postsRemaining * (delay + 3000);
+          if (estimatedTimeForRemaining > timeRemainingAfterPost) {
+            const maxDelay = Math.max(
+              500,
+              timeRemainingAfterPost / postsRemaining - 3000
+            );
+            delay = Math.min(delay, maxDelay);
+          }
         }
 
-        // Ensure we have enough time for remaining posts
-        const estimatedTimeForRemaining = postsRemaining * (delay + 3000); // delay + ~3s per post
-        if (estimatedTimeForRemaining > timeRemainingAfterPost) {
-          // Reduce delay to fit remaining posts
-          const maxDelay = Math.max(
-            500,
-            timeRemainingAfterPost / postsRemaining - 3000
-          );
-          delay = Math.min(delay, maxDelay);
+        if (i < postsToScrape.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
-      }
-
-      if (i < postsToScrape.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
 
     const totalTime = Date.now() - startTime;
     const avgTimePerPost =
-      postsToScrape.length > 0
-        ? (totalTime / postsToScrape.length / 1000).toFixed(2)
+      batch.length > 0
+        ? (totalTime / batch.length / 1000).toFixed(2)
         : "0";
 
-    console.log(`=== Scrape All Posts Complete ===`);
+    console.log(`=== Scrape All Posts Complete (batch) ===`);
     console.log(
-      `✅ Success: ${result.success_count}, ❌ Errors: ${
-        result.error_count
-      }, ⏱️ Total time: ${(totalTime / 1000).toFixed(
-        1
-      )}s, 📊 Avg: ${avgTimePerPost}s/post`
+      `✅ Success: ${result.success_count}, ❌ Errors: ${result.error_count}, ` +
+        `⏱️ Total time: ${(totalTime / 1000).toFixed(1)}s, 📊 Avg: ${avgTimePerPost}s/post`
     );
+    if (result.errors.length > 0) {
+      console.log(
+        "Failed posts:",
+        result.errors
+          .filter((e) => e.postId !== "timeout")
+          .map((e) => `${e.postId} (${e.platform}): ${(e.message || "").slice(0, 80)}...`)
+      );
+    }
 
     return new Response(
       JSON.stringify({
