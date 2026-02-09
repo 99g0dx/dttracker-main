@@ -187,9 +187,6 @@ export async function getOrCreate(
   sourceType?: "manual" | "csv_import" | "scraper_extraction" | null,
   workspaceId?: string | null
 ): Promise<ApiResponse<Creator>> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:178',message:'getOrCreate entry',data:{handle,platform,name,sourceType},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   try {
     const {
       data: { user },
@@ -207,148 +204,50 @@ export async function getOrCreate(
       };
     }
 
-    // Normalize handle for consistent searching/storage (remove @, lowercase)
-    const normalizedHandle = normalizeHandle(handle);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:208',message:'handle normalized',data:{originalHandle:handle,normalizedHandle},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    if (!normalizedHandle) {
-      return { data: null, error: new Error("Invalid handle: handle cannot be empty") };
+    // Use the get_or_create_creator RPC which runs as SECURITY DEFINER
+    // to bypass RLS on both creators and workspace_creators tables.
+    const { data: creatorId, error: rpcError } = await supabase.rpc(
+      "get_or_create_creator",
+      {
+        p_platform: platform,
+        p_handle: handle,
+        p_name: name || null,
+        p_user_id: user.id,
+        p_follower_count: followerCount || 0,
+        p_email: email || null,
+        p_phone: phone || null,
+        p_niche: niche || null,
+        p_location: location || null,
+        p_source_type: sourceType || "manual",
+        p_imported_by_user_id: user.id,
+        p_workspace_id: targetWorkspaceId,
+      }
+    );
+
+    if (rpcError || !creatorId) {
+      return {
+        data: null,
+        error: rpcError || new Error("Failed to get or create creator"),
+      };
     }
 
-    // First, try to find existing creator by platform + normalized handle
-    // Fetch all creators for this platform and filter by normalized handle (case-insensitive)
-    const { data: allCreators, error: fetchError } = await supabase
+    // Fetch the full creator object (RLS will allow it since the RPC
+    // already added them to workspace_creators)
+    const { data: creator, error: fetchError } = await supabase
       .from("creators")
       .select("*")
-      .eq("platform", platform);
+      .eq("id", creatorId as string)
+      .single();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:216',message:'fetched creators for platform',data:{platform,count:allCreators?.length,handles:allCreators?.map(c=>({id:c.id,handle:c.handle,normalized:normalizeHandle(c.handle)})),fetchError:fetchError?.message},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
-    if (fetchError) {
-      return { data: null, error: fetchError };
-    }
-
-    // Find existing creator by normalized handle (case-insensitive match)
-    const existing = allCreators?.find(
-      (c) => normalizeHandle(c.handle) === normalizedHandle
-    );
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:225',message:'search result',data:{normalizedHandle,existingFound:!!existing,existingId:existing?.id,existingHandle:existing?.handle},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
-    let creator: Creator;
-
-    if (existing) {
-      // Creator exists globally, use it
-      creator = existing;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:232',message:'using existing creator',data:{creatorId:creator.id,creatorHandle:creator.handle},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-    } else {
-      // Create new creator with normalized handle
-      const creatorData: CreatorInsert = {
-        user_id: user.id,
-        name: name || normalizedHandle,
-        handle: normalizedHandle, // Store normalized handle consistently
-        platform,
-        follower_count: followerCount || 0,
-        avg_engagement: 0,
-        email: email || null,
-        phone: phone || null,
-        niche: niche || null,
-        location: location || null,
-        source_type: sourceType || "manual",
-        imported_by_user_id: user.id,
-        // created_by_workspace_id: user.id, // Track who introduced this creator
+    if (fetchError || !creator) {
+      return {
+        data: null,
+        error: fetchError || new Error("Creator created but could not be fetched"),
       };
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:252',message:'attempting insert',data:{creatorData:{handle:creatorData.handle,platform:creatorData.platform,name:creatorData.name}},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-
-      const { data: created, error: createError } = await supabase
-        .from("creators")
-        .insert(creatorData)
-        .select()
-        .single();
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:256',message:'insert result',data:{success:!!created,createdId:created?.id,createdHandle:created?.handle,errorCode:createError?.code,errorMessage:createError?.message,errorDetails:createError?.details},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-
-      if (createError) {
-        // Handle duplicate key error (unique constraint violation)
-        // This can happen due to race conditions - another request created it between our check and insert
-        if (createError.code === "23505") {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:261',message:'duplicate key error caught',data:{normalizedHandle,platform},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
-          // Fetch the existing creator that was just created (search by normalized handle)
-          const { data: raceConditionCreators } = await supabase
-            .from("creators")
-            .select("*")
-            .eq("platform", platform);
-
-          const raceConditionCreator = raceConditionCreators?.find(
-            (c) => normalizeHandle(c.handle) === normalizedHandle
-          );
-
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:270',message:'race condition recovery search',data:{normalizedHandle,found:!!raceConditionCreator,creatorId:raceConditionCreator?.id,creatorHandle:raceConditionCreator?.handle,allHandles:raceConditionCreators?.map(c=>({id:c.id,handle:c.handle,normalized:normalizeHandle(c.handle)}))},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
-
-          if (!raceConditionCreator) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:272',message:'race condition recovery failed',data:{normalizedHandle,platform,errorMessage:createError.message},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
-            return {
-              data: null,
-              error: new Error(
-                `Creator already exists but could not be retrieved: ${createError.message}`
-              ),
-            };
-          }
-
-          creator = raceConditionCreator;
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:281',message:'race condition recovery success',data:{creatorId:creator.id,creatorHandle:creator.handle},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
-        } else {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:283',message:'insert error not 23505',data:{errorCode:createError.code,errorMessage:createError.message},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
-          return { data: null, error: createError };
-        }
-      } else {
-        creator = created!;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:286',message:'creator created successfully',data:{creatorId:creator.id,creatorHandle:creator.handle},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
-      }
     }
 
-    // Ensure creator is in workspace_creators (for My Network)
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:291',message:'ensuring workspace creator',data:{creatorId:creator.id,workspaceId:targetWorkspaceId},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    await ensureWorkspaceCreator(
-      targetWorkspaceId,
-      creator.id,
-      sourceType || "manual"
-    );
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:297',message:'getOrCreate success',data:{creatorId:creator.id,creatorHandle:creator.handle,platform:creator.platform},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     return { data: creator, error: null };
   } catch (err) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/1c4fc1e3-c4d5-4e26-91bc-35bf48274c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creators.ts:300',message:'getOrCreate exception',data:{error:err instanceof Error?err.message:String(err),errorStack:err instanceof Error?err.stack:undefined},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     return { data: null, error: err as Error };
   }
 }
@@ -644,79 +543,7 @@ export async function createMany(
         continue;
       }
 
-      // Search for existing creator by platform + normalized handle
-      const { data: allCreators } = await supabase
-        .from("creators")
-        .select("*")
-        .eq("platform", creatorData.platform);
-
-      const existing = allCreators?.find(
-        (c) => normalizeHandle(c.handle) === normalizedHandle
-      );
-
-      let creator: Creator;
-
-      if (existing) {
-        creator = existing;
-      } else {
-        // Create new creator with normalized handle
-        const creatorDataWithNormalizedHandle: CreatorInsert = {
-          ...creatorData,
-          handle: normalizedHandle, // Store normalized handle consistently
-        };
-
-        const { data: created, error: createError } = await supabase
-          .from("creators")
-          .insert(creatorDataWithNormalizedHandle)
-          .select()
-          .single();
-
-        if (createError) {
-          // Handle duplicate key error (unique constraint violation)
-          if (createError.code === "23505") {
-            // Fetch the existing creator that was just created
-            const { data: raceConditionCreators } = await supabase
-              .from("creators")
-              .select("*")
-              .eq("platform", creatorData.platform);
-
-            const raceConditionCreator = raceConditionCreators?.find(
-              (c) => normalizeHandle(c.handle) === normalizedHandle
-            );
-
-            if (raceConditionCreator) {
-              creator = raceConditionCreator;
-            } else {
-              result.error_count++;
-              result.errors.push({
-                handle: creatorData.handle,
-                platform: creatorData.platform,
-                message: `Creator already exists but could not be retrieved: ${createError.message}`,
-              });
-              continue;
-            }
-          } else {
-            result.error_count++;
-            result.errors.push({
-              handle: creatorData.handle,
-              platform: creatorData.platform,
-              message: createError.message || "Unknown error",
-            });
-            continue;
-          }
-        } else if (!created) {
-          result.error_count++;
-          result.errors.push({
-            handle: creatorData.handle,
-            platform: creatorData.platform,
-            message: "Unknown error: creator was not created",
-          });
-          continue;
-        } else {
-          creator = created;
-        }
-      }
-
+      // Resolve workspace first
       const { workspaceId: targetWorkspaceId, error: workspaceError } =
         await resolveWorkspaceId(workspaceId);
       if (workspaceError || !targetWorkspaceId) {
@@ -728,12 +555,52 @@ export async function createMany(
         });
         continue;
       }
-      // Ensure creator is in workspace_creators
-      await ensureWorkspaceCreator(
-        targetWorkspaceId,
-        creator.id,
-        creatorData.source_type || "csv_import"
+
+      // Use RPC to get-or-create creator + add to workspace (bypasses RLS)
+      const { data: creatorId, error: rpcError } = await supabase.rpc(
+        "get_or_create_creator",
+        {
+          p_platform: creatorData.platform,
+          p_handle: normalizedHandle,
+          p_name: creatorData.name || normalizedHandle,
+          p_user_id: user.id,
+          p_follower_count: creatorData.follower_count || 0,
+          p_email: creatorData.email || null,
+          p_phone: creatorData.phone || null,
+          p_niche: creatorData.niche || null,
+          p_location: creatorData.location || null,
+          p_source_type: creatorData.source_type || "csv_import",
+          p_imported_by_user_id: user.id,
+          p_workspace_id: targetWorkspaceId,
+        }
       );
+
+      if (rpcError || !creatorId) {
+        result.error_count++;
+        result.errors.push({
+          handle: creatorData.handle,
+          platform: creatorData.platform,
+          message: rpcError?.message || "Failed to get or create creator",
+        });
+        continue;
+      }
+
+      // Fetch full creator object (RLS allows it now since RPC added to workspace)
+      const { data: creator, error: fetchErr } = await supabase
+        .from("creators")
+        .select("*")
+        .eq("id", creatorId as string)
+        .single();
+
+      if (fetchErr || !creator) {
+        result.error_count++;
+        result.errors.push({
+          handle: creatorData.handle,
+          platform: creatorData.platform,
+          message: fetchErr?.message || "Creator created but could not be fetched",
+        });
+        continue;
+      }
 
       upsertedCreators.push(creator);
     }
@@ -1190,11 +1057,11 @@ export async function addCreatorsToCampaign(
 
     if (missingCreatorIds.length > 0) {
       for (const creatorId of missingCreatorIds) {
-        await ensureWorkspaceCreator(
-          targetWorkspaceId,
-          creatorId,
-          "scraper_extraction"
-        );
+        await supabase.rpc("ensure_workspace_creator", {
+          p_workspace_id: targetWorkspaceId,
+          p_creator_id: creatorId,
+          p_source: "scraper",
+        });
       }
 
       const { data: refreshedCreators, error: refreshError } = await supabase
@@ -1460,11 +1327,11 @@ export async function addCreatorsToMultipleCampaigns(
 
     if (missingCreatorIds.length > 0) {
       for (const creatorId of missingCreatorIds) {
-        await ensureWorkspaceCreator(
-          targetWorkspaceId,
-          creatorId,
-          "scraper_extraction"
-        );
+        await supabase.rpc("ensure_workspace_creator", {
+          p_workspace_id: targetWorkspaceId,
+          p_creator_id: creatorId,
+          p_source: "scraper",
+        });
       }
 
       const { data: refreshedCreators, error: refreshError } = await supabase

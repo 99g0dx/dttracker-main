@@ -41,6 +41,7 @@ DECLARE
   supabase_url TEXT;
   trigger_token TEXT;
   service_role_key TEXT;
+  headers_json JSONB;
   response_status INT;
   response_content TEXT;
 BEGIN
@@ -56,7 +57,7 @@ BEGIN
   SELECT value INTO service_role_key
   FROM public.app_settings
   WHERE key = 'service_role_key';
-  
+
   -- Validate configuration
   IF supabase_url IS NULL OR supabase_url = '' THEN
     RAISE WARNING 'Supabase URL not configured. Skipping scrape-all-scheduled call.';
@@ -64,40 +65,37 @@ BEGIN
   END IF;
 
   -- Build headers: prefer service_role_key, fallback to trigger_token
-  DECLARE
-    headers_json JSONB;
-  BEGIN
-    IF service_role_key IS NOT NULL AND service_role_key <> '' THEN
-      headers_json := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || service_role_key,
-        'apikey', service_role_key
-      );
-    ELSIF trigger_token IS NOT NULL AND trigger_token <> '' AND trigger_token <> 'CHANGE_ME' THEN
-      headers_json := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'x-scrape-trigger-token', trigger_token
-      );
-    ELSE
-      headers_json := jsonb_build_object('Content-Type', 'application/json');
-    END IF;
+  IF service_role_key IS NOT NULL AND service_role_key <> '' THEN
+    headers_json := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || service_role_key,
+      'apikey', service_role_key
+    );
+  ELSIF trigger_token IS NOT NULL AND trigger_token <> '' AND trigger_token <> 'CHANGE_ME' THEN
+    headers_json := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-scrape-trigger-token', trigger_token
+    );
+  ELSE
+    headers_json := jsonb_build_object('Content-Type', 'application/json');
+  END IF;
 
-    -- Call the Edge Function via HTTP
-    SELECT status, content INTO response_status, response_content
-    FROM http((
-      SELECT
-        method := 'POST',
-        url := supabase_url || '/functions/v1/scrape-all-scheduled',
-        headers := headers_json,
-        body := '{}'::jsonb
-      )::http_request
-    ));
+  -- Call the Edge Function via HTTP
+  SELECT status, content INTO response_status, response_content
+  FROM http(
+    ROW(
+      'POST',
+      supabase_url || '/functions/v1/scrape-all-scheduled',
+      ARRAY(SELECT (k, v)::http_header FROM jsonb_each_text(headers_json) AS t(k, v)),
+      'application/json',
+      '{}'
+    )::http_request
+  );
 
-    -- Log errors only
-    IF response_status != 200 THEN
-      RAISE WARNING 'scrape-all-scheduled returned status %: %', response_status, response_content;
-    END IF;
-  END;
+  -- Log errors only
+  IF response_status != 200 THEN
+    RAISE WARNING 'scrape-all-scheduled returned status %: %', response_status, response_content;
+  END IF;
 END;
 $$;
 
@@ -116,6 +114,7 @@ DECLARE
   supabase_url TEXT;
   trigger_token TEXT;
   service_role_key TEXT;
+  headers_json JSONB;
   response_status INT;
   response_content TEXT;
 BEGIN
@@ -131,7 +130,7 @@ BEGIN
   SELECT value INTO service_role_key
   FROM public.app_settings
   WHERE key = 'service_role_key';
-  
+
   -- Validate configuration
   IF supabase_url IS NULL OR supabase_url = '' THEN
     RAISE WARNING 'Supabase URL not configured. Skipping scrape-job-worker call.';
@@ -139,40 +138,37 @@ BEGIN
   END IF;
 
   -- Build headers: prefer service_role_key, fallback to trigger_token
-  DECLARE
-    headers_json JSONB;
-  BEGIN
-    IF service_role_key IS NOT NULL AND service_role_key <> '' THEN
-      headers_json := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || service_role_key,
-        'apikey', service_role_key
-      );
-    ELSIF trigger_token IS NOT NULL AND trigger_token <> '' AND trigger_token <> 'CHANGE_ME' THEN
-      headers_json := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'x-scrape-trigger-token', trigger_token
-      );
-    ELSE
-      headers_json := jsonb_build_object('Content-Type', 'application/json');
-    END IF;
+  IF service_role_key IS NOT NULL AND service_role_key <> '' THEN
+    headers_json := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || service_role_key,
+      'apikey', service_role_key
+    );
+  ELSIF trigger_token IS NOT NULL AND trigger_token <> '' AND trigger_token <> 'CHANGE_ME' THEN
+    headers_json := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-scrape-trigger-token', trigger_token
+    );
+  ELSE
+    headers_json := jsonb_build_object('Content-Type', 'application/json');
+  END IF;
 
-    -- Call the Edge Function via HTTP
-    SELECT status, content INTO response_status, response_content
-    FROM http((
-      SELECT
-        method := 'POST',
-        url := supabase_url || '/functions/v1/scrape-job-worker',
-        headers := headers_json,
-        body := '{}'::jsonb
-      )::http_request
-    ));
+  -- Call the Edge Function via HTTP
+  SELECT status, content INTO response_status, response_content
+  FROM http(
+    ROW(
+      'POST',
+      supabase_url || '/functions/v1/scrape-job-worker',
+      ARRAY(SELECT (k, v)::http_header FROM jsonb_each_text(headers_json) AS t(k, v)),
+      'application/json',
+      '{}'
+    )::http_request
+  );
 
-    -- Log errors only (success is silent to avoid spam)
-    IF response_status != 200 THEN
-      RAISE WARNING 'scrape-job-worker returned status %: %', response_status, response_content;
-    END IF;
-  END;
+  -- Log errors only (success is silent to avoid spam)
+  IF response_status != 200 THEN
+    RAISE WARNING 'scrape-job-worker returned status %: %', response_status, response_content;
+  END IF;
 END;
 $$;
 
@@ -182,29 +178,32 @@ $$;
 
 -- Job 1: Enqueue scrape jobs (scrape-all-scheduled)
 -- Runs every 12 hours at :00 minutes (00:00 and 12:00 UTC)
--- Remove existing job if it exists
-SELECT cron.unschedule('enqueue-scrape-jobs') WHERE EXISTS (
-  SELECT 1 FROM cron.job WHERE jobname = 'enqueue-scrape-jobs'
-);
+-- Remove existing job if it exists, then (re-)schedule
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'enqueue-scrape-jobs') THEN
+    PERFORM cron.unschedule('enqueue-scrape-jobs');
+  END IF;
+END $$;
 
--- Schedule enqueue job (every 12 hours)
 SELECT cron.schedule(
   'enqueue-scrape-jobs',
-  '0 */12 * * *', -- Every 12 hours at :00 minutes
+  '0 */12 * * *',
   $$SELECT trigger_scheduled_scraping();$$
 );
 
 -- Job 2: Process scrape queue (scrape-job-worker)
 -- Runs every 2 minutes
--- Remove existing job if it exists
-SELECT cron.unschedule('process-scrape-jobs') WHERE EXISTS (
-  SELECT 1 FROM cron.job WHERE jobname = 'process-scrape-jobs'
-);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'process-scrape-jobs') THEN
+    PERFORM cron.unschedule('process-scrape-jobs');
+  END IF;
+END $$;
 
--- Schedule worker job (every 2 minutes)
 SELECT cron.schedule(
   'process-scrape-jobs',
-  '*/2 * * * *', -- Every 2 minutes
+  '*/2 * * * *',
   $$SELECT trigger_scrape_job_worker();$$
 );
 

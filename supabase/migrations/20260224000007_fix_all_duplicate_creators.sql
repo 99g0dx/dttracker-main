@@ -99,6 +99,15 @@ BEGIN
     
     -- Update references in campaign_creators table (if it exists)
     IF has_campaign_creators THEN
+      -- Delete entries that would conflict with the kept creator
+      DELETE FROM public.campaign_creators cc1
+      WHERE cc1.creator_id = ANY(duplicate_ids)
+        AND EXISTS (
+          SELECT 1 FROM public.campaign_creators cc2
+          WHERE cc2.campaign_id = cc1.campaign_id
+            AND cc2.creator_id = kept_id
+        );
+      -- Re-point remaining entries
       UPDATE public.campaign_creators
       SET creator_id = kept_id
       WHERE creator_id = ANY(duplicate_ids);

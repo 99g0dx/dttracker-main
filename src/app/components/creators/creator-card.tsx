@@ -106,7 +106,7 @@ export function CreatorCard({
         </div>
 
         <div className="flex gap-2.5 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-5">
-          <div className="w-12 h-12 min-[400px]:w-14 min-[400px]:h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 flex-shrink-0 overflow-hidden border border-border/60">
+          <div className="w-12 h-12 min-[400px]:w-14 min-[400px]:h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-[#e8ecf1] to-[#f0f3f7] dark:from-[#2a2a2a] dark:to-[#1a1a1a] flex-shrink-0 overflow-hidden border border-border/60">
             {photo ? (
               <img
                 src={photo}

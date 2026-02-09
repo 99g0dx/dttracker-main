@@ -760,7 +760,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="relative h-11 min-h-[44px] px-3 rounded-lg bg-muted/40 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                  className="relative h-11 min-h-[44px] px-3 rounded-lg bg-gradient-to-b from-white to-[#f3f5f8] hover:from-[#f8f9fb] hover:to-[#edf0f4] border border-border text-sm text-foreground flex items-center justify-center gap-2 transition-colors w-full sm:w-auto shadow-sm dark:from-[#1a1a1a] dark:to-[#111111] dark:border-[#222222] dark:hover:from-[#222222] dark:hover:to-[#161616]"
                   aria-label="Creator actions"
                 >
                   <MoreHorizontal className="w-4 h-4" />
@@ -821,7 +821,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "my_network"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
+                  : "bg-gradient-to-b from-white to-[#f3f5f8] hover:from-[#f8f9fb] hover:to-[#edf0f4] active:bg-muted/80 border border-border text-foreground shadow-sm dark:from-[#1a1a1a] dark:to-[#111111] dark:border-[#222222] dark:hover:from-[#222222] dark:hover:to-[#161616]"
               }`}
             >
               My Network
@@ -831,7 +831,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "discover"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
+                  : "bg-gradient-to-b from-white to-[#f3f5f8] hover:from-[#f8f9fb] hover:to-[#edf0f4] active:bg-muted/80 border border-border text-foreground shadow-sm dark:from-[#1a1a1a] dark:to-[#111111] dark:border-[#222222] dark:hover:from-[#222222] dark:hover:to-[#161616]"
               }`}
             >
               Discover
@@ -841,7 +841,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "favorites"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
+                  : "bg-gradient-to-b from-white to-[#f3f5f8] hover:from-[#f8f9fb] hover:to-[#edf0f4] active:bg-muted/80 border border-border text-foreground shadow-sm dark:from-[#1a1a1a] dark:to-[#111111] dark:border-[#222222] dark:hover:from-[#222222] dark:hover:to-[#161616]"
               }`}
             >
               Favorites
@@ -851,7 +851,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 min-h-[44px] rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 activeCreatorTab === "community"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/40 hover:bg-muted/70 active:bg-muted/80 border border-border/60 text-foreground hover:border-border/70"
+                  : "bg-gradient-to-b from-white to-[#f3f5f8] hover:from-[#f8f9fb] hover:to-[#edf0f4] active:bg-muted/80 border border-border text-foreground shadow-sm dark:from-[#1a1a1a] dark:to-[#111111] dark:border-[#222222] dark:hover:from-[#222222] dark:hover:to-[#161616]"
               }`}
             >
               Community

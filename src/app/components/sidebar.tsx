@@ -393,7 +393,7 @@ export function Sidebar({ currentPath, onNavigate, onOpenCommandPalette, sidebar
                   >
                     <span className={cn(
                       'transition-colors duration-150',
-                      isActive ? 'text-sidebar-primary' : item.emphasis ? 'text-amber-500' : 'text-muted-foreground'
+                      isActive ? 'text-sidebar-primary dark:text-red-500' : item.emphasis ? 'text-amber-500' : 'text-muted-foreground dark:text-white'
                     )}>
                       {item.icon}
                     </span>
