@@ -135,6 +135,8 @@ serve(async (req) => {
               .from('creators')
               .update({
                 dobble_tap_user_id: dobbleTapCreatorId,
+                handle: normalizedHandle,
+                name,
                 profile_photo: profilePhoto || null,
                 bio: bio || null,
                 location: location || null,
@@ -179,10 +181,12 @@ serve(async (req) => {
             creator = newCreator;
           }
         } else {
-          // Update existing creator
+          // Update existing creator (including handle/name from Dobbletap)
           await supabase
             .from('creators')
             .update({
+              handle: normalizedHandle,
+              name,
               profile_photo: profilePhoto || null,
               bio: bio || null,
               location: location || null,

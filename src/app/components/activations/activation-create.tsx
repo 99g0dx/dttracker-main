@@ -50,6 +50,7 @@ const PLATFORMS = [
   { id: "tiktok", label: "TikTok" },
   { id: "instagram", label: "Instagram" },
   { id: "youtube", label: "YouTube" },
+  { id: "x", label: "X" },
 ];
 
 function formatAmount(amount: number): string {
@@ -481,7 +482,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       className="rounded"
                     />
                     <PlatformIcon
-                      platform={p.id as "tiktok" | "instagram" | "youtube"}
+                      platform={p.id as "tiktok" | "instagram" | "youtube" | "x"}
                       size="sm"
                     />
                     <span className="text-sm text-muted-foreground">{p.label}</span>

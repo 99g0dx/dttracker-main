@@ -43,7 +43,7 @@ export function getPlatformLabel(platform: PlatformIconName) {
 type PlatformIconSize = "sm" | "md";
 
 interface PlatformIconProps extends React.HTMLAttributes<HTMLDivElement> {
-  platform: PlatformIconName;
+  platform: PlatformIconName | string;
   size?: PlatformIconSize;
 }
 
@@ -62,7 +62,8 @@ export function PlatformIcon({
   title,
   ...props
 }: PlatformIconProps) {
-  const label = getPlatformLabel(platform);
+  const normalizedPlatform = normalizePlatform(platform) ?? platform;
+  const label = getPlatformLabel(normalizedPlatform as PlatformIconName);
   const ariaLabel = props["aria-label"] ?? label;
   const { icon } = sizeStyles[size];
 
@@ -72,7 +73,11 @@ export function PlatformIcon({
     youtube: YouTubeCustomIcon,
     x: TwitterCustomIcon,
     facebook: FacebookCustomIcon,
-  }[platform];
+  }[normalizedPlatform as PlatformIconName];
+
+  if (!IconComponent) {
+    return null;
+  }
 
   return (
     <div

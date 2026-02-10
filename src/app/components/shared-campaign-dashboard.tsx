@@ -644,6 +644,7 @@ export function SharedCampaignDashboard() {
                   { value: "all", label: "All" },
                   { value: "tiktok", label: "TikTok" },
                   { value: "instagram", label: "Instagram" },
+                  { value: "twitter", label: "X" },
                   { value: "youtube", label: "YouTube" },
                 ].map((platform) => (
                   <button
