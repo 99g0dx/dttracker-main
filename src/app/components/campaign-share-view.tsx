@@ -88,7 +88,8 @@ interface SharedCampaignData {
   };
 }
 
-const kpiPlatforms = new Set(["tiktok", "instagram"]);
+// Platforms included in KPI and chart calculations. Keep in sync with internal dashboard.
+const kpiPlatforms = new Set(["tiktok", "instagram", "youtube", "x", "facebook"]);
 
 function buildSeriesFromPosts(
   posts: Array<{
@@ -279,15 +280,34 @@ export function CampaignShareView() {
     return data.posts.filter((post) => post.campaignId === activeTab);
   }, [data?.posts, activeTab]);
 
+  // KPI cards: sum metrics across all posts (all platforms) to match internal dashboard behaviour
   const totals = useMemo(() => {
-    const kpiPosts = filteredPosts.filter((post) =>
-      kpiPlatforms.has(post.platform)
-    );
+    if (!filteredPosts || filteredPosts.length === 0) {
+      return {
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+      };
+    }
+
     return {
-      views: kpiPosts.reduce((sum, post) => sum + (post.views || 0), 0),
-      likes: kpiPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
-      comments: kpiPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
-      shares: kpiPosts.reduce((sum, post) => sum + (post.shares || 0), 0),
+      views: filteredPosts.reduce(
+        (sum, post) => sum + (Number(post.views) || 0),
+        0
+      ),
+      likes: filteredPosts.reduce(
+        (sum, post) => sum + (Number(post.likes) || 0),
+        0
+      ),
+      comments: filteredPosts.reduce(
+        (sum, post) => sum + (Number(post.comments) || 0),
+        0
+      ),
+      shares: filteredPosts.reduce(
+        (sum, post) => sum + (Number(post.shares) || 0),
+        0
+      ),
     };
   }, [filteredPosts]);
 
