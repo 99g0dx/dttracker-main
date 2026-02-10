@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import { Sidebar } from "./components/sidebar";
 import { CommandPalette } from "./components/command-palette";
+import { SubscriptionBanner } from "./components/subscription-banner";
 import { ToastProvider } from "./components/toast-provider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -276,6 +277,7 @@ function AppRoutes() {
               !isPublicRoute && isSwitching && "opacity-60"
             )}
           >
+            {!isPublicRoute && <SubscriptionBanner />}
             <Suspense fallback={loadingFallback}>
               <Routes>
                 <Route

@@ -28,6 +28,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
+import { useCanWrite } from "../../hooks/useBilling";
 import { getCampaignCoverGradient } from "../../lib/utils/campaign-gradients";
 
 interface CampaignsProps {
@@ -61,9 +62,10 @@ export function Campaigns({ onNavigate }: CampaignsProps) {
   } = useWorkspaceAccess();
   const deleteCampaignMutation = useDeleteCampaign();
   const duplicateCampaignMutation = useDuplicateCampaign();
+  const { canWrite } = useCanWrite();
   const isCampaignsLoading = !shouldFetch || isLoading;
   const canCreateCampaign =
-    !activeWorkspaceId || accessLoading || canViewWorkspace;
+    canWrite && (!activeWorkspaceId || accessLoading || canViewWorkspace);
 
   React.useEffect(() => {
     const timer = setTimeout(() => setShouldFetch(true), 500);

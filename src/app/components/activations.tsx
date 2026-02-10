@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useActivations, useDeleteActivation } from '../../hooks/useActivations';
+import { useCanWrite } from '../../hooks/useBilling';
 import { ResponsiveConfirmDialog } from './ui/responsive-confirm-dialog';
 import type { ActivationWithSubmissionCount } from '../../lib/api/activations';
 import type { ActivationStatus, ActivationType } from '../../lib/types/database';
@@ -66,6 +67,7 @@ function StatusBadge({ status }: { status: ActivationStatus }) {
 
 export function Activations({ onNavigate }: ActivationsProps) {
   const { activeWorkspaceId } = useWorkspace();
+  const { canWrite } = useCanWrite();
   const [typeFilter, setTypeFilter] = useState<ActivationType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<ActivationStatus | 'all'>('all');
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'public' | 'community'>('all');
@@ -122,7 +124,7 @@ export function Activations({ onNavigate }: ActivationsProps) {
         <Button
           onClick={() => onNavigate('/activations/create')}
           className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          disabled={!activeWorkspaceId}
+          disabled={!activeWorkspaceId || !canWrite}
         >
           <Plus className="w-4 h-4 mr-2" />
           Create
@@ -240,13 +242,15 @@ export function Activations({ onNavigate }: ActivationsProps) {
                 ? 'No public activations found. Try changing filters or create a new activation.'
                 : 'No community-only activations found. Import fans and create community activations to target specific audiences.'}
             </p>
-            <Button
-              onClick={() => onNavigate('/activations/create')}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Activation
-            </Button>
+            {canWrite && (
+              <Button
+                onClick={() => onNavigate('/activations/create')}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Activation
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

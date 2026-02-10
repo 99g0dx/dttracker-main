@@ -11,7 +11,7 @@ import {
   CancelResponse,
   UpdateSeatsResponse,
 } from '../lib/api/billing';
-import { canAccessFeature, getEffectiveLimits, isWithinLimit, Feature, PlanLimits } from '../lib/entitlements';
+import { canAccessFeature, getEffectiveLimits, isWithinLimit, hasActiveSubscription, Feature, PlanLimits } from '../lib/entitlements';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Query keys
@@ -124,6 +124,18 @@ export function useIsWithinLimit(
   return {
     isWithinLimit: isWithinLimit(billing, resource, currentCount),
     limit,
+    isLoading,
+  };
+}
+
+/**
+ * Hook to check if user can perform write actions (create campaigns, add creators, etc.)
+ * Returns true when subscription is active (paid or valid trial)
+ */
+export function useCanWrite(): { canWrite: boolean; isLoading: boolean } {
+  const { data: billing, isLoading } = useBillingSummary();
+  return {
+    canWrite: hasActiveSubscription(billing),
     isLoading,
   };
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useWorkspace } from "../../../contexts/WorkspaceContext";
+import { useCanWrite } from "../../../hooks/useBilling";
 import {
   useCreateActivation,
   usePublishActivation,
@@ -83,7 +84,9 @@ const INITIAL_FORM_STATE = {
 
 export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const { activeWorkspaceId } = useWorkspace();
+  const { canWrite, isLoading } = useCanWrite();
   const createActivation = useCreateActivation();
   const publishActivation = usePublishActivation();
   const updateActivation = useUpdateActivation();
@@ -92,7 +95,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   const { data: existingActivation, isLoading: isLoadingActivation } = useActivation(id ?? null);
   
   const isEditMode = !!id;
-  
+
   // Log errors but don't crash - tables might not exist yet
   if (communityFansError && import.meta.env.DEV) {
     console.warn('Community fans query error (table may not exist yet):', communityFansError);
@@ -309,6 +312,36 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Read-only: redirect to subscribe when subscription inactive
+  if (!isLoading && !canWrite) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/activations')}
+            className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
+            aria-label="Back to activations"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Subscribe to create activations
+          </h1>
+        </div>
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <p className="text-muted-foreground mb-4">
+              Your trial or subscription has ended. Subscribe to continue creating activations.
+            </p>
+            <Button onClick={() => navigate('/subscription')}>
+              Subscribe to continue
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

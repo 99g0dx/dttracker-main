@@ -224,6 +224,30 @@ export function hasPaidAccess(billing: BillingSummary | null | undefined): boole
 }
 
 /**
+ * Check if user has an active subscription that allows write actions
+ * (create campaigns, add creators, scrape, etc.)
+ * Active = is_paid OR (is_trialing AND days_until_period_end > 0)
+ */
+export function hasActiveSubscription(billing: BillingSummary | null | undefined): boolean {
+  if (hasAgencyBypass(billing)) return true;
+  if (!billing) return false;
+  if (billing.is_paid) return true;
+  if (billing.is_trialing && (billing.days_until_period_end ?? 0) > 0) return true;
+  return false;
+}
+
+/**
+ * Whether to show the subscription banner (for all non-paid users including active trials)
+ */
+export function shouldShowSubscriptionBanner(
+  billing: BillingSummary | null | undefined,
+): boolean {
+  if (hasAgencyBypass(billing)) return false;
+  if (!billing) return false;
+  return !billing.is_paid;
+}
+
+/**
  * Check if subscription is in grace period (past due but still has access)
  */
 export function isInGracePeriod(billing: BillingSummary | null | undefined): boolean {

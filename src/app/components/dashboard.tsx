@@ -31,6 +31,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useWorkspaceAccess } from '../../hooks/useWorkspaceAccess';
+import { useCanWrite } from '../../hooks/useBilling';
 import { getCampaignCoverGradient } from '../../lib/utils/campaign-gradients';
 import {
   Pagination,
@@ -218,7 +219,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     hasCampaignAccess,
     canViewCampaign,
   } = useWorkspaceAccess();
-
+  const { canWrite } = useCanWrite();
 
   // Fetch real campaign data
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaigns();
@@ -829,22 +830,26 @@ useEffect(() => {
             <NotificationsCenter /> 
           </div>
           
-          <button
-            onClick={() => onNavigate('/activations/create')}
-            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-secondary hover:bg-secondary/80 border border-border text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-            aria-label="Create activation"
-          >
-            <TrophyIcon className="w-4 h-4 text-current" />
-            <span className="hidden sm:inline">Create Activation</span>
-          </button>
-          <button
-            onClick={() => onNavigate('/campaigns/new')}
-            className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-            aria-label="Track new campaign"
-          >
-            <CampaignIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">Track Campaign</span>
-          </button>
+          {canWrite && (
+            <>
+              <button
+                onClick={() => onNavigate('/activations/create')}
+                className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-secondary hover:bg-secondary/80 border border-border text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                aria-label="Create activation"
+              >
+                <TrophyIcon className="w-4 h-4 text-current" />
+                <span className="hidden sm:inline">Create Activation</span>
+              </button>
+              <button
+                onClick={() => onNavigate('/campaigns/new')}
+                className="h-11 min-h-[44px] px-2.5 sm:px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                aria-label="Track new campaign"
+              >
+                <CampaignIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Track Campaign</span>
+              </button>
+            </>
+          )}
           <button
             onClick={handleExportCSV}
             className="h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium flex items-center justify-center gap-2 transition-colors"

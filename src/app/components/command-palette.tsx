@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { LayoutDashboard, Megaphone, Users, Settings, Plus, RefreshCw, Trophy, Wallet } from 'lucide-react';
+import { useCanWrite } from '../../hooks/useBilling';
 
 interface CommandPaletteProps {
   onNavigate: (path: string) => void;
@@ -10,6 +11,7 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
+  const { canWrite } = useCanWrite();
 
   useEffect(() => {
     setMounted(true);
@@ -132,32 +134,37 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
           </CommandGroup>
           
           <CommandGroup heading="Actions">
-            <CommandItem
-              onSelect={() => handleSelect(() => onNavigate('/activations/create'))}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
-            >
-              <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20">
-                <Trophy className="w-4 h-4 text-amber-400" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium">Create Activation</div>
-                <div className="text-xs text-muted-foreground">Contest or SM panel</div>
-              </div>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => handleSelect(() => onNavigate('/campaigns/new'))}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
-            >
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-red-400/20 dark:to-cyan-400/20">
-                <Plus className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium">New Campaign</div>
-                <div className="text-xs text-muted-foreground">Create a new campaign</div>
-              </div>
-              <kbd className="px-2 py-1 text-xs rounded bg-secondary/50 border border-border/50">⌘N</kbd>
-            </CommandItem>
+            {canWrite && (
+              <>
+                <CommandItem
+                  onSelect={() => handleSelect(() => onNavigate('/activations/create'))}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
+                >
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20">
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium">Create Activation</div>
+                    <div className="text-xs text-muted-foreground">Contest or SM panel</div>
+                  </div>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => handleSelect(() => onNavigate('/campaigns/new'))}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
+                >
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-red-400/20 dark:to-cyan-400/20">
+                    <Plus className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium">New Campaign</div>
+                    <div className="text-xs text-muted-foreground">Create a new campaign</div>
+                  </div>
+                  <kbd className="px-2 py-1 text-xs rounded bg-secondary/50 border border-border/50">⌘N</kbd>
+                </CommandItem>
+              </>
+            )}
             
+            {canWrite && (
             <CommandItem
               onSelect={() => handleSelect(() => console.log('Refresh data'))}
               className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer hover:bg-primary/10 transition-all"
@@ -171,6 +178,7 @@ export function CommandPalette({ onNavigate, onClose, open }: CommandPaletteProp
               </div>
               <kbd className="px-2 py-1 text-xs rounded bg-secondary/50 border border-border/50">⌘R</kbd>
             </CommandItem>
+            )}
           </CommandGroup>
         </CommandList>
         

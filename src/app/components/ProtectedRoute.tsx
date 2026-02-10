@@ -2,7 +2,6 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCheckOnboarding } from '../../hooks/useOnboarding';
-import { useBillingSummary } from '../../hooks/useBilling';
 import { supabase } from '../../lib/supabase';
 import { Button } from './ui/button';
 
@@ -13,7 +12,6 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const { needsOnboarding, isLoading: onboardingLoading } = useCheckOnboarding();
-  const { data: billing, isLoading: billingLoading } = useBillingSummary();
   const location = useLocation();
   const [banStatus, setBanStatus] = React.useState<{ banned: boolean; bannedUntil: string | null }>({
     banned: false,
@@ -122,9 +120,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  const allowPaths = ['/subscription', '/payment', '/billing/success', '/billing/cancel', '/settings', '/reset-password'];
-  const isAllowed = allowPaths.includes(location.pathname);
-
   if (passwordResetRequired && location.pathname !== '/reset-password') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -136,48 +131,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           <div className="mt-6 flex items-center justify-center gap-3">
             <Button onClick={() => (window.location.href = '/reset-password')}>
               Reset Password
-            </Button>
-            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  const subscriptionStatus = billing?.subscription?.status || 'active';
-  const trialExpired =
-    subscriptionStatus === 'trialing' && (billing?.days_until_period_end ?? 0) <= 0;
-  const freeBlocked = billing?.plan?.tier === 'free' && !billing?.is_paid && !billing?.is_trialing;
-  const subscriptionBlocked =
-    ['past_due', 'canceled', 'incomplete'].includes(subscriptionStatus) ||
-    trialExpired ||
-    freeBlocked;
-
-  if (!billingLoading && subscriptionBlocked && !isAllowed) {
-    let title = 'Subscription Required';
-    let message = 'Your trial or subscription has ended. Please upgrade to regain access.';
-    if (trialExpired) {
-      title = 'Trial Ended';
-      message = 'Your free trial has expired. Upgrade to continue using DTTracker.';
-    } else if (subscriptionStatus === 'past_due') {
-      title = 'Payment Required';
-      message = 'Your subscription is past due. Update billing to regain access.';
-    } else if (subscriptionStatus === 'canceled' || subscriptionStatus === 'incomplete') {
-      title = 'Subscription Inactive';
-      message = 'Your subscription is inactive. Choose a plan to continue.';
-    } else if (freeBlocked) {
-      title = 'Plan Upgrade Needed';
-      message = 'Your free access has ended. Please upgrade to continue.';
-    }
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="max-w-lg rounded-xl border border-border bg-card p-8 text-center">
-          <h2 className="text-2xl font-semibold text-foreground">{title}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{message}</p>
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <Button onClick={() => (window.location.href = '/subscription')}>
-              Manage Subscription
             </Button>
             <Button variant="outline" onClick={() => supabase.auth.signOut()}>
               Sign out
