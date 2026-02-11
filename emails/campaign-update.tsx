@@ -3,8 +3,8 @@ import {
   Paragraph,
   PrimaryButton,
   InfoRow,
-} from "./components/DTTrackerLayout";
-import { Section } from "@react-email/components";
+  InfoCard,
+} from "./components/DTTrackerLayout.tsx";
 import * as React from "react";
 
 interface CampaignUpdateEmailProps {
@@ -24,14 +24,14 @@ export default function CampaignUpdateEmail({
       heading="Campaign update"
     >
       <Paragraph>
-        We've just completed a scrape for <strong>{campaignName}</strong>. New
-        content has been detected since the last report.
+        New content has been detected for{" "}
+        <strong className="text-white">{campaignName}</strong> since the last report.
       </Paragraph>
 
-      <Section className="my-[24px] border border-[#eaeaea] rounded-[8px] p-[16px]">
+      <InfoCard>
         <InfoRow label="New Posts" value={newPosts.toString()} />
         <InfoRow label="Total Views" value={totalViews} />
-      </Section>
+      </InfoCard>
 
       <PrimaryButton href="https://dttracker.app/campaigns">
         View Campaign

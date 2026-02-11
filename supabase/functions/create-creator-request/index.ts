@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { syncToDobbleTap } from '../_shared/dobble-tap-sync.ts';
+import {
+  emailHeader, emailFooter, emailHeading, emailSubtext,
+  emailCard, emailInfoBox, emailSectionTitle,
+  emailLabel, emailValue, emailDivider, emailRow, emailTable,
+  emailStyles,
+} from "../_shared/email-template.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,11 +15,10 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
+    return new Response(null, {
       status: 204,
-      headers: corsHeaders 
+      headers: corsHeaders
     });
   }
 
@@ -27,10 +32,8 @@ serve(async (req) => {
       throw new Error('Request ID is required');
     }
 
-    // Get the request details from the database
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch the request with creators
     const { data: request, error: requestError } = await supabase
       .from('creator_requests')
       .select(`
@@ -56,7 +59,6 @@ serve(async (req) => {
       throw new Error(`Failed to fetch request: ${requestError?.message || 'Request not found'}`);
     }
 
-    // Extract creators from the nested structure
     const creators =
       request.creator_request_items?.map((item: any) => item.creators).filter(Boolean) || [];
     const dttrackerCreatorIds = creators.map((c: any) => c.id).filter(Boolean);
@@ -67,7 +69,6 @@ serve(async (req) => {
       .filter((c: any) => !c.dobble_tap_user_id)
       .map((c: any) => c.id);
 
-    // Build email content
     const campaignTypeLabels: Record<string, string> = {
       music_promotion: 'Music Promotion',
       brand_promotion: 'Brand Promotion',
@@ -106,135 +107,119 @@ serve(async (req) => {
       all_above: 'All of the above',
     };
 
-    const htmlContent = `<!DOCTYPE html>
-<html>
-  <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f7; padding: 40px 20px; color: #333;">
-    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-      
-      <div style="background: #000000; padding: 30px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px;">New Creator Request</h1>
-      </div>
-
-      <div style="padding: 30px;">
-        <p style="font-size: 16px; line-height: 1.6;">Hello,</p>
-        <p style="font-size: 16px; line-height: 1.6;">You have received a new creator request (Request ID: <strong>${request.id.slice(0, 8)}</strong>) with the following details:</p>
-
-        <!-- Request Details -->
-        <div style="margin-top: 25px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 18px; border-bottom: 2px solid #eaeaef; padding-bottom: 10px;">Request Details</h3>
-          
-          ${request.campaign_type ? `<p style="margin: 8px 0;"><strong>Campaign Type:</strong> ${campaignTypeLabels[request.campaign_type] || request.campaign_type}</p>` : ''}
-          ${request.status ? `<p style="margin: 8px 0;"><strong>Status:</strong> ${statusLabels[request.status] || request.status}</p>` : ''}
-          ${request.urgency ? `<p style="margin: 8px 0;"><strong>Urgency:</strong> ${urgencyLabels[request.urgency] || request.urgency}</p>` : ''}
-          ${request.posts_per_creator ? `<p style="margin: 8px 0;"><strong>Posts per Creator:</strong> ${request.posts_per_creator}</p>` : ''}
-          ${request.deadline ? `<p style="margin: 8px 0;"><strong>Deadline:</strong> ${new Date(request.deadline).toLocaleDateString()}</p>` : ''}
-        </div>
-
-        <!-- Campaign Brief -->
-        ${request.campaign_brief ? `
-        <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Campaign Brief</h3>
-          <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${request.campaign_brief}</p>
-        </div>
-        ` : ''}
-
-        <!-- Deliverables -->
-        ${request.deliverables && request.deliverables.length > 0 ? `
-        <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Deliverables</h3>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-            ${request.deliverables.map((d: string) => `
-              <span style="background: #eaeaef; color: #444; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;">
-                ${deliverableLabels[d] || d}
-              </span>
-            `).join('')}
-          </div>
-        </div>
-        ` : ''}
-
-        <!-- Usage Rights -->
-        ${request.usage_rights ? `
-        <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Usage Rights</h3>
-          <p style="margin: 0; color: #666; font-size: 14px;">${usageRightsLabels[request.usage_rights] || request.usage_rights}</p>
-        </div>
-        ` : ''}
-
-        <!-- Selected Creators -->
-        ${creators.length > 0 ? `
-        <div style="margin-top: 25px;">
-          <h3 style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 18px; border-bottom: 2px solid #eaeaef; padding-bottom: 10px;">Selected Creators (${creators.length})</h3>
-          ${creators.map((creator: any) => `
-            <div style="display: flex; align-items: center; padding: 15px; border: 1px solid #eaeaef; border-radius: 10px; margin-bottom: 12px;">
-              <div style="flex: 1;">
-                <h4 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px;">${creator.name || 'Unknown'}</h4>
-                <p style="margin: 4px 0; color: #666; font-size: 13px;">@${creator.handle || 'N/A'} • ${creator.platform || 'N/A'}</p>
-                ${creator.follower_count ? `<p style="margin: 4px 0; color: #999; font-size: 12px;">${Number(creator.follower_count).toLocaleString()} Followers</p>` : ''}
-                ${creator.niche ? `<p style="margin: 4px 0; color: #999; font-size: 12px;">${creator.niche}</p>` : ''}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-        ` : ''}
-
-        <!-- Contact Information -->
-        ${(request.contact_person_name || request.contact_person_email || request.contact_person_phone) ? `
-        <div style="margin-top: 25px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 16px;">Contact Information</h3>
-          ${request.contact_person_name ? `<p style="margin: 8px 0; color: #666; font-size: 14px;"><strong>Name:</strong> ${request.contact_person_name}</p>` : ''}
-          ${request.contact_person_email ? `<p style="margin: 8px 0; color: #666; font-size: 14px;"><strong>Email:</strong> ${request.contact_person_email}</p>` : ''}
-          ${request.contact_person_phone ? `<p style="margin: 8px 0; color: #666; font-size: 14px;"><strong>Phone:</strong> ${request.contact_person_phone}</p>` : ''}
-        </div>
-        ` : ''}
-
-        <!-- Asset Links -->
-        ${request.song_asset_links && request.song_asset_links.length > 0 ? `
-        <div style="margin-top: 20px; padding: 20px; background: #fafafa; border-radius: 8px;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">Asset Links</h3>
-          <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 14px;">
-            ${request.song_asset_links.map((link: string) => `<li style="margin: 4px 0;"><a href="${link}" style="color: #0066cc; text-decoration: none;">${link}</a></li>`).join('')}
-          </ul>
-        </div>
-        ` : ''}
-
-        <div style="margin-top: 30px; padding: 20px; background: #e8f4fd; border-radius: 8px; text-align: center;">
-          <p style="margin: 0; color: #0066cc; font-size: 14px; font-weight: 500;">Total Creators Requested: <strong>${creators.length}</strong></p>
-          <p style="margin: 8px 0 0 0; color: #666; font-size: 12px;">Request Created: ${new Date(request.created_at).toLocaleString()}</p>
-        </div>
-      </div>
-
-      <div style="padding: 20px; text-align: center; border-top: 1px solid #eee;">
-        <p style="font-size: 12px; color: #999;">
-          This request was sent via your DTTracker dashboard. <br/>
-          You can reply directly to this email to contact the user.
+    const creatorCards = creators.map((creator: any) => `
+      <div style="padding: 12px 14px; background-color: ${emailStyles.INFO_BOX_COLOR}; border: 1px solid ${emailStyles.BORDER_COLOR}; border-radius: 10px; margin-bottom: 8px;">
+        <p style="margin: 0 0 2px 0; font-size: 15px; font-weight: 600; color: ${emailStyles.TEXT_PRIMARY};">${creator.name || 'Unknown'}</p>
+        <p style="margin: 0; font-size: 12px; color: ${emailStyles.TEXT_SECONDARY};">
+          @${creator.handle || 'N/A'} &middot; ${creator.platform || 'N/A'}
+          ${creator.follower_count ? ` &middot; ${Number(creator.follower_count).toLocaleString()} followers` : ''}
+          ${creator.niche ? ` &middot; ${creator.niche}` : ''}
         </p>
       </div>
-    </div>
-  </body>
-</html>`;
+    `).join('');
 
-    // Get From email address from environment, fallback to default
-    const resendFromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'Dobble Tap <no-reply@dttracker.app>';
+    const deliverablesBlock = request.deliverables && request.deliverables.length > 0 ? `
+      ${emailDivider()}
+      ${emailSectionTitle("Deliverables")}
+      <div style="margin-bottom: 16px;">
+        ${request.deliverables.map((d: string) => `
+          <span style="display: inline-block; background-color: rgba(232,21,58,0.1); border: 1px solid rgba(232,21,58,0.2); color: ${emailStyles.BRAND_COLOR}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; margin: 0 6px 6px 0;">
+            ${deliverableLabels[d] || d}
+          </span>
+        `).join('')}
+      </div>
+    ` : '';
 
-    // Determine reply_to email: use contact_person_email if available
+    const contactBlock = (request.contact_person_name || request.contact_person_email || request.contact_person_phone) ? `
+      ${emailDivider()}
+      ${emailSectionTitle("Contact Information")}
+      ${emailCard(`
+        ${emailTable(`
+          ${request.contact_person_name ? emailRow("Name", request.contact_person_name) : ''}
+          ${request.contact_person_email ? emailRow("Email", request.contact_person_email) : ''}
+          ${request.contact_person_phone ? emailRow("Phone", request.contact_person_phone) : ''}
+        `)}
+      `)}
+    ` : '';
+
+    const assetBlock = request.song_asset_links && request.song_asset_links.length > 0 ? `
+      ${emailDivider()}
+      ${emailSectionTitle("Asset Links")}
+      ${emailCard(`
+        ${request.song_asset_links.map((link: string) => `
+          <p style="margin: 4px 0;"><a href="${link}" style="color: ${emailStyles.BRAND_COLOR}; text-decoration: none; font-size: 14px; word-break: break-all;">${link}</a></p>
+        `).join('')}
+      `)}
+    ` : '';
+
+    const htmlBody = `${emailHeader()}
+        ${emailHeading("New Creator Request")}
+        ${emailSubtext(`Request <strong style="color: ${emailStyles.TEXT_PRIMARY};">${request.id.slice(0, 8)}</strong> has been submitted.`)}
+
+        ${emailSectionTitle("Request Details")}
+        ${emailCard(`
+          ${emailTable(`
+            ${request.campaign_type ? emailRow("Campaign Type", campaignTypeLabels[request.campaign_type] || request.campaign_type) : ''}
+            ${request.status ? emailRow("Status", statusLabels[request.status] || request.status) : ''}
+            ${request.urgency ? emailRow("Urgency", urgencyLabels[request.urgency] || request.urgency) : ''}
+            ${request.posts_per_creator ? emailRow("Posts per Creator", request.posts_per_creator) : ''}
+            ${request.deadline ? emailRow("Deadline", new Date(request.deadline).toLocaleDateString()) : ''}
+          `)}
+        `)}
+
+        ${request.campaign_brief ? `
+          ${emailDivider()}
+          ${emailSectionTitle("Campaign Brief")}
+          ${emailCard(`
+            <p style="margin: 0; color: ${emailStyles.TEXT_SECONDARY}; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${request.campaign_brief}</p>
+          `)}
+        ` : ''}
+
+        ${deliverablesBlock}
+
+        ${request.usage_rights ? `
+          ${emailDivider()}
+          ${emailSectionTitle("Usage Rights")}
+          ${emailInfoBox(`
+            ${emailValue(usageRightsLabels[request.usage_rights] || request.usage_rights)}
+          `)}
+        ` : ''}
+
+        ${creators.length > 0 ? `
+          ${emailDivider()}
+          ${emailSectionTitle(`Selected Creators (${creators.length})`)}
+          ${creatorCards}
+        ` : ''}
+
+        ${contactBlock}
+        ${assetBlock}
+
+        ${emailDivider()}
+        ${emailInfoBox(`
+          <div style="text-align: center;">
+            <p style="margin: 0 0 4px 0; font-size: 14px; color: ${emailStyles.BRAND_COLOR}; font-weight: 600;">Total Creators Requested: ${creators.length}</p>
+            <p style="margin: 4px 0 0 0; color: ${emailStyles.TEXT_MUTED}; font-size: 12px;">Request Created: ${new Date(request.created_at).toLocaleString()}</p>
+          </div>
+        `)}
+
+        <p style="color: ${emailStyles.TEXT_SECONDARY}; font-size: 13px; text-align: center; margin-top: 24px;">Reply directly to this email to contact the user.</p>
+${emailFooter()}`;
+
+    const resendFromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'DTTracker <no-reply@dttracker.app>';
     const replyToEmail = request.contact_person_email;
 
-    // Build email payload
     const emailPayload: any = {
       from: resendFromEmail,
       to: ['agency@dobbletap.com'],
       subject: `New Creator Request - ${campaignTypeLabels[request.campaign_type] || 'Request'} (${creators.length} creators)`,
-      html: htmlContent,
+      html: htmlBody,
     };
 
-    // Add reply_to only if contact email is available
     if (replyToEmail) {
       emailPayload.reply_to = replyToEmail;
     }
 
-    // Send email via Resend
     const res = await fetch('https://api.resend.com/emails', {
-      
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -293,7 +278,6 @@ serve(async (req) => {
 
       if (syncResult.synced) {
         console.log('Creator request synced to Dobbletap successfully');
-        // Update database to reflect sync status
         await supabase
           .from('creator_requests')
           .update({
@@ -306,7 +290,6 @@ serve(async (req) => {
       }
     } catch (syncError) {
       console.error('Exception during Dobbletap sync:', syncError);
-      // Don't throw - request was created and email sent successfully
     }
 
     return new Response(

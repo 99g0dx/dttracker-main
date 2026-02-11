@@ -148,6 +148,163 @@ export async function removeCampaignMember(
   }
 }
 
+export type CampaignMemberWithEmail = {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+};
+
+/**
+ * Get campaign members with email (for sharing modal; includes users added by email).
+ * Tries the SECURITY DEFINER RPC first; falls back to a direct query on campaign_members.
+ */
+export async function getCampaignMembersWithEmails(
+  campaignId: string
+): Promise<ApiResponse<CampaignMemberWithEmail[]>> {
+  // --- Approach 1: Try RPC (returns emails from auth.users via SECURITY DEFINER) ---
+  try {
+    const { data, error } = await supabase.rpc('get_campaign_members_with_emails', {
+      p_campaign_id: campaignId,
+    });
+
+    if (!error && data) {
+      let parsed: CampaignMemberWithEmail[];
+      if (typeof data === 'string') {
+        try { parsed = JSON.parse(data); } catch { parsed = []; }
+      } else if (Array.isArray(data)) {
+        parsed = data;
+      } else {
+        parsed = [];
+      }
+      if (parsed.length > 0) {
+        return { data: parsed, error: null };
+      }
+    }
+  } catch {
+    // RPC not available or failed; fall through to direct query
+  }
+
+  // --- Approach 2: Direct query on campaign_members + profiles + auth admin ---
+  try {
+    const { data: members, error: membersError } = await supabase
+      .from('campaign_members')
+      .select('user_id, role')
+      .eq('campaign_id', campaignId)
+      .order('created_at', { ascending: false });
+
+    if (membersError || !members || members.length === 0) {
+      return { data: [], error: membersError || null };
+    }
+
+    const userIds = members.map((m: any) => m.user_id);
+
+    // Get full_name from profiles
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', userIds);
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+    // Get emails from auth.admin.listUsers (same approach as getTeamMembers)
+    let userMap = new Map<string, any>();
+    try {
+      const { data: { users } } = await supabase.auth.admin.listUsers();
+      if (users) {
+        userMap = new Map(users.map((u: any) => [u.id, u]));
+      }
+    } catch {
+      // auth.admin may not be available
+    }
+
+    const list: CampaignMemberWithEmail[] = members.map((m: any) => ({
+      user_id: m.user_id,
+      email: userMap.get(m.user_id)?.email || '',
+      full_name: profileMap.get(m.user_id)?.full_name || null,
+      role: m.role || 'editor',
+    }));
+
+    return { data: list, error: null };
+  } catch (error: any) {
+    return { data: null, error };
+  }
+}
+
+export type AddCampaignMemberByEmailParams = {
+  campaignId: string;
+  email: string;
+  role: 'editor' | 'viewer';
+  campaignName: string;
+};
+
+/**
+ * Add a user to a campaign by email; sends "You've been added" email.
+ * campaignName and campaignUrl are used for the email. campaignUrl should be e.g. origin + /campaigns/{id}.
+ */
+export async function addCampaignMemberByEmail(
+  params: AddCampaignMemberByEmailParams,
+  campaignUrl: string
+): Promise<ApiResponse<{ user_id: string }>> {
+  try {
+    const { campaignId, email, role, campaignName } = params;
+    const { data: rpcData, error: rpcError } = await supabase.rpc('add_campaign_member_by_email', {
+      p_campaign_id: campaignId,
+      p_email: email.trim(),
+      p_role: role,
+    });
+    if (rpcError) {
+      return { data: null, error: rpcError };
+    }
+    const result = rpcData as { success: boolean; user_id?: string; error?: string } | null;
+    if (!result || !result.success) {
+      return {
+        data: null,
+        error: new Error(result?.error || 'Failed to add member'),
+      };
+    }
+    // Send "You've been added" email (fire-and-forget; don't fail the add)
+    try {
+      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-campaign-added-email', {
+        body: { email: email.trim(), campaignName, campaignUrl, role },
+      });
+      if (emailError) {
+        console.warn('Campaign added email failed:', emailError);
+      } else if (emailData && !emailData.success) {
+        console.warn('Campaign added email failed:', emailData.error, emailData.details);
+      }
+    } catch (emailErr) {
+      console.warn('Campaign added email failed:', emailErr);
+    }
+    return { data: { user_id: result.user_id! }, error: null };
+  } catch (error: any) {
+    return { data: null, error };
+  }
+}
+
+/**
+ * Check which users have an active subscription (for campaign-sharing: only subscribed users can be added).
+ * Calls RPC check_users_subscription_status; returns map of user_id -> hasActiveSubscription.
+ */
+export async function checkUsersSubscriptionStatus(
+  userIds: string[]
+): Promise<ApiResponse<Record<string, boolean>>> {
+  try {
+    if (userIds.length === 0) {
+      return { data: {}, error: null };
+    }
+    const { data, error } = await supabase.rpc('check_users_subscription_status', {
+      p_user_ids: userIds,
+    });
+    if (error) {
+      return { data: null, error };
+    }
+    return { data: (data as Record<string, boolean>) || {}, error: null };
+  } catch (error: any) {
+    return { data: null, error };
+  }
+}
+
 /**
  * Check if a user has access to a campaign
  */

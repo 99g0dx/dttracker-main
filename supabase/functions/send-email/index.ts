@@ -3,6 +3,8 @@ import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
 
+// Import shared layout so it is bundled (templates depend on it)
+import "../../../emails/components/DTTrackerLayout.tsx";
 // Import templates
 import VerificationEmail from "../../../emails/verification.tsx";
 import WelcomeEmail from "../../../emails/welcome.tsx";

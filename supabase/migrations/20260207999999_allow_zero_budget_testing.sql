@@ -6,6 +6,8 @@ ALTER TABLE public.activations DROP CONSTRAINT IF EXISTS activations_contest_min
 
 -- Add new constraint allowing zero budget (for testing)
 -- In production, you may want to re-enable minimum budgets
+-- Idempotent: drop if exists so migration works when constraint already exists
+ALTER TABLE public.activations DROP CONSTRAINT IF EXISTS activations_budget_non_negative;
 ALTER TABLE public.activations
   ADD CONSTRAINT activations_budget_non_negative
   CHECK (total_budget >= 0);

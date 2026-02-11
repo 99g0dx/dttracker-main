@@ -2,7 +2,7 @@ import {
   DTTrackerLayout,
   Paragraph,
   PrimaryButton,
-} from "./components/DTTrackerLayout";
+} from "./components/DTTrackerLayout.tsx";
 import * as React from "react";
 
 interface CreatorRequestEmailProps {
@@ -22,8 +22,8 @@ export default function CreatorRequestEmail({
       heading={`Creator request ${status}`}
     >
       <Paragraph>
-        The request to add <strong>{creatorName}</strong> to the Creator Library
-        has been {status}.
+        Your request to add{" "}
+        <strong className="text-white">{creatorName}</strong> to the Creator Library has been {status}.
       </Paragraph>
 
       {isApproved ? (

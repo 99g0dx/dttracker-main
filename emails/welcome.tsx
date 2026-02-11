@@ -2,7 +2,7 @@ import {
   DTTrackerLayout,
   Paragraph,
   PrimaryButton,
-} from "./components/DTTrackerLayout";
+} from "./components/DTTrackerLayout.tsx";
 import * as React from "react";
 
 export default function WelcomeEmail({ name = "Creator" }: { name?: string }) {
@@ -13,9 +13,10 @@ export default function WelcomeEmail({ name = "Creator" }: { name?: string }) {
     >
       <Paragraph>Hello {name},</Paragraph>
       <Paragraph>
-        Your account has been created and your <strong>14-day Pro trial</strong>{" "}
-        is now active. You have full access to all features, including advanced
-        campaign tracking and automated scraping.
+        Your account has been created and your{" "}
+        <strong className="text-white">14-day Pro trial</strong> is now active.
+        You have full access to all features, including advanced campaign
+        tracking and automated scraping.
       </Paragraph>
       <Paragraph>
         No credit card is required during the trial. We will notify you before

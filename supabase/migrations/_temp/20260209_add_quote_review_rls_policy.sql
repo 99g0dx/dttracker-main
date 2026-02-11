@@ -2,6 +2,7 @@
 -- This allows updating quote_status, quote_reviewed_at, and quote_reviewed_by fields
 -- even if the user doesn't own the creator_request
 
+DROP POLICY IF EXISTS "Users can review received quotes" ON creator_requests;
 CREATE POLICY "Users can review received quotes"
 ON creator_requests
 FOR UPDATE
@@ -50,6 +51,7 @@ WITH CHECK (
 DROP POLICY IF EXISTS "Users can update their own creator requests" ON creator_requests;
 
 -- Recreate it with better name to avoid confusion
+DROP POLICY IF EXISTS "Users can update their own creator requests - general" ON creator_requests;
 CREATE POLICY "Users can update their own creator requests - general"
 ON creator_requests
 FOR UPDATE

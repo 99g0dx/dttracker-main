@@ -10,8 +10,53 @@ import type {
 } from '../types/database';
 import { getSubcampaigns } from './subcampaigns';
 
+const CAMPAIGN_LIST_SELECT = `
+  id,
+  name,
+  brand_name,
+  status,
+  cover_image_url,
+  start_date,
+  end_date,
+  created_at,
+  posts:posts(
+    views,
+    likes,
+    comments,
+    shares,
+    engagement_rate
+  ),
+  subcampaigns:campaigns!parent_campaign_id(count)
+`;
+
+function transformToCampaignWithStats(campaign: any): CampaignWithStats {
+  const posts = Array.isArray(campaign.posts) ? campaign.posts : [];
+  const posts_count = posts.length;
+  const total_views = posts.reduce((sum: number, p: any) => sum + (Number(p?.views) || 0), 0);
+  const total_likes = posts.reduce((sum: number, p: any) => sum + (Number(p?.likes) || 0), 0);
+  const total_comments = posts.reduce((sum: number, p: any) => sum + (Number(p?.comments) || 0), 0);
+  const total_shares = posts.reduce((sum: number, p: any) => sum + (Number(p?.shares) || 0), 0);
+  const avg_engagement_rate = posts_count > 0
+    ? posts.reduce((sum: number, p: any) => sum + (Number(p?.engagement_rate) || 0), 0) / posts_count
+    : 0;
+  const subcampaigns_count = Array.isArray(campaign.subcampaigns) && campaign.subcampaigns.length > 0
+    ? (campaign.subcampaigns[0]?.count ?? 0)
+    : 0;
+  const { posts: _, subcampaigns: __, ...campaignData } = campaign;
+  return {
+    ...campaignData,
+    posts_count,
+    total_views,
+    total_likes,
+    total_comments,
+    total_shares,
+    avg_engagement_rate: Number(avg_engagement_rate.toFixed(2)),
+    subcampaigns_count,
+  };
+}
+
 /**
- * Fetch all campaigns for the current user's workspace with aggregated stats
+ * Fetch all campaigns for the current user: workspace campaigns + campaigns shared via campaign_members
  */
 export async function list(
   workspaceId?: string | null
@@ -24,29 +69,10 @@ export async function list(
 
     const targetWorkspaceId = workspaceId || user.id;
 
-    // RLS automatically filters campaigns by workspace
-    // Fetch campaigns with posts count and aggregated metrics
-    // Use nested queries as they were working before
-    const { data: campaigns, error } = await supabase
+    // 1. Fetch workspace campaigns
+    const { data: workspaceCampaigns, error } = await supabase
       .from('campaigns')
-      .select(`
-        id,
-        name,
-        brand_name,
-        status,
-        cover_image_url,
-        start_date,
-        end_date,
-        created_at,
-        posts:posts(
-          views,
-          likes,
-          comments,
-          shares,
-          engagement_rate
-        ),
-        subcampaigns:campaigns!parent_campaign_id(count)
-      `)
+      .select(CAMPAIGN_LIST_SELECT)
       .eq('workspace_id', targetWorkspaceId)
       .is('parent_campaign_id', null)
       .order('created_at', { ascending: false });
@@ -82,52 +108,29 @@ export async function list(
       return { data: null, error };
     }
 
-    // Log for debugging
-    // console.log('Campaigns query result:', {
-    //   user_id: user.id,
-    //   campaigns_count: campaigns?.length || 0,
-    //   campaigns: campaigns?.map(c => ({ id: c.id, name: c.name })) || []
-    // });
-    
-    // if (!campaigns || campaigns.length === 0) {
-    //   console.log('No campaigns found for user:', user.id);
-    // } else {
-    //   console.log(`Found ${campaigns.length} campaign(s) for user:`, user.id);
-    // }
+    // 2. Fetch shared campaigns with stats via SECURITY DEFINER RPC (bypasses campaigns RLS)
+    const workspaceIdSet = new Set((workspaceCampaigns || []).map((c: any) => c.id));
+    let sharedCampaigns: any[] = [];
+    try {
+      const { data: sharedData } = await supabase.rpc('get_shared_campaigns_with_stats');
+      const parsed = Array.isArray(sharedData)
+        ? sharedData
+        : typeof sharedData === 'string'
+          ? JSON.parse(sharedData)
+          : sharedData
+            ? [sharedData]
+            : [];
+      sharedCampaigns = parsed.filter((c: any) => c && !workspaceIdSet.has(c.id));
+    } catch {
+      // Shared campaigns fetch is best-effort; don't block the page
+    }
 
-    // Transform data to include computed stats
-    // Handle cases where nested queries might return null or error
-    const campaignsWithStats: CampaignWithStats[] = (campaigns || []).map((campaign: any) => {
-      // Safely handle posts - might be null if query failed
-      const posts = Array.isArray(campaign.posts) ? campaign.posts : [];
-      const posts_count = posts.length;
-      const total_views = posts.reduce((sum: number, p: any) => sum + (Number(p?.views) || 0), 0);
-      const total_likes = posts.reduce((sum: number, p: any) => sum + (Number(p?.likes) || 0), 0);
-      const total_comments = posts.reduce((sum: number, p: any) => sum + (Number(p?.comments) || 0), 0);
-      const total_shares = posts.reduce((sum: number, p: any) => sum + (Number(p?.shares) || 0), 0);
-      const avg_engagement_rate = posts_count > 0
-        ? posts.reduce((sum: number, p: any) => sum + (Number(p?.engagement_rate) || 0), 0) / posts_count
-        : 0;
-      
-      // Safely handle subcampaigns count
-      const subcampaigns_count = Array.isArray(campaign.subcampaigns) && campaign.subcampaigns.length > 0
-        ? (campaign.subcampaigns[0]?.count ?? 0)
-        : 0;
+    // 3. Merge and sort by created_at desc
+    const allCampaigns = [...(workspaceCampaigns || []), ...sharedCampaigns].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
 
-      // Remove posts and subcampaigns from response, only keep stats
-      const { posts: _, subcampaigns: __, ...campaignData } = campaign;
-
-      return {
-        ...campaignData,
-        posts_count,
-        total_views,
-        total_likes,
-        total_comments,
-        total_shares,
-        avg_engagement_rate: Number(avg_engagement_rate.toFixed(2)),
-        subcampaigns_count,
-      };
-    });
+    const campaignsWithStats: CampaignWithStats[] = allCampaigns.map(transformToCampaignWithStats);
 
     return { data: campaignsWithStats, error: null, count: campaignsWithStats.length };
   } catch (err) {
@@ -141,18 +144,31 @@ export async function list(
  */
 export async function getById(id: string): Promise<ApiResponse<Campaign>> {
   try {
-    // First, get the campaign with all fields including sound_id
+    // Try direct query first (works for campaign owner via RLS)
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error) {
-      return { data: null, error };
+    if (!error && data) {
+      return { data, error: null };
     }
 
-    return { data, error: null };
+    // Fallback: use SECURITY DEFINER RPC for shared members (bypasses RLS)
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_campaign_by_id_for_member', {
+      p_campaign_id: id,
+    });
+
+    if (rpcError) {
+      return { data: null, error: rpcError };
+    }
+
+    if (!rpcData) {
+      return { data: null, error: new Error('Campaign not found or access denied') };
+    }
+
+    return { data: rpcData as Campaign, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }
@@ -165,14 +181,24 @@ export async function getWithSubcampaigns(
   id: string
 ): Promise<ApiResponse<CampaignWithSubcampaigns>> {
   try {
-    const { data: campaign, error } = await supabase
+    // Try direct query (owner), then fallback to RPC (shared member)
+    let campaign: any = null;
+    const { data, error } = await supabase
       .from('campaigns')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error || !campaign) {
-      return { data: null, error: error || new Error('Campaign not found') };
+    if (!error && data) {
+      campaign = data;
+    } else {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_campaign_by_id_for_member', {
+        p_campaign_id: id,
+      });
+      if (rpcError || !rpcData) {
+        return { data: null, error: rpcError || new Error('Campaign not found') };
+      }
+      campaign = rpcData;
     }
 
     const subcampaignsResult = await getSubcampaigns(id);

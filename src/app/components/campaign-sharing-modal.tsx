@@ -3,23 +3,32 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import {
   X,
   Users,
-  Mail,
   Search,
   Shield,
   Trash2,
-  UserPlus,
-  Check,
+  Mail,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   useTeamMembers,
-  useCampaignMembers,
+  useCampaignMembersWithEmails,
   useAddCampaignMember,
+  useAddCampaignMemberByEmail,
   useUpdateCampaignMemberRole,
   useRemoveCampaignMember,
+  useUsersSubscriptionStatus,
 } from '../../hooks/useCampaignMembers';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 interface CampaignSharingModalProps {
   campaignId: string;
@@ -27,45 +36,96 @@ interface CampaignSharingModalProps {
   onClose: () => void;
 }
 
+function getCampaignUrl(campaignId: string): string {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/campaigns/${campaignId}`;
+}
+
 export function CampaignSharingModal({ campaignId, campaignName, onClose }: CampaignSharingModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+  const [emailRole, setEmailRole] = useState<'editor' | 'viewer'>('editor');
   const { user } = useAuth();
 
-  // Fetch data using React Query hooks
   const { data: teamMembers = [], isLoading: teamLoading } = useTeamMembers();
-  const { data: campaignMembers = [], isLoading: membersLoading } = useCampaignMembers(campaignId);
+  const { data: membersWithEmails = [], isLoading: membersWithEmailsLoading } = useCampaignMembersWithEmails(campaignId);
   const addMemberMutation = useAddCampaignMember();
+  const addByEmailMutation = useAddCampaignMemberByEmail();
   const updateRoleMutation = useUpdateCampaignMemberRole();
   const removeMemberMutation = useRemoveCampaignMember();
 
-  const handleAddMember = (userId: string, role: 'editor') => {
-    addMemberMutation.mutate({
-      campaign_id: campaignId,
-      user_id: userId,
-      role,
-    });
+  const memberIdsWithAccess = membersWithEmails.map(m => m.user_id);
+  const filteredTeamMembers = teamMembers.filter(m =>
+    (m.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+    m.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const membersWithoutAccess = filteredTeamMembers.filter(m => !memberIdsWithAccess.includes(m.id));
+  const memberIdsWithoutAccess = membersWithoutAccess.map(m => m.id);
+  const { data: subscriptionStatusMap = {}, isLoading: subscriptionLoading } = useUsersSubscriptionStatus(memberIdsWithoutAccess);
+
+  const handleAddMember = async (userId: string, role: 'editor' | 'viewer', memberEmail: string) => {
+    try {
+      await addMemberMutation.mutateAsync({
+        campaign_id: campaignId,
+        user_id: userId,
+        role,
+      });
+      const url = getCampaignUrl(campaignId);
+      if (url && memberEmail) {
+        try {
+          await supabase.functions.invoke('send-campaign-added-email', {
+            body: { email: memberEmail, campaignName, campaignUrl: url, role },
+          });
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      // toast from mutation
+    }
   };
 
   const handleRemoveMember = (userId: string) => {
     removeMemberMutation.mutate({ campaignId, userId });
   };
 
-  const handleUpdateAccess = (userId: string, role: 'editor') => {
+  const handleUpdateRole = (userId: string, role: 'editor' | 'viewer') => {
     updateRoleMutation.mutate({ campaignId, userId, role });
   };
 
-  const filteredTeamMembers = teamMembers.filter(m =>
-    (m.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-    m.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [sendingEmailTo, setSendingEmailTo] = useState<string | null>(null);
 
-  const membersWithAccess = filteredTeamMembers.filter(m =>
-    campaignMembers.some(cm => cm.user_id === m.id)
-  );
+  const handleResendInvite = async (email: string, role: string) => {
+    setSendingEmailTo(email);
+    try {
+      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-campaign-added-email', {
+        body: { email, campaignName, campaignUrl: getCampaignUrl(campaignId), role },
+      });
+      if (emailError) {
+        toast.error(`Failed to send email: ${emailError.message}`);
+      } else if (emailData && !emailData.success) {
+        toast.error(`Failed to send email: ${emailData.error || 'Unknown error'}`);
+      } else {
+        toast.success(`Invite email sent to ${email}`);
+      }
+    } catch {
+      toast.error('Failed to send invite email');
+    } finally {
+      setSendingEmailTo(null);
+    }
+  };
 
-  const membersWithoutAccess = filteredTeamMembers.filter(m =>
-    !campaignMembers.some(cm => cm.user_id === m.id)
-  );
+  const handleAddByEmail = () => {
+    const email = emailInput.trim();
+    if (!email) return;
+    addByEmailMutation.mutate({
+      params: { campaignId, email, role: emailRole, campaignName },
+      campaignUrl: getCampaignUrl(campaignId),
+    });
+    setEmailInput('');
+  };
+
+  const isLoading = teamLoading || membersWithEmailsLoading;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -100,8 +160,7 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
 
           {/* Content */}
           <div className="px-8 py-6 max-h-[calc(85vh-200px)] overflow-y-auto">
-            {/* Loading State */}
-            {(teamLoading || membersLoading) && (
+            {isLoading && (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
                   <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -110,55 +169,112 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
               </div>
             )}
 
-            {/* Members with Access */}
-            {!teamLoading && !membersLoading && membersWithAccess.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
-                  Has Access ({membersWithAccess.length})
-                </h3>
-                <div className="space-y-2">
-                  {membersWithAccess.map(member => {
-                    const campaignMember = campaignMembers.find(cm => cm.user_id === member.id);
-                    const displayName = member.full_name || member.email.split('@')[0];
-                    return (
-                      <div key={member.id} className="flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.08] rounded-lg transition-all duration-200">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                            {displayName.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
+            {!isLoading && (
+              <>
+                {/* Add by email */}
+                <div className="mb-8">
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                    Add by email
+                  </h3>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <Input
+                      type="email"
+                      placeholder="Email address"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      className="flex-1 min-w-[180px] h-11 bg-white/[0.04] border-white/[0.1] text-white placeholder:text-slate-600"
+                    />
+                    <Select value={emailRole} onValueChange={(v) => setEmailRole(v as 'editor' | 'viewer')}>
+                      <SelectTrigger className="w-[120px] h-11 bg-white/[0.04] border-white/[0.1] text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="editor">Can edit</SelectItem>
+                        <SelectItem value="viewer">View only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={handleAddByEmail}
+                      disabled={!emailInput.trim() || addByEmailMutation.isPending}
+                      size="sm"
+                      className="h-11 px-4 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary"
+                    >
+                      {addByEmailMutation.isPending ? 'Adding...' : 'Add'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Has Access */}
+                {membersWithEmails.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+                      Has Access ({membersWithEmails.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {membersWithEmails.map((member) => {
+                        const displayName = member.full_name || member.email?.split('@')[0] || member.user_id.slice(0, 8);
+                        const displayEmail = member.email || `ID: ${member.user_id.slice(0, 12)}…`;
+                        const roleLabel = member.role === 'viewer' ? 'View only' : 'Can edit';
+                        return (
+                          <div key={member.user_id} className="flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.08] rounded-lg transition-all duration-200">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-red-400 dark:to-cyan-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                {displayName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium text-white text-sm">{displayName}</h4>
+                                  {member.user_id === user?.id && (
+                                    <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-500">{displayEmail}</p>
+                              </div>
+                            </div>
                             <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-white text-sm">{displayName}</h4>
-                              {member.id === user?.id && (
-                                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20">
-                                  You
-                                </span>
+                              <Select
+                                value={member.role}
+                                onValueChange={(v) => handleUpdateRole(member.user_id, v as 'editor' | 'viewer')}
+                              >
+                                <SelectTrigger className="w-[120px] h-9 bg-white/[0.04] border-white/[0.1] text-white text-sm">
+                                  <SelectValue>{roleLabel}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="editor">Can edit</SelectItem>
+                                  <SelectItem value="viewer">View only</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {member.user_id !== user?.id && (
+                                <>
+                                  <button
+                                    onClick={() => handleResendInvite(member.email, member.role)}
+                                    disabled={sendingEmailTo === member.email}
+                                    title="Resend invite email"
+                                    className="w-9 h-9 rounded-lg hover:bg-primary/10 flex items-center justify-center transition-all duration-200 group disabled:opacity-50"
+                                  >
+                                    <Mail className="w-4 h-4 text-slate-400 group-hover:text-primary" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveMember(member.user_id)}
+                                    disabled={removeMemberMutation.isPending}
+                                    className="w-9 h-9 rounded-lg hover:bg-red-500/10 flex items-center justify-center transition-all duration-200 group disabled:opacity-50"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-400" />
+                                  </button>
+                                </>
                               )}
                             </div>
-                            <p className="text-xs text-slate-500">{member.email}</p>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-9 px-3 bg-white/[0.04] border border-white/[0.1] rounded-lg text-white text-sm flex items-center">
-                            Full access
-                          </div>
-                          <button
-                            onClick={() => handleRemoveMember(member.id)}
-                            disabled={removeMemberMutation.isPending}
-                            className="w-9 h-9 rounded-lg hover:bg-red-500/10 flex items-center justify-center transition-all duration-200 group disabled:opacity-50"
-                          >
-                            <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-400" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-            {/* Members without Access */}
-            {!teamLoading && !membersLoading && membersWithoutAccess.length > 0 && (
+                {/* Add Members (team list) */}
+                {membersWithoutAccess.length > 0 && (
               <div>
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
                   Add Members ({membersWithoutAccess.length})
@@ -166,6 +282,7 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
                 <div className="space-y-2">
                   {membersWithoutAccess.map(member => {
                     const displayName = member.full_name || member.email.split('@')[0];
+                    const notSubscribed = !subscriptionLoading && subscriptionStatusMap[member.id] === false;
                     return (
                       <div key={member.id} className="flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] rounded-lg transition-all duration-200">
                         <div className="flex items-center gap-3">
@@ -182,14 +299,20 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
                               )}
                             </div>
                             <p className="text-xs text-slate-500">{member.email}</p>
+                            {notSubscribed && (
+                              <p className="text-xs text-amber-500 mt-1">
+                                Only subscribed users can be added. Ask them to subscribe first.
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
-                            onClick={() => handleAddMember(member.id, 'editor')}
+                            onClick={() => handleAddMember(member.id, 'editor', member.email)}
                             size="sm"
                             className="h-9 px-3 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-sm"
-                            disabled={addMemberMutation.isPending}
+                            disabled={addMemberMutation.isPending || notSubscribed}
+                            title={notSubscribed ? 'Only subscribed users can be added' : undefined}
                           >
                             <Shield className="w-3.5 h-3.5 mr-1.5" />
                             Add member
@@ -200,15 +323,17 @@ export function CampaignSharingModal({ campaignId, campaignName, onClose }: Camp
                   })}
                 </div>
               </div>
-            )}
+                )}
 
-            {!teamLoading && !membersLoading && filteredTeamMembers.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
-                  <Users className="w-7 h-7 text-slate-500" />
-                </div>
-                <p className="text-slate-400 text-sm">No team members found</p>
-              </div>
+                {filteredTeamMembers.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                      <Users className="w-7 h-7 text-slate-500" />
+                    </div>
+                    <p className="text-slate-400 text-sm">No team members found</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

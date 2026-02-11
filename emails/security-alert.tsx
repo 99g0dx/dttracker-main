@@ -3,7 +3,7 @@ import {
   Paragraph,
   PrimaryButton,
   InfoRow,
-} from "./components/DTTrackerLayout";
+} from "./components/DTTrackerLayout.tsx";
 import { Section } from "@react-email/components";
 import * as React from "react";
 
@@ -28,15 +28,14 @@ export default function SecurityAlertEmail({
         can ignore this email.
       </Paragraph>
 
-      <Section className="my-[24px] border border-[#eaeaea] rounded-[8px] p-[16px]">
+      <Section className="my-[24px] bg-[#1A1A1A] border border-solid border-[rgba(255,255,255,0.08)] rounded-[10px] p-[20px]">
         <InfoRow label="Device" value={device} />
         <InfoRow label="Location" value={location} />
         <InfoRow label="IP Address" value={ip} />
       </Section>
 
       <Paragraph>
-        If you did not authorize this login, please secure your account
-        immediately.
+        If you did not authorize this login, secure your account immediately by changing your password.
       </Paragraph>
 
       <PrimaryButton href="https://dttracker.app/settings/security">

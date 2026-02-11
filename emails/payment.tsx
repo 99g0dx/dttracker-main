@@ -3,8 +3,8 @@ import {
   Paragraph,
   PrimaryButton,
   InfoRow,
-} from "./components/DTTrackerLayout";
-import { Section } from "@react-email/components";
+  InfoCard,
+} from "./components/DTTrackerLayout.tsx";
 import * as React from "react";
 
 interface PaymentEmailProps {
@@ -24,15 +24,14 @@ export default function PaymentEmail({
       heading="Payment confirmation"
     >
       <Paragraph>
-        We have received your payment for the current billing period. A copy of
-        this receipt is available in your account settings.
+        Thank you for your payment. Your receipt for the current billing period is below. A copy is also available in your account settings.
       </Paragraph>
 
-      <Section className="my-[24px] border border-[#eaeaea] rounded-[8px] p-[16px]">
+      <InfoCard>
         <InfoRow label="Plan" value={plan} />
         <InfoRow label="Date" value={date} />
         <InfoRow label="Amount" value={amount} />
-      </Section>
+      </InfoCard>
 
       <PrimaryButton href="https://dttracker.app/settings/billing">
         View Invoice

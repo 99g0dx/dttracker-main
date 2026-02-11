@@ -3,8 +3,8 @@ import {
   Paragraph,
   PrimaryButton,
   InfoRow,
-} from "./components/DTTrackerLayout";
-import { Section } from "@react-email/components";
+  InfoCard,
+} from "./components/DTTrackerLayout.tsx";
 import * as React from "react";
 
 interface WeeklySummaryEmailProps {
@@ -26,14 +26,14 @@ export default function WeeklySummaryEmail({
       heading="Weekly performance"
     >
       <Paragraph>
-        Here is a summary of your campaign performance for the week of{" "}
-        {startDate} to {endDate}.
+        Summary of your campaign performance for the week of{" "}
+        <strong className="text-white">{startDate} to {endDate}</strong>.
       </Paragraph>
 
-      <Section className="my-[24px] border border-[#eaeaea] rounded-[8px] p-[16px]">
+      <InfoCard>
         <InfoRow label="Active Campaigns" value={activeCampaigns.toString()} />
         <InfoRow label="Avg. Engagement" value={totalEngagement} />
-      </Section>
+      </InfoCard>
 
       <PrimaryButton href="https://dttracker.app/dashboard">
         View Analytics

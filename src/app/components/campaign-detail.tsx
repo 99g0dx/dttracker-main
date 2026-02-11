@@ -54,6 +54,7 @@ import {
   useCampaign,
   useDeleteCampaign,
 } from "../../hooks/useCampaigns";
+import { useAuth } from "../../contexts/AuthContext";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
 import {
   usePosts,
@@ -82,6 +83,7 @@ import { toast } from "sonner";
 import { AddPostDialog } from "./add-post-dialog";
 import { ImportCreatorsDialog } from "./import-creators-dialog";
 import { CampaignShareModal } from "./campaign-share-modal";
+import { CampaignSharingModal } from "./campaign-sharing-modal";
 import { SubcampaignSection } from "./subcampaign-section";
 import { CampaignSoundSection } from "./campaign-sound-section";
 import { SoundIngest } from "./sound-ingest";
@@ -142,6 +144,7 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
   const [showDeleteCampaignDialog, setShowDeleteCampaignDialog] =
     useState(false);
   const [showShareLinkModal, setShowShareLinkModal] = useState(false);
+  const [showCampaignSharingModal, setShowCampaignSharingModal] = useState(false);
   const [showAddSoundDialog, setShowAddSoundDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isImporting, setIsImporting] = useState(false);
@@ -269,12 +272,14 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
 
   // Fetch campaign data - hooks must be called unconditionally
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { activeWorkspaceId } = useWorkspace();
   const {
     data: campaign,
     isLoading: campaignLoading,
     error: campaignError,
   } = useCampaign(id);
+  const canManageCampaignMembers = Boolean(user?.id && campaign?.user_id === user.id);
   const { data: isParent } = useIsParentCampaign(id || "");
   const {
     data: posts = [],
@@ -702,13 +707,9 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     return totals;
   }, [filteredChartData, kpiMetrics, chartRange]);
 
-  React.useEffect(() => {
-    if (!campaign || !activeWorkspaceId) return;
-    if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
-      toast.info("Workspace changed. Returning to campaigns.");
-      onNavigate("/campaigns");
-    }
-  }, [campaign, activeWorkspaceId, onNavigate]);
+  // Note: workspace mismatch check removed to support shared campaigns.
+  // Shared members view campaigns from other workspaces via campaign_members.
+  // Access is enforced at the API/RPC level (get_campaign_by_id_for_member).
 
   const chartXAxisProps = React.useMemo(
     () => ({
@@ -1625,6 +1626,20 @@ Example User,@example,x,https://x.com/example/status/9876543210,2024-01-18,,,,
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit Campaign
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      if (!canManageCampaignMembers) {
+                        toast.error("Only the campaign owner can manage members.");
+                        return;
+                      }
+                      setShowCampaignSharingModal(true);
+                    }}
+                    disabled={!canManageCampaignMembers}
+                    className="text-foreground [&_svg]:text-foreground"
+                  >
+                    <Users className="w-4 h-4" />
+                    Add people
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     variant="destructive"
@@ -3997,6 +4012,15 @@ Example User,@example,x,https://x.com/example/status/9876543210,2024-01-18,,,,
           campaignId={campaign.id}
           campaignName={campaign.name}
           onClose={() => setShowShareLinkModal(false)}
+        />
+      )}
+
+      {/* Add people to campaign modal */}
+      {showCampaignSharingModal && campaign && (
+        <CampaignSharingModal
+          campaignId={campaign.id}
+          campaignName={campaign.name}
+          onClose={() => setShowCampaignSharingModal(false)}
         />
       )}
 

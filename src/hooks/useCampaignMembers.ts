@@ -8,6 +8,7 @@ export const campaignMembersKeys = {
   all: ['campaign-members'] as const,
   lists: () => [...campaignMembersKeys.all, 'list'] as const,
   list: (campaignId: string) => [...campaignMembersKeys.lists(), campaignId] as const,
+  membersWithEmails: (campaignId: string) => [...campaignMembersKeys.all, 'with-emails', campaignId] as const,
   teamMembers: () => [...campaignMembersKeys.all, 'team'] as const,
   access: (campaignId: string, userId: string) => [...campaignMembersKeys.all, 'access', campaignId, userId] as const,
 };
@@ -48,6 +49,76 @@ export function useCampaignMembers(campaignId: string) {
 }
 
 /**
+ * Hook to fetch campaign members with email (for sharing modal; includes users added by email).
+ */
+export function useCampaignMembersWithEmails(campaignId: string) {
+  return useQuery({
+    queryKey: campaignMembersKeys.membersWithEmails(campaignId),
+    queryFn: async () => {
+      const result = await campaignMembersApi.getCampaignMembersWithEmails(campaignId);
+      if (result.error) {
+        throw result.error;
+      }
+      return result.data || [];
+    },
+    enabled: !!campaignId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to add a campaign member by email; sends "You've been added" email.
+ */
+export function useAddCampaignMemberByEmail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      params,
+      campaignUrl,
+    }: {
+      params: campaignMembersApi.AddCampaignMemberByEmailParams;
+      campaignUrl: string;
+    }) => {
+      const result = await campaignMembersApi.addCampaignMemberByEmail(params, campaignUrl);
+      if (result.error) {
+        throw result.error;
+      }
+      return { ...result.data!, campaignId: params.campaignId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: campaignMembersKeys.list(data.campaignId) });
+      queryClient.invalidateQueries({ queryKey: campaignMembersKeys.membersWithEmails(data.campaignId) });
+      queryClient.invalidateQueries({ queryKey: campaignMembersKeys.access(data.campaignId, data.user_id) });
+      toast.success('Member added and email sent');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to add member');
+    },
+  });
+}
+
+/**
+ * Hook to check which users have an active subscription (for campaign-sharing modal).
+ * Returns map of user_id -> boolean (has active subscription).
+ */
+export function useUsersSubscriptionStatus(userIds: string[]) {
+  const sortedIds = [...userIds].filter(Boolean).sort();
+  return useQuery({
+    queryKey: ['users-subscription-status', sortedIds.join(',')],
+    queryFn: async () => {
+      const result = await campaignMembersApi.checkUsersSubscriptionStatus(sortedIds);
+      if (result.error) {
+        throw result.error;
+      }
+      return result.data || {};
+    },
+    enabled: sortedIds.length > 0,
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
  * Hook to check if a user has access to a campaign
  */
 export function useCampaignAccess(campaignId: string, userId: string) {
@@ -80,9 +151,8 @@ export function useAddCampaignMember() {
       return result.data;
     },
     onSuccess: (data, variables) => {
-      // Invalidate campaign members list
       queryClient.invalidateQueries({ queryKey: campaignMembersKeys.list(variables.campaign_id) });
-      // Invalidate access check
+      queryClient.invalidateQueries({ queryKey: campaignMembersKeys.membersWithEmails(variables.campaign_id) });
       queryClient.invalidateQueries({ queryKey: campaignMembersKeys.access(variables.campaign_id, variables.user_id) });
       toast.success('Member added successfully');
     },
@@ -107,9 +177,8 @@ export function useUpdateCampaignMemberRole() {
       return result.data;
     },
     onSuccess: (data, variables) => {
-      // Invalidate campaign members list
       queryClient.invalidateQueries({ queryKey: campaignMembersKeys.list(variables.campaignId) });
-      // Invalidate access check
+      queryClient.invalidateQueries({ queryKey: campaignMembersKeys.membersWithEmails(variables.campaignId) });
       queryClient.invalidateQueries({ queryKey: campaignMembersKeys.access(variables.campaignId, variables.userId) });
       toast.success('Member role updated successfully');
     },
@@ -149,9 +218,8 @@ export function useRemoveCampaignMember() {
       return { previousMembers, campaignId };
     },
     onSuccess: (data) => {
-      // Invalidate campaign members list
       queryClient.invalidateQueries({ queryKey: campaignMembersKeys.list(data.campaignId) });
-      // Invalidate access check
+      queryClient.invalidateQueries({ queryKey: campaignMembersKeys.membersWithEmails(data.campaignId) });
       queryClient.invalidateQueries({ queryKey: campaignMembersKeys.access(data.campaignId, data.userId) });
       toast.success('Member removed successfully');
     },
