@@ -1,7 +1,14 @@
 import React, { useMemo } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
-import { ArrowLeft, Loader2, AlertTriangle, Clock, XCircle, Settings } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  AlertTriangle,
+  Clock,
+  XCircle,
+  Settings,
+} from "lucide-react";
 import {
   useBillingSummary,
   useBillingCatalog,
@@ -17,7 +24,11 @@ interface SubscriptionProps {
 }
 
 export function Subscription({ onNavigate }: SubscriptionProps) {
-  const { data: billing, isLoading: billingLoading, error: billingError } = useBillingSummary();
+  const {
+    data: billing,
+    isLoading: billingLoading,
+    error: billingError,
+  } = useBillingSummary();
   const { data: catalog, isLoading: catalogLoading } = useBillingCatalog();
   const createCheckout = useCreateCheckout();
   const cancelSubscription = useCancelSubscription();
@@ -48,7 +59,7 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
   const handleSelectPlan = async (
     tier: BillingTier,
     billingCycle: BillingCycle,
-    extraSeats: number
+    extraSeats: number,
   ) => {
     if (!billing?.workspace_id) return;
 
@@ -70,14 +81,16 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
 
     if (
       !confirm(
-        "Are you sure you want to cancel your subscription? You will retain access until the end of your billing period."
+        "Are you sure you want to cancel your subscription? You will retain access until the end of your billing period.",
       )
     ) {
       return;
     }
 
     try {
-      await cancelSubscription.mutateAsync({ workspaceId: billing.workspace_id });
+      await cancelSubscription.mutateAsync({
+        workspaceId: billing.workspace_id,
+      });
     } catch (error) {
       console.error("Failed to cancel subscription:", error);
     }
@@ -109,7 +122,8 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
   const isPaid = billing?.is_paid || false;
   const isTrialing = billing?.is_trialing || false;
   const isPastDue = status === "past_due";
-  const isCanceled = status === "canceled" || billing?.subscription?.cancel_at_period_end;
+  const isCanceled =
+    status === "canceled" || billing?.subscription?.cancel_at_period_end;
   const daysUntilPeriodEnd = billing?.days_until_period_end;
 
   return (
@@ -141,8 +155,8 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
             isPastDue
               ? "bg-red-500/10 border-red-500/30"
               : isCanceled
-              ? "bg-yellow-500/10 border-yellow-500/30"
-              : "bg-primary/10 border-primary/30"
+                ? "bg-yellow-500/10 border-yellow-500/30"
+                : "bg-primary/10 border-primary/30"
           }`}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -150,13 +164,20 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
               <>
                 <AlertTriangle className="w-5 h-5 text-red-400" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-red-400">Payment Past Due</p>
+                  <p className="text-sm font-medium text-red-400">
+                    Payment Past Due
+                  </p>
                   <p className="text-xs text-red-400/80">
-                    Please update your payment method to continue using paid features.
+                    Please update your payment method to continue using paid
+                    features.
                   </p>
                 </div>
                 <Button
-                  onClick={() => onNavigate(`/payment?plan=${currentTier}_${currentBillingCycle}`)}
+                  onClick={() =>
+                    onNavigate(
+                      `/payment?plan=${currentTier}_${currentBillingCycle}`,
+                    )
+                  }
                   size="sm"
                   className="bg-red-500 hover:bg-red-600 text-white"
                 >
@@ -167,7 +188,9 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
               <>
                 <XCircle className="w-5 h-5 text-yellow-400" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-yellow-400">Subscription Canceled</p>
+                  <p className="text-sm font-medium text-yellow-400">
+                    Subscription Canceled
+                  </p>
                   <p className="text-xs text-yellow-400/80">
                     You will retain access until{" "}
                     {daysUntilPeriodEnd !== null
@@ -177,7 +200,11 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                   </p>
                 </div>
                 <Button
-                  onClick={() => onNavigate(`/payment?plan=${currentTier}_${currentBillingCycle}`)}
+                  onClick={() =>
+                    onNavigate(
+                      `/payment?plan=${currentTier}_${currentBillingCycle}`,
+                    )
+                  }
                   size="sm"
                   className="bg-yellow-500 hover:bg-yellow-600 text-black"
                 >
@@ -196,7 +223,11 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                   </p>
                 </div>
                 <Button
-                  onClick={() => onNavigate(`/payment?plan=${currentTier}_${currentBillingCycle}`)}
+                  onClick={() =>
+                    onNavigate(
+                      `/payment?plan=${currentTier}_${currentBillingCycle}`,
+                    )
+                  }
                   size="sm"
                   className="bg-primary hover:bg-primary/90 text-black"
                 >
@@ -318,13 +349,17 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
       {/* FAQ */}
       <Card className="bg-[#0D0D0D] border-white/[0.08] max-w-6xl mx-auto">
         <CardContent className="p-6">
-          <h3 className="font-semibold text-white mb-4">Frequently Asked Questions</h3>
+          <h3 className="font-semibold text-white mb-4">
+            Frequently Asked Questions
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="text-sm font-medium text-white mb-1">Can I cancel anytime?</h4>
+              <h4 className="text-sm font-medium text-white mb-1">
+                Can I cancel anytime?
+              </h4>
               <p className="text-sm text-slate-400">
-                Yes, you can cancel your subscription at any time. You'll retain access until the
-                end of your billing period.
+                Yes, you can cancel your subscription at any time. You'll retain
+                access until the end of your billing period.
               </p>
             </div>
             <div>
@@ -332,22 +367,26 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                 What payment methods do you accept?
               </h4>
               <p className="text-sm text-slate-400">
-                We accept all major credit cards, debit cards, bank transfers, and mobile money
-                through Paystack.
+                We accept all major credit cards, debit cards, bank transfers,
+                and mobile money through Paystack.
               </p>
             </div>
             <div>
-              <h4 className="text-sm font-medium text-white mb-1">Can I change plans later?</h4>
+              <h4 className="text-sm font-medium text-white mb-1">
+                Can I change plans later?
+              </h4>
               <p className="text-sm text-slate-400">
-                Yes, you can upgrade or downgrade your plan at any time. Changes take effect
-                immediately.
+                Yes, you can upgrade or downgrade your plan at any time. Changes
+                take effect immediately.
               </p>
             </div>
             <div>
-              <h4 className="text-sm font-medium text-white mb-1">How do extra seats work?</h4>
+              <h4 className="text-sm font-medium text-white mb-1">
+                How do extra seats work?
+              </h4>
               <p className="text-sm text-slate-400">
-                Each plan includes a set number of team seats. You can add extra seats during
-                checkout or later from your settings.
+                Each plan includes a set number of team seats. You can add up to
+                2 extra seats during checkout or later from your settings.
               </p>
             </div>
           </div>

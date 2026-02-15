@@ -70,7 +70,13 @@ interface SharedCampaignData {
 
 // Platforms included in KPI and chart calculations for shared dashboards.
 // Keep in sync with internal dashboard behaviour.
-const kpiPlatforms = new Set(["tiktok", "instagram", "youtube", "x", "facebook"]);
+const kpiPlatforms = new Set([
+  "tiktok",
+  "instagram",
+  "youtube",
+  "x",
+  "facebook",
+]);
 
 function buildSeriesFromPosts(
   posts: Array<{
@@ -83,7 +89,7 @@ function buildSeriesFromPosts(
     createdAt: string;
   }>,
   /** When filtering chart by platform, allow this platform even if not in kpiPlatforms */
-  allowedPlatforms?: Set<string>
+  allowedPlatforms?: Set<string>,
 ) {
   const metricsByDate = new Map<
     string,
@@ -114,7 +120,7 @@ function buildSeriesFromPosts(
   });
 
   const sortedDates = Array.from(metricsByDate.keys()).sort((a, b) =>
-    a.localeCompare(b)
+    a.localeCompare(b),
   );
 
   const series = {
@@ -138,7 +144,7 @@ function buildSeriesFromPosts(
 // Transform API posts to PostWithRankings format
 function transformPostsToRankings(
   posts: SharedCampaignData["posts"],
-  campaignId: string
+  campaignId: string,
 ): PostWithRankings[] {
   return posts.map((post, index) => ({
     id: post.id,
@@ -212,7 +218,7 @@ export function SharedCampaignDashboard() {
       try {
         const result = await sharingApi.fetchSharedCampaignData(
           token,
-          providedPassword
+          providedPassword,
         );
 
         if (result.error) {
@@ -247,12 +253,12 @@ export function SharedCampaignDashboard() {
       } catch (err) {
         console.error("Exception loading shared campaign:", err);
         setError(
-          err instanceof Error ? err.message : "Failed to load campaign"
+          err instanceof Error ? err.message : "Failed to load campaign",
         );
         setIsLoading(false);
       }
     },
-    [token]
+    [token],
   );
 
   // Load shared campaign data on mount
@@ -289,7 +295,7 @@ export function SharedCampaignDashboard() {
 
   const subcampaignTabs = data?.subcampaigns || [];
   const hasSubcampaigns = Boolean(
-    data?.is_parent && subcampaignTabs.length > 0
+    data?.is_parent && subcampaignTabs.length > 0,
   );
   const selectedSubcampaign =
     activeTab === "all"
@@ -317,19 +323,19 @@ export function SharedCampaignDashboard() {
     return {
       views: filteredPosts.reduce(
         (sum, post) => sum + (Number(post.views) || 0),
-        0
+        0,
       ),
       likes: filteredPosts.reduce(
         (sum, post) => sum + (Number(post.likes) || 0),
-        0
+        0,
       ),
       comments: filteredPosts.reduce(
         (sum, post) => sum + (Number(post.comments) || 0),
-        0
+        0,
       ),
       shares: filteredPosts.reduce(
         (sum, post) => sum + (Number(post.shares) || 0),
-        0
+        0,
       ),
     };
   }, [filteredPosts]);
@@ -359,21 +365,15 @@ export function SharedCampaignDashboard() {
 
     return {
       viewsGrowth:
-        growthSeriesData.views.length > 0
-          ? totals.views - firstViews
-          : null,
+        growthSeriesData.views.length > 0 ? totals.views - firstViews : null,
       likesGrowth:
-        growthSeriesData.likes.length > 0
-          ? totals.likes - firstLikes
-          : null,
+        growthSeriesData.likes.length > 0 ? totals.likes - firstLikes : null,
       commentsGrowth:
         growthSeriesData.comments.length > 0
           ? totals.comments - firstComments
           : null,
       sharesGrowth:
-        growthSeriesData.shares.length > 0
-          ? totals.shares - firstShares
-          : null,
+        growthSeriesData.shares.length > 0 ? totals.shares - firstShares : null,
     };
   }, [growthSeriesData, totals]);
 
@@ -425,11 +425,11 @@ export function SharedCampaignDashboard() {
     if (!data) return null;
     if (chartPlatformFilter !== "all") {
       const byPlatform = filteredPosts.filter(
-        (p) => p.platform?.toLowerCase() === chartPlatformFilter.toLowerCase()
+        (p) => p.platform?.toLowerCase() === chartPlatformFilter.toLowerCase(),
       );
       return buildSeriesFromPosts(
         byPlatform,
-        new Set([chartPlatformFilter.toLowerCase()])
+        new Set([chartPlatformFilter.toLowerCase()]),
       );
     }
     if (activeTab === "all") return data.series;
@@ -443,7 +443,7 @@ export function SharedCampaignDashboard() {
       seriesData.views.length,
       seriesData.likes.length,
       seriesData.comments.length,
-      seriesData.shares.length
+      seriesData.shares.length,
     );
 
     return Array.from({ length: maxLength }, (_, i) => {
@@ -552,6 +552,16 @@ export function SharedCampaignDashboard() {
   }
 
   if ((error || !data) && !requiresPassword) {
+    const isNetworkError =
+      error?.toLowerCase().includes("failed to fetch") ||
+      error?.toLowerCase().includes("network error");
+    const title = isNetworkError
+      ? "Couldn't load this link"
+      : "Link not found or expired";
+    const message = isNetworkError
+      ? "We couldn't reach the server. The link may be invalid, expired, or temporarily unavailable. Try again or ask the person who shared it to send a new link."
+      : error || "This share link is no longer valid.";
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <Card className="bg-card border-border max-w-md w-full text-center">
@@ -560,17 +570,27 @@ export function SharedCampaignDashboard() {
               <Share2 className="w-6 h-6 text-red-400" />
             </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              Link Expired or Unavailable
+              {title}
             </h2>
-            <p className="text-muted-foreground mb-6">
-              {error || "This share link is no longer valid."}
-            </p>
-            <Button
-              onClick={() => navigate("/login")}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              Go to DTTracker
-            </Button>
+            <p className="text-muted-foreground mb-6">{message}</p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Button
+                onClick={() => {
+                  setError(null);
+                  loadCampaign();
+                }}
+                variant="outline"
+                className="border-border"
+              >
+                Try again
+              </Button>
+              <Button
+                onClick={() => navigate("/login")}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Go to DTTracker
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -589,7 +609,9 @@ export function SharedCampaignDashboard() {
                 alt="DTTracker"
                 className="w-6 h-6 object-contain"
               />
-              <h1 className="text-xl font-semibold text-foreground">DTTracker</h1>
+              <h1 className="text-xl font-semibold text-foreground">
+                DTTracker
+              </h1>
             </div>
           </div>
         </div>

@@ -144,6 +144,24 @@ export function useDeleteActivation() {
   });
 }
 
+export function useCloseActivation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const result = await activationsApi.closeActivation(id);
+      if (result.error) throw result.error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: activationsKeys.all });
+      toast.success("Activation closed");
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to close: ${error.message}`);
+    },
+  });
+}
+
 export function usePublishActivation() {
   const queryClient = useQueryClient();
 
@@ -164,6 +182,30 @@ export function usePublishActivation() {
     },
     onError: (error: Error) => {
       toast.error(`Failed to publish: ${error.message}`);
+    },
+  });
+}
+
+export function useSyncActivationToDobbleTap() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (activationId: string) => {
+      const result = await activationsApi.syncActivationToDobbleTap(activationId);
+      if (result.error) throw result.error;
+      return result.data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.invalidateQueries({
+          queryKey: activationsKeys.detail(data.id),
+        });
+        queryClient.invalidateQueries({ queryKey: activationsKeys.all });
+      }
+      toast.success("Activation synced to Dobble Tap");
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to sync to Dobble Tap: ${error.message}`);
     },
   });
 }
@@ -229,12 +271,22 @@ export function useScrapeSubmission(activationId?: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (submissionId: string) => {
+    mutationFn: async (
+      input: string | { submissionId: string; silent?: boolean }
+    ) => {
+      const submissionId =
+        typeof input === "string" ? input : input.submissionId;
       const result = await activationsApi.scrapeSubmissionMetrics(submissionId);
       if (result.error) throw result.error;
-      return result.data;
+      return {
+        data: result.data,
+        silent: typeof input === "object" && input.silent,
+      };
     },
-    onSuccess: (_, submissionId) => {
+    onSuccess: (result, input) => {
+      const submissionId =
+        typeof input === "string" ? input : input.submissionId;
+      const silent = typeof input === "object" && input.silent;
       if (activationId) {
         queryClient.invalidateQueries({
           queryKey: activationsKeys.submissions(activationId),
@@ -244,10 +296,15 @@ export function useScrapeSubmission(activationId?: string | null) {
         });
       }
       queryClient.invalidateQueries({ queryKey: activationsKeys.all });
-      toast.success("Metrics updated");
+      if (!silent) {
+        toast.success("Metrics updated");
+      }
     },
-    onError: (error: Error) => {
-      toast.error(`Scrape failed: ${error.message}`);
+    onError: (error: Error, input) => {
+      const silent = typeof input === "object" && input?.silent;
+      if (!silent) {
+        toast.error(`Scrape failed: ${error.message}`);
+      }
     },
   });
 }

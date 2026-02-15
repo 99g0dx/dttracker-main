@@ -105,6 +105,12 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/activation-publish/index.ts"
 
+# Sync existing activation to Dobble Tap (e.g. live but not yet synced)
+[functions.activation-sync-to-dobbletap]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/activation-sync-to-dobbletap/index.ts"
+
 # Send Offer to Creator (Brand → Creator activation invite)
 [functions.send-offer-to-activation]
 enabled = true

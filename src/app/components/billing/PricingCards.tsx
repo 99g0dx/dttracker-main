@@ -86,10 +86,17 @@ const TIER_CONFIGS: TierConfig[] = [
 ];
 
 interface PricingCardsProps {
-  plans: Record<BillingTier, { monthly?: PlanCatalogEntry; yearly?: PlanCatalogEntry }>;
+  plans: Record<
+    BillingTier,
+    { monthly?: PlanCatalogEntry; yearly?: PlanCatalogEntry }
+  >;
   currentTier?: BillingTier;
   currentBillingCycle?: BillingCycle;
-  onSelectPlan: (tier: BillingTier, billingCycle: BillingCycle, extraSeats: number) => void;
+  onSelectPlan: (
+    tier: BillingTier,
+    billingCycle: BillingCycle,
+    extraSeats: number,
+  ) => void;
   isLoading?: boolean;
 }
 
@@ -101,7 +108,9 @@ export function PricingCards({
   isLoading,
 }: PricingCardsProps) {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-  const [selectedSeats, setSelectedSeats] = useState<Record<BillingTier, number>>({
+  const [selectedSeats, setSelectedSeats] = useState<
+    Record<BillingTier, number>
+  >({
     free: 0,
     starter: 0,
     pro: 0,
@@ -116,14 +125,18 @@ export function PricingCards({
     if (tier === "free") {
       return plans.free?.monthly;
     }
-    return billingCycle === "yearly" ? plans[tier]?.yearly : plans[tier]?.monthly;
+    return billingCycle === "yearly"
+      ? plans[tier]?.yearly
+      : plans[tier]?.monthly;
   };
 
   const calculateTotal = (tier: BillingTier) => {
     const plan = getPlan(tier);
     if (!plan) return 0;
     const extraSeats = selectedSeats[tier] || 0;
-    return plan.base_price_cents + extraSeats * (plan.extra_seat_price_cents || 0);
+    return (
+      plan.base_price_cents + extraSeats * (plan.extra_seat_price_cents || 0)
+    );
   };
 
   return (
@@ -137,7 +150,7 @@ export function PricingCards({
               "px-4 py-2 rounded-md text-sm font-medium transition-colors",
               billingCycle === "monthly"
                 ? "bg-white/[0.08] text-white"
-                : "text-slate-400 hover:text-white"
+                : "text-slate-400 hover:text-white",
             )}
           >
             Monthly
@@ -148,7 +161,7 @@ export function PricingCards({
               "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
               billingCycle === "yearly"
                 ? "bg-white/[0.08] text-white"
-                : "text-slate-400 hover:text-white"
+                : "text-slate-400 hover:text-white",
             )}
           >
             Yearly
@@ -176,7 +189,7 @@ export function PricingCards({
                 isHighlight
                   ? "bg-gradient-to-b from-primary/15 to-[#0D0D0D] border-primary/40"
                   : "bg-[#0D0D0D] border-white/[0.08]",
-                isCurrent && "ring-2 ring-primary/50"
+                isCurrent && "ring-2 ring-primary/50",
               )}
             >
               {/* Popular Badge */}
@@ -197,14 +210,18 @@ export function PricingCards({
                   <div
                     className={cn(
                       "w-10 h-10 rounded-lg flex items-center justify-center",
-                      isHighlight ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-slate-400"
+                      isHighlight
+                        ? "bg-primary/20 text-primary"
+                        : "bg-white/[0.06] text-slate-400",
                     )}
                   >
                     {config.icon}
                   </div>
                   <div>
                     <h3 className="font-semibold text-white">{config.name}</h3>
-                    <p className="text-xs text-slate-500">{config.description}</p>
+                    <p className="text-xs text-slate-500">
+                      {config.description}
+                    </p>
                   </div>
                 </div>
 
@@ -220,11 +237,14 @@ export function PricingCards({
                       </span>
                     )}
                   </div>
-                  {config.tier !== "free" && billingCycle === "yearly" && plan && (
-                    <p className="text-xs text-emerald-400 mt-1">
-                      {formatPrice(Math.round(plan.base_price_cents / 12))}/month billed annually
-                    </p>
-                  )}
+                  {config.tier !== "free" &&
+                    billingCycle === "yearly" &&
+                    plan && (
+                      <p className="text-xs text-emerald-400 mt-1">
+                        {formatPrice(Math.round(plan.base_price_cents / 12))}
+                        /month billed annually
+                      </p>
+                    )}
                 </div>
 
                 {/* Seat Selector (for paid plans) */}
@@ -235,9 +255,16 @@ export function PricingCards({
                       extraSeats={extraSeats}
                       extraSeatPrice={plan.extra_seat_price_cents || 0}
                       billingCycle={billingCycle}
-                      maxSeats={plan.max_seats ?? undefined}
+                      maxSeats={
+                        plan.max_seats != null
+                          ? Math.min(plan.max_seats, plan.included_seats + 2)
+                          : plan.included_seats + 2
+                      }
                       onChange={(seats) =>
-                        setSelectedSeats((prev) => ({ ...prev, [config.tier]: seats }))
+                        setSelectedSeats((prev) => ({
+                          ...prev,
+                          [config.tier]: seats,
+                        }))
                       }
                     />
                   </div>
@@ -260,16 +287,20 @@ export function PricingCards({
                   </Button>
                 ) : (
                   <Button
-                    onClick={() => onSelectPlan(config.tier, billingCycle, extraSeats)}
+                    onClick={() =>
+                      onSelectPlan(config.tier, billingCycle, extraSeats)
+                    }
                     disabled={isLoading}
                     className={cn(
                       "w-full h-10 font-medium mb-4",
                       isHighlight
                         ? "bg-primary hover:bg-primary/90 text-black"
-                        : "bg-white/[0.08] hover:bg-white/[0.12] text-white"
+                        : "bg-white/[0.08] hover:bg-white/[0.12] text-white",
                     )}
                   >
-                    {currentTier && currentTier !== "free" && config.tier !== currentTier
+                    {currentTier &&
+                    currentTier !== "free" &&
+                    config.tier !== currentTier
                       ? currentTier === "agency" ||
                         (currentTier === "pro" && config.tier === "starter")
                         ? "Downgrade"
@@ -285,13 +316,13 @@ export function PricingCards({
                       <div
                         className={cn(
                           "mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0",
-                          isHighlight ? "bg-primary/20" : "bg-white/[0.06]"
+                          isHighlight ? "bg-primary/20" : "bg-white/[0.06]",
                         )}
                       >
                         <Check
                           className={cn(
                             "w-2.5 h-2.5",
-                            isHighlight ? "text-primary" : "text-slate-400"
+                            isHighlight ? "text-primary" : "text-slate-400",
                           )}
                         />
                       </div>

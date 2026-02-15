@@ -19,7 +19,7 @@ export function SeatSelector({
   extraSeatPrice,
   billingCycle,
   onChange,
-  maxSeats = 10,
+  maxSeats = includedSeats + 2,
   disabled = false,
 }: SeatSelectorProps) {
   const totalSeats = includedSeats + extraSeats;
@@ -43,9 +43,7 @@ export function SeatSelector({
           <Users className="w-4 h-4 text-slate-400" />
           <span className="text-xs text-slate-400">Team Seats</span>
         </div>
-        <span className="text-xs text-slate-500">
-          {includedSeats} included
-        </span>
+        <span className="text-xs text-slate-500">{includedSeats} included</span>
       </div>
 
       <div className="flex items-center gap-2">
@@ -56,14 +54,16 @@ export function SeatSelector({
             "w-8 h-8 rounded-md flex items-center justify-center transition-colors",
             extraSeats === 0 || disabled
               ? "bg-white/[0.03] text-slate-600 cursor-not-allowed"
-              : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"
+              : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]",
           )}
         >
           <Minus className="w-4 h-4" />
         </button>
 
         <div className="flex-1 h-8 rounded-md bg-white/[0.03] border border-white/[0.08] flex items-center justify-center">
-          <span className="text-sm font-medium text-white">{totalSeats} seats</span>
+          <span className="text-sm font-medium text-white">
+            {totalSeats} seats
+          </span>
         </div>
 
         <button
@@ -73,7 +73,7 @@ export function SeatSelector({
             "w-8 h-8 rounded-md flex items-center justify-center transition-colors",
             disabled || (maxSeats !== null && totalSeats >= maxSeats)
               ? "bg-white/[0.03] text-slate-600 cursor-not-allowed"
-              : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"
+              : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]",
           )}
         >
           <Plus className="w-4 h-4" />
@@ -84,7 +84,8 @@ export function SeatSelector({
         <p className="text-xs text-slate-500">
           +{extraSeats} extra {extraSeats === 1 ? "seat" : "seats"} ={" "}
           <span className="text-slate-400">
-            {formatPrice(extraSeats * extraSeatPrice)}/{billingCycle === "yearly" ? "year" : "month"}
+            {formatPrice(extraSeats * extraSeatPrice)}/
+            {billingCycle === "yearly" ? "year" : "month"}
           </span>
         </p>
       )}

@@ -41,7 +41,10 @@ npm install
 
 1. Create a Supabase project at https://supabase.com
 2. Run the database schema from `database/schema.sql` in Supabase SQL Editor
-3. Create a storage bucket named `campaign-covers` (public)
+3. Create storage buckets (each **public**):
+   - `campaign-covers` – campaign cover images
+   - `activation-covers` – contest/activation cover images
+     In Supabase: **Storage → New bucket** → name the bucket → set to **Public**
 
 ### 3. Configure Environment Variables
 
@@ -74,6 +77,8 @@ supabase secrets set RAPIDAPI_KEY=your_rapidapi_key
 supabase functions deploy scrape-post
 supabase functions deploy scrape-all-posts
 supabase functions deploy extract-creator-info
+supabase functions deploy share-campaign   # Required for campaign share links to work
+supabase functions deploy share_activation  # Required for activation/contest share links
 ```
 
 ### 5. Run Development Server

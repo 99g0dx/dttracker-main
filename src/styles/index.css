@@ -200,7 +200,7 @@ input:-webkit-autofill:focus {
 /* Mobile touch optimizations */
 @media (max-width: 640px) {
   /* Ensure minimum touch target size - exclude toast close buttons */
-  button:not([data-close-button]),
+  button:not([data-close-button]):not([data-slot="checkbox"]),
   a,
   input[type="checkbox"],
   input[type="radio"],
@@ -214,7 +214,7 @@ input:-webkit-autofill:focus {
   }
 
   /* Prevent text selection on interactive elements */
-  button:not([data-close-button]),
+  button:not([data-close-button]):not([data-slot="checkbox"]),
   a {
     -webkit-user-select: none;
     user-select: none;

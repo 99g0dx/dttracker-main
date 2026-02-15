@@ -297,8 +297,6 @@ serve(async (req) => {
       }
 
       if (!finalSound || !finalSound.id) {
-
-      if (!finalSound || !finalSound.id) {
         return new Response(
           JSON.stringify({ error: "Failed to create or find sound: No ID returned" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

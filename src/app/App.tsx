@@ -22,167 +22,172 @@ import { RouteProgress } from "./components/ui/route-progress";
 const Dashboard = React.lazy(() =>
   import("./components/dashboard").then((module) => ({
     default: module.Dashboard,
-  }))
+  })),
 );
 const Campaigns = React.lazy(() =>
   import("./components/campaigns").then((module) => ({
     default: module.Campaigns,
-  }))
+  })),
 );
 const CampaignDetail = React.lazy(() =>
   import("./components/campaign-detail").then((module) => ({
     default: module.CampaignDetail,
-  }))
+  })),
 );
 const CampaignCreate = React.lazy(() =>
   import("./components/campaign-create").then((module) => ({
     default: module.CampaignCreate,
-  }))
+  })),
 );
 const CampaignEdit = React.lazy(() =>
   import("./components/campaign-edit").then((module) => ({
     default: module.CampaignEdit,
-  }))
+  })),
 );
 const Creators = React.lazy(() =>
   import("./components/creators").then((module) => ({
     default: module.Creators,
-  }))
+  })),
 );
 const RequestInvitations = React.lazy(() =>
   import("./components/creators/request-invitations").then((module) => ({
     default: module.RequestInvitations,
-  }))
+  })),
 );
 const CreatorScraper = React.lazy(() =>
   import("./components/creator-scraper").then((module) => ({
     default: module.CreatorScraper,
-  }))
+  })),
 );
 const Settings = React.lazy(() =>
   import("./components/settings").then((module) => ({
     default: module.Settings,
-  }))
+  })),
 );
 const TeamManagement = React.lazy(() =>
   import("./components/team-management").then((module) => ({
     default: module.TeamManagement,
-  }))
+  })),
 );
 const Subscription = React.lazy(() =>
   import("./components/subscription-v2").then((module) => ({
     default: module.Subscription,
-  }))
+  })),
 );
 const Payment = React.lazy(() =>
   import("./components/payment").then((module) => ({
     default: module.Payment,
-  }))
+  })),
 );
 const Home = React.lazy(() =>
   import("./components/home").then((module) => ({
     default: module.Home,
-  }))
+  })),
 );
 const Login = React.lazy(() =>
   import("./components/login").then((module) => ({
     default: module.Login,
-  }))
+  })),
 );
 const Signup = React.lazy(() =>
   import("./components/signup").then((module) => ({
     default: module.Signup,
-  }))
+  })),
 );
 const Verification = React.lazy(() =>
   import("./components/verification").then((module) => ({
     default: module.Verification,
-  }))
+  })),
 );
 const ResetPassword = React.lazy(() =>
   import("./components/reset-password").then((module) => ({
     default: module.ResetPassword,
-  }))
+  })),
 );
 const Onboarding = React.lazy(() =>
   import("./components/onboarding").then((module) => ({
     default: module.Onboarding,
-  }))
+  })),
 );
 const SharedCampaignDashboard = React.lazy(() =>
   import("./components/shared-campaign-dashboard").then((module) => ({
     default: module.SharedCampaignDashboard,
-  }))
+  })),
+);
+const SharedActivationView = React.lazy(() =>
+  import("./components/shared-activation-view").then((module) => ({
+    default: module.SharedActivationView,
+  })),
 );
 const TeamInviteAccept = React.lazy(() =>
   import("./components/team-invite-accept").then((module) => ({
     default: module.TeamInviteAccept,
-  }))
+  })),
 );
 const Pricing = React.lazy(() =>
   import("./components/landing/Pricing").then((module) => ({
     default: module.Pricing,
-  }))
+  })),
 );
 const Sounds = React.lazy(() =>
   import("./components/sounds").then((module) => ({
     default: module.Sounds,
-  }))
+  })),
 );
 const AdminDashboard = React.lazy(() =>
   import("./components/admin-dashboard").then((module) => ({
     default: module.AdminDashboard,
-  }))
+  })),
 );
 const AdminUsers = React.lazy(() =>
   import("./components/admin-users").then((module) => ({
     default: module.AdminUsers,
-  }))
+  })),
 );
 const ScrapeOps = React.lazy(() =>
   import("./components/scrape-ops").then((module) => ({
     default: module.ScrapeOps,
-  }))
+  })),
 );
 const SoundTrackNew = React.lazy(() =>
   import("./components/sound-track-new").then((module) => ({
     default: module.SoundTrackNew,
-  }))
+  })),
 );
 const SoundTrackDetail = React.lazy(() =>
   import("./components/sound-track-detail").then((module) => ({
     default: module.SoundTrackDetail,
-  }))
+  })),
 );
 const BillingSuccess = React.lazy(() =>
   import("./components/billing-success").then((module) => ({
     default: module.BillingSuccess,
-  }))
+  })),
 );
 const BillingCancel = React.lazy(() =>
   import("./components/billing-cancel").then((module) => ({
     default: module.BillingCancel,
-  }))
+  })),
 );
 const Activations = React.lazy(() =>
   import("./components/activations").then((module) => ({
     default: module.Activations,
-  }))
+  })),
 );
 const ActivationCreate = React.lazy(() =>
   import("./components/activations/activation-create").then((module) => ({
     default: module.ActivationCreate,
-  }))
+  })),
 );
 const ActivationDetail = React.lazy(() =>
   import("./components/activations/activation-detail").then((module) => ({
     default: module.ActivationDetail,
-  }))
+  })),
 );
 const Wallet = React.lazy(() =>
   import("./components/wallet").then((module) => ({
     default: module.Wallet,
-  }))
+  })),
 );
 
 function AppRoutes() {
@@ -267,14 +272,14 @@ function AppRoutes() {
             "flex-1 overflow-x-hidden",
             isPublicRoute
               ? "px-0 py-0 overflow-y-auto"
-              : "lg:ml-64 px-4 sm:px-5 lg:px-8 pt-[max(5rem,env(safe-area-inset-top,5rem))] lg:pt-8 pb-8 overflow-y-auto"
+              : "lg:ml-64 px-4 sm:px-5 lg:px-8 pt-[max(5rem,env(safe-area-inset-top,5rem))] lg:pt-8 pb-8 overflow-y-auto",
           )}
         >
           <div
             className={cn(
               isPublicRoute ? "" : "max-w-7xl mx-auto",
               "transition-opacity duration-200",
-              !isPublicRoute && isSwitching && "opacity-60"
+              !isPublicRoute && isSwitching && "opacity-60",
             )}
           >
             {!isPublicRoute && <SubscriptionBanner />}
@@ -315,6 +320,10 @@ function AppRoutes() {
                 <Route
                   path="/share/campaign/:token"
                   element={<SharedCampaignDashboard />}
+                />
+                <Route
+                  path="/share/activation/:token"
+                  element={<SharedActivationView />}
                 />
                 <Route
                   path="/team/invite/:token"

@@ -46,11 +46,14 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { ResponsiveConfirmDialog } from "./ui/responsive-confirm-dialog";
+import { Checkbox } from "./ui/checkbox";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { CreatorRequestChatbot } from "./creator-request-chatbot";
 import * as creatorRequestsApi from "../../lib/api/creator-requests";
+
+const REQUESTS_PER_PAGE = 10;
 
 interface RequestsProps {
   onNavigate?: (path: string) => void;
@@ -147,6 +150,9 @@ export function Requests({ onNavigate }: RequestsProps) {
   );
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
   const [campaignName, setCampaignName] = useState<string | null>(null);
   const [campaignNames, setCampaignNames] = useState<Record<string, string>>(
     {}
@@ -160,18 +166,6 @@ export function Requests({ onNavigate }: RequestsProps) {
   const [editInitialForm, setEditInitialForm] = useState<
     Partial<CreatorRequestInsert> | undefined
   >(undefined);
-  const desktopTableRef = useRef<HTMLDivElement | null>(null);
-  const [desktopTableHeight, setDesktopTableHeight] = useState(0);
-  const [desktopTableScrollTop, setDesktopTableScrollTop] = useState(0);
-  const desktopRowHeight = 60;
-  const mobileListRef = useRef<HTMLDivElement | null>(null);
-  const [mobileListHeight, setMobileListHeight] = useState(0);
-  const [mobileListScrollTop, setMobileListScrollTop] = useState(0);
-  const mobileRowHeight = 180;
-  const virtualizationEnabled =
-    typeof window !== "undefined"
-      ? localStorage.getItem("disable_virtualization") !== "1"
-      : true;
   const { data: campaigns = [] } = useCampaigns();
   const campaignsById = useMemo(
     () =>
@@ -286,107 +280,75 @@ export function Requests({ onNavigate }: RequestsProps) {
       .map((entry) => entry.req);
   }, [indexedRequests, searchQuery, statusFilter]);
 
-  const shouldVirtualizeTable =
-    virtualizationEnabled && filteredRequests.length > 300;
-  const shouldVirtualizeMobile =
-    virtualizationEnabled && filteredRequests.length > 300;
   const showRefreshShimmer = isFetching && !isLoading;
 
-  useEffect(() => {
-    if (!shouldVirtualizeTable || !desktopTableRef.current) return;
-    const node = desktopTableRef.current;
-    const updateHeight = () => setDesktopTableHeight(node.clientHeight);
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [shouldVirtualizeTable, filteredRequests.length]);
+  // Pagination: 10 per page
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / REQUESTS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedRequests = useMemo(() => {
+    const start = (safeCurrentPage - 1) * REQUESTS_PER_PAGE;
+    return filteredRequests.slice(start, start + REQUESTS_PER_PAGE);
+  }, [filteredRequests, safeCurrentPage]);
 
   useEffect(() => {
-    if (!shouldVirtualizeMobile || !mobileListRef.current) return;
-    const node = mobileListRef.current;
-    const updateHeight = () => setMobileListHeight(node.clientHeight);
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [shouldVirtualizeMobile, filteredRequests.length]);
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [totalPages, searchQuery, statusFilter]);
 
-  useEffect(() => {
-    if (!shouldVirtualizeTable) return;
-    setDesktopTableScrollTop(0);
-    desktopTableRef.current?.scrollTo({ top: 0 });
-  }, [shouldVirtualizeTable, searchQuery, statusFilter]);
+  const canDeleteRequest = (request: CreatorRequest) =>
+    isOwner ||
+    (request.user_id === user?.id &&
+      request.submission_type === "suggestion" &&
+      request.status === "suggested");
 
-  useEffect(() => {
-    if (!shouldVirtualizeMobile) return;
-    setMobileListScrollTop(0);
-    mobileListRef.current?.scrollTo({ top: 0 });
-  }, [shouldVirtualizeMobile, searchQuery, statusFilter]);
+  const toggleSelect = (id: string, request: CreatorRequest) => {
+    if (!canDeleteRequest(request)) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-  const desktopVirtualWindow = useMemo(() => {
-    if (!shouldVirtualizeTable) {
-      return {
-        items: filteredRequests,
-        paddingTop: 0,
-        paddingBottom: 0,
-        startIndex: 0,
-      };
+  const toggleSelectAllOnPage = () => {
+    const deletableOnPage = paginatedRequests.filter(canDeleteRequest);
+    const allSelected = deletableOnPage.every((r) => selectedIds.has(r.id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        deletableOnPage.forEach((r) => next.delete(r.id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        deletableOnPage.forEach((r) => next.add(r.id));
+        return next;
+      });
     }
-    const total = filteredRequests.length;
-    const visibleCount = Math.ceil(desktopTableHeight / desktopRowHeight) + 8;
-    const startIndex = Math.max(
-      0,
-      Math.floor(desktopTableScrollTop / desktopRowHeight) - 4
-    );
-    const endIndex = Math.min(total, startIndex + visibleCount);
-    return {
-      items: filteredRequests.slice(startIndex, endIndex),
-      paddingTop: startIndex * desktopRowHeight,
-      paddingBottom: Math.max(
-        0,
-        total * desktopRowHeight - endIndex * desktopRowHeight
-      ),
-      startIndex,
-    };
-  }, [
-    shouldVirtualizeTable,
-    filteredRequests,
-    desktopTableHeight,
-    desktopTableScrollTop,
-  ]);
+  };
 
-  const mobileVirtualWindow = useMemo(() => {
-    if (!shouldVirtualizeMobile) {
-      return {
-        items: filteredRequests,
-        paddingTop: 0,
-        paddingBottom: 0,
-        startIndex: 0,
-      };
+  const handleBulkDelete = () => {
+    const toDelete = Array.from(selectedIds).filter((id) => {
+      const req = filteredRequests.find((r) => r.id === id);
+      return req && canDeleteRequest(req);
+    });
+    if (toDelete.length === 0) return;
+    setBulkDeleteIds(toDelete);
+  };
+
+  const confirmBulkDelete = async () => {
+    if (!bulkDeleteIds || bulkDeleteIds.length === 0) return;
+    try {
+      for (const id of bulkDeleteIds) {
+        await deleteRequestMutation.mutateAsync(id);
+      }
+      setSelectedIds(new Set());
+      setBulkDeleteIds(null);
+    } catch {
+      // toast handled by mutation
     }
-    const total = filteredRequests.length;
-    const visibleCount = Math.ceil(mobileListHeight / mobileRowHeight) + 6;
-    const startIndex = Math.max(
-      0,
-      Math.floor(mobileListScrollTop / mobileRowHeight) - 3
-    );
-    const endIndex = Math.min(total, startIndex + visibleCount);
-    return {
-      items: filteredRequests.slice(startIndex, endIndex),
-      paddingTop: startIndex * mobileRowHeight,
-      paddingBottom: Math.max(
-        0,
-        total * mobileRowHeight - endIndex * mobileRowHeight
-      ),
-      startIndex,
-    };
-  }, [
-    shouldVirtualizeMobile,
-    filteredRequests,
-    mobileListHeight,
-    mobileListScrollTop,
-  ]);
+  };
 
   const openViewDialog = (request: CreatorRequest) => {
     setSelectedRequest(request);
@@ -609,27 +571,30 @@ export function Requests({ onNavigate }: RequestsProps) {
         </Card>
       ) : (
         <>
-          <div
-            ref={mobileListRef}
-            onScroll={(event) => {
-              if (!shouldVirtualizeMobile) return;
-              setMobileListScrollTop(event.currentTarget.scrollTop);
-            }}
-            className={`lg:hidden space-y-4 ${
-              shouldVirtualizeMobile
-                ? "max-h-[70vh] overflow-auto space-y-0"
-                : ""
-            }`}
-          >
+          {/* Bulk delete bar */}
+          {selectedIds.size > 0 && (
+            <div className="lg:hidden flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/60 border border-border">
+              <span className="text-sm text-foreground">
+                {selectedIds.size} selected
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={deleteRequestMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete selected
+              </Button>
+            </div>
+          )}
+          <div className="lg:hidden space-y-4">
             {showRefreshShimmer && (
               <div className="sticky top-0 z-10">
                 <Skeleton className="h-1 w-full rounded-none bg-muted" />
               </div>
             )}
-            {mobileVirtualWindow.paddingTop > 0 && (
-              <div style={{ height: mobileVirtualWindow.paddingTop }} />
-            )}
-            {mobileVirtualWindow.items.map((request, index) => {
+            {paginatedRequests.map((request) => {
               const status = statusConfig[request.status];
               const requesterLabel =
                 requesterNames[request.user_id] || "Unknown";
@@ -642,18 +607,10 @@ export function Requests({ onNavigate }: RequestsProps) {
                 ownerApproval === "Pending"
                   ? "bg-amber-100/70 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-400/20"
                   : "bg-emerald-100/70 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-400/20";
-              const canDelete =
-                isOwner ||
-                (request.user_id === user?.id &&
-                  request.submission_type === "suggestion" &&
-                  request.status === "suggested");
+              const canDelete = canDeleteRequest(request);
               return (
                 <Card
-                  key={
-                    shouldVirtualizeMobile
-                      ? `${request.id}-${mobileVirtualWindow.startIndex + index}`
-                      : request.id
-                  }
+                  key={request.id}
                   className="bg-card border-border rounded-xl overflow-hidden active:bg-muted/70 transition-colors cursor-pointer"
                   style={{ boxShadow: "var(--shadow-card)" }}
                   onMouseEnter={() => prefetchRequestDetail(request.id)}
@@ -661,6 +618,15 @@ export function Requests({ onNavigate }: RequestsProps) {
                 >
                   <CardContent className="p-4 min-[400px]:p-5 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {canDelete && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(request.id)}
+                            onCheckedChange={() => toggleSelect(request.id, request)}
+                            aria-label="Select request"
+                          />
+                        </div>
+                      )}
                       <div
                         className={`px-3 py-1 rounded-full border ${status.bgColor} ${status.color} flex items-center gap-1.5 text-xs font-medium`}
                       >
@@ -746,20 +712,49 @@ export function Requests({ onNavigate }: RequestsProps) {
                 </Card>
               );
             })}
-            {mobileVirtualWindow.paddingBottom > 0 && (
-              <div style={{ height: mobileVirtualWindow.paddingBottom }} />
-            )}
           </div>
+          {/* Mobile pagination */}
+          <div className="lg:hidden flex items-center justify-between gap-2 py-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safeCurrentPage <= 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {safeCurrentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+          {/* Desktop bulk delete bar */}
+          {selectedIds.size > 0 && (
+            <div className="hidden lg:flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/60 border border-border">
+              <span className="text-sm text-foreground">
+                {selectedIds.size} selected
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={deleteRequestMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete selected
+              </Button>
+            </div>
+          )}
           <Card className="hidden lg:block bg-card border-border">
             <CardContent className="p-0">
-              <div
-                ref={desktopTableRef}
-                onScroll={(event) => {
-                  if (!shouldVirtualizeTable) return;
-                  setDesktopTableScrollTop(event.currentTarget.scrollTop);
-                }}
-                className="max-h-[560px] overflow-auto"
-              >
+              <div className="max-h-[560px] overflow-auto">
                 {showRefreshShimmer && (
                   <div className="sticky top-0 z-10">
                     <Skeleton className="h-1 w-full rounded-none bg-muted" />
@@ -768,6 +763,18 @@ export function Requests({ onNavigate }: RequestsProps) {
                 <table className="min-w-[860px] w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-muted/60 text-muted-foreground">
                     <tr>
+                      <th className="text-left px-4 py-3 font-medium w-10">
+                        <Checkbox
+                          checked={
+                            paginatedRequests.some((r) => canDeleteRequest(r)) &&
+                            paginatedRequests
+                              .filter(canDeleteRequest)
+                              .every((r) => selectedIds.has(r.id))
+                          }
+                          onCheckedChange={toggleSelectAllOnPage}
+                          aria-label="Select all on page"
+                        />
+                      </th>
                       <th className="text-left px-4 py-3 font-medium">
                         Status
                       </th>
@@ -789,15 +796,7 @@ export function Requests({ onNavigate }: RequestsProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {desktopVirtualWindow.paddingTop > 0 && (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          style={{ height: desktopVirtualWindow.paddingTop }}
-                        />
-                      </tr>
-                    )}
-                    {desktopVirtualWindow.items.map((request, index) => {
+                    {paginatedRequests.map((request) => {
                       const status = statusConfig[request.status];
                       const requesterLabel =
                         requesterNames[request.user_id] || "Unknown";
@@ -810,21 +809,28 @@ export function Requests({ onNavigate }: RequestsProps) {
                         ownerApproval === "Pending"
                           ? "bg-amber-100/70 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-400/20"
                           : "bg-emerald-100/70 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-400/20";
-                      const canDelete =
-                        isOwner ||
-                        (request.user_id === user?.id &&
-                          request.submission_type === "suggestion" &&
-                          request.status === "suggested");
-                      const rowKey = shouldVirtualizeTable
-                        ? `${request.id}-${desktopVirtualWindow.startIndex + index}`
-                        : request.id;
+                      const canDelete = canDeleteRequest(request);
                       return (
                         <tr
-                          key={rowKey}
+                          key={request.id}
                           className="border-t border-border hover:bg-muted/60 cursor-pointer"
                           onMouseEnter={() => prefetchRequestDetail(request.id)}
                           onClick={() => openViewDialog(request)}
                         >
+                          <td
+                            className="px-4 py-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {canDelete && (
+                              <Checkbox
+                                checked={selectedIds.has(request.id)}
+                                onCheckedChange={() =>
+                                  toggleSelect(request.id, request)
+                                }
+                                aria-label="Select request"
+                              />
+                            )}
+                          </td>
                           <td className="px-4 py-3">
                             <div
                               className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.color}`}
@@ -910,16 +916,32 @@ export function Requests({ onNavigate }: RequestsProps) {
                         </tr>
                       );
                     })}
-                    {desktopVirtualWindow.paddingBottom > 0 && (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          style={{ height: desktopVirtualWindow.paddingBottom }}
-                        />
-                      </tr>
-                    )}
                   </tbody>
                 </table>
+              </div>
+              {/* Desktop pagination */}
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage <= 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {safeCurrentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={safeCurrentPage >= totalPages}
+                >
+                  Next
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1335,6 +1357,23 @@ export function Requests({ onNavigate }: RequestsProps) {
         onConfirm={() =>
           deleteConfirmId && handleDeleteRequest(deleteConfirmId)
         }
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <ResponsiveConfirmDialog
+        open={Boolean(bulkDeleteIds && bulkDeleteIds.length > 0)}
+        onOpenChange={(open) => {
+          if (!open) setBulkDeleteIds(null);
+        }}
+        title="Delete selected requests?"
+        description={`${bulkDeleteIds?.length || 0} request(s) will be deleted and cannot be recovered. The agency will be notified.`}
+        confirmLabel={
+          deleteRequestMutation.isPending
+            ? "Deleting..."
+            : `Delete ${bulkDeleteIds?.length || 0} request(s)`
+        }
+        confirmDisabled={deleteRequestMutation.isPending}
+        onConfirm={confirmBulkDelete}
       />
 
       <CreatorRequestChatbot

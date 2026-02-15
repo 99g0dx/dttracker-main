@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { triggerAutoScrape } from "../_shared/auto-scrape.ts";
+import { resolveCreator } from "../_shared/resolve-creator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +34,7 @@ serve(async (req) => {
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -64,7 +66,7 @@ serve(async (req) => {
     const { data: activation, error: actError } = await supabase
       .from("activations")
       .select(
-        "id, type, auto_approve, payment_per_action, base_rate, max_posts_per_creator"
+        "id, type, auto_approve, payment_per_action, base_rate, max_posts_per_creator",
       )
       .eq("id", activation_id)
       .single();
@@ -99,7 +101,7 @@ serve(async (req) => {
           {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          },
         );
       }
 
@@ -120,8 +122,28 @@ serve(async (req) => {
           {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          },
         );
+      }
+    }
+
+    // Resolve creator identity if handle is missing but we have an ID
+    let resolvedCreatorId = creator_id ?? null;
+    let resolvedHandle = creator_handle ?? null;
+    let resolvedPlatform = creator_platform ?? null;
+
+    if (creator_id && !creator_handle) {
+      const resolved = await resolveCreator(
+        supabase,
+        creator_id,
+        null,
+        creator_platform,
+      );
+      if (resolved) {
+        resolvedCreatorId = resolved.creator_id;
+        resolvedHandle = resolved.creator_handle;
+        resolvedPlatform =
+          resolved.creator_platform ?? creator_platform ?? null;
       }
     }
 
@@ -129,9 +151,9 @@ serve(async (req) => {
       .from("activation_submissions")
       .insert({
         activation_id,
-        creator_id: creator_id ?? null,
-        creator_handle: creator_handle ?? null,
-        creator_platform: creator_platform ?? null,
+        creator_id: resolvedCreatorId,
+        creator_handle: resolvedHandle,
+        creator_platform: resolvedPlatform,
         content_url: content_url ?? null,
         proof_url: proof_url ?? null,
         proof_comment_text: proof_comment_text ?? null,
@@ -193,11 +215,21 @@ serve(async (req) => {
         {
           p_submission_id: submission.id,
           p_payment_amount: smPanelPayment,
-        }
+        },
       );
       if (releaseError) {
         console.error("release_sm_panel_payment error:", releaseError);
       }
+    }
+
+    // Auto-scrape if the submission has a content URL
+    if (submission.content_url) {
+      triggerAutoScrape(
+        supabaseUrl,
+        supabaseServiceKey,
+        submission.id,
+        "activation-submission-webhook",
+      );
     }
 
     return new Response(JSON.stringify({ success: true, submission }), {

@@ -46,10 +46,13 @@ serve(async (req) => {
     } = await req.json();
 
     if (!workspaceId || !tier || !billingCycle) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing required fields" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (!["free", "starter", "pro", "agency"].includes(tier)) {
@@ -67,6 +70,16 @@ serve(async (req) => {
     }
 
     const extraSeats = Math.max(0, toInt(extraSeatsInput, 0));
+
+    if (extraSeats > 2) {
+      return new Response(
+        JSON.stringify({ error: "Maximum 2 extra seats allowed" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     const supabase = getSupabaseAdmin();
     let hasAdminAccess = false;
@@ -121,24 +134,33 @@ serve(async (req) => {
     }
 
     if (plan.tier === "free") {
-      return new Response(JSON.stringify({ error: "Free plan has no checkout" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Free plan has no checkout" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (!plan.paystack_base_plan_code) {
-      return new Response(JSON.stringify({ error: "Missing Paystack plan mapping" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing Paystack plan mapping" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (extraSeats > 0 && !plan.extra_seat_price_cents) {
-      return new Response(JSON.stringify({ error: "Extra seats not allowed" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Extra seats not allowed" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const includedSeats = plan.included_seats;
@@ -153,16 +175,18 @@ serve(async (req) => {
       .single();
 
     const ownerUserId = workspace?.owner_user_id || user.id;
-    const { data: ownerUser } = await supabase.auth.admin.getUserById(
-      ownerUserId
-    );
+    const { data: ownerUser } =
+      await supabase.auth.admin.getUserById(ownerUserId);
     const email = ownerUser?.user?.email || user.email;
 
     if (!email) {
-      return new Response(JSON.stringify({ error: "Workspace owner email missing" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Workspace owner email missing" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const { data: existingSub } = await supabase
@@ -214,27 +238,38 @@ serve(async (req) => {
     const reference = `dtt_${workspaceId.slice(0, 8)}_${Date.now()}`;
     const { amount, currency } = resolveAmountInMinorUnits(totalPriceCents);
 
-    const initResponse = await paystackRequest("/transaction/initialize", "POST", {
-      email,
-      amount,
-      currency,
-      reference,
-      callback_url:
-        callbackUrl || `${Deno.env.get("APP_URL") || ""}/billing/success`,
-      metadata: {
-        workspace_id: workspaceId,
-        tier: plan.tier,
-        billing_cycle: plan.billing_cycle,
-        extra_seats: extraSeats,
-        included_seats: includedSeats,
-        total_seats: totalSeats,
-        base_plan_code: plan.paystack_base_plan_code,
-        seat_plan_code: plan.paystack_seat_plan_code,
-        base_price_cents: plan.base_price_cents,
-        extra_seat_price_cents: extraSeatPrice,
+    const initResponse = await paystackRequest(
+      "/transaction/initialize",
+      "POST",
+      {
+        email,
+        amount,
+        currency,
+        reference,
+        callback_url:
+          callbackUrl || `${Deno.env.get("APP_URL") || ""}/billing/success`,
+        metadata: {
+          workspace_id: workspaceId,
+          tier: plan.tier,
+          billing_cycle: plan.billing_cycle,
+          extra_seats: extraSeats,
+          included_seats: includedSeats,
+          total_seats: totalSeats,
+          base_plan_code: plan.paystack_base_plan_code,
+          seat_plan_code: plan.paystack_seat_plan_code,
+          base_price_cents: plan.base_price_cents,
+          extra_seat_price_cents: extraSeatPrice,
+        },
+        channels: [
+          "card",
+          "bank",
+          "ussd",
+          "qr",
+          "mobile_money",
+          "bank_transfer",
+        ],
       },
-      channels: ["card", "bank", "ussd", "qr", "mobile_money", "bank_transfer"],
-    });
+    );
 
     return new Response(
       JSON.stringify({
@@ -246,7 +281,7 @@ serve(async (req) => {
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error) {
     console.error("billing_create_checkout error:", error);
@@ -255,7 +290,7 @@ serve(async (req) => {
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });

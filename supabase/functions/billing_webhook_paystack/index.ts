@@ -13,7 +13,7 @@ async function createSubscription(
   customerCode: string,
   planCode: string,
   authorizationCode?: string,
-  quantity?: number
+  quantity?: number,
 ) {
   return paystackRequest("/subscription", "POST", {
     customer: customerCode,
@@ -71,7 +71,8 @@ serve(async (req) => {
     }
 
     const metadata = data.metadata || {};
-    let workspaceId = metadata.workspace_id || data.metadata?.workspace_id || null;
+    let workspaceId =
+      metadata.workspace_id || data.metadata?.workspace_id || null;
     const reference = data.reference || null;
 
     if (!workspaceId && data.subscription_code) {
@@ -79,7 +80,7 @@ serve(async (req) => {
         .from("subscriptions")
         .select("workspace_id")
         .or(
-          `paystack_base_subscription_code.eq.${data.subscription_code},paystack_seat_subscription_code.eq.${data.subscription_code}`
+          `paystack_base_subscription_code.eq.${data.subscription_code},paystack_seat_subscription_code.eq.${data.subscription_code}`,
         )
         .maybeSingle();
       workspaceId = subLookup?.workspace_id || null;
@@ -108,7 +109,10 @@ serve(async (req) => {
         const tier = metadata.tier || "starter";
         const billingCycle = metadata.billing_cycle || "monthly";
         const includedSeats = toInt(metadata.included_seats, 1);
-        const extraSeats = Math.max(0, toInt(metadata.extra_seats, 0));
+        const extraSeats = Math.min(
+          2,
+          Math.max(0, toInt(metadata.extra_seats, 0)),
+        );
         const totalSeats = includedSeats + extraSeats;
         const customerCode = data.customer?.customer_code;
         const authorizationCode = data.authorization?.authorization_code;
@@ -124,7 +128,7 @@ serve(async (req) => {
           const baseSub = await createSubscription(
             customerCode,
             basePlanCode,
-            authorizationCode
+            authorizationCode,
           );
           baseSubscriptionCode = baseSub.data.subscription_code;
           baseEmailToken = baseSub.data.email_token;
@@ -139,7 +143,7 @@ serve(async (req) => {
         if (!periodEnd) {
           const cycleDays = billingCycle === "yearly" ? 365 : 30;
           periodEnd = new Date(
-            now.getTime() + cycleDays * 24 * 60 * 60 * 1000
+            now.getTime() + cycleDays * 24 * 60 * 60 * 1000,
           ).toISOString();
         }
 
@@ -148,7 +152,7 @@ serve(async (req) => {
             customerCode,
             seatPlanCode,
             authorizationCode,
-            extraSeats
+            extraSeats,
           );
           seatSubscriptionCode = seatSub.data.subscription_code;
           seatEmailToken = seatSub.data.email_token;
@@ -184,7 +188,10 @@ serve(async (req) => {
         };
 
         if (existingSub?.id) {
-          await supabase.from("subscriptions").update(payload).eq("id", existingSub.id);
+          await supabase
+            .from("subscriptions")
+            .update(payload)
+            .eq("id", existingSub.id);
         } else {
           await supabase.from("subscriptions").insert(payload);
         }
@@ -195,7 +202,7 @@ serve(async (req) => {
       case "charge.failed": {
         if (!workspaceId) break;
         const graceEnd = new Date(
-          now.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000
+          now.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000,
         );
         await supabase
           .from("subscriptions")
@@ -265,7 +272,7 @@ serve(async (req) => {
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });

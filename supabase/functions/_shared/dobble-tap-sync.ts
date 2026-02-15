@@ -63,6 +63,19 @@ async function queueSync(
 }
 
 /**
+ * Map DTTracker task_type to Dobble Tap campaigns.activity_type.
+ * Sends like, repost, comment as-is; other types fall back to screenshot.
+ */
+export function getDobbleTapActivityType(taskType: string | null | undefined): string {
+  if (!taskType) return 'screenshot';
+  const t = String(taskType).toLowerCase();
+  if (t === 'like') return 'like';
+  if (t === 'repost') return 'repost';
+  if (t === 'comment') return 'comment';
+  return 'screenshot'; // share, story, etc.
+}
+
+/**
  * Map internal sync types to Dobbletap webhook event types
  * These are consumed by /webhooks/dttracker in Dobbletap
  */

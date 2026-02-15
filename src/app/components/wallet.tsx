@@ -456,7 +456,7 @@ export function Wallet({ onNavigate }: WalletProps) {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-muted-foreground">
-                  Wallet-Activation Sync Status
+                  Reserved budget check
                 </span>
                 {Math.abs(syncState.locked_discrepancy) < 0.01 ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -483,13 +483,13 @@ export function Wallet({ onNavigate }: WalletProps) {
             
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Expected Locked (from activations)</span>
+                <span className="text-xs text-muted-foreground">Budget your activations need</span>
                 <span className="text-sm font-medium text-foreground">
                   {formatAmount(syncState.expected_locked_from_activations, currency)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Actual Locked</span>
+                <span className="text-xs text-muted-foreground">What's reserved now</span>
                 <span className="text-sm font-medium text-foreground">
                   {formatAmount(syncState.actual_locked, currency)}
                 </span>
@@ -497,7 +497,7 @@ export function Wallet({ onNavigate }: WalletProps) {
               {Math.abs(syncState.locked_discrepancy) >= 0.01 && (
                 <>
                   <div className="flex justify-between items-center pt-2 border-t border-border">
-                    <span className="text-xs text-amber-700 dark:text-amber-400">Discrepancy</span>
+                    <span className="text-xs text-amber-700 dark:text-amber-400">Not yet reserved</span>
                     <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
                       {formatAmount(Math.abs(syncState.locked_discrepancy), currency)}
                     </span>

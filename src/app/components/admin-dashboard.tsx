@@ -66,6 +66,23 @@ type AdminAuditLogEntry = {
 
 type AdminProfileMap = Record<string, { full_name: string | null; email: string | null }>;
 
+/** Format a numeric string for display with commas (e.g. "150000" -> "150,000") */
+function formatQuoteAmountDisplay(value: string): string {
+  if (!value) return '';
+  const stripped = value.replace(/,/g, '');
+  const num = parseFloat(stripped);
+  if (Number.isNaN(num)) return value;
+  return num.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+}
+
+/** Strip to digits and at most one decimal for raw storage */
+function sanitizeQuoteAmountInput(value: string): string {
+  const stripped = value.replace(/,/g, '');
+  const parts = stripped.split('.');
+  if (parts.length <= 1) return stripped.replace(/\D/g, '');
+  return parts[0].replace(/\D/g, '') + '.' + parts.slice(1).join('').replace(/\D/g, '').slice(0, 2);
+}
+
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const { isCompanyAdmin, loading: accessLoading } = useCompanyAdmin();
   const queryClient = useQueryClient();
@@ -1475,18 +1492,17 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
                               <div className="grid grid-cols-1 sm:grid-cols-[160px_110px_1fr] gap-2">
                                 <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
+                                  type="text"
+                                  inputMode="decimal"
                                   placeholder="Quote amount"
-                                  value={draft.amount}
+                                  value={formatQuoteAmountDisplay(draft.amount)}
                                   onChange={(event) => {
-                                    const value = event.target.value;
+                                    const cleaned = sanitizeQuoteAmountInput(event.target.value);
                                     setQuoteDrafts((prev) => ({
                                       ...prev,
                                       [creatorId]: {
                                         ...draft,
-                                        amount: value,
+                                        amount: cleaned,
                                       },
                                     }));
                                   }}

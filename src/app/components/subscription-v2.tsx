@@ -67,7 +67,9 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
     const isCurrent =
       billing.subscription.tier === selectedTier &&
       billing.subscription.billing_cycle === billingCycle;
-    setExtraSeats(isCurrent ? billing.subscription.extra_seats : 0);
+    setExtraSeats(
+      isCurrent ? Math.min(2, billing.subscription.extra_seats) : 0,
+    );
   }, [billing, selectedPlan, selectedTier, billingCycle]);
 
   useEffect(() => {
@@ -139,7 +141,11 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
   const seatPrice = selectedPlan?.extra_seat_price_cents || 0;
   const basePrice = selectedPlan?.base_price_cents || 0;
   const includedSeats = selectedPlan?.included_seats || 0;
-  const maxExtraSeats = selectedPlan?.max_seats != null ? selectedPlan.max_seats - includedSeats : Infinity;
+  const planMaxExtra =
+    selectedPlan?.max_seats != null
+      ? selectedPlan.max_seats - includedSeats
+      : 2;
+  const maxExtraSeats = Math.min(2, planMaxExtra);
   const totalPrice = basePrice + extraSeats * seatPrice;
   const totalSeats = includedSeats + extraSeats;
   const currency = catalog?.currency || "USD";
@@ -242,7 +248,9 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <AlertTriangle className="w-12 h-12 text-red-400" />
-        <p className="text-muted-foreground">Failed to load subscription details</p>
+        <p className="text-muted-foreground">
+          Failed to load subscription details
+        </p>
         <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     );
@@ -396,7 +404,11 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
             <div>
               <p className="text-muted-foreground">Team seats</p>
               <p className="text-foreground text-sm">
-                {billing?.seats_used ?? 1} / {billing?.seats_total ?? 1}
+                {billing?.seats_used ?? 1} /{" "}
+                {Math.min(
+                  billing?.seats_total ?? 1,
+                  (billing?.plan?.included_seats ?? 1) + 2,
+                )}
               </p>
             </div>
           </div>
@@ -536,12 +548,15 @@ export function Subscription({ onNavigate }: SubscriptionProps) {
                   variant="outline"
                   className="h-9 w-9 p-0"
                   disabled={extraSeats >= maxExtraSeats}
-                  onClick={() => setExtraSeats(Math.min(extraSeats + 1, maxExtraSeats))}
+                  onClick={() =>
+                    setExtraSeats(Math.min(extraSeats + 1, maxExtraSeats))
+                  }
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
                 <div className="text-sm text-muted-foreground">
-                  Total seats: <span className="text-foreground">{totalSeats}</span>
+                  Total seats:{" "}
+                  <span className="text-foreground">{totalSeats}</span>
                 </div>
               </div>
             </div>

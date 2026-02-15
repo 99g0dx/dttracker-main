@@ -786,6 +786,13 @@ export interface Activation {
   dobble_tap_activation_id: string | null;
   visibility?: "public" | "community";
   community_fan_ids?: string[];
+  image_url: string | null;
+  share_enabled?: boolean;
+  share_token?: string | null;
+  share_created_at?: string | null;
+  share_expires_at?: string | null;
+  share_password_hash?: string | null;
+  share_password_protected?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -797,6 +804,7 @@ export interface ActivationSubmission {
   creator_handle: string | null;
   creator_platform: string | null;
   content_url: string | null;
+  post_url: string | null;
   proof_url: string | null;
   tier: string | null;
   creator_followers: number | null;
@@ -845,6 +853,8 @@ export interface ActivationInsert {
   instructions?: string | null;
   visibility?: "public" | "community";
   community_fan_ids?: string[];
+  image_url?: string | null;
+  test_mode?: boolean;
 }
 
 export interface LeaderboardEntry {
@@ -889,6 +899,13 @@ export interface ActivationUpdate {
   platforms?: string[] | null;
   requirements?: string[] | null;
   instructions?: string | null;
+  image_url?: string | null;
+  share_enabled?: boolean;
+  share_token?: string | null;
+  share_created_at?: string | null;
+  share_expires_at?: string | null;
+  share_password_hash?: string | null;
+  share_password_protected?: boolean;
 }
 
 // ============================================================

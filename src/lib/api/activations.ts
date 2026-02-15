@@ -38,6 +38,8 @@ export function calculateTotalCost(budget: number): {
 
 export interface ActivationWithSubmissionCount extends Activation {
   submissions_count?: number;
+  total_views?: number;
+  approved_count?: number;
 }
 
 export async function listActivations(
@@ -74,23 +76,34 @@ export async function listActivations(
 
     const ids = (activations || []).map((a: any) => a.id);
     let submissionCounts: Record<string, number> = {};
+    let viewCounts: Record<string, number> = {};
+    let approvedCounts: Record<string, number> = {};
 
     if (ids.length > 0) {
-      const { data: counts } = await supabase
+      const { data: submissions } = await supabase
         .from("activation_submissions")
-        .select("activation_id")
+        .select("activation_id, performance_metrics, status")
         .in("activation_id", ids);
 
-      const arr = (counts || []) as { activation_id: string }[];
-      arr.forEach((c) => {
-        submissionCounts[c.activation_id] =
-          (submissionCounts[c.activation_id] || 0) + 1;
+      const arr = (submissions || []) as { activation_id: string; performance_metrics: Record<string, unknown> | null; status: string }[];
+      arr.forEach((s) => {
+        submissionCounts[s.activation_id] =
+          (submissionCounts[s.activation_id] || 0) + 1;
+        if (s.status === 'approved') {
+          approvedCounts[s.activation_id] =
+            (approvedCounts[s.activation_id] || 0) + 1;
+        }
+        const views = Number(s.performance_metrics?.views) || 0;
+        viewCounts[s.activation_id] =
+          (viewCounts[s.activation_id] || 0) + views;
       });
     }
 
     const items = (activations || []).map((a: any) => ({
       ...a,
       submissions_count: submissionCounts[a.id] ?? 0,
+      total_views: viewCounts[a.id] ?? 0,
+      approved_count: approvedCounts[a.id] ?? 0,
     }));
 
     return { data: items, error: null };
@@ -148,6 +161,97 @@ export async function getContestLeaderboard(
 
     const subs = (submissions || []) as ActivationSubmission[];
 
+    // Helper: strip leading @ from handles
+    const stripAt = (h: string | null | undefined): string | null =>
+      h ? h.replace(/^@+/, "") || null : null;
+
+    // Determine the activation's target platform for handle resolution
+    const activationPlatform =
+      activation.platforms && activation.platforms.length > 0
+        ? activation.platforms[0]
+        : null;
+
+    // Look up creator handles/names for submissions that only have a creator_id
+    const allCreatorIds = [
+      ...new Set(subs.map((s) => s.creator_id).filter(Boolean) as string[]),
+    ];
+
+    // Maps: submissionCreatorId → { dtCreatorId, handle, name, platform }
+    const creatorMap = new Map<
+      string,
+      {
+        dtCreatorId: string;
+        handle: string | null;
+        name: string | null;
+        platform: string | null;
+      }
+    >();
+
+    if (allCreatorIds.length > 0) {
+      // First try matching by creators.id (DTTracker native IDs)
+      const { data: byId } = await supabase
+        .from("creators")
+        .select("id, handle, name, platform, dobble_tap_user_id")
+        .in("id", allCreatorIds);
+
+      if (byId) {
+        for (const c of byId) {
+          creatorMap.set(c.id, {
+            dtCreatorId: c.id,
+            handle: c.handle,
+            name: c.name,
+            platform: c.platform,
+          });
+        }
+      }
+
+      // For any IDs not found, try matching by dobble_tap_user_id
+      const unresolvedIds = allCreatorIds.filter((id) => !creatorMap.has(id));
+      if (unresolvedIds.length > 0) {
+        const { data: byDtId } = await supabase
+          .from("creators")
+          .select("id, handle, name, platform, dobble_tap_user_id")
+          .in("dobble_tap_user_id", unresolvedIds);
+
+        if (byDtId) {
+          for (const c of byDtId) {
+            if (c.dobble_tap_user_id) {
+              creatorMap.set(c.dobble_tap_user_id, {
+                dtCreatorId: c.id,
+                handle: c.handle,
+                name: c.name,
+                platform: c.platform,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Look up platform-specific handles from creator_social_accounts
+    // e.g. for a TikTok activation, get the creator's TikTok handle
+    const socialHandleMap = new Map<string, string>(); // dtCreatorId → platform handle
+
+    const dtCreatorIds = [
+      ...new Set(
+        Array.from(creatorMap.values()).map((c) => c.dtCreatorId)
+      ),
+    ];
+
+    if (dtCreatorIds.length > 0 && activationPlatform) {
+      const { data: socialAccounts } = await supabase
+        .from("creator_social_accounts")
+        .select("creator_id, handle")
+        .in("creator_id", dtCreatorIds)
+        .eq("platform", activationPlatform);
+
+      if (socialAccounts) {
+        for (const sa of socialAccounts) {
+          socialHandleMap.set(sa.creator_id, sa.handle);
+        }
+      }
+    }
+
     const byCreator = new Map<
       string,
       {
@@ -162,14 +266,28 @@ export async function getContestLeaderboard(
     >();
 
     for (const s of subs) {
+      // Resolve handle: prefer platform-specific social handle, then submission handle, then creators table
+      const looked = s.creator_id ? creatorMap.get(s.creator_id) : null;
+      const platformHandle = looked
+        ? stripAt(socialHandleMap.get(looked.dtCreatorId))
+        : null;
+      const resolvedHandle =
+        platformHandle ??
+        stripAt(s.creator_handle) ??
+        stripAt(looked?.handle) ??
+        stripAt(looked?.name) ??
+        null;
+      const resolvedPlatform =
+        s.creator_platform ?? looked?.platform ?? null;
+
       const key =
-        s.creator_id ?? `${s.creator_handle ?? ""}:${s.creator_platform ?? ""}`;
+        s.creator_id ?? `${resolvedHandle ?? ""}:${resolvedPlatform ?? ""}`;
 
       if (!byCreator.has(key)) {
         byCreator.set(key, {
           creator_id: s.creator_id,
-          creator_handle: s.creator_handle,
-          creator_platform: s.creator_platform,
+          creator_handle: resolvedHandle,
+          creator_platform: resolvedPlatform,
           total_views: 0,
           total_likes: 0,
           total_comments: 0,
@@ -215,7 +333,7 @@ export async function getContestLeaderboard(
           submissionIds: e.submissions.map((s) => s.id),
           submissions: e.submissions.map((s) => ({
             id: s.id,
-            content_url: s.content_url,
+            content_url: s.content_url || s.post_url,
             performance_metrics: s.performance_metrics,
             performance_score: s.performance_score,
             submitted_at: s.submitted_at,
@@ -232,9 +350,14 @@ export async function getContestLeaderboard(
   }
 }
 
+/** Submission with optional display handle resolved from creators when creator_handle is null */
+export type ActivationSubmissionWithDisplay = ActivationSubmission & {
+  display_handle?: string | null;
+};
+
 export async function getActivationSubmissions(
   activationId: string
-): Promise<ApiResponse<ActivationSubmission[]>> {
+): Promise<ApiResponse<ActivationSubmissionWithDisplay[]>> {
   try {
     const { data, error } = await supabase
       .from("activation_submissions")
@@ -244,7 +367,54 @@ export async function getActivationSubmissions(
       .order("submitted_at", { ascending: true });
 
     if (error) return { data: null, error };
-    return { data: (data || []) as ActivationSubmission[], error: null };
+    const submissions = (data || []) as ActivationSubmissionWithDisplay[];
+
+    const creatorIdsToResolve = [
+      ...new Set(
+        submissions
+          .filter((s) => !s.creator_handle && s.creator_id)
+          .map((s) => s.creator_id as string)
+      ),
+    ];
+    if (creatorIdsToResolve.length > 0) {
+      const creatorMap = new Map<
+        string,
+        { handle: string | null; name: string | null }
+      >();
+
+      // Try matching by creators.id (DTTracker native IDs)
+      const { data: byId } = await supabase
+        .from("creators")
+        .select("id, handle, name")
+        .in("id", creatorIdsToResolve);
+      for (const c of byId || []) {
+        creatorMap.set(c.id, { handle: c.handle, name: c.name });
+      }
+
+      // For unresolved IDs, try matching by dobble_tap_user_id
+      const unresolvedIds = creatorIdsToResolve.filter((id) => !creatorMap.has(id));
+      if (unresolvedIds.length > 0) {
+        const { data: byDtId } = await supabase
+          .from("creators")
+          .select("id, handle, name, dobble_tap_user_id")
+          .in("dobble_tap_user_id", unresolvedIds);
+        for (const c of byDtId || []) {
+          if (c.dobble_tap_user_id) {
+            creatorMap.set(c.dobble_tap_user_id, { handle: c.handle, name: c.name });
+          }
+        }
+      }
+
+      for (const s of submissions) {
+        if (!s.creator_handle && s.creator_id) {
+          const creator = creatorMap.get(s.creator_id);
+          s.display_handle =
+            creator?.handle ?? creator?.name ?? null;
+        }
+      }
+    }
+
+    return { data: submissions, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }
@@ -292,7 +462,9 @@ export async function updateActivation(
       .eq("id", id)
       .single();
 
-    if (existing && existing.status !== "draft") {
+    const isOnlyImageUrl =
+      Object.keys(updates).length === 1 && "image_url" in updates;
+    if (existing && existing.status !== "draft" && !isOnlyImageUrl) {
       return {
         data: null,
         error: new Error(
@@ -332,11 +504,11 @@ export async function deleteActivation(
       };
     }
 
-    if (existing.status !== "draft") {
+    if (existing.status !== "draft" && existing.status !== "cancelled") {
       return {
         data: null,
         error: new Error(
-          "Cannot delete activation that is not in draft status"
+          "Can only delete activations in draft or cancelled status"
         ),
       };
     }
@@ -379,6 +551,44 @@ export async function publishActivation(
 
     if (data?.error) {
       return { data: null, error: new Error(data.error) };
+    }
+
+    return { data: data?.activation as Activation, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+export async function syncActivationToDobbleTap(
+  activationId: string
+): Promise<ApiResponse<Activation>> {
+  try {
+    if (!activationId) {
+      return { data: null, error: new Error("Activation ID required") };
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) {
+      return { data: null, error: new Error("Not authenticated") };
+    }
+
+    const { data, error } = await supabase.functions.invoke(
+      "activation-sync-to-dobbletap",
+      {
+        body: { activationId },
+      }
+    );
+
+    if (error) {
+      const message =
+        typeof data?.error === "string"
+          ? data.error
+          : error.message || "Failed to send a request to the Edge Function";
+      return { data: null, error: new Error(message) };
+    }
+
+    if (data?.error) {
+      return { data: null, error: new Error(String(data.error)) };
     }
 
     return { data: data?.activation as Activation, error: null };
@@ -521,7 +731,24 @@ export async function scrapeSubmissionMetrics(
 
     return { data: result, error: null };
   } catch (err) {
-    return { data: null, error: err as Error };
+    const error = err as Error;
+    const message = error.message || "";
+
+    // Provide user-friendly message for network errors
+    if (
+      message.includes("Failed to fetch") ||
+      message.includes("NetworkError") ||
+      message.includes("Network request failed")
+    ) {
+      return {
+        data: null,
+        error: new Error(
+          'Cannot reach scraping service. The Edge Function "scrape-activation-submission" may not be deployed.'
+        ),
+      };
+    }
+
+    return { data: null, error };
   }
 }
 
@@ -617,6 +844,55 @@ export async function cancelActivation(
     });
     if (error) return { data: null, error };
     return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: err as Error };
+  }
+}
+
+/**
+ * Close a live activation: set status to cancelled.
+ * - SM panel: uses cancel_sm_panel_activation RPC (refunds remaining budget).
+ * - Contest: direct status update to cancelled.
+ */
+export async function closeActivation(
+  activationId: string
+): Promise<ApiResponse<void>> {
+  try {
+    const { data: existing, error: fetchError } = await supabase
+      .from("activations")
+      .select("id, type, status")
+      .eq("id", activationId)
+      .single();
+
+    if (fetchError || !existing) {
+      return {
+        data: null,
+        error: fetchError || new Error("Activation not found"),
+      };
+    }
+
+    if (existing.status !== "live") {
+      return {
+        data: null,
+        error: new Error("Only live activations can be closed"),
+      };
+    }
+
+    if (existing.type === "sm_panel") {
+      return cancelActivation(activationId);
+    }
+
+    // Contest: direct status update
+    const { error } = await supabase
+      .from("activations")
+      .update({
+        status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", activationId);
+
+    if (error) return { data: null, error };
+    return { data: undefined, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }

@@ -28,11 +28,12 @@ import type { PostWithRankings } from "../../lib/types/database";
 
 interface PostCardProps {
   post: PostWithRankings;
-  onScrape: (postId: string) => void;
-  onDelete: (postId: string) => void;
+  onScrape?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
   isScraping: boolean;
   readOnly?: boolean;
   showStatusBadge?: boolean;
+  compact?: boolean;
 }
 
 export const PostCard = React.memo(
@@ -43,6 +44,7 @@ export const PostCard = React.memo(
     isScraping,
     readOnly = false,
     showStatusBadge = true,
+    compact = false,
   }: PostCardProps) => {
     const hasPostUrl = Boolean(post.post_url);
     const postWithGrowth = post as {
@@ -69,6 +71,129 @@ export const PostCard = React.memo(
     const creatorHandle =
       post.creator?.handle || post.owner_username || "unknown";
     const platformIcon = normalizePlatform(post.platform);
+
+    if (compact) {
+      return (
+        <Card className="bg-card border-border hover:border-border/80 transition-colors">
+          <CardContent className="p-2.5">
+            {/* Compact header: inline name + platform icon */}
+            <div className="flex items-center justify-between gap-1">
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-medium text-foreground truncate block">
+                  {creatorName}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate block">
+                  @{creatorHandle}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {platformIcon && (
+                  <PlatformIcon platform={platformIcon} size="sm" />
+                )}
+                {post.rank && (
+                  <span className="text-[9px] font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-1.5 py-0.5">
+                    #{post.rank}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Compact metrics */}
+            <div className="mt-1.5">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Eye className="w-3 h-3 text-primary" />
+                Views
+              </div>
+              <div className="text-lg font-semibold text-foreground leading-tight">
+                {viewsFormatted.value}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1 mt-1">
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 border border-border px-1.5 py-0.5 text-[10px] text-foreground">
+                <Heart className="w-3 h-3 text-pink-400" />
+                {likesFormatted.value}
+              </span>
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 border border-border px-1.5 py-0.5 text-[10px] text-foreground">
+                <MessageCircle className="w-3 h-3 text-red-600 dark:text-cyan-400" />
+                {commentsFormatted.value}
+              </span>
+            </div>
+
+            {/* Compact actions: icon-only */}
+            <div className="mt-1.5 flex items-center gap-1">
+              {hasPostUrl ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0 border-border bg-muted/60 hover:bg-muted text-foreground"
+                  asChild
+                >
+                  <a
+                    href={post.post_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0 border-border bg-muted/60 text-muted-foreground"
+                  disabled
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              {!readOnly && onScrape && (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => onScrape(post.id)}
+                    disabled={!hasPostUrl || isScraping}
+                    className={`h-8 w-8 p-0 ${
+                      post.status === "failed" || post.status === "pending"
+                        ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
+                        : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
+                    }`}
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${isScraping ? "animate-spin" : ""}`}
+                    />
+                  </Button>
+                  {onDelete && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-md border border-border bg-muted/60 text-foreground hover:bg-muted flex items-center justify-center transition-colors"
+                          aria-label="More actions"
+                        >
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            onDelete(post.id);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
 
     return (
       <Card className="bg-card border-border hover:border-border/80 transition-colors">
@@ -189,7 +314,7 @@ export const PostCard = React.memo(
                 View
               </Button>
             )}
-            {!readOnly && (
+            {!readOnly && onScrape && (
               <>
                 <Button
                   size="sm"
@@ -206,29 +331,31 @@ export const PostCard = React.memo(
                   />
                   Refresh
                 </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md border border-border bg-muted/60 text-foreground hover:bg-muted flex items-center justify-center transition-colors"
-                      aria-label="More actions"
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        onDelete(post.id);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {onDelete && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-md border border-border bg-muted/60 text-foreground hover:bg-muted flex items-center justify-center transition-colors"
+                        aria-label="More actions"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          onDelete(post.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </>
             )}
           </div>

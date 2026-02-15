@@ -596,49 +596,53 @@ export function CampaignPostsSection({
 
               {/* Mobile: Card Layout */}
               <div className="lg:hidden px-4 sm:px-6 space-y-2 pb-4">
-                {/* Top Performers Toggle */}
+                {/* Top 5 Performers - sticky so they stay on first page when scrolling */}
                 {highlightedTopPosts.length > 0 && (
-                  <div className="flex items-center gap-2 pb-2">
-                    <button
-                      onClick={() => setShowTopPerformers(!showTopPerformers)}
-                      className={`h-11 min-h-[44px] px-3 rounded-md border text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                        showTopPerformers
-                          ? "bg-primary/20 border-primary/30 text-primary"
-                          : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
-                      }`}
-                    >
-                      {showTopPerformers ? "All Posts" : "Top Performers"}
-                    </button>
-                  </div>
-                )}
+                  <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    {/* Top Performers Toggle */}
+                    <div className="flex items-center gap-2 pb-2">
+                      <button
+                        onClick={() => setShowTopPerformers(!showTopPerformers)}
+                        className={`h-11 min-h-[44px] px-3 rounded-md border text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                          showTopPerformers
+                            ? "bg-primary/20 border-primary/30 text-primary"
+                            : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                        }`}
+                      >
+                        {showTopPerformers ? "All Posts" : "Top Performers"}
+                      </button>
+                    </div>
 
-                {/* Top Performing Cards */}
-                {highlightedTopPosts.length > 0 && !showTopPerformers && (
-                  <>
-                    <div className="flex items-center gap-2 pb-1">
-                      <span className="text-xs font-semibold text-primary">
-                        Top Performing
-                      </span>
-                      <div className="flex-1 h-px bg-primary/20"></div>
-                    </div>
-                    <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
-                      {highlightedTopPosts.map((post) => (
-                        <PostCard
-                          key={post.id}
-                          post={post}
-                          onScrape={isInternal ? handleScrapePost : () => {}}
-                          onDelete={isInternal ? handleDeletePost : () => {}}
-                          isScraping={
-                            isScraping ||
-                            post.status === "scraping" ||
-                            scrapingPostId === post.id
-                          }
-                          readOnly={!isInternal}
-                          showStatusBadge={isInternal}
-                        />
-                      ))}
-                    </div>
-                  </>
+                    {/* Top Performing Cards */}
+                    {!showTopPerformers && (
+                      <>
+                        <div className="flex items-center gap-2 pb-1">
+                          <span className="text-xs font-semibold text-primary">
+                            Top Performing
+                          </span>
+                          <div className="flex-1 h-px bg-primary/20"></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                          {highlightedTopPosts.map((post) => (
+                            <PostCard
+                              key={post.id}
+                              post={post}
+                              onScrape={isInternal ? handleScrapePost : undefined}
+                              onDelete={isInternal ? handleDeletePost : undefined}
+                              isScraping={
+                                isScraping ||
+                                post.status === "scraping" ||
+                                scrapingPostId === post.id
+                              }
+                              readOnly={!isInternal}
+                              showStatusBadge={isInternal}
+                              compact
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
 
                 {/* Remaining Posts Cards */}
@@ -650,13 +654,13 @@ export function CampaignPostsSection({
                       </span>
                       <div className="flex-1 h-px bg-white/[0.08]"></div>
                     </div>
-                    <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       {visibleRemainingPosts.map((post) => (
                         <PostCard
                           key={post.id}
                           post={post}
-                          onScrape={isInternal ? handleScrapePost : () => {}}
-                          onDelete={isInternal ? handleDeletePost : () => {}}
+                          onScrape={isInternal ? handleScrapePost : undefined}
+                          onDelete={isInternal ? handleDeletePost : undefined}
                           isScraping={
                             isScraping ||
                             post.status === "scraping" ||
@@ -664,6 +668,7 @@ export function CampaignPostsSection({
                           }
                           readOnly={!isInternal}
                           showStatusBadge={isInternal}
+                          compact
                         />
                       ))}
                     </div>
@@ -672,13 +677,13 @@ export function CampaignPostsSection({
 
                 {/* All Posts when Top Performers is toggled */}
                 {showTopPerformers && (
-                  <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2 min-[430px]:gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     {mobilePaginatedPosts.map((post) => (
                       <PostCard
                         key={post.id}
                         post={post}
-                        onScrape={isInternal ? handleScrapePost : () => {}}
-                        onDelete={isInternal ? handleDeletePost : () => {}}
+                        onScrape={isInternal ? handleScrapePost : undefined}
+                        onDelete={isInternal ? handleDeletePost : undefined}
                         isScraping={
                           isScraping ||
                           post.status === "scraping" ||
@@ -686,6 +691,7 @@ export function CampaignPostsSection({
                         }
                         readOnly={!isInternal}
                         showStatusBadge={isInternal}
+                        compact
                       />
                     ))}
                   </div>

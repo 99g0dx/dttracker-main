@@ -10,6 +10,8 @@ import {
   Loader2,
   Calendar as CalendarIcon,
   AlertTriangle,
+  Upload,
+  X,
 } from "lucide-react";
 import { useWorkspace } from "../../../contexts/WorkspaceContext";
 import { useCanWrite } from "../../../hooks/useBilling";
@@ -40,6 +42,7 @@ import { PricingTable } from "./sm-panel/PricingTable";
 import { ParticipationEstimate } from "./sm-panel/ParticipationEstimate";
 import { ServiceFeeDisplay } from "../ui/service-fee-display";
 import { useCommunityFans } from "../../../hooks/useCommunityFans";
+import * as storageApi from "../../../lib/api/storage";
 
 interface ActivationCreateProps {
   onNavigate: (path: string) => void;
@@ -91,57 +94,77 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   const publishActivation = usePublishActivation();
   const updateActivation = useUpdateActivation();
   const { data: wallet } = useWalletBalance(activeWorkspaceId);
-  const { data: communityFans = [], error: communityFansError } = useCommunityFans();
-  const { data: existingActivation, isLoading: isLoadingActivation } = useActivation(id ?? null);
-  
+  const { data: communityFans = [], error: communityFansError } =
+    useCommunityFans();
+  const { data: existingActivation, isLoading: isLoadingActivation } =
+    useActivation(id ?? null);
+
   const isEditMode = !!id;
 
   // Log errors but don't crash - tables might not exist yet
   if (communityFansError && import.meta.env.DEV) {
-    console.warn('Community fans query error (table may not exist yet):', communityFansError);
+    console.warn(
+      "Community fans query error (table may not exist yet):",
+      communityFansError,
+    );
   }
 
   const [step, setStep] = useState<Step>("type");
   const [activationType, setActivationType] = useState<ActivationType | null>(
-    null
+    null,
   );
   const [createdId, setCreatedId] = useState<string | null>(id || null);
 
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
+  // Contest image state
+  const [contestImageFile, setContestImageFile] = useState<File | null>(null);
+  const [contestImagePreview, setContestImagePreview] = useState<string | null>(
+    null,
+  );
+  const [contestImageUrl, setContestImageUrl] = useState<string | null>(null);
+  const [contestImageError, setContestImageError] = useState<string | null>(
+    null,
+  );
+
   // Load existing activation data when in edit mode
   useEffect(() => {
     if (isEditMode && existingActivation) {
-      if (existingActivation.status !== 'draft') {
-        toast.error('Only draft activations can be edited');
-        onNavigate('/activations');
+      if (existingActivation.status !== "draft") {
+        toast.error("Only draft activations can be edited");
+        onNavigate("/activations");
         return;
       }
-      
+
       setActivationType(existingActivation.type);
-      setStep('form');
-      
+      setStep("form");
+
       // Parse deadline date
-      const deadlineDate = existingActivation.deadline ? format(parseISO(existingActivation.deadline), 'yyyy-MM-dd') : '';
-      
+      const deadlineDate = existingActivation.deadline
+        ? format(parseISO(existingActivation.deadline), "yyyy-MM-dd")
+        : "";
+
       setForm({
-        title: existingActivation.title || '',
-        brief: existingActivation.brief || '',
+        title: existingActivation.title || "",
+        brief: existingActivation.brief || "",
         deadline: deadlineDate,
         total_budget: Number(existingActivation.total_budget) || 0,
-        task_type: (existingActivation.task_type as TaskType) || 'like',
-        target_url: existingActivation.target_url || '',
+        task_type: (existingActivation.task_type as TaskType) || "like",
+        target_url: existingActivation.target_url || "",
         base_rate: Number(existingActivation.base_rate) || 200,
         max_participants: existingActivation.max_participants || 500,
         auto_approve: existingActivation.auto_approve ?? true,
         platforms: existingActivation.platforms || [],
         requirements: existingActivation.requirements || [],
-        instructions: existingActivation.instructions || '',
-        required_comment_text: existingActivation.required_comment_text || '',
-        comment_guidelines: existingActivation.comment_guidelines || '',
-        visibility: existingActivation.visibility || 'public',
-        community_fan_ids: Array.isArray(existingActivation.community_fan_ids) ? existingActivation.community_fan_ids : [],
+        instructions: existingActivation.instructions || "",
+        required_comment_text: existingActivation.required_comment_text || "",
+        comment_guidelines: existingActivation.comment_guidelines || "",
+        visibility: existingActivation.visibility || "public",
+        community_fan_ids: Array.isArray(existingActivation.community_fan_ids)
+          ? existingActivation.community_fan_ids
+          : [],
       });
+      setContestImageUrl(existingActivation.image_url ?? null);
     }
   }, [isEditMode, existingActivation, onNavigate]);
 
@@ -153,12 +176,37 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   }, [activationType, isEditMode]);
 
   const availableBalance = wallet?.balance ?? 0;
-  const serviceFeeRate = 0.10;
+  const serviceFeeRate = 0.1;
   const serviceFee = Math.round(form.total_budget * serviceFeeRate * 100) / 100;
   const totalCost = form.total_budget + serviceFee;
   // Allow zero budget for testing (test_mode activations)
   const canPublish =
-    (availableBalance >= totalCost && form.total_budget > 0) || form.total_budget === 0;
+    (availableBalance >= totalCost && form.total_budget > 0) ||
+    form.total_budget === 0;
+
+  const handleContestImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setContestImageError("File must be an image");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setContestImageError("File size must be less than 5MB");
+      return;
+    }
+    setContestImageError(null);
+    setContestImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setContestImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveContestImage = () => {
+    setContestImageFile(null);
+    setContestImagePreview(null);
+    setContestImageUrl(null);
+  };
 
   const handleCreate = async (asDraft: boolean) => {
     if (!activeWorkspaceId) return;
@@ -170,13 +218,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       form.total_budget < CONTEST_MIN_PRIZE_POOL
     ) {
       toast.error(
-        `Minimum prize pool is ₦${CONTEST_MIN_PRIZE_POOL.toLocaleString()} (or 0 for testing)`
+        `Minimum prize pool is ₦${CONTEST_MIN_PRIZE_POOL.toLocaleString()} (or 0 for testing)`,
       );
       return;
     }
 
+    // For SM panel with non-zero budget, require total_budget >= base_rate. Allow zero budget for test mode.
     if (
       activationType === "sm_panel" &&
+      form.total_budget > 0 &&
       (form.base_rate <= 0 || form.total_budget < form.base_rate)
     ) {
       toast.error("Total budget must be at least the base rate");
@@ -196,7 +246,8 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           activationType === "contest"
             ? buildPrizeStructure(form.total_budget)
             : null,
-        winner_count: activationType === "contest" ? CONTEST_WINNER_COUNT : null,
+        winner_count:
+          activationType === "contest" ? CONTEST_WINNER_COUNT : null,
         max_posts_per_creator: activationType === "contest" ? 5 : null,
         judging_criteria: activationType === "contest" ? "performance" : null,
         task_type: activationType === "sm_panel" ? form.task_type : null,
@@ -215,10 +266,31 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
         requirements: form.requirements.length ? form.requirements : null,
         instructions: form.instructions || null,
         ...(form.visibility !== "public" && { visibility: form.visibility }),
-        ...(form.visibility === "community" && form.community_fan_ids.length > 0 && {
-          community_fan_ids: form.community_fan_ids,
-        }),
+        ...(form.visibility === "community" &&
+          form.community_fan_ids.length > 0 && {
+            community_fan_ids: form.community_fan_ids,
+          }),
       };
+
+      // Handle contest image upload/removal
+      if (activationType === "contest") {
+        if (contestImageFile) {
+          const uploadResult = await storageApi.replaceActivationImage(
+            contestImageUrl,
+            contestImageFile,
+          );
+          if (uploadResult.error) {
+            toast.error(uploadResult.error.message || "Failed to upload image");
+            return;
+          }
+          updates.image_url = uploadResult.data;
+        } else if (contestImageUrl === null && existingActivation?.image_url) {
+          await storageApi.deleteActivationImage(existingActivation.image_url);
+          updates.image_url = null;
+        } else {
+          updates.image_url = contestImageUrl;
+        }
+      }
 
       try {
         const data = await updateActivation.mutateAsync({ id, updates });
@@ -266,14 +338,31 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       instructions: form.instructions || null,
       // Only include visibility fields if they differ from defaults (for backward compatibility)
       ...(form.visibility !== "public" && { visibility: form.visibility }),
-      ...(form.visibility === "community" && form.community_fan_ids.length > 0 && {
-        community_fan_ids: form.community_fan_ids,
-      }),
+      ...(form.visibility === "community" &&
+        form.community_fan_ids.length > 0 && {
+          community_fan_ids: form.community_fan_ids,
+        }),
     };
 
     try {
       const data = await createActivation.mutateAsync(insert);
       if (data) {
+        if (activationType === "contest" && contestImageFile) {
+          const uploadResult = await storageApi.replaceActivationImage(
+            null,
+            contestImageFile,
+          );
+          if (!uploadResult.error && uploadResult.data) {
+            await updateActivation.mutateAsync({
+              id: data.id,
+              updates: { image_url: uploadResult.data },
+            });
+          } else {
+            toast.error(
+              uploadResult.error?.message ?? "Failed to upload contest image",
+            );
+          }
+        }
         setCreatedId(data.id);
         if (asDraft) {
           onNavigate(`/activations/${data.id}`);
@@ -322,7 +411,7 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/activations')}
+            onClick={() => navigate("/activations")}
             className="w-11 h-11 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
             aria-label="Back to activations"
           >
@@ -335,9 +424,10 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
         <Card className="bg-card border-border">
           <CardContent className="p-6">
             <p className="text-muted-foreground mb-4">
-              Your trial or subscription has ended. Subscribe to continue creating activations.
+              Your trial or subscription has ended. Subscribe to continue
+              creating activations.
             </p>
-            <Button onClick={() => navigate('/subscription')}>
+            <Button onClick={() => navigate("/subscription")}>
               Subscribe to continue
             </Button>
           </CardContent>
@@ -347,7 +437,11 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
   }
 
   // Redirect if activation not found or not draft
-  if (isEditMode && existingActivation && existingActivation.status !== 'draft') {
+  if (
+    isEditMode &&
+    existingActivation &&
+    existingActivation.status !== "draft"
+  ) {
     return null; // useEffect will handle navigation
   }
 
@@ -366,10 +460,12 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           </button>
           <div>
             <h1 className="text-xl font-semibold text-foreground">
-              {isEditMode ? 'Edit Activation' : 'Create Activation'}
+              {isEditMode ? "Edit Activation" : "Create Activation"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {isEditMode ? 'Update activation details' : 'Choose the type of activation'}
+              {isEditMode
+                ? "Update activation details"
+                : "Choose the type of activation"}
             </p>
           </div>
         </div>
@@ -384,7 +480,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
           >
             <CardContent className="p-6">
               <Trophy className="w-12 h-12 text-amber-400 mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Contest</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Contest
+              </h3>
               <p className="text-sm text-muted-foreground">
                 Performance-based prizes for top performing creators. Set a
                 prize pool and number of winners.
@@ -515,10 +613,14 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       className="rounded"
                     />
                     <PlatformIcon
-                      platform={p.id as "tiktok" | "instagram" | "youtube" | "x"}
+                      platform={
+                        p.id as "tiktok" | "instagram" | "youtube" | "x"
+                      }
                       size="sm"
                     />
-                    <span className="text-sm text-muted-foreground">{p.label}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {p.label}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -536,7 +638,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   >
                     <span
                       className={
-                        form.deadline ? "text-foreground" : "text-muted-foreground"
+                        form.deadline
+                          ? "text-foreground"
+                          : "text-muted-foreground"
                       }
                     >
                       {form.deadline
@@ -586,15 +690,16 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     className="bg-input-background border-input"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Minimum: ₦{formatNumber(CONTEST_MIN_PRIZE_POOL)} (or 0 for test mode)
+                    Minimum: ₦{formatNumber(CONTEST_MIN_PRIZE_POOL)} (or 0 for
+                    test mode)
                   </p>
                   {form.total_budget > 0 && totalCost > availableBalance && (
                     <div className="flex items-center gap-2 mt-2 text-amber-400 text-sm">
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       <span>
                         Insufficient balance. Need{" "}
-                        {formatAmount(totalCost - availableBalance)}{" "}
-                        more (including service fee).
+                        {formatAmount(totalCost - availableBalance)} more
+                        (including service fee).
                       </span>
                     </div>
                   )}
@@ -660,6 +765,55 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     based on combined performance.
                   </p>
                 </div>
+                {/* Contest Image (optional) */}
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
+                    Contest Image (optional)
+                  </label>
+                  {contestImagePreview || contestImageUrl ? (
+                    <div className="relative">
+                      <img
+                        src={contestImagePreview || contestImageUrl || ""}
+                        alt="Contest image"
+                        className="w-full h-48 object-cover rounded-lg border border-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveContestImage}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-md bg-black/60 hover:bg-black/80 border border-border/80 flex items-center justify-center transition-colors"
+                      >
+                        <X className="w-4 h-4 text-foreground" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleContestImageUpload}
+                        className="hidden"
+                        id="contest-image-upload"
+                      />
+                      <label
+                        htmlFor="contest-image-upload"
+                        className="cursor-pointer"
+                      >
+                        <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mb-1">
+                          Upload contest image
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          PNG, JPG up to 5MB
+                        </p>
+                      </label>
+                    </div>
+                  )}
+                  {contestImageError && (
+                    <p className="text-red-400 text-xs mt-1.5">
+                      {contestImageError}
+                    </p>
+                  )}
+                </div>
               </>
             ) : (
               <>
@@ -719,8 +873,8 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       <span>
                         Insufficient balance. Need{" "}
-                        {formatAmount(totalCost - availableBalance)}{" "}
-                        more (including service fee).
+                        {formatAmount(totalCost - availableBalance)} more
+                        (including service fee).
                       </span>
                     </div>
                   )}
@@ -810,6 +964,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     </div>
                   </>
                 )}
+                {(form.task_type === "like" || form.task_type === "repost") && (
+                  <div className="rounded-lg bg-muted/60 border border-border p-3">
+                    <p className="text-sm text-muted-foreground">
+                      {form.task_type === "like"
+                        ? "Creators will be asked to like the target post and provide proof (screenshot)."
+                        : "Creators will be asked to repost/share the target post and provide the repost URL as proof."}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -818,9 +981,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                       onChange={(e) =>
                         setForm((f) => ({
                           ...f,
-                        auto_approve: e.target.checked,
-                      }))
-                    }
+                          auto_approve: e.target.checked,
+                        }))
+                      }
                       className="rounded"
                     />
                     <span className="text-sm text-muted-foreground">
@@ -839,7 +1002,13 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setForm((f) => ({ ...f, visibility: "public", community_fan_ids: [] }))}
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      visibility: "public",
+                      community_fan_ids: [],
+                    }))
+                  }
                   className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
                     form.visibility === "public"
                       ? "bg-muted/60 border-border text-foreground"
@@ -847,11 +1016,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   }`}
                 >
                   <div className="text-sm font-medium mb-1">Public</div>
-                  <div className="text-xs text-muted-foreground">Visible to all creators</div>
+                  <div className="text-xs text-muted-foreground">
+                    Visible to all creators
+                  </div>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setForm((f) => ({ ...f, visibility: "community" }))}
+                  onClick={() =>
+                    setForm((f) => ({ ...f, visibility: "community" }))
+                  }
                   className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
                     form.visibility === "community"
                       ? "bg-muted/60 border-border text-foreground"
@@ -859,7 +1032,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   }`}
                 >
                   <div className="text-sm font-medium mb-1">Community</div>
-                  <div className="text-xs text-muted-foreground">Only imported fans</div>
+                  <div className="text-xs text-muted-foreground">
+                    Only imported fans
+                  </div>
                 </button>
               </div>
               {form.visibility === "community" && communityFans.length > 0 && (
@@ -884,7 +1059,10 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                               } else {
                                 ids.delete(fan.id);
                               }
-                              return { ...f, community_fan_ids: Array.from(ids) };
+                              return {
+                                ...f,
+                                community_fan_ids: Array.from(ids),
+                              };
                             });
                           }}
                           className="rounded"
@@ -893,7 +1071,9 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                           <div className="text-sm text-foreground">
                             {fan.name || fan.handle}
                           </div>
-                          <div className="text-xs text-muted-foreground">@{fan.handle} • {fan.platform}</div>
+                          <div className="text-xs text-muted-foreground">
+                            @{fan.handle} • {fan.platform}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -905,13 +1085,15 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   </p>
                 </div>
               )}
-              {form.visibility === "community" && communityFans.length === 0 && (
-                <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-sm text-amber-400">
-                    No fans imported yet. Import fans from the Creator Library to create community-only activations.
-                  </p>
-                </div>
-              )}
+              {form.visibility === "community" &&
+                communityFans.length === 0 && (
+                  <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-sm text-amber-400">
+                      No fans imported yet. Import fans from the Creator Library
+                      to create community-only activations.
+                    </p>
+                  </div>
+                )}
             </div>
 
             <div className="flex gap-3 pt-4">
@@ -929,10 +1111,13 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                     !form.title ||
                     !form.deadline ||
                     form.total_budget < 0 ||
-                    (isContest && form.total_budget > 0 && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
+                    (isContest &&
+                      form.total_budget > 0 &&
+                      form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
                     (!isContest &&
+                      form.total_budget > 0 &&
                       (form.base_rate <= 0 ||
-                        (form.total_budget > 0 && form.total_budget < form.base_rate))) ||
+                        form.total_budget < form.base_rate)) ||
                     (form.total_budget > 0 && totalCost > availableBalance) ||
                     createActivation.isPending
                   }
@@ -950,10 +1135,13 @@ export function ActivationCreate({ onNavigate }: ActivationCreateProps) {
                   !form.title ||
                   !form.deadline ||
                   form.total_budget < 0 ||
-                  (isContest && form.total_budget > 0 && form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
+                  (isContest &&
+                    form.total_budget > 0 &&
+                    form.total_budget < CONTEST_MIN_PRIZE_POOL) ||
                   (!isContest &&
+                    form.total_budget > 0 &&
                     (form.base_rate <= 0 ||
-                      (form.total_budget > 0 && form.total_budget < form.base_rate))) ||
+                      form.total_budget < form.base_rate)) ||
                   (form.total_budget > 0 && totalCost > availableBalance) ||
                   createActivation.isPending
                 }

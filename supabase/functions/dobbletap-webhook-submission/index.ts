@@ -1,27 +1,32 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { triggerAutoScrape } from "../_shared/auto-scrape.ts";
+import { resolveCreator } from "../_shared/resolve-creator.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-source',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-source",
 };
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     // 1. Verify bearer token
-    const syncApiKey = Deno.env.get('SYNC_API_KEY') ?? '';
-    const authHeader = req.headers.get('Authorization');
+    const syncApiKey = Deno.env.get("SYNC_API_KEY") ?? "";
+    const authHeader = req.headers.get("Authorization");
 
     if (!syncApiKey || authHeader !== `Bearer ${syncApiKey}`) {
-      console.error('dobbletap-webhook-submission: Unauthorized access attempt');
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.error(
+        "dobbletap-webhook-submission: Unauthorized access attempt",
+      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -30,58 +35,74 @@ serve(async (req) => {
     const { eventType, timestamp, data } = body;
 
     if (!eventType || !timestamp || !data) {
-      console.error('dobbletap-webhook-submission: Missing required fields', { body });
-      return new Response(JSON.stringify({
-        error: 'Missing required fields',
-        required: ['eventType', 'timestamp', 'data']
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      console.error("dobbletap-webhook-submission: Missing required fields", {
+        body,
       });
+      return new Response(
+        JSON.stringify({
+          error: "Missing required fields",
+          required: ["eventType", "timestamp", "data"],
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Validate required data fields
     if (!data.creatorCampaignId || !data.assetId || !data.submittedBy) {
-      console.error('dobbletap-webhook-submission: Missing required data fields', { data });
-      return new Response(JSON.stringify({
-        error: 'Missing required data fields',
-        required: ['creatorCampaignId', 'assetId', 'submittedBy']
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error(
+        "dobbletap-webhook-submission: Missing required data fields",
+        { data },
+      );
+      return new Response(
+        JSON.stringify({
+          error: "Missing required data fields",
+          required: ["creatorCampaignId", "assetId", "submittedBy"],
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 3. Create Supabase client
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     // 4. Check idempotency
     const idempotencyKey = `${data.creatorCampaignId}-${eventType}-${timestamp}`;
 
     const { data: existingEvent } = await supabase
-      .from('webhook_events')
-      .select('id, processed_at')
-      .eq('idempotency_key', idempotencyKey)
+      .from("webhook_events")
+      .select("id, processed_at")
+      .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
 
     if (existingEvent) {
-      console.log('dobbletap-webhook-submission: Already processed', { idempotencyKey });
-      return new Response(JSON.stringify({
-        id: existingEvent.id,
-        status: 'already_processed',
-        processed_at: existingEvent.processed_at
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      console.log("dobbletap-webhook-submission: Already processed", {
+        idempotencyKey,
       });
+      return new Response(
+        JSON.stringify({
+          id: existingEvent.id,
+          status: "already_processed",
+          processed_at: existingEvent.processed_at,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 5. Store webhook event
     const { data: webhookEvent, error: webhookError } = await supabase
-      .from('webhook_events')
+      .from("webhook_events")
       .insert({
         event_type: eventType,
         campaign_id: data.creatorCampaignId,
@@ -93,29 +114,88 @@ serve(async (req) => {
       .single();
 
     if (webhookError) {
-      console.error('dobbletap-webhook-submission: Failed to store webhook event', webhookError);
+      console.error(
+        "dobbletap-webhook-submission: Failed to store webhook event",
+        webhookError,
+      );
       throw webhookError;
     }
 
-    // 6. Check if submission already exists
+    // 6. Resolve creator identity from Dobbletap user ID
+    const payloadHandle =
+      data.creatorHandle || data.handle || data.username ||
+      data.creator_handle || data.creatorUsername || data.creatorName ||
+      data.name || null;
+
+    const resolved = await resolveCreator(
+      supabase,
+      data.submittedBy,
+      payloadHandle,
+      data.platform || null,
+    );
+
+    const resolvedCreatorId = resolved?.creator_id ?? data.submittedBy;
+    const resolvedHandle =
+      resolved?.creator_handle ??
+      payloadHandle ??
+      null;
+    const resolvedPlatform =
+      resolved?.creator_platform ?? data.platform ?? null;
+
+    console.log("dobbletap-webhook-submission: Resolved creator", {
+      submittedBy: data.submittedBy,
+      resolvedCreatorId,
+      resolvedHandle,
+      resolvedPlatform,
+      foundInCreatorsTable: !!resolved,
+    });
+
+    // 7. Check if submission already exists
     const { data: existingSubmission } = await supabase
-      .from('activation_submissions')
-      .select('id')
-      .eq('dobble_tap_submission_id', data.assetId)
+      .from("activation_submissions")
+      .select("id")
+      .eq("dobble_tap_submission_id", data.assetId)
       .maybeSingle();
 
     let submission;
     if (existingSubmission) {
       // Update existing submission
+      const updateFields: Record<string, unknown> = {
+        asset_url: data.assetUrl || null,
+        asset_version: data.version || 1,
+        submitted_note: data.note || null,
+        submitted_at: data.submittedAt || timestamp,
+      };
+      // Sync content_url from postUrl or assetUrl so scrapers can find the link
+      if (data.postUrl) {
+        updateFields.content_url = data.postUrl;
+        updateFields.post_url = data.postUrl;
+      } else if (data.assetUrl) {
+        updateFields.content_url = data.assetUrl;
+      }
+      // Backfill proof fields if provided
+      const proofUrl = data.proofUrl || data.proof_url || data.screenshotUrl;
+      if (proofUrl) {
+        updateFields.proof_url = proofUrl;
+      }
+      const proofText = data.commentText || data.proof_comment_text || data.proofText;
+      if (proofText) {
+        updateFields.proof_comment_text = proofText;
+      }
+      // Backfill creator identity if resolved
+      if (resolvedHandle) {
+        updateFields.creator_handle = resolvedHandle;
+      }
+      if (resolvedPlatform) {
+        updateFields.creator_platform = resolvedPlatform;
+      }
+      if (resolved) {
+        updateFields.creator_id = resolvedCreatorId;
+      }
       const { data: updated, error: updateError } = await supabase
-        .from('activation_submissions')
-        .update({
-          asset_url: data.assetUrl || null,
-          asset_version: data.version || 1,
-          submitted_note: data.note || null,
-          submitted_at: data.submittedAt || timestamp,
-        })
-        .eq('id', existingSubmission.id)
+        .from("activation_submissions")
+        .update(updateFields)
+        .eq("id", existingSubmission.id)
         .select()
         .single();
 
@@ -124,40 +204,51 @@ serve(async (req) => {
     } else {
       // Check if activation exists before creating submission (to avoid foreign key constraint error)
       const { data: existingActivation } = await supabase
-        .from('activations')
-        .select('id')
-        .eq('id', data.creatorCampaignId)
+        .from("activations")
+        .select("id")
+        .eq("id", data.creatorCampaignId)
         .maybeSingle();
 
       if (!existingActivation) {
-        console.warn('dobbletap-webhook-submission: Activation not found', {
+        console.warn("dobbletap-webhook-submission: Activation not found", {
           activationId: data.creatorCampaignId,
         });
-        return new Response(JSON.stringify({
-          error: 'Activation not found',
-          event_id: webhookEvent.id,
-          status: 'activation_not_found',
-        }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            error: "Activation not found",
+            event_id: webhookEvent.id,
+            status: "activation_not_found",
+          }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       // Create new submission
-      const submissionData = {
+      const submissionData: Record<string, unknown> = {
         activation_id: data.creatorCampaignId,
-        creator_id: data.submittedBy,
+        creator_id: resolvedCreatorId,
+        creator_handle: resolvedHandle,
+        creator_platform: resolvedPlatform,
         dobble_tap_submission_id: data.assetId,
         asset_url: data.assetUrl || null,
         asset_version: data.version || 1,
         submitted_note: data.note || null,
         submitted_at: data.submittedAt || timestamp,
-        status: 'pending',
+        status: "pending",
         synced_to_dobble_tap: true,
+        // Sync content_url so scrapers can find the link
+        content_url: data.postUrl || data.assetUrl || null,
+        post_url: data.postUrl || null,
+        // Extract proof fields (screenshots, comment text, etc.)
+        proof_url: data.proofUrl || data.proof_url || data.screenshotUrl || null,
+        proof_comment_text: data.commentText || data.proof_comment_text || data.proofText || null,
       };
 
       const { data: created, error: createError } = await supabase
-        .from('activation_submissions')
+        .from("activation_submissions")
         .insert(submissionData)
         .select()
         .single();
@@ -169,33 +260,54 @@ serve(async (req) => {
     const submissionError = null; // For backwards compatibility
 
     if (submissionError) {
-      console.error('dobbletap-webhook-submission: Failed to upsert submission', submissionError);
+      console.error(
+        "dobbletap-webhook-submission: Failed to upsert submission",
+        submissionError,
+      );
       throw submissionError;
     }
 
-    console.log('dobbletap-webhook-submission: Successfully processed', {
+    console.log("dobbletap-webhook-submission: Successfully processed", {
       eventType,
       submissionId: submission.id,
       assetId: data.assetId,
     });
 
-    // 7. Return success
-    return new Response(JSON.stringify({
-      id: submission.id,
-      status: 'received',
-      event_id: webhookEvent.id,
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // 7. Auto-scrape if we have a scrapable URL
+    const scrapableUrl = data.postUrl || data.assetUrl;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (scrapableUrl && supabaseUrl && supabaseServiceKey) {
+      triggerAutoScrape(
+        supabaseUrl,
+        supabaseServiceKey,
+        submission.id,
+        "dobbletap-webhook-submission",
+      );
+    }
 
+    // 8. Return success
+    return new Response(
+      JSON.stringify({
+        id: submission.id,
+        status: "received",
+        event_id: webhookEvent.id,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
-    console.error('dobbletap-webhook-submission error:', err);
-    return new Response(JSON.stringify({
-      error: (err as Error).message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error("dobbletap-webhook-submission error:", err);
+    return new Response(
+      JSON.stringify({
+        error: (err as Error).message,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

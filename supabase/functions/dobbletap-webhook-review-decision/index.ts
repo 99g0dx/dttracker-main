@@ -1,5 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import {
+  ACCEPTED_ID_KEYS,
+  getLookupId,
+  resolveSubmissionId,
+  log404Payload,
+} from '../_shared/dttracker-webhook-lookup.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,9 +31,11 @@ serve(async (req) => {
     const body = await req.json();
     const { eventType, timestamp, data } = body;
 
-    if (!eventType || !timestamp || !data || !data.assetId || !data.decision) {
+    const lookupId = getLookupId(data);
+    if (!eventType || !timestamp || !data || !lookupId || !data.decision) {
       return new Response(JSON.stringify({
-        error: 'Missing required fields'
+        error: 'Missing required fields (need one of ' + ACCEPTED_ID_KEYS.join(', ') + ' and decision)',
+        required: [...ACCEPTED_ID_KEYS],
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -40,7 +48,7 @@ serve(async (req) => {
     );
 
     // Check idempotency
-    const idempotencyKey = `${data.assetId}-${eventType}-${timestamp}`;
+    const idempotencyKey = `${lookupId}-${eventType}-${timestamp}`;
     const { data: existingEvent } = await supabase
       .from('webhook_events')
       .select('id, processed_at')
@@ -70,31 +78,11 @@ serve(async (req) => {
       .select()
       .single();
 
-    // Update submission with review decision
-    const { data: submission, error: submissionError } = await supabase
-      .from('activation_submissions')
-      .update({
-        review_decision: data.decision,
-        review_feedback: data.feedback || null,
-        reviewer_type: data.reviewerType || null,
-        reviewed_by: data.reviewedBy || null,
-        reviewed_at: timestamp,
-        status: data.decision === 'approved' || data.decision === 'approved_with_notes' ? 'approved' : 'rejected',
-        dobble_tap_review_id: data.reviewId || null,
-      })
-      .eq('dobble_tap_submission_id', data.assetId)
-      .select()
-      .maybeSingle();
+    const isApproved = data.decision === 'approved' || data.decision === 'approved_with_notes';
 
-    if (submissionError) {
-      console.error('dobbletap-webhook-review-decision: Failed to update submission', submissionError);
-      throw submissionError;
-    }
-
-    if (!submission) {
-      console.warn('dobbletap-webhook-review-decision: Submission not found', {
-        assetId: data.assetId,
-      });
+    const resolved = await resolveSubmissionId(supabase, data);
+    if (!resolved) {
+      log404Payload('dobbletap-webhook-review-decision', data, lookupId);
       return new Response(JSON.stringify({
         error: 'Submission not found',
         event_id: webhookEvent?.id,
@@ -104,9 +92,94 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const { resolvedSubmissionId } = resolved;
+
+    const payloadHandle =
+      data.creatorHandle ||
+      data.creatorUsername ||
+      data.creatorName ||
+      data.creator_handle ||
+      null;
+    const creatorHandle =
+      typeof payloadHandle === 'string'
+        ? payloadHandle.replace(/^@/, '').trim() || null
+        : null;
+
+    const submissionUpdate: Record<string, unknown> = {
+      review_decision: data.decision,
+      review_feedback: data.feedback || null,
+      reviewer_type: data.reviewerType || null,
+      reviewed_by: data.reviewedBy || null,
+      reviewed_at: timestamp,
+      status: isApproved ? 'approved' : 'rejected',
+      dobble_tap_review_id: data.reviewId || null,
+    };
+    if (creatorHandle) submissionUpdate.creator_handle = creatorHandle;
+
+    // Update submission with review decision (by resolved id)
+    const { data: submission, error: submissionError } = await supabase
+      .from('activation_submissions')
+      .update(submissionUpdate)
+      .eq('id', resolvedSubmissionId)
+      .select()
+      .single();
+
+    if (submissionError) {
+      console.error('dobbletap-webhook-review-decision: Failed to update submission', submissionError);
+      throw submissionError;
+    }
+
+    // When approved: set payment_amount and release from locked budget (deduct, pay creator)
+    if (isApproved && submission?.activation_id) {
+      const { data: activation } = await supabase
+        .from('activations')
+        .select('base_rate, payment_per_action')
+        .eq('id', submission.activation_id)
+        .maybeSingle();
+
+      const paymentFromPayload = data.paymentAmount != null
+        ? Number(data.paymentAmount) / 100
+        : data.amount != null
+          ? Number(data.amount)
+          : null;
+      const paymentAmount = paymentFromPayload ?? (activation?.base_rate != null ? Number(activation.base_rate) : null) ?? (activation?.payment_per_action != null ? Number(activation.payment_per_action) : 0);
+
+      if (paymentAmount > 0) {
+        await supabase
+          .from('activation_submissions')
+          .update({ payment_amount: paymentAmount })
+          .eq('id', submission.id);
+
+        const { error: releaseError } = await supabase.rpc('release_sm_panel_payment', {
+          p_submission_id: submission.id,
+          p_payment_amount: paymentAmount,
+        });
+        if (releaseError) {
+          console.error('dobbletap-webhook-review-decision: release_sm_panel_payment error', releaseError);
+        } else {
+          // Update activation progress: spent_amount
+          const { data: act } = await supabase
+            .from('activations')
+            .select('spent_amount')
+            .eq('id', submission.activation_id)
+            .single();
+          if (act) {
+            const newSpent = (Number(act.spent_amount) || 0) + paymentAmount;
+            await supabase
+              .from('activations')
+              .update({
+                spent_amount: newSpent,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', submission.activation_id);
+          }
+        }
+      }
+    }
 
     console.log('dobbletap-webhook-review-decision: Successfully processed', {
-      assetId: data.assetId,
+      lookupId,
+      resolvedSubmissionId,
       decision: data.decision,
     });
 
