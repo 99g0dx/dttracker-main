@@ -9,6 +9,19 @@ const corsHeaders = {
 
 const BACKOFF_MS = [5 * 60 * 1000, 20 * 60 * 1000, 60 * 60 * 1000, 6 * 60 * 60 * 1000, 24 * 60 * 60 * 1000]; // 5m, 20m, 1h, 6h, 24h
 const MAX_JOBS_PER_RUN = 10;
+const CONCURRENCY = 3; // Process 3 jobs in parallel
+
+type Job = {
+  id: string;
+  platform: string;
+  job_type: string;
+  reference_id: string;
+  reference_type: string;
+  input: Record<string, unknown>;
+  attempts: number;
+  max_attempts: number;
+  last_actor_id: string | null;
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -41,21 +54,24 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const now = new Date().toISOString();
 
-    const { data: rows, error: jobsError } = await supabase
+    // Recover jobs that were left in "running" state for more than 10 minutes
+    // This can happen if a previous worker invocation crashed mid-run.
+    await supabase
       .from("scrape_jobs")
-      .select("id, platform, job_type, reference_id, reference_type, input, attempts, max_attempts, last_actor_id")
-      .in("status", ["queued", "cooldown"])
-      .lte("scheduled_for", now)
-      .order("priority", { ascending: false })
-      .order("scheduled_for", { ascending: true })
-      .limit(MAX_JOBS_PER_RUN * 2);
+      .update({ status: "queued", updated_at: new Date().toISOString() })
+      .eq("status", "running")
+      .lt(
+        "updated_at",
+        new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      );
 
-    const jobs = (rows ?? []).filter(
-      (j: { attempts: number; max_attempts: number }) => j.attempts < j.max_attempts
-    ).slice(0, MAX_JOBS_PER_RUN);
+    // Atomically claim jobs using RPC (prevents race conditions with concurrent workers)
+    const { data: jobs, error: jobsError } = await supabase.rpc("claim_scrape_jobs", {
+      p_limit: MAX_JOBS_PER_RUN,
+    });
 
     if (jobsError) {
-      console.error("Failed to fetch jobs:", jobsError);
+      console.error("Failed to claim jobs:", jobsError);
       return new Response(
         JSON.stringify({ success: false, error: jobsError.message }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
@@ -70,25 +86,18 @@ serve(async (req) => {
     }
 
     const scrapePostUrl = `${supabaseUrl}/functions/v1/scrape-post`;
+    const scrapeSubmissionUrl = `${supabaseUrl}/functions/v1/scrape-activation-submission`;
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${supabaseServiceKey}`,
       apikey: supabaseServiceKey,
     };
 
-    let processed = 0;
-    for (const job of jobs as Array<{
-      id: string;
-      platform: string;
-      job_type: string;
-      reference_id: string;
-      reference_type: string;
-      input: Record<string, unknown>;
-      attempts: number;
-      max_attempts: number;
-      last_actor_id: string | null;
-    }>) {
-      if (job.job_type !== "post") continue;
+    // Process a single job
+    const processJob = async (job: Job): Promise<boolean> => {
+      // Route to appropriate handler based on job_type
+      if (job.job_type === "post") {
+        // Process post scraping job
 
       const input = job.input as { postId?: string; postUrl?: string; platform?: string };
       if (!input?.postId || !input?.postUrl || !input?.platform) {
@@ -96,8 +105,7 @@ serve(async (req) => {
           .from("scrape_jobs")
           .update({ status: "failed", last_error: "Invalid job input (missing postId/postUrl/platform)" })
           .eq("id", job.id);
-        processed++;
-        continue;
+        return true;
       }
 
       let actorId: string;
@@ -136,13 +144,15 @@ serve(async (req) => {
 
       if (runInsertError || !run?.id) {
         console.error("Failed to insert scrape_runs:", runInsertError);
-        continue;
+        // Reset job status back to queued since we failed to create the run
+        await supabase
+          .from("scrape_jobs")
+          .update({ status: "queued", updated_at: new Date().toISOString() })
+          .eq("id", job.id);
+        return false;
       }
 
-      await supabase
-        .from("scrape_jobs")
-        .update({ status: "running", updated_at: new Date().toISOString() })
-        .eq("id", job.id);
+      // Job status is already set to "running" by claim_scrape_jobs RPC
 
       const body = {
         ...input,
@@ -165,8 +175,7 @@ serve(async (req) => {
           .from("scrape_jobs")
           .update({ status: "success", updated_at: new Date().toISOString() })
           .eq("id", job.id);
-        processed++;
-        continue;
+        return true;
       }
 
       const errorMessage = result?.error ?? `HTTP ${scrapeRes.status}`;
@@ -196,6 +205,115 @@ serve(async (req) => {
 
       await supabase.from("scrape_jobs").update(update).eq("id", job.id);
       processed++;
+      } else if (job.job_type === "activation_submission") {
+        // Process activation submission scraping job
+        const input = job.input as { submissionId?: string; contentUrl?: string };
+        if (!input?.submissionId || !input?.contentUrl) {
+          await supabase
+            .from("scrape_jobs")
+            .update({ status: "failed", last_error: "Invalid job input (missing submissionId/contentUrl)" })
+            .eq("id", job.id);
+          return true;
+        }
+
+        const { data: run, error: runInsertError } = await supabase
+          .from("scrape_runs")
+          .insert({
+            job_id: job.id,
+            actor_id: "activation_submission_scraper",
+            status: "started",
+            started_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+
+        if (runInsertError || !run?.id) {
+          console.error("Failed to insert scrape_runs for submission:", runInsertError);
+          await supabase
+            .from("scrape_jobs")
+            .update({ status: "queued", updated_at: new Date().toISOString() })
+            .eq("id", job.id);
+          return false;
+        }
+
+        const scrapeRes = await fetch(scrapeSubmissionUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ submissionId: input.submissionId }),
+        });
+
+        const result = await scrapeRes.json().catch(() => ({}));
+        const success = scrapeRes.ok && result?.success === true;
+
+        if (success) {
+          await supabase
+            .from("scrape_jobs")
+            .update({ status: "success", updated_at: new Date().toISOString() })
+            .eq("id", job.id);
+          return true;
+        }
+
+        const errorMessage = result?.error ?? `HTTP ${scrapeRes.status}`;
+        const attempts = job.attempts + 1;
+        const isBlocked =
+          scrapeRes.status === 403 ||
+          /blocked|challenge|rate limit|429/i.test(String(errorMessage));
+        const nextBackoffMs = BACKOFF_MS[Math.min(attempts - 1, BACKOFF_MS.length - 1)];
+        const nextRetryAt = new Date(
+          Date.now() + (isBlocked ? 60 * 60 * 1000 : nextBackoffMs)
+        ).toISOString();
+
+        const update: Record<string, unknown> = {
+          attempts,
+          last_error: errorMessage.substring(0, 2000),
+          updated_at: new Date().toISOString(),
+        };
+
+        if (attempts >= job.max_attempts) {
+          // Move to dead letter queue before deleting from main queue
+          const deadJob = {
+            ...job,
+            moved_at: new Date().toISOString(),
+            resolution: "max_attempts_exceeded" as const,
+          };
+          await supabase.from("scrape_jobs_dead").insert(deadJob);
+          // Delete from main queue
+          await supabase.from("scrape_jobs").delete().eq("id", job.id);
+          return true;
+        } else {
+          update.status = "cooldown";
+          update.next_retry_at = nextRetryAt;
+          update.scheduled_for = nextRetryAt;
+          await supabase.from("scrape_jobs").update(update).eq("id", job.id);
+          return true;
+        }
+      } else {
+        // Unknown job type - mark as failed
+        await supabase
+          .from("scrape_jobs")
+          .update({ status: "failed", last_error: `Unknown job_type: ${job.job_type}` })
+          .eq("id", job.id);
+        return true;
+      }
+    };
+
+    // Process jobs in parallel batches
+    const jobArray = jobs as Job[];
+    let processed = 0;
+    const chunks: Job[][] = [];
+    for (let i = 0; i < jobArray.length; i += CONCURRENCY) {
+      chunks.push(jobArray.slice(i, i + CONCURRENCY));
+    }
+
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(chunk.map((job) => processJob(job)));
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value) {
+          processed++;
+        } else if (result.status === "rejected") {
+          console.error("Job processing error:", result.reason);
+        }
+      }
     }
 
     return new Response(

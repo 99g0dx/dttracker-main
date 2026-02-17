@@ -263,7 +263,8 @@ export function AddPostDialog({
     }
 
     // If still no creator (no handle extracted and none selected)
-    if (!creatorToUse && parsedUrl.platform !== "instagram") {
+    // Allow Instagram and TikTok posts without a creator — the scraper can resolve it
+    if (!creatorToUse && parsedUrl.platform !== "instagram" && parsedUrl.platform !== "tiktok") {
       setError("Please select a creator for this post.");
       return;
     }
@@ -448,9 +449,10 @@ export function AddPostDialog({
               </div>
             )}
 
-            {/* Manual Creator Handle Input - shown for Instagram/YouTube when no handle in URL and no creator selected */}
+            {/* Manual Creator Handle Input - shown for Instagram/YouTube/TikTok when no handle in URL and no creator selected */}
             {(parsedUrl?.platform === "instagram" ||
-              parsedUrl?.platform === "youtube") &&
+              parsedUrl?.platform === "youtube" ||
+              parsedUrl?.platform === "tiktok") &&
               parsedUrl.isValid &&
               !parsedUrl.handle &&
               !selectedCreatorId && (
@@ -467,7 +469,9 @@ export function AddPostDialog({
                       placeholder={
                         parsedUrl.platform === "youtube"
                           ? "Enter YouTube channel (e.g. @channel_name)"
-                          : "Enter Instagram username (e.g. @creator_name)"
+                          : parsedUrl.platform === "tiktok"
+                            ? "Enter TikTok username (e.g. @creator_name)"
+                            : "Enter Instagram username (e.g. @creator_name)"
                       }
                       className="pl-9 bg-white/[0.03] border-white/[0.08] text-white"
                       disabled={addPostMutation.isPending}
@@ -476,7 +480,9 @@ export function AddPostDialog({
                   <p className="text-xs text-slate-400 mt-1.5">
                     {parsedUrl.platform === "youtube"
                       ? "Enter the creator's YouTube handle. We'll create the creator and attach this post."
-                      : "Enter the creator's Instagram handle. We'll create the creator and attach this post."}
+                      : parsedUrl.platform === "tiktok"
+                        ? "Enter the creator's TikTok handle. We'll create the creator and attach this post."
+                        : "Enter the creator's Instagram handle. We'll create the creator and attach this post."}
                   </p>
                 </div>
               )}
@@ -488,12 +494,14 @@ export function AddPostDialog({
                   {parsedUrl.handle && matchedCreator
                     ? "Creator (auto-matched)"
                     : (parsedUrl.platform === "instagram" ||
-                          parsedUrl.platform === "youtube") &&
+                          parsedUrl.platform === "youtube" ||
+                          parsedUrl.platform === "tiktok") &&
                         !parsedUrl.handle &&
                         !manualCreatorHandle.trim()
                       ? "Or Select Existing Creator (optional)"
                       : (parsedUrl.platform === "instagram" ||
-                            parsedUrl.platform === "youtube") &&
+                            parsedUrl.platform === "youtube" ||
+                            parsedUrl.platform === "tiktok") &&
                           !parsedUrl.handle
                         ? "Or Select Existing Creator"
                         : "Select Creator"}
@@ -554,7 +562,8 @@ export function AddPostDialog({
                 {availableCreators.length > 0 &&
                   !parsedUrl.handle &&
                   parsedUrl.platform !== "instagram" &&
-                  parsedUrl.platform !== "youtube" && (
+                  parsedUrl.platform !== "youtube" &&
+                  parsedUrl.platform !== "tiktok" && (
                     <p className="text-xs text-slate-400 mt-1.5">
                       Could not extract handle from URL. Please select the
                       creator manually.
@@ -567,7 +576,8 @@ export function AddPostDialog({
             {manualCreatorHandle.trim() &&
               !selectedCreatorId &&
               (parsedUrl?.platform === "instagram" ||
-                parsedUrl?.platform === "youtube") && (
+                parsedUrl?.platform === "youtube" ||
+                parsedUrl?.platform === "tiktok") && (
                 <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
@@ -629,7 +639,8 @@ export function AddPostDialog({
                     !parsedUrl?.handle &&
                     !manualCreatorHandle.trim() &&
                     parsedUrl?.platform !== "instagram" &&
-                    parsedUrl?.platform !== "youtube") ||
+                    parsedUrl?.platform !== "youtube" &&
+                    parsedUrl?.platform !== "tiktok") ||
                   addPostMutation.isPending ||
                   isCreatingCreator
                 }

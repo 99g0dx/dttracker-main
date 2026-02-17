@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { detectPlatformFromUrl } from "../_shared/scrape-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,21 +8,38 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Age-based scraping schedule
+// Age-based scraping schedule (used as a ceiling for very old posts)
 const HOURS_IN_MS = 1000 * 60 * 60;
-const INTERVAL_0_48H = 6;
-const INTERVAL_2_7D = 12;
-const INTERVAL_7_30D = 24;
-const INTERVAL_30D_PLUS = 168; // 7 days
+const MINUTES_IN_MS = 1000 * 60;
+const INTERVAL_0_48H_HOURS = 6;
+const INTERVAL_2_7D_HOURS = 12;
+const INTERVAL_7_30D_HOURS = 24;
+const INTERVAL_30D_PLUS_HOURS = 168; // 7 days
 
 type PostOrSubmission = {
+  id?: string;
+  campaign_id?: string;
   last_scraped_at?: string | null;
   submitted_at?: string | null;
   posted_date?: string | null;
   created_at?: string | null;
 };
 
-function shouldScrapeByAge(item: PostOrSubmission, now: Date): boolean {
+type WorkspacePlanInfo = {
+  tier: string;
+  scrape_interval_minutes: number;
+};
+
+const DEFAULT_SCRAPE_INTERVAL_MINUTES = 2880; // 48h - matches free tier
+
+const TIER_PRIORITY: Record<string, number> = {
+  agency: 10,
+  pro: 5,
+  starter: 2,
+  free: 0,
+};
+
+function getReferenceDate(item: PostOrSubmission, now: Date): Date {
   const referenceDate = item.submitted_at
     ? new Date(item.submitted_at)
     : item.posted_date
@@ -30,29 +48,55 @@ function shouldScrapeByAge(item: PostOrSubmission, now: Date): boolean {
     ? new Date(item.created_at)
     : now;
   const refTime = referenceDate.getTime();
-  if (Number.isNaN(refTime)) return true;
+  if (Number.isNaN(refTime)) return now;
+  return referenceDate;
+}
 
-  const lastScraped = item.last_scraped_at
-    ? new Date(item.last_scraped_at).getTime()
-    : null;
-  const hoursSinceLastScrape =
-    lastScraped != null ? (now.getTime() - lastScraped) / HOURS_IN_MS : Infinity;
-  const hoursSincePosted = (now.getTime() - refTime) / HOURS_IN_MS;
+function getAgeBasedIntervalMinutes(item: PostOrSubmission, now: Date): number {
+  const referenceDate = getReferenceDate(item, now);
+  const hoursSincePosted = (now.getTime() - referenceDate.getTime()) / HOURS_IN_MS;
 
-  let minInterval: number;
+  let minIntervalHours: number;
   if (hoursSincePosted <= 48) {
-    minInterval = INTERVAL_0_48H;
+    minIntervalHours = INTERVAL_0_48H_HOURS;
   } else if (hoursSincePosted <= 168) {
     // 7 days
-    minInterval = INTERVAL_2_7D;
+    minIntervalHours = INTERVAL_2_7D_HOURS;
   } else if (hoursSincePosted <= 720) {
     // 30 days
-    minInterval = INTERVAL_7_30D;
+    minIntervalHours = INTERVAL_7_30D_HOURS;
   } else {
-    minInterval = INTERVAL_30D_PLUS;
+    minIntervalHours = INTERVAL_30D_PLUS_HOURS;
   }
 
-  return hoursSinceLastScrape >= minInterval;
+  return minIntervalHours * 60;
+}
+
+function shouldScrapeWithTierInterval(
+  item: PostOrSubmission,
+  tierIntervalMinutes: number,
+  now: Date,
+): boolean {
+  // If we've never scraped this item, always allow the scrape
+  if (!item.last_scraped_at) {
+    return true;
+  }
+
+  const lastScrapedTime = new Date(item.last_scraped_at).getTime();
+  if (Number.isNaN(lastScrapedTime)) {
+    return true;
+  }
+
+  const minutesSinceLastScrape =
+    (now.getTime() - lastScrapedTime) / MINUTES_IN_MS;
+
+  const ageIntervalMinutes = getAgeBasedIntervalMinutes(item, now);
+  const effectiveIntervalMinutes = Math.max(
+    tierIntervalMinutes || DEFAULT_SCRAPE_INTERVAL_MINUTES,
+    ageIntervalMinutes,
+  );
+
+  return minutesSinceLastScrape >= effectiveIntervalMinutes;
 }
 
 serve(async (req) => {
@@ -93,27 +137,55 @@ serve(async (req) => {
     console.log("=== Scheduled Auto-Scraping Started ===");
     console.log("Timestamp:", now.toISOString());
 
-    const scrapeSubmissionUrl = `${supabaseUrl}/functions/v1/scrape-activation-submission`;
-    const serviceRoleHeaders = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${supabaseServiceKey}`,
-      apikey: supabaseServiceKey,
-    };
-
-    const MAX_POSTS = 15;
-    const MAX_SUBMISSIONS = 15;
+    const MAX_POSTS = 50;
+    const MAX_SUBMISSIONS = 30;
     let jobsEnqueued = 0;
-    let contestSuccess = 0;
-    let contestErrors = 0;
-    const errors: Array<{ id: string; type: string; message: string }> = [];
+    let submissionJobsEnqueued = 0;
 
     // ========== Part 1: Campaign Tracking Posts ==========
     const { data: campaigns } = await supabase
       .from("campaigns")
-      .select("id")
+      .select("id, workspace_id")
       .eq("status", "active");
 
     const campaignIds = campaigns?.map((c) => c.id) ?? [];
+
+    // Map campaigns to workspaces and collect unique workspace_ids
+    const campaignWorkspaceMap: Record<string, string> = {};
+    const workspaceIds = new Set<string>();
+    for (const c of campaigns ?? []) {
+      if (c.id && c.workspace_id) {
+        campaignWorkspaceMap[c.id] = c.workspace_id;
+        workspaceIds.add(c.workspace_id);
+      }
+    }
+
+    // Load workspace plan info (tier + scrape_interval_minutes) for all workspaces
+    const workspacePlans: Record<string, WorkspacePlanInfo> = {};
+    if (workspaceIds.size > 0) {
+      await Promise.all(
+        Array.from(workspaceIds).map(async (workspaceId) => {
+          const { data: plan, error } = await supabase.rpc(
+            "get_workspace_plan",
+            { target_workspace_id: workspaceId },
+          );
+          if (error || !plan) {
+            console.error(
+              "Failed to load workspace plan for workspace",
+              workspaceId,
+              error,
+            );
+            return;
+          }
+          workspacePlans[workspaceId] = {
+            tier: plan.tier ?? "free",
+            scrape_interval_minutes:
+              plan.scrape_interval_minutes ?? DEFAULT_SCRAPE_INTERVAL_MINUTES,
+          };
+        }),
+      );
+    }
+
     if (campaignIds.length > 0) {
       const { data: posts, error: fetchError } = await supabase
         .from("posts")
@@ -129,7 +201,7 @@ serve(async (req) => {
         console.error("Error fetching posts:", fetchError);
       } else if (posts && posts.length > 0) {
         const eligiblePosts = posts.filter(
-          (p: Record<string, unknown>) =>
+          (p: any) =>
             p.initial_scrape_completed === true ||
             (p.initial_scrape_attempted === true &&
               p.initial_scrape_failed === true) ||
@@ -138,22 +210,84 @@ serve(async (req) => {
               (p.status === "scraped" || p.status === "manual"))
         );
 
-        const duePosts = eligiblePosts.filter((p) =>
-          shouldScrapeByAge(p, now)
-        );
-        const sortedDue = duePosts.sort(
-          (a, b) =>
-            new Date(a.last_scraped_at ?? a.created_at).getTime() -
-            new Date(b.last_scraped_at ?? b.created_at).getTime()
-        );
-        const postsToScrape = sortedDue.slice(0, MAX_POSTS);
+        // Attach workspace + tier info and filter by effective interval
+        type PostWithMeta = {
+          post: any;
+          workspaceId: string;
+          tier: string;
+        };
+
+        const postsWithMeta: PostWithMeta[] = [];
+        for (const p of eligiblePosts as any[]) {
+          const campaignId = p.campaign_id as string | undefined;
+          if (!campaignId) continue;
+          const workspaceId = campaignWorkspaceMap[campaignId];
+          if (!workspaceId) continue;
+          const plan = workspacePlans[workspaceId];
+          const tier = plan?.tier ?? "free";
+          const intervalMinutes =
+            plan?.scrape_interval_minutes ?? DEFAULT_SCRAPE_INTERVAL_MINUTES;
+
+          if (
+            shouldScrapeWithTierInterval(
+              p,
+              intervalMinutes,
+              now,
+            )
+          ) {
+            postsWithMeta.push({ post: p, workspaceId, tier });
+          }
+        }
+
+        // Sort within each workspace by last_scraped_at / created_at
+        const postsByWorkspace: Record<string, PostWithMeta[]> = {};
+        for (const item of postsWithMeta) {
+          const list = postsByWorkspace[item.workspaceId] ??
+            (postsByWorkspace[item.workspaceId] = []);
+          list.push(item);
+        }
+        for (const workspaceId of Object.keys(postsByWorkspace)) {
+          postsByWorkspace[workspaceId].sort((a, b) => {
+            const aTime = new Date(
+              a.post.last_scraped_at ?? a.post.created_at,
+            ).getTime();
+            const bTime = new Date(
+              b.post.last_scraped_at ?? b.post.created_at,
+            ).getTime();
+            return aTime - bTime;
+          });
+        }
+
+        // Round-robin across workspaces to pick up to MAX_POSTS
+        const postsToScrape: PostWithMeta[] = [];
+        let round = 0;
+        let added = true;
+        const workspaceIdList = Object.keys(postsByWorkspace);
+        while (added && postsToScrape.length < MAX_POSTS) {
+          added = false;
+          for (const workspaceId of workspaceIdList) {
+            const list = postsByWorkspace[workspaceId];
+            if (round < list.length) {
+              postsToScrape.push(list[round]);
+              added = true;
+              if (postsToScrape.length >= MAX_POSTS) break;
+            }
+          }
+          round++;
+        }
 
         console.log(
-          `Campaign posts: ${posts.length} total, ${duePosts.length} due, enqueueing ${postsToScrape.length}`
+          `Campaign posts: ${posts.length} total, ${postsWithMeta.length} due (after tier intervals), enqueueing ${postsToScrape.length}`
         );
 
         const nowIso = now.toISOString();
-        for (const post of postsToScrape) {
+        for (const item of postsToScrape) {
+          const post = item.post;
+          const workspaceId = item.workspaceId;
+          const plan = workspacePlans[workspaceId];
+          const tier = plan?.tier ?? "free";
+          const priority = TIER_PRIORITY[tier] ?? 0;
+
           const jobRow = {
             platform: post.platform,
             job_type: "post",
@@ -164,7 +298,7 @@ serve(async (req) => {
               postUrl: post.post_url,
               platform: post.platform,
             },
-            priority: 0,
+            priority,
             scheduled_for: nowIso,
             status: "queued",
           };
@@ -215,73 +349,86 @@ serve(async (req) => {
       if (subError) {
         console.error("Error fetching contest submissions:", subError);
       } else if (submissions && submissions.length > 0) {
+        // Use a default interval for submissions (6 hours for fresh content)
+        const defaultIntervalMinutes = INTERVAL_0_48H_HOURS * 60;
         const dueSubmissions = submissions.filter((s) =>
-          shouldScrapeByAge(s, now)
+          shouldScrapeWithTierInterval(s, defaultIntervalMinutes, now)
         );
         const sortedSub = dueSubmissions.sort(
           (a, b) =>
             new Date(a.last_scraped_at ?? a.submitted_at ?? 0).getTime() -
             new Date(b.last_scraped_at ?? b.submitted_at ?? 0).getTime()
         );
-        const toScrape = sortedSub.slice(0, MAX_SUBMISSIONS);
+        const toEnqueue = sortedSub.slice(0, MAX_SUBMISSIONS);
 
         console.log(
-          `Contest submissions: ${submissions.length} total, ${dueSubmissions.length} due, scraping ${toScrape.length}`
+          `Contest submissions: ${submissions.length} total, ${dueSubmissions.length} due, enqueueing ${toEnqueue.length}`
         );
 
-        for (let i = 0; i < toScrape.length; i++) {
-          const sub = toScrape[i];
-          try {
-            const resp = await fetch(scrapeSubmissionUrl, {
-              method: "POST",
-              headers: serviceRoleHeaders,
-              body: JSON.stringify({ submissionId: sub.id }),
-            });
-
-            if (!resp.ok) {
-              const errText = await resp.text();
-              throw new Error(`HTTP ${resp.status}: ${errText}`);
-            }
-
-            const result = await resp.json();
-            if (result.success !== false && !result.error) {
-              contestSuccess++;
-            } else {
-              contestErrors++;
-              errors.push({
-                id: sub.id,
-                type: "submission",
-                message: result.error || "Unknown error",
-              });
-            }
-          } catch (err) {
-            contestErrors++;
-            const msg = err instanceof Error ? err.message : String(err);
-            errors.push({ id: sub.id, type: "submission", message: msg });
+        const nowIso = now.toISOString();
+        for (const sub of toEnqueue) {
+          if (!sub.content_url) continue;
+          const platform = detectPlatformFromUrl(sub.content_url);
+          if (platform === "unknown") {
+            console.warn(
+              `Could not detect platform for submission ${sub.id} with URL: ${sub.content_url}`
+            );
+            continue;
           }
 
-          if (i < toScrape.length - 1) {
-            await new Promise((r) => setTimeout(r, 2000));
+          const jobRow = {
+            platform,
+            job_type: "activation_submission",
+            reference_type: "activation_submission",
+            reference_id: sub.id,
+            input: {
+              submissionId: sub.id,
+              contentUrl: sub.content_url,
+            },
+            priority: 1, // Higher priority than regular posts
+            scheduled_for: nowIso,
+            status: "queued",
+          };
+
+          const { error: insertErr } = await supabase
+            .from("scrape_jobs")
+            .insert(jobRow);
+
+          if (insertErr) {
+            if (insertErr.code === "23505") {
+              const { error: updateErr } = await supabase
+                .from("scrape_jobs")
+                .update({
+                  status: "queued",
+                  attempts: 0,
+                  scheduled_for: nowIso,
+                  next_retry_at: null,
+                  updated_at: nowIso,
+                })
+                .eq("reference_type", "activation_submission")
+                .eq("reference_id", sub.id)
+                .in("status", ["failed", "cooldown"]);
+              if (!updateErr) submissionJobsEnqueued++;
+            }
+          } else {
+            submissionJobsEnqueued++;
           }
         }
       }
     }
 
-    const totalSuccess = contestSuccess;
-    const totalErrors = contestErrors;
+    const totalJobsEnqueued = jobsEnqueued + submissionJobsEnqueued;
 
     console.log(
-      `=== Auto-Scraping Complete === Jobs enqueued: ${jobsEnqueued}. Contest: ${contestSuccess} ok, ${contestErrors} err`
+      `=== Auto-Scraping Complete === Post jobs enqueued: ${jobsEnqueued}, Submission jobs enqueued: ${submissionJobsEnqueued}, Total: ${totalJobsEnqueued}`
     );
 
     return new Response(
       JSON.stringify({
         success: true,
-        jobs_enqueued: jobsEnqueued,
-        scraped_count: totalSuccess,
-        error_count: totalErrors,
-        contest_submissions_scraped: contestSuccess,
-        errors: errors.slice(0, 10),
+        jobs_enqueued: totalJobsEnqueued,
+        post_jobs_enqueued: jobsEnqueued,
+        submission_jobs_enqueued: submissionJobsEnqueued,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
