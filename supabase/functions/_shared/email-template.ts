@@ -1,7 +1,9 @@
-// Shared DTTracker email template
-// Brand: #E8153A red, dark theme, logo header, footer
+// Single source of truth for DTTracker transactional emails (Edge Functions).
+// All functions that send HTML email should use emailHeader(), emailFooter(), and helpers from this file.
+// Brand: #E8153A red, dark theme, logo header, footer.
+// Logo: use LOGO_URL only. Do not use /static/logo-black.png or other paths—many clients block or 404 them.
 
-const LOGO_URL = 'https://dttracker.app/logo.png';
+export const LOGO_URL = 'https://dttracker.app/logo.png';
 const BRAND_COLOR = '#E8153A';
 const BG_COLOR = '#0A0A0A';
 const CARD_COLOR = '#111111';

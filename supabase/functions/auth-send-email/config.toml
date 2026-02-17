@@ -1,0 +1,2 @@
+# Auth hook: Supabase calls this without a user JWT
+verify_jwt = false

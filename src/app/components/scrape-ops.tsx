@@ -167,7 +167,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
         </div>
 
         {/* Summary (last 24h) */}
-        <Card className="bg-slate-900/50 border-slate-700">
+        <Card className="dark:bg-slate-900/50 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="text-lg">Last 24h summary</CardTitle>
           </CardHeader>
@@ -192,7 +192,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                 {Object.entries(summary.byPlatform).map(([platform, v]) => (
                   <span
                     key={platform}
-                    className="rounded bg-slate-800 px-2 py-0.5 text-sm"
+                    className="rounded bg-muted dark:bg-slate-800 px-2 py-0.5 text-sm"
                     title={`${v.succeeded}/${v.total}`}
                   >
                     {platform} {v.succeeded}/{v.total}
@@ -207,7 +207,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
         </Card>
 
         {/* Recent runs */}
-        <Card className="bg-slate-900/50 border-slate-700">
+        <Card className="dark:bg-slate-900/50 dark:border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Recent runs</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
@@ -215,7 +215,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
               <select
                 value={runsRange}
                 onChange={(e) => setRunsRange(e.target.value as "24h" | "7d")}
-                className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm"
+                className="bg-muted border border-border dark:bg-slate-800 dark:border-slate-600 rounded px-2 py-1 text-sm"
               >
                 <option value="24h">Last 24h</option>
                 <option value="7d">Last 7d</option>
@@ -223,7 +223,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
               <select
                 value={runsPlatform}
                 onChange={(e) => setRunsPlatform(e.target.value)}
-                className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm"
+                className="bg-muted border border-border dark:bg-slate-800 dark:border-slate-600 rounded px-2 py-1 text-sm"
               >
                 <option value="all">All platforms</option>
                 <option value="tiktok">TikTok</option>
@@ -234,7 +234,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
               <select
                 value={runsStatus}
                 onChange={(e) => setRunsStatus(e.target.value)}
-                className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm"
+                className="bg-muted border border-border dark:bg-slate-800 dark:border-slate-600 rounded px-2 py-1 text-sm"
               >
                 <option value="all">All statuses</option>
                 <option value="started">Started</option>
@@ -253,7 +253,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-muted-foreground border-b border-slate-700">
+                    <tr className="text-left text-muted-foreground border-b border-border dark:border-slate-700">
                       <th className="py-2 pr-2">Job ID</th>
                       <th className="py-2 pr-2">Platform</th>
                       <th className="py-2 pr-2">Actor</th>
@@ -266,7 +266,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                   </thead>
                   <tbody>
                     {(runs as RunRow[]).map((r) => (
-                      <tr key={r.id} className="border-b border-slate-800">
+                      <tr key={r.id} className="border-b border-border dark:border-slate-800">
                         <td className="py-2 pr-2 font-mono text-xs">{r.job_id?.slice(0, 8)}…</td>
                         <td className="py-2 pr-2">{r.scrape_jobs?.platform ?? "—"}</td>
                         <td className="py-2 pr-2 text-muted-foreground">{truncate(r.actor_id, 24)}</td>
@@ -300,14 +300,14 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
         </Card>
 
         {/* Job queue */}
-        <Card className="bg-slate-900/50 border-slate-700">
+        <Card className="dark:bg-slate-900/50 dark:border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Job queue</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={jobsStatus}
                 onChange={(e) => setJobsStatus(e.target.value)}
-                className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm"
+                className="bg-muted border border-border dark:bg-slate-800 dark:border-slate-600 rounded px-2 py-1 text-sm"
               >
                 <option value="all">All statuses</option>
                 <option value="queued">Queued</option>
@@ -321,7 +321,7 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-slate-600"
+                    className="border-border dark:border-slate-600"
                     onClick={selectAllFailed}
                   >
                     {selectedJobIds.size === failedJobs.length ? "Deselect all" : "Select all failed"}
@@ -352,14 +352,14 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-muted-foreground border-b border-slate-700">
+                    <tr className="text-left text-muted-foreground border-b border-border dark:border-slate-700">
                       {jobsStatus === "failed" && (
                         <th className="py-2 pr-2 w-10">
                           <input
                             type="checkbox"
                             checked={failedJobs.length > 0 && selectedJobIds.size === failedJobs.length}
                             onChange={selectAllFailed}
-                            className="rounded border-slate-600 bg-slate-800"
+                            className="rounded border-border bg-muted dark:border-slate-600 dark:bg-slate-800"
                           />
                         </th>
                       )}
@@ -376,14 +376,14 @@ export function ScrapeOps({ onNavigate }: ScrapeOpsProps) {
                   </thead>
                   <tbody>
                     {(jobs as JobRow[]).map((j) => (
-                      <tr key={j.id} className="border-b border-slate-800">
+                      <tr key={j.id} className="border-b border-border dark:border-slate-800">
                         {jobsStatus === "failed" && (
                           <td className="py-2 pr-2">
                             <input
                               type="checkbox"
                               checked={selectedJobIds.has(j.id)}
                               onChange={() => toggleJobSelection(j.id)}
-                              className="rounded border-slate-600 bg-slate-800"
+                              className="rounded border-border bg-muted dark:border-slate-600 dark:bg-slate-800"
                             />
                           </td>
                         )}

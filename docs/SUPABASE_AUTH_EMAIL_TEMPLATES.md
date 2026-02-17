@@ -1,8 +1,25 @@
-# Supabase Auth Email Templates
+# Email templates (Resend)
 
-Use these custom HTML templates in **Supabase Dashboard → Authentication → Email Templates** to match the DTTracker brand design.
+**We use Resend for all emails.** Sending is done via the Resend API from Edge Functions; SMTP (e.g. in Supabase) is not used for template content.
 
-**Design spec:** Logo at `https://dttracker.app/logo.png`, brand color `#E8153A`, background `#0A0A0A`, card `#1A1A1A`, borders `rgba(255,255,255,0.08)`.
+**Reset password / confirm signup:** These are sent by Supabase Auth. To use Resend (and the DTTracker template) instead of Supabase’s built-in auth emails, use the **Send Email hook**. See **[Auth email hook (Resend)](./AUTH_EMAIL_HOOK_RESEND.md)** for setup.
+
+**Where the logo is set in this repo:**
+
+| Source | File | Logo URL |
+|--------|------|----------|
+| **Transactional HTML emails** (creator request, team invite, recall, quote, checkout, etc.) | `supabase/functions/_shared/email-template.ts` | `LOGO_URL` → `https://dttracker.app/logo.png` |
+| **React Email emails** (verification, welcome, trial, payment, campaign-update, etc.) | `emails/components/DTTrackerLayout.tsx` | `src="https://dttracker.app/logo.png"` |
+
+Use **only** the URL `https://dttracker.app/logo.png` for the logo. Do not use `/static/logo-black.png` or invalid data URIs like `data:https://...`.
+
+---
+
+## Optional: Supabase Auth email templates
+
+If Supabase Auth still sends its own emails (e.g. confirm signup, reset password) via Resend SMTP, you can paste the templates below into **Supabase Dashboard → Authentication → Email Templates** so those emails match the brand. Otherwise, ignore this section.
+
+**Design spec:** Logo `https://dttracker.app/logo.png`, brand color `#E8153A`, background `#0A0A0A`, card `#1A1A1A`, borders `rgba(255,255,255,0.08)`.
 
 ---
 
@@ -93,6 +110,20 @@ Use these custom HTML templates in **Supabase Dashboard → Authentication → E
 5. Save changes
 
 **Note:** Ensure `https://dttracker.app/logo.png` is deployed and accessible. The logo is copied from `public/logo.png` when the app is built.
+
+---
+
+## Troubleshooting: Logo not showing in auth emails
+
+If the logo appears in some auth emails (e.g. reset password) but not others, check the template in **Supabase Dashboard → Authentication → Email Templates**.
+
+- **Invalid (image won’t load):** `src="data:https://dobbletap.com/email/logo.png,<base64>..."`  
+  A data URI cannot contain a URL in the scheme. That makes the `src` invalid.
+- **Valid options:**  
+  - Use the URL: `src="https://dttracker.app/logo.png"`  
+  - Or a proper data URI: `src="data:image/png;base64,<base64>"` (no URL between `data:` and the comma).
+
+Replace any `data:https://...` logo `src` with `https://dttracker.app/logo.png` (or a correct `data:image/png;base64,...` string), then save the template.
 
 ---
 

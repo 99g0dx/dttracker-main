@@ -520,10 +520,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     };
   }, [shouldVirtualizeRequests, displayRequests, requestListHeight, requestListScrollTop]);
 
+  const apiTotalRequests = metricsQuery.data?.total_requests ?? 0;
   const metricRows = useMemo(() => {
     if (metricView === 'requests') {
       return [
-        { key: 'total_requests', label: 'Total Requests', value: metrics.total.toLocaleString(), icon: <FileText className="w-4 h-4 text-primary" /> },
+        { key: 'total_requests', label: 'Total Requests', value: (apiTotalRequests as number).toLocaleString(), icon: <FileText className="w-4 h-4 text-primary" /> },
+        { key: 'total_views', label: 'Total Views', value: totalViews.toLocaleString(), icon: <Eye className="w-4 h-4 text-red-600 dark:text-sky-400" /> },
       ];
     }
     return [
@@ -537,6 +539,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   }, [
     metricView,
     metrics,
+    apiTotalRequests,
     workspaceCount,
     campaignCount,
     activeCampaignCount,
@@ -554,105 +557,66 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     }
   }, [metricView]);
 
-  const chartData = useMemo(() => {
-    if (timeSeries.length === 0) {
-      return [];
-    }
-    const base = timeSeries.map((row) => ({
-      label: new Date(row.day).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      }),
-      requests: row.requests_count,
-      users: row.users_count,
-      workspaces: row.workspaces_count,
-      campaigns: row.campaigns_count,
-      creators: row.creators_count,
-      views: row.views_count,
-      engagementSum: row.engagement_sum,
-      postsCount: row.posts_count,
+  const metricTrendChartData = useMemo(() => {
+    if (timeSeries.length === 0) return [];
+    const n = (v: unknown) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
+    const rows = timeSeries.map((row) => ({
+      label: new Date(row.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      requests: n(row.requests_count),
+      users: n(row.users_count),
+      workspaces: n(row.workspaces_count),
+      campaigns: n(row.campaigns_count),
+      creators: n(row.creators_count),
+      views: n(row.views_count),
+      engagementSum: n(row.engagement_sum),
+      postsCount: n(row.posts_count),
     }));
-
-    // Build cumulative series for totals
-    let usersCum = 0;
-    let workspacesCum = 0;
-    let campaignsCum = 0;
-    let creatorsCum = 0;
-    let viewsCum = 0;
-    let engagementSumCum = 0;
-    let postsCum = 0;
-    const cumulative = base.map((row) => {
-      usersCum += row.users;
-      workspacesCum += row.workspaces;
-      campaignsCum += row.campaigns;
-      creatorsCum += row.creators;
-      viewsCum += row.views;
-      engagementSumCum += row.engagementSum;
-      postsCum += row.postsCount;
+    const cum = { requests: 0, users: 0, workspaces: 0, campaigns: 0, creators: 0, views: 0, engagementSum: 0, posts: 0 };
+    const withCum = rows.map((r) => {
+      cum.requests += r.requests;
+      cum.users += r.users;
+      cum.workspaces += r.workspaces;
+      cum.campaigns += r.campaigns;
+      cum.creators += r.creators;
+      cum.views += r.views;
+      cum.engagementSum += r.engagementSum;
+      cum.posts += r.postsCount;
       return {
-        ...row,
-        usersCum,
-        workspacesCum,
-        campaignsCum,
-        creatorsCum,
-        viewsCum,
-        engagementSumCum,
-        postsCum,
+        ...r,
+        requestsCum: cum.requests,
+        usersCum: cum.users,
+        workspacesCum: cum.workspaces,
+        campaignsCum: cum.campaigns,
+        creatorsCum: cum.creators,
+        viewsCum: cum.views,
+        engagementSumCum: cum.engagementSum,
+        postsCum: cum.posts,
       };
     });
-
-    const rangeMap: Record<typeof chartRange, number | null> = {
-      '7d': 7,
-      '30d': 30,
-      '90d': 90,
-      all: null,
+    const rangeLimit = { '7d': 7, '30d': 30, '90d': 90, all: null }[chartRange];
+    const ranged = rangeLimit ? withCum.slice(-rangeLimit) : withCum;
+    const safe = (v: number) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
+    const valueFor = (row: (typeof ranged)[0]): number => {
+      switch (activeMetricKey) {
+        case 'total_requests': return row.requestsCum;
+        case 'total_accounts': return row.usersCum;
+        case 'total_workspaces': return row.workspacesCum;
+        case 'total_campaigns':
+        case 'active_campaigns': return row.campaignsCum;
+        case 'total_creators': return row.creatorsCum;
+        case 'total_views': return row.viewsCum;
+        case 'avg_engagement': return row.postsCum ? Number((row.engagementSumCum / row.postsCum).toFixed(2)) : 0;
+        default: return row.requestsCum;
+      }
     };
-    const limit = rangeMap[chartRange];
-    const rangedBase = limit ? cumulative.slice(-limit) : cumulative;
-
-    let requestsCum = 0;
-    const cumulativeRange = rangedBase.map((row) => {
-      requestsCum += row.requests;
-      return {
-        ...row,
-        requestsCum,
-      };
-    });
-
-    switch (activeMetricKey) {
-      case 'total_requests':
-        return cumulativeRange.map((row) => ({ label: row.label, value: row.requestsCum }));
-      case 'total_accounts':
-        return cumulativeRange.map((row) => ({ label: row.label, value: row.usersCum }));
-      case 'total_workspaces':
-        return cumulativeRange.map((row) => ({ label: row.label, value: row.workspacesCum }));
-      case 'total_campaigns':
-      case 'active_campaigns':
-        return cumulativeRange.map((row) => ({ label: row.label, value: row.campaignsCum }));
-      case 'total_creators':
-        return cumulativeRange.map((row) => ({ label: row.label, value: row.creatorsCum }));
-      case 'total_views':
-        return cumulativeRange.map((row) => ({ label: row.label, value: row.viewsCum }));
-      case 'avg_engagement':
-        return cumulativeRange.map((row) => ({
-          label: row.label,
-          value: row.postsCum ? Number((row.engagementSumCum / row.postsCum).toFixed(2)) : 0,
-        }));
-      default:
-        return cumulativeRange.map((row) => ({ label: row.label, value: row.requestsCum }));
-    }
+    return ranged.map((row) => ({ label: row.label, value: safe(valueFor(row)) }));
   }, [activeMetricKey, timeSeries, chartRange]);
 
-  const formatAxisValue = (value: number) => {
-    if (value >= 1_000_000) {
-      const formatted = (value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1);
-      return `${formatted}M`;
-    }
-    if (value >= 1_000) {
-      const formatted = (value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1);
-      return `${formatted}K`;
-    }
-    return `${value}`;
+  const formatMetricAxis = (value: number) => {
+    const v = typeof value === 'number' && !Number.isNaN(value) ? value : 0;
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}K`;
+    return `${v}`;
   };
 
   // Debug logging removed for production readiness
@@ -1055,41 +1019,59 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   ))}
                 </div>
               </div>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="metricFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="label" stroke="#475569" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis
-                      stroke="#475569"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value: number) => formatAxisValue(value)}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: '#0D0D0D',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(value: number) => formatAxisValue(value)}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#22d3ee"
-                      strokeWidth={2}
-                      fill="url(#metricFill)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="h-52 min-h-[208px]">
+                {metricTrendChartData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    No trend data yet
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={metricTrendChartData}
+                      margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="metricTrendFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.35} />
+                          <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="label"
+                        stroke="var(--muted-foreground)"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        stroke="var(--muted-foreground)"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value: number) => formatMetricAxis(value)}
+                        domain={['auto', 'auto']}
+                        allowDataOverflow
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'var(--popover)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius)',
+                          fontSize: '12px',
+                          color: 'var(--popover-foreground)',
+                        }}
+                        formatter={(value: number) => formatMetricAxis(value)}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="var(--primary)"
+                        strokeWidth={2}
+                        fill="url(#metricTrendFill)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </CardContent>
