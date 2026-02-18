@@ -14,11 +14,11 @@ serve(async (req) => {
   console.log("[soundtrack_start_scrape] Request received");
 
   try {
-    const { soundTrackId, workspaceId, soundUrl, maxItems = 200 } = await req.json();
+    const { soundTrackId, workspaceId, soundUrl: rawSoundUrl, maxItems = 200 } = await req.json();
 
-    if (!soundTrackId || !workspaceId || !soundUrl) {
+    if (!soundTrackId || !workspaceId) {
       return new Response(
-        JSON.stringify({ error: "soundTrackId, workspaceId, and soundUrl are required" }),
+        JSON.stringify({ error: "soundTrackId and workspaceId are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -36,23 +36,81 @@ serve(async (req) => {
       );
     }
 
-    // Use service role client to bypass RLS
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check for recent duplicate scrape (within 6 hours)
+    // Resolve sound URL - if not provided, look it up from sound_tracks or sounds table
+    let soundUrl = rawSoundUrl || "";
+    if (!soundUrl) {
+      console.log("[soundtrack_start_scrape] No soundUrl provided, looking up from DB");
+      // Try sound_tracks first
+      const { data: track } = await supabase
+        .from("sound_tracks")
+        .select("source_url, platform, sound_platform_id")
+        .eq("id", soundTrackId)
+        .maybeSingle();
+      if (track?.source_url) {
+        soundUrl = track.source_url;
+      } else {
+        // Try sounds table
+        const { data: sound } = await supabase
+          .from("sounds")
+          .select("sound_page_url, platform, canonical_sound_key")
+          .eq("id", soundTrackId)
+          .maybeSingle();
+        if (sound?.sound_page_url) {
+          soundUrl = sound.sound_page_url;
+        } else if (sound?.canonical_sound_key && sound?.platform) {
+          // Reconstruct URL from canonical key
+          if (sound.platform === "tiktok") {
+            soundUrl = `https://www.tiktok.com/music/${sound.canonical_sound_key}`;
+          } else if (sound.platform === "instagram") {
+            soundUrl = `https://www.instagram.com/reels/audio/${sound.canonical_sound_key}/`;
+          }
+          console.log("[soundtrack_start_scrape] Reconstructed URL from canonical key:", soundUrl);
+        }
+      }
+    }
+
+    if (!soundUrl) {
+      return new Response(
+        JSON.stringify({ error: "Could not determine sound URL. Please provide soundUrl or ensure the sound record has a URL." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("[soundtrack_start_scrape] Resolved soundUrl:", soundUrl);
+
+    // Detect platform from URL
+    let platform: "tiktok" | "instagram" = "tiktok";
+    if (soundUrl.includes("instagram.com")) {
+      platform = "instagram";
+    }
+
+    console.log("[soundtrack_start_scrape] Platform:", platform, "URL:", soundUrl);
+
+    // Clean up stale jobs stuck in "running" or "queued" for over 30 minutes
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await supabase
+      .from("sound_scrape_jobs")
+      .update({ status: "failed", error: "Timed out (stale job)", finished_at: new Date().toISOString() })
+      .eq("sound_track_id", soundTrackId)
+      .in("status", ["queued", "running"])
+      .lt("created_at", thirtyMinutesAgo);
+
+    // Check for recent successful scrape (within 6 hours) - skip re-scrape if found
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const { data: recentJob } = await supabase
       .from("sound_scrape_jobs")
       .select("id, status, finished_at")
       .eq("sound_track_id", soundTrackId)
       .eq("provider", "apify")
+      .eq("status", "success")
       .gte("created_at", sixHoursAgo)
-      .in("status", ["queued", "running", "success"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (recentJob && recentJob.status === "success") {
+    if (recentJob) {
       console.log("[soundtrack_start_scrape] Recent successful scrape found, returning cached job");
       return new Response(
         JSON.stringify({
@@ -64,12 +122,40 @@ serve(async (req) => {
       );
     }
 
-    // Create scrape job
-    const jobInput = {
-      startUrls: [{ url: soundUrl }],
-      maxItems: Math.min(maxItems, 1000), // Cap at 1000 for MVP
-    };
+    // Build actor-specific input
+    let actorId: string;
+    let actorInput: Record<string, unknown>;
 
+    if (platform === "tiktok") {
+      actorId = "clockworks~tiktok-sound-scraper";
+
+      // Extract music ID from TikTok URL
+      // Patterns: /music/Title-7595744832015730704 or /music/7595744832015730704
+      let musicId = "";
+      const idMatch = soundUrl.match(/music\/(?:[^/]*?-)?(\d{10,})/);
+      if (idMatch) {
+        musicId = idMatch[1];
+      }
+
+      // clockworks actor expects { musics: ["<tiktok sound URL>"] }
+      // Always pass the full sound URL — the actor handles ID extraction internally
+      actorInput = {
+        musics: [soundUrl],
+        maxItems: Math.min(maxItems, 1000),
+      };
+      console.log("[soundtrack_start_scrape] TikTok sound URL:", soundUrl, musicId ? `(musicId: ${musicId})` : "(no musicId extracted)");
+    } else {
+      // Instagram: codenest/instagram-reels-audio-scraper-downloader
+      actorId = "codenest~instagram-reels-audio-scraper-downloader";
+
+      actorInput = {
+        urls: [soundUrl],
+        maxItems: Math.min(maxItems, 500),
+      };
+      console.log("[soundtrack_start_scrape] Instagram actor input:", { url: soundUrl });
+    }
+
+    // Create scrape job record
     const { data: job, error: jobError } = await supabase
       .from("sound_scrape_jobs")
       .insert({
@@ -77,7 +163,7 @@ serve(async (req) => {
         workspace_id: workspaceId,
         provider: "apify",
         status: "queued",
-        input: jobInput,
+        input: { ...actorInput, platform, actorId },
       })
       .select()
       .single();
@@ -92,45 +178,43 @@ serve(async (req) => {
 
     console.log("[soundtrack_start_scrape] Job created:", job.id);
 
-    // Start Apify actor run
-    const actorId = "apidojo/tiktok-music-scraper";
-    const apiActorId = actorId.replace(/\//g, "~");
-    
-    // Get webhook URL for this project
+    // Webhook config
     const webhookUrl = `${supabaseUrl}/functions/v1/soundtrack_scrape_webhook`;
     const webhookSecret = Deno.env.get("APIFY_WEBHOOK_SECRET") || Deno.env.get("SB_SERVICE_ROLE_KEY")?.slice(0, 20) || "default-secret";
-    
-    console.log("[soundtrack_start_scrape] Starting Apify run with webhook:", webhookUrl);
 
-    const apifyResponse = await fetch(`https://api.apify.com/v2/acts/${apiActorId}/runs`, {
+    console.log("[soundtrack_start_scrape] Starting Apify actor:", actorId);
+
+    // Apify requires webhooks as base64-encoded JSON query parameter, NOT in the body.
+    // IMPORTANT: Apify only supports these template variables: {{resource}}, {{eventType}},
+    // {{eventData}}, {{userId}}, {{createdAt}}. The {{resource}} variable is replaced with
+    // the full run object (containing id, status, defaultDatasetId, etc.) — it must NOT
+    // be quoted since it's a JSON object, not a string.
+    const payloadTemplate = `{"resource":{{resource}},"eventType":"{{eventType}}","secret":"${webhookSecret}","platform":"${platform}"}`;
+    const webhooksConfig = [
+      {
+        eventTypes: ["ACTOR.RUN.SUCCEEDED", "ACTOR.RUN.FAILED", "ACTOR.RUN.ABORTED"],
+        requestUrl: webhookUrl,
+        payloadTemplate,
+      },
+    ];
+    const webhooksBase64 = btoa(JSON.stringify(webhooksConfig));
+
+    const apifyRunUrl = `https://api.apify.com/v2/acts/${actorId}/runs?webhooks=${encodeURIComponent(webhooksBase64)}`;
+    console.log("[soundtrack_start_scrape] Apify run URL:", apifyRunUrl.replace(apifyToken, "***"));
+
+    const apifyResponse = await fetch(apifyRunUrl, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apifyToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        startUrls: jobInput.startUrls.map((u: any) => ({ url: u.url })),
-        maxItems: jobInput.maxItems,
-        webhooks: [
-          {
-            eventTypes: ["ACTOR.RUN.SUCCEEDED", "ACTOR.RUN.FAILED", "ACTOR.RUN.ABORTED"],
-            requestUrl: webhookUrl,
-            payloadTemplate: JSON.stringify({
-              runId: "{{runId}}",
-              status: "{{status}}",
-              defaultDatasetId: "{{defaultDatasetId}}",
-              secret: webhookSecret,
-            }),
-          },
-        ],
-      }),
+      body: JSON.stringify(actorInput),
     });
 
     if (!apifyResponse.ok) {
       const errorText = await apifyResponse.text();
       console.error("[soundtrack_start_scrape] Apify API error:", errorText);
-      
-      // Update job status to failed
+
       await supabase
         .from("sound_scrape_jobs")
         .update({
@@ -151,9 +235,8 @@ serve(async (req) => {
     const runId = apifyRun.data.id;
     const datasetId = apifyRun.data.defaultDatasetId;
 
-    console.log("[soundtrack_start_scrape] Apify run started:", runId);
+    console.log("[soundtrack_start_scrape] Apify run started:", runId, "platform:", platform);
 
-    // Update job with Apify run info
     await supabase
       .from("sound_scrape_jobs")
       .update({
@@ -169,6 +252,7 @@ serve(async (req) => {
         jobId: job.id,
         runId,
         datasetId,
+        platform,
         status: "running",
         message: "Scrape job started successfully",
       }),

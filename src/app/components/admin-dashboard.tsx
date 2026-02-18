@@ -1373,10 +1373,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       </Card>
 
       {selectedRequest && (
-        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="bg-card border-border w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <Card className="bg-card border-border w-full max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-hidden rounded-t-xl sm:rounded-xl">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
                 <div>
                   <div className="text-sm text-muted-foreground">Request Details</div>
                   <div className="text-lg font-semibold text-foreground">
@@ -1391,7 +1391,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 </button>
               </div>
 
-              <div className="px-6 py-5 space-y-4 overflow-y-auto max-h-[70vh]">
+              <div className="px-4 sm:px-6 py-5 space-y-4 overflow-y-auto max-h-[70vh] min-h-0">
                 {detailLoading && (
                   <div className="text-sm text-muted-foreground flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />

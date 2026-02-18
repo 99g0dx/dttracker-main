@@ -219,15 +219,40 @@ serve(async (req) => {
     try {
       aggregates = await provider.getSoundAggregates(soundTrack.sound_platform_id);
       
-      // If aggregates are placeholder (TikTok/Instagram), skip snapshot insertion
-      // Real data will come from Apify webhook
+      // If aggregates are placeholder (TikTok/Instagram), trigger Apify scrape
       if (aggregates.meta?.note && aggregates.totalUses === 0) {
-        console.log('[soundtrack_refresh_sound] Aggregates are placeholder - data will come from scraping');
+        console.log('[soundtrack_refresh_sound] Aggregates are placeholder - triggering Apify scrape');
+
+        let scrapeResult: any = null;
+        try {
+          const scrapeResponse = await fetch(`${supabaseUrl}/functions/v1/soundtrack_start_scrape`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'apikey': supabaseServiceKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              soundTrackId,
+              workspaceId,
+              soundUrl: soundTrack.source_url || soundTrack.sound_page_url || '',
+              maxItems: 200,
+            }),
+          });
+
+          const scrapeText = await scrapeResponse.text();
+          console.log('[soundtrack_refresh_sound] Scrape response:', scrapeResponse.status, scrapeText.substring(0, 500));
+          try { scrapeResult = JSON.parse(scrapeText); } catch { /* ok */ }
+        } catch (scrapeError) {
+          console.error('[soundtrack_refresh_sound] Failed to trigger scrape:', scrapeError);
+        }
+
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'Sound refresh initiated. Data will be updated when scraping completes.',
-            note: 'Aggregate data for this platform is collected via scraping, not real-time API',
+          JSON.stringify({
+            success: true,
+            message: 'Scrape job started. Data will appear when scraping completes.',
+            scrapeJobId: scrapeResult?.jobId || null,
+            scrapeStatus: scrapeResult?.status || 'unknown',
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

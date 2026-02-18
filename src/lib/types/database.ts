@@ -226,6 +226,15 @@ export interface Post {
     shares: number;
     engagement_rate: number;
   } | null;
+  /** Sound metadata (extracted from Apify at scrape time) */
+  sound_id?: string | null;
+  sound_name?: string | null;
+  sound_artist?: string | null;
+  sound_platform_url?: string | null;
+  sound_cover_url?: string | null;
+  sound_usage_count?: number | null;
+  sound_raw_meta?: Record<string, unknown> | null;
+  sound_last_enriched_at?: string | null;
 }
 
 export interface PostMetric {
@@ -237,6 +246,21 @@ export interface PostMetric {
   shares: number;
   engagement_rate: number;
   scraped_at: string;
+}
+
+export interface CampaignSoundPerformance {
+  campaign_id: string;
+  sound_id: string;
+  sound_name: string | null;
+  sound_artist: string | null;
+  platform: string;
+  post_count: number;
+  total_views: number;
+  avg_views: number;
+  total_likes: number;
+  avg_engagement_rate: number;
+  earliest_post: string | null;
+  latest_post: string | null;
 }
 
 // Sound tracking types

@@ -76,7 +76,7 @@ import {
   useRemoveCreatorFromCampaign,
 } from "../../hooks/useCreators";
 import * as csvUtils from "../../lib/utils/csv";
-import { formatWithGrowth } from "../../lib/utils/format";
+import { formatWithGrowth, formatCompactNumber } from "../../lib/utils/format";
 import { getCampaignCoverGradient } from "../../lib/utils/campaign-gradients";
 import type { CSVImportResult } from "../../lib/types/database";
 import { toast } from "sonner";
@@ -86,7 +86,6 @@ import { CampaignShareModal } from "./campaign-share-modal";
 import { CampaignSharingModal } from "./campaign-sharing-modal";
 import { SubcampaignSection } from "./subcampaign-section";
 import { CampaignSoundSection } from "./campaign-sound-section";
-import { SoundIngest } from "./sound-ingest";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -109,13 +108,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import {
-  useSound,
-  useSoundVideos,
-  useLinkSoundToCampaign,
-  useUnlinkSoundFromCampaign,
-  useRefreshSound,
-} from "../../hooks/useSounds";
 import type { Creator } from "../../lib/types/database";
 import { useWorkspaceAccess } from "../../hooks/useWorkspaceAccess";
 
@@ -145,7 +137,6 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
     useState(false);
   const [showShareLinkModal, setShowShareLinkModal] = useState(false);
   const [showCampaignSharingModal, setShowCampaignSharingModal] = useState(false);
-  const [showAddSoundDialog, setShowAddSoundDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<CSVImportResult | null>(
@@ -299,20 +290,6 @@ export function CampaignDetail({ onNavigate }: CampaignDetailProps) {
       ),
     [campaign?.id, campaign?.name, id]
   );
-
-  // Sound tracking hooks
-  const {
-    data: linkedSound,
-    isLoading: soundLoading,
-    error: soundError,
-  } = useSound(campaign?.sound_id);
-  const { data: soundVideos = [], isLoading: videosLoading } = useSoundVideos(
-    campaign?.sound_id,
-    "views"
-  );
-  const linkSoundMutation = useLinkSoundToCampaign();
-  const unlinkSoundMutation = useUnlinkSoundFromCampaign();
-  const refreshSoundMutation = useRefreshSound();
 
   const derivedCampaignStatus = React.useMemo(() => {
     if (!campaign) return null;
@@ -2267,78 +2244,18 @@ Example User,@example,x,https://x.com/example/status/9876543210,2024-01-18,,,,
 
       {/* Sound Tracking Section */}
       {campaign && (
-        <>
-          <CampaignSoundSection
-            campaignId={campaign.id}
-            sound={linkedSound || null}
-            soundVideos={soundVideos}
-            loading={
-              refreshSoundMutation.isPending || soundLoading || videosLoading
-            }
-            onAddSound={() => setShowAddSoundDialog(true)}
-            onRemoveSound={() => {
-              if (confirm("Remove sound from this campaign?")) {
-                unlinkSoundMutation.mutate(campaign.id);
-              }
-            }}
-            onRefreshSound={() => {
-              if (linkedSound?.id) {
-                refreshSoundMutation.mutate(linkedSound.id);
-              } else if (campaign?.sound_id) {
-                // If sound_id exists but sound data isn't loaded, try to refresh
-                refreshSoundMutation.mutate(campaign.sound_id);
-              }
-            }}
-          />
-
-          {/* Add Sound Dialog */}
-          <Dialog
-            open={showAddSoundDialog}
-            onOpenChange={setShowAddSoundDialog}
-          >
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Link Sound to Campaign</DialogTitle>
-                <DialogDescription>
-                  Paste a TikTok or Instagram link to start tracking the sound
-                  used in that post.
-                </DialogDescription>
-              </DialogHeader>
-              <SoundIngest
-                campaignId={campaign.id}
-                onSuccess={() => {
-                  setShowAddSoundDialog(false);
-                  // Refresh campaign data to show linked sound
-                  queryClient.invalidateQueries({
-                    queryKey: campaignsKeys.detail(campaign.id),
-                  });
-                  // Also invalidate sound queries
-                  queryClient.invalidateQueries({
-                    queryKey: ["sounds"],
-                  });
-                }}
-                onSoundDetected={async (sound) => {
-                  // The sound-tracking function should have already linked it,
-                  // but link it again as a fallback to ensure it's linked
-                  if (campaign?.id && sound.id) {
-                    try {
-                      await linkSoundMutation.mutateAsync({
-                        campaignId: campaign.id,
-                        soundId: sound.id,
-                        soundUrl: sound.sound_page_url || undefined,
-                      });
-                    } catch (error) {
-                      // If linking fails, it might already be linked, which is fine
-                      if (import.meta.env.DEV) {
-                        console.log("Sound may already be linked:", error);
-                      }
-                    }
-                  }
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-        </>
+        <CampaignSoundSection
+          campaignId={campaign.id}
+          workspaceId={activeWorkspaceId}
+          soundTrack={null}
+          snapshots={[]}
+          scrapeJob={null}
+          scrapeVideos={[]}
+          scrapeStats={null}
+          onAddSound={() => {}}
+          onRemoveSound={() => {}}
+          onRefreshSound={() => {}}
+        />
       )}
 
       {/* Creators Section */}
@@ -4084,3 +4001,4 @@ const EmptyState = ({ searchQuery, selectedPlatform }: EmptyStateProps) => {
     </div>
   );
 };
+

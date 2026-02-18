@@ -141,9 +141,7 @@ serve(async (req) => {
     if (action === "ingest" && !url && !sound_id) {
       throw new Error("URL or sound_id is required for ingest action");
     }
-    const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
-    if (!RAPIDAPI_KEY) throw new Error("RAPIDAPI_KEY secret is not set");
-
+    const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY") || "";
     const APIFY_API_TOKEN = Deno.env.get("APIFY_API_TOKEN");
     if (!APIFY_API_TOKEN) throw new Error("APIFY_API_TOKEN secret is not set");
 
@@ -197,7 +195,7 @@ serve(async (req) => {
             url.match(/video\/(\d+)/)?.[1] || url.match(/\/v\/(\d+)/)?.[1];
           log("Extracted Video ID", videoId);
 
-          if (videoId) {
+          if (videoId && RAPIDAPI_KEY) {
             const apiUrl = `https://tiktok-data-api.p.rapidapi.com/video/info?video_id=${videoId}`;
             const res = await fetchWithRetry(apiUrl, {
               headers: {
@@ -254,8 +252,8 @@ serve(async (req) => {
           );
         soundMeta.canonical_key = musicId;
 
-        // If we didn't get metadata from video, fetch music info now
-        if (!soundMeta.title) {
+        // If we didn't get metadata from video, fetch music info via RapidAPI (if key available)
+        if (!soundMeta.title && RAPIDAPI_KEY) {
           const res = await fetchWithRetry(
             `https://tiktok-data-api.p.rapidapi.com/music/info?music_id=${musicId}`,
             {
@@ -291,7 +289,7 @@ serve(async (req) => {
           const shortcode = url.match(/(?:reel|p)\/([^/]+)/)?.[1];
           log("Extracted Shortcode", shortcode);
 
-          if (shortcode) {
+          if (shortcode && RAPIDAPI_KEY) {
             // Note: Using a generic scraper endpoint pattern here
             const res = await fetchWithRetry(
               `https://instagram-scraper-stable.p.rapidapi.com/media/info?shortcode=${shortcode}`,
@@ -409,136 +407,12 @@ serve(async (req) => {
     let regions: string[] = [];
     const canonicalKey = soundMeta.canonical_key;
 
-    if (platform === "tiktok") {
-      // Validate canonicalKey before calling Apify
-      if (!canonicalKey || canonicalKey.trim() === "") {
-        throw new Error("Invalid sound ID: canonicalKey is empty. Could not extract music ID from URL.");
-      }
-
-      log("Calling Apify with", { canonicalKey, platform });
-      
-      // Use the correct Apify actor: apidojo/tiktok-music-scraper
-      // Format: username~actor-name (apidojo~tiktok-music-scraper)
-      const apifyUrl = `https://api.apify.com/v2/acts/apidojo~tiktok-music-scraper/runs?token=${APIFY_API_TOKEN}`;
-
-      // Build the full music URL for Apify
-      // The Apify actor needs the full TikTok music page URL
-      // Use the original URL if available, otherwise construct from canonicalKey
-      let musicUrl = soundMeta.sound_page_url || url;
-      if (!musicUrl || !musicUrl.includes('tiktok.com/music/')) {
-        // Fallback: construct URL from canonicalKey
-        // Note: This might not work if Apify needs the full path with music name
-        musicUrl = `https://www.tiktok.com/music/${canonicalKey}`;
-        log("Warning: Constructed music URL from ID only - may not work with Apify", { musicUrl, canonicalKey });
-      }
-      
-      log("Using music URL for Apify", { musicUrl, originalUrl: url, soundPageUrl: soundMeta.sound_page_url });
-
-      const runInput = {
-        startUrls: [musicUrl],
-        maxItems: 100,
-      };
-
-      log("Apify input", { url: apifyUrl, input: runInput });
-
-      const res = await fetchWithRetry(apifyUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(runInput),
-      });
-
-      // Safe response handling - Apify might return non-JSON
-      const responseText = await res.text();
-      log("Apify response", {
-        status: res.status,
-        statusText: res.statusText,
-        contentType: res.headers.get("content-type"),
-        bodyPreview: responseText.substring(0, 500),
-      });
-
-      if (!res.ok) {
-        // Try to parse error response for better error message
-        let errorMessage = `Apify API failed: ${res.status}`;
-        let errorDetails: any = {};
-        try {
-          const errorData = JSON.parse(responseText);
-          errorMessage = errorData.error?.message || errorData.message || errorData.error?.errorMessage || errorMessage;
-          errorDetails = errorData;
-          log("Apify error details", errorData);
-        } catch {
-          errorMessage = `${errorMessage} - ${responseText.substring(0, 200)}`;
-        }
-        
-        // Provide helpful error message
-        if (res.status === 400) {
-          errorMessage = `Apify API error (400): ${errorMessage}. This usually means invalid input. Check if the music ID "${canonicalKey}" is valid.`;
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      // Parse the run response to get run ID
-      let runData: any;
-      try {
-        runData = JSON.parse(responseText);
-        log("Apify run created", { runId: runData.data?.id, status: runData.data?.status });
-      } catch (parseError) {
-        log("Apify response parse error", { error: parseError, body: responseText.substring(0, 500) });
-        throw new Error(`Apify returned invalid JSON: ${responseText.substring(0, 200)}`);
-      }
-
-      // Apify run was created successfully
-      // The webhook system (soundtrack_scrape_webhook) will handle video insertion when the run completes
-      log("Apify run created successfully. Run ID:", runData.data?.id);
-      videosToIndex = []; // Empty for now - webhook will populate videos when run completes
-      // Continue execution - sound will be created, videos will come via webhook
-    } else if (platform === "instagram") {
-      const [res1, res2] = await Promise.all([
-        fetchWithRetry(
-          `https://instagram-scraper-stable.p.rapidapi.com/audio/reels?audio_id=${canonicalKey}`,
-          {
-            headers: {
-              "X-RapidAPI-Key": RAPIDAPI_KEY,
-              "X-RapidAPI-Host": "instagram-scraper-stable.p.rapidapi.com",
-            },
-          },
-        ),
-        fetchWithRetry(
-          `https://instagram-scraper-stable.p.rapidapi.com/music/clips?id=${canonicalKey}`,
-          {
-            headers: {
-              "X-RapidAPI-Key": RAPIDAPI_KEY,
-              "X-RapidAPI-Host": "instagram-scraper-stable.p.rapidapi.com",
-            },
-          },
-        ),
-      ]);
-
-      let clips: any[] = [];
-      if (res1.ok) {
-        const data = await res1.json();
-        clips = data.items || data.data?.items || data.reels || [];
-      } else if (res2.ok) {
-        const data = await res2.json();
-        clips = data.items || data.data?.items || data.reels || [];
-      } else {
-        throw new Error("Instagram API failed");
-      }
-
-      videosToIndex = clips.map((c: any) => ({
-        sound_id: soundId,
-        platform: "instagram",
-        video_id: c.code || c.pk,
-        video_url: `https://www.instagram.com/reel/${c.code}/`,
-        creator_handle: c.user?.username || c.owner?.username,
-        views: c.view_count || c.play_count,
-        likes: c.like_count,
-        posted_at: c.taken_at
-          ? new Date(c.taken_at * 1000).toISOString()
-          : null,
-        bucket: "top",
-      }));
-    }
+    // NOTE: Scraping is handled by soundtrack_start_scrape (called by soundtrack_create_from_link)
+    // which properly sets up Apify webhooks. Do NOT start duplicate Apify runs here.
+    log("Skipping Apify scrape - handled by soundtrack_start_scrape with webhooks", {
+      platform,
+      canonicalKey,
+    });
 
     // 6. Bulk insert videos
     if (videosToIndex.length > 0) {

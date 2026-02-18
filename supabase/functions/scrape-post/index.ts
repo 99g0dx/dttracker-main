@@ -87,6 +87,15 @@ interface ScrapedMetrics {
   engagement_rate: number;
   /** Username of the post owner (extracted from scraper response) */
   owner_username?: string | null;
+  /** Sound/music metadata extracted from Apify response */
+  sound?: {
+    id: string | null;
+    name: string | null;
+    artist: string | null;
+    platformUrl: string | null;
+    coverUrl: string | null;
+    rawMeta: Record<string, unknown> | null;
+  } | null;
 }
 
 /** Look up an active fallback actor from the parser_versions table. */
@@ -599,6 +608,21 @@ async function scrapeTikTok(postUrl: string, actorOverride?: string | null, maxA
       video.authorName ??
       null;
 
+    // Extract sound/music metadata from Apify response
+    const musicMeta = item.musicMeta ?? item.music ?? video.musicMeta ?? video.music ?? {};
+    const soundData = {
+      id: musicMeta.musicId ?? musicMeta.id ?? musicMeta.music_id ?? null,
+      name: musicMeta.musicName ?? musicMeta.title ?? musicMeta.musicTitle ?? musicMeta.name ?? null,
+      artist: musicMeta.musicAuthor ?? musicMeta.authorName ?? musicMeta.author ?? null,
+      platformUrl: musicMeta.playUrl ?? musicMeta.play_url ?? null,
+      coverUrl: musicMeta.coverMedium ?? musicMeta.coverLarge ?? musicMeta.coverThumb ?? null,
+      rawMeta: Object.keys(musicMeta).length > 0 ? musicMeta : null,
+    };
+    const sound = soundData.id ? soundData : null;
+    if (sound) {
+      console.log("[scrapeTikTok] Extracted sound metadata:", { id: sound.id, name: sound.name, artist: sound.artist });
+    }
+
     const totalMetrics = views + likes + comments + shares;
 
     console.log("[scrapeTikTok] Extracted metrics:", {
@@ -671,6 +695,7 @@ async function scrapeTikTok(postUrl: string, actorOverride?: string | null, maxA
             shares: deepShares,
             engagement_rate: 0,
             owner_username: ownerUsername,
+            sound,
           };
         }
       }
@@ -767,6 +792,7 @@ async function scrapeTikTok(postUrl: string, actorOverride?: string | null, maxA
       shares,
       engagement_rate: 0,
       owner_username: ownerUsername,
+      sound,
     };
   } catch (error) {
     console.error("TikTok scraping error:", error);
@@ -896,9 +922,26 @@ async function scrapeInstagram(postUrl: string, actorOverride?: string | null, m
       });
     }
 
+    // Extract sound/music metadata from Instagram response (best-effort)
+    const rawItem = item as Record<string, any>;
+    const musicInfo = rawItem.musicInfo ?? rawItem.music_info ?? rawItem.music ?? rawItem.clips_music_attribution_info ?? {};
+    const igSoundData = {
+      id: musicInfo.music_id ?? musicInfo.audio_id ?? musicInfo.id ?? musicInfo.audio_cluster_id ?? null,
+      name: musicInfo.music_title ?? musicInfo.title ?? musicInfo.song_name ?? musicInfo.original_sound_info?.original_audio_title ?? null,
+      artist: musicInfo.music_artist ?? musicInfo.artist_name ?? musicInfo.artist ?? rawItem.ownerUsername ?? null,
+      platformUrl: musicInfo.playUrl ?? musicInfo.play_url ?? null,
+      coverUrl: musicInfo.cover_url ?? musicInfo.coverUrl ?? null,
+      rawMeta: Object.keys(musicInfo).length > 0 ? musicInfo : null,
+    };
+    const igSound = igSoundData.id ? igSoundData : null;
+    if (igSound) {
+      console.log("[scrapeInstagram] Extracted sound metadata:", { id: igSound.id, name: igSound.name, artist: igSound.artist });
+    }
+
     const metrics: ScrapedMetrics = {
       ...normalized.metrics,
       owner_username: normalized.ownerUsername,
+      sound: igSound,
     };
 
     const totalMetrics =
@@ -2028,6 +2071,18 @@ serve(async (req) => {
         },
         ...attemptUpdate,
       };
+
+      // Add sound metadata if available (extracted from Apify musicMeta/music)
+      if (scrapedMetrics.sound?.id) {
+        updatePayload.sound_id = scrapedMetrics.sound.id;
+        updatePayload.sound_name = scrapedMetrics.sound.name;
+        updatePayload.sound_artist = scrapedMetrics.sound.artist;
+        updatePayload.sound_platform_url = scrapedMetrics.sound.platformUrl;
+        updatePayload.sound_cover_url = scrapedMetrics.sound.coverUrl;
+        updatePayload.sound_raw_meta = scrapedMetrics.sound.rawMeta;
+        updatePayload.sound_last_enriched_at = now;
+        console.log(`[scrape-post] Setting sound_id to: ${scrapedMetrics.sound.id}, name: ${scrapedMetrics.sound.name}`);
+      }
 
       // Add owner_username if available (especially useful for Instagram posts)
       if (scrapedMetrics.owner_username) {

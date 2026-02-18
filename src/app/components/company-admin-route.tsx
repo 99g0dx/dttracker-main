@@ -12,7 +12,6 @@ export function CompanyAdminRoute({ children }: CompanyAdminRouteProps) {
   const [mfaReady, setMfaReady] = React.useState(false);
   const [mfaEnabled, setMfaEnabled] = React.useState(false);
   const [mfaError, setMfaError] = React.useState<string | null>(null);
-  const [isDesktop, setIsDesktop] = React.useState(true);
 
   React.useEffect(() => {
     let mounted = true;
@@ -49,17 +48,6 @@ export function CompanyAdminRoute({ children }: CompanyAdminRouteProps) {
   }, []);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const media = window.matchMedia('(min-width: 1024px)');
-    const update = () => setIsDesktop(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => {
-      media.removeEventListener('change', update);
-    };
-  }, []);
-
-  React.useEffect(() => {
     if (!isCompanyAdmin) return;
     const loadEmail = async () => {
       await supabase.auth.getSession();
@@ -83,19 +71,6 @@ export function CompanyAdminRoute({ children }: CompanyAdminRouteProps) {
     return (
       <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
         Verifying admin security...
-      </div>
-    );
-  }
-
-  if (!isDesktop) {
-    return (
-      <div className="flex h-full min-h-[60vh] items-center justify-center px-6">
-        <div className="max-w-md rounded-xl border border-border bg-card p-6 text-center">
-          <h2 className="text-lg font-semibold text-foreground">Desktop Required</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Admin access is restricted to desktop devices. Please switch to a larger screen.
-          </p>
-        </div>
       </div>
     );
   }
