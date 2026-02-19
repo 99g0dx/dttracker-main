@@ -2,6 +2,7 @@ import React from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { ArrowLeft, Users, Calendar, Loader2 } from "lucide-react";
+import { CommunityDeliveryCard } from "./community-delivery-card";
 import { useActivationInvitations } from "../../../hooks/useCreatorRequestInvitations";
 import {
   useCancelInvitation,
@@ -154,6 +155,8 @@ export function ActivationDetailCreatorRequest({
           </CardContent>
         </Card>
       )}
+
+      <CommunityDeliveryCard activation={activation} />
 
       <Card className="bg-card border-border">
         <CardContent className="p-4">

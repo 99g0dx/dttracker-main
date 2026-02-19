@@ -264,8 +264,49 @@ serve(async (req) => {
       );
     }
 
+    // For community activations, fetch targeted fans for the sync payload
+    let targetedFans: any[] = [];
+    if (activation.visibility === "community") {
+      const communityFanIds = activation.community_fan_ids;
+      let fansQuery = supabase
+        .from("community_fans")
+        .select("id, handle, platform, email, dobble_tap_user_id, creator_id")
+        .eq("workspace_id", workspaceId);
+
+      if (Array.isArray(communityFanIds) && communityFanIds.length > 0) {
+        fansQuery = fansQuery.in("id", communityFanIds);
+      }
+
+      const { data: fans } = await fansQuery;
+
+      if (fans && fans.length > 0) {
+        // For fans that have creator_id but no direct dobble_tap_user_id, fall back to creators table
+        const fansWithoutDtId = fans.filter((f: any) => !f.dobble_tap_user_id && f.creator_id);
+        let creatorDtMap: Record<string, string> = {};
+        if (fansWithoutDtId.length > 0) {
+          const creatorIds = fansWithoutDtId.map((f: any) => f.creator_id);
+          const { data: creators } = await supabase
+            .from("creators")
+            .select("id, dobble_tap_user_id")
+            .in("id", creatorIds)
+            .not("dobble_tap_user_id", "is", null);
+          if (creators) {
+            creatorDtMap = Object.fromEntries(creators.map((c: any) => [c.id, c.dobble_tap_user_id]));
+          }
+        }
+
+        targetedFans = fans.map((f: any) => ({
+          community_fan_id: f.id,
+          dobble_tap_user_id: f.dobble_tap_user_id || (f.creator_id ? (creatorDtMap[f.creator_id] || null) : null),
+          handle: f.handle,
+          platform: f.platform,
+          email: f.email,
+        }));
+      }
+    }
+
     // Sync to Dobble Tap using shared utility (same payload for contest and sm_panel)
-    const syncPayload = {
+    const syncPayload: Record<string, any> = {
       dttrackerCampaignId: activation.id,
       activation_id: activation.id,
       dttracker_workspace_id: workspaceId,
@@ -292,6 +333,9 @@ serve(async (req) => {
           : null,
       task_type: activation.task_type,
       activity_type: getDobbleTapActivityType(activation.task_type),
+      // sm_panel_activity_type is only valid for sm_panel campaigns.
+      // Sending it for contest campaigns violates DT's check constraint.
+      ...(activation.type === "sm_panel" ? { sm_panel_activity_type: getDobbleTapActivityType(activation.task_type) } : {}),
       verification_type: activation.task_type === "comment" ? "comment_text"
         : activation.task_type === "like" ? "screenshot"
         : activation.task_type === "repost" ? "repost_url"
@@ -306,6 +350,15 @@ serve(async (req) => {
       requirements: activation.requirements,
       instructions: activation.instructions,
     };
+
+    // Always include visibility for community activations so DT knows to restrict access.
+    // targeted_fans is included when available so DT can target specific users.
+    if (activation.visibility === "community") {
+      syncPayload.visibility = "community";
+      if (targetedFans.length > 0) {
+        syncPayload.targeted_fans = targetedFans;
+      }
+    }
 
     const syncResult = await syncToDobbleTap(
       supabase,
@@ -343,7 +396,33 @@ serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ activation: updatedActivation }), {
+    // Trigger community fan notifications for community activations
+    let notificationResult = null;
+    if (activation.visibility === "community" && targetedFans.length > 0) {
+      try {
+        const notifyResponse = await fetch(
+          `${supabaseUrl}/functions/v1/notify-community-activation`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${syncApiKey}`,
+            },
+            body: JSON.stringify({
+              activationId: activation.id,
+              workspaceId: workspaceId,
+            }),
+          },
+        );
+        notificationResult = await notifyResponse.json().catch(() => null);
+        console.log("Community notification result:", notificationResult);
+      } catch (notifyErr) {
+        console.error("Failed to trigger community notifications:", notifyErr);
+        // Don't fail the publish — notifications are best-effort
+      }
+    }
+
+    return new Response(JSON.stringify({ activation: updatedActivation, community_notifications: notificationResult }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

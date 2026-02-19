@@ -1499,6 +1499,7 @@ export async function listDiscover(
         creator_stats (*)
       `)
       .eq("status", "active")
+      .eq("profile_status", "live")
       .order("name", { ascending: true });
 
     if (filters?.platforms?.length) {

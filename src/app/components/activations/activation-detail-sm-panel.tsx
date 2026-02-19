@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent } from "../ui/card";
 import { ArrowLeft, ThumbsUp, Calendar, ExternalLink, Upload, Loader2, RefreshCw, Heart, Share2 } from "lucide-react";
+import { CommunityDeliveryCard } from "./community-delivery-card";
 import { useActivationSubmissions, useSyncActivationToDobbleTap } from "../../../hooks/useActivations";
 import type { Activation } from "../../../lib/types/database";
 import { format } from "date-fns";
@@ -289,6 +290,8 @@ export function ActivationDetailSMPanel({
           </CardContent>
         </Card>
       )}
+
+      <CommunityDeliveryCard activation={activation} />
 
       {false && (
       <Card className="bg-card border-border">

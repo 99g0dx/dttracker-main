@@ -80,6 +80,7 @@ import { supabase } from "../../lib/supabase";
 import * as csvUtils from "../../lib/utils/csv";
 import { toast } from "sonner";
 import { useCommunityFans, useFanStats } from "../../hooks/useCommunityFans";
+import { CommunityInviteLinkCard } from "./community-invite-link";
 import type {
   CreatorWithStats,
   CreatorWithSocialAndStats,
@@ -1009,8 +1010,10 @@ export function Creators({ onNavigate }: CreatorsProps) {
             )}
           </div>
           {activeCreatorTab === "community" ? (
-            // Community Fans Display
-            communityFansLoading ? (
+            // Community Invite Link + Fans Display
+            <div className="space-y-4">
+            <CommunityInviteLinkCard />
+            {communityFansLoading ? (
               <Card className="bg-card border-border">
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
@@ -1081,7 +1084,8 @@ export function Creators({ onNavigate }: CreatorsProps) {
                   </Button>
                 </CardContent>
               </Card>
-            )
+            )}
+            </div>
           ) : isCreatorsLoading ? (
             <Card className="bg-card border-border">
               <CardContent className="flex flex-col items-center justify-center py-16">

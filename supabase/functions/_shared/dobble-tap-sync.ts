@@ -3,14 +3,15 @@
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
-export type SyncType = 
-  | 'activation' 
-  | 'activation_update' 
-  | 'activation_submission' 
+export type SyncType =
+  | 'activation'
+  | 'activation_update'
+  | 'activation_submission'
   | 'activation_submission_review'
-  | 'creator_request' 
+  | 'creator_request'
   | 'creator_request_update'
-  | 'creator_request_invitation';
+  | 'creator_request_invitation'
+  | 'community_fan_join';
 
 export interface SyncPayload {
   [key: string]: any;
@@ -64,15 +65,19 @@ async function queueSync(
 
 /**
  * Map DTTracker task_type to Dobble Tap campaigns.activity_type.
- * Sends like, repost, comment as-is; other types fall back to screenshot.
+ * Returns null when task_type is absent (e.g. contest activations) so that
+ * Dobble Tap doesn't receive an invalid sm_panel_activity_type value.
  */
-export function getDobbleTapActivityType(taskType: string | null | undefined): string {
-  if (!taskType) return 'screenshot';
+export function getDobbleTapActivityType(taskType: string | null | undefined): string | null {
+  if (!taskType) return null;
   const t = String(taskType).toLowerCase();
   if (t === 'like') return 'like';
   if (t === 'repost') return 'repost';
   if (t === 'comment') return 'comment';
-  return 'screenshot'; // share, story, etc.
+  if (t === 'post') return 'post';
+  if (t === 'story') return 'story';
+  if (t === 'share') return 'share';
+  return null;
 }
 
 /**
@@ -88,6 +93,7 @@ function getEventTypeForSyncType(syncType: SyncType): string | null {
     creator_request: 'creator_request_created',
     creator_request_update: 'creator_request_updated',
     creator_request_invitation: 'offer_sent',
+    community_fan_join: 'community_fan_joined',
   };
   return events[syncType] || null;
 }
@@ -315,6 +321,7 @@ function getEndpointForSyncType(syncType: SyncType): string | null {
     creator_request: '/webhooks/dttracker',
     creator_request_update: '/webhooks/dttracker',
     creator_request_invitation: '/webhooks/dttracker',
+    community_fan_join: '/webhooks/dttracker',
   };
   return endpoints[syncType] || null;
 }

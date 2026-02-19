@@ -92,6 +92,7 @@ export interface Creator {
   profile_photo?: string | null;
   bio?: string | null;
   status?: string | null;
+  profile_status?: "draft" | "live";
   last_active_at?: string | null;
 }
 

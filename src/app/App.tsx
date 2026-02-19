@@ -124,6 +124,11 @@ const TeamInviteAccept = React.lazy(() =>
     default: module.TeamInviteAccept,
   })),
 );
+const CommunityJoin = React.lazy(() =>
+  import("./components/community-join").then((module) => ({
+    default: module.CommunityJoin,
+  })),
+);
 const Pricing = React.lazy(() =>
   import("./components/landing/Pricing").then((module) => ({
     default: module.Pricing,
@@ -235,7 +240,8 @@ function AppRoutes() {
       "/pricing",
     ].includes(location.pathname) ||
     location.pathname.startsWith("/share/") ||
-    location.pathname.startsWith("/team/invite/");
+    location.pathname.startsWith("/team/invite/") ||
+    location.pathname.startsWith("/community/join/");
 
   const loadingFallback = (
     <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-slate-400">
@@ -328,6 +334,10 @@ function AppRoutes() {
                 <Route
                   path="/team/invite/:token"
                   element={<TeamInviteAccept />}
+                />
+                <Route
+                  path="/community/join/:token"
+                  element={<CommunityJoin />}
                 />
 
                 {/* Landing page */}

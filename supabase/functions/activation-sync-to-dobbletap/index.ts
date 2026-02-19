@@ -91,8 +91,49 @@ serve(async (req) => {
 
     const workspaceId = activation.workspace_id;
 
+    // For community activations, fetch targeted fans with their DT user IDs
+    let targetedFans: any[] = [];
+    if (activation.visibility === 'community') {
+      const communityFanIds = activation.community_fan_ids;
+      let fansQuery = supabase
+        .from('community_fans')
+        .select('id, handle, platform, email, dobble_tap_user_id, creator_id')
+        .eq('workspace_id', workspaceId);
+
+      if (Array.isArray(communityFanIds) && communityFanIds.length > 0) {
+        fansQuery = fansQuery.in('id', communityFanIds);
+      }
+
+      const { data: fans } = await fansQuery;
+
+      if (fans && fans.length > 0) {
+        // For fans without a direct dobble_tap_user_id, fall back to creators table
+        const fansWithoutDtId = fans.filter((f: any) => !f.dobble_tap_user_id && f.creator_id);
+        let creatorDtMap: Record<string, string> = {};
+        if (fansWithoutDtId.length > 0) {
+          const creatorIds = fansWithoutDtId.map((f: any) => f.creator_id);
+          const { data: creators } = await supabase
+            .from('creators')
+            .select('id, dobble_tap_user_id')
+            .in('id', creatorIds)
+            .not('dobble_tap_user_id', 'is', null);
+          if (creators) {
+            creatorDtMap = Object.fromEntries(creators.map((c: any) => [c.id, c.dobble_tap_user_id]));
+          }
+        }
+
+        targetedFans = fans.map((f: any) => ({
+          community_fan_id: f.id,
+          dobble_tap_user_id: f.dobble_tap_user_id || (f.creator_id ? (creatorDtMap[f.creator_id] || null) : null),
+          handle: f.handle,
+          platform: f.platform,
+          email: f.email,
+        }));
+      }
+    }
+
     // Same payload shape as activation-publish so Dobble Tap treats contest and sm_panel the same
-    const syncPayload = {
+    const syncPayload: Record<string, any> = {
       dttrackerCampaignId: activation.id,
       activation_id: activation.id,
       dttracker_workspace_id: workspaceId,
@@ -120,6 +161,9 @@ serve(async (req) => {
           : null,
       task_type: activation.task_type,
       activity_type: getDobbleTapActivityType(activation.task_type),
+      // sm_panel_activity_type is only valid for sm_panel campaigns.
+      // Sending it for contest campaigns violates DT's check constraint.
+      ...(activation.type === 'sm_panel' ? { sm_panel_activity_type: getDobbleTapActivityType(activation.task_type) } : {}),
       target_url: activation.target_url,
       payment_per_action: activation.payment_per_action,
       base_rate: activation.base_rate,
@@ -134,6 +178,14 @@ serve(async (req) => {
       requirements: activation.requirements,
       instructions: activation.instructions,
     };
+
+    // Always include visibility for community activations
+    if (activation.visibility === 'community') {
+      syncPayload.visibility = 'community';
+      if (targetedFans.length > 0) {
+        syncPayload.targeted_fans = targetedFans;
+      }
+    }
 
     const activityType = getDobbleTapActivityType(activation.task_type);
     console.log('Syncing activation to Dobble Tap:', {

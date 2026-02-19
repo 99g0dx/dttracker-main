@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { CommunityDeliveryCard } from "./community-delivery-card";
 import {
   ArrowLeft,
   Trophy,
@@ -464,6 +465,8 @@ export function ActivationDetailContest({
           </CardContent>
         </Card>
       )}
+
+      <CommunityDeliveryCard activation={activation} />
 
       <Card className="bg-card border-border">
         <CardContent className="p-6">

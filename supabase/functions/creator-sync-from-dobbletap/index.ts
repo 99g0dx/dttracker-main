@@ -71,6 +71,7 @@ serve(async (req) => {
           phone,
           verificationStatus,
           profilePhoto,
+          profileStatus,
           bio,
           location,
         } = creatorData;
@@ -131,9 +132,7 @@ serve(async (req) => {
           if (existingByHandle) {
             // Update existing creator with dobble_tap_user_id
             creator = existingByHandle;
-            await supabase
-              .from('creators')
-              .update({
+            const updateData: Record<string, any> = {
                 dobble_tap_user_id: dobbleTapCreatorId,
                 handle: normalizedHandle,
                 name,
@@ -146,13 +145,17 @@ serve(async (req) => {
                 follower_count: followerCount || 0,
                 email: email || null,
                 phone: phone || null,
-              })
+              };
+            if (profileStatus === 'live' || profileStatus === 'draft') {
+              updateData.profile_status = profileStatus;
+            }
+            await supabase
+              .from('creators')
+              .update(updateData)
               .eq('id', creator.id);
           } else {
             // Create new creator
-            const { data: newCreator, error: insertError } = await supabase
-              .from('creators')
-              .insert({
+            const insertData: Record<string, any> = {
                 user_id: null,
                 dobble_tap_user_id: dobbleTapCreatorId,
                 name,
@@ -167,7 +170,13 @@ serve(async (req) => {
                 phone: phone || null,
                 status: verificationStatus === 'verified' ? 'active' : 'inactive',
                 last_active_at: now,
-              })
+              };
+            if (profileStatus === 'live' || profileStatus === 'draft') {
+              insertData.profile_status = profileStatus;
+            }
+            const { data: newCreator, error: insertError } = await supabase
+              .from('creators')
+              .insert(insertData)
               .select('id')
               .single();
 
@@ -182,9 +191,7 @@ serve(async (req) => {
           }
         } else {
           // Update existing creator (including handle/name from Dobbletap)
-          await supabase
-            .from('creators')
-            .update({
+          const existingUpdateData: Record<string, any> = {
               handle: normalizedHandle,
               name,
               profile_photo: profilePhoto || null,
@@ -196,26 +203,53 @@ serve(async (req) => {
               last_active_at: now,
               updated_at: now,
               follower_count: followerCount || 0,
-            })
+            };
+          if (profileStatus === 'live' || profileStatus === 'draft') {
+            existingUpdateData.profile_status = profileStatus;
+          }
+          await supabase
+            .from('creators')
+            .update(existingUpdateData)
             .eq('id', creator.id);
         }
 
         const creatorId = creator.id;
 
-        // Create/update social account entry
-        await supabase
-          .from('creator_social_accounts')
-          .upsert(
-            {
-              creator_id: creatorId,
-              platform: creatorPlatform,
-              handle: normalizedHandle,
-              followers: followerCount || 0,
-              verified_at: verificationStatus === 'verified' ? now : null,
-              last_synced_at: now,
-            },
-            { onConflict: 'creator_id,platform' }
-          );
+        // Create/update social account entries (all platforms)
+        const socialAccounts = creatorData.socialAccounts;
+        if (Array.isArray(socialAccounts) && socialAccounts.length > 0) {
+          for (const sa of socialAccounts) {
+            const saHandle = sa.handle?.startsWith('@') ? sa.handle : `@${sa.handle}`;
+            await supabase
+              .from('creator_social_accounts')
+              .upsert(
+                {
+                  creator_id: creatorId,
+                  platform: sa.platform || creatorPlatform,
+                  handle: saHandle,
+                  followers: sa.followers || 0,
+                  verified_at: verificationStatus === 'verified' ? now : null,
+                  last_synced_at: now,
+                },
+                { onConflict: 'creator_id,platform' }
+              );
+          }
+        } else {
+          // Fallback: single social account from top-level fields
+          await supabase
+            .from('creator_social_accounts')
+            .upsert(
+              {
+                creator_id: creatorId,
+                platform: creatorPlatform,
+                handle: normalizedHandle,
+                followers: followerCount || 0,
+                verified_at: verificationStatus === 'verified' ? now : null,
+                last_synced_at: now,
+              },
+              { onConflict: 'creator_id,platform' }
+            );
+        }
 
         results.push({
           dobble_tap_creator_id: dobbleTapCreatorId,

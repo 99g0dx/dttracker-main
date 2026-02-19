@@ -20,6 +20,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Next.js
+.next/
+tsconfig.tsbuildinfo
+
 # Editor directories
 .vscode/*
 !.vscode/extensions.json

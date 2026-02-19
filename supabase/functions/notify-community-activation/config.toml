@@ -1,0 +1,2 @@
+# Called by Dobble Tap via SYNC_API_KEY (Bearer) — JWT verification handled in code
+verify_jwt = false
