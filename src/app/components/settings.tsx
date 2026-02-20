@@ -973,49 +973,57 @@ export function Settings({ onNavigate }: SettingsProps) {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
-              <div>
-                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Campaign Updates</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Get notified when campaigns are created or updated</div>
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center justify-between gap-3 p-3 sm:p-4 bg-muted/60 rounded-lg border border-border min-h-[3.5rem] sm:min-h-0">
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="text-sm font-medium text-foreground truncate sm:mb-0.5">Campaign Updates</div>
+                <div className="text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none sm:text-sm">Get notified when campaigns are created or updated</div>
               </div>
-              <Switch
-                checked={notificationSettings.campaignUpdates}
-                onCheckedChange={() => toggleNotification('campaignUpdates')}
-              />
+              <div className="shrink-0 flex items-center">
+                <Switch
+                  checked={notificationSettings.campaignUpdates}
+                  onCheckedChange={() => toggleNotification('campaignUpdates')}
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
-              <div>
-                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Performance Alerts</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Receive alerts when performance metrics change significantly</div>
+            <div className="flex items-center justify-between gap-3 p-3 sm:p-4 bg-muted/60 rounded-lg border border-border min-h-[3.5rem] sm:min-h-0">
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="text-sm font-medium text-foreground truncate sm:mb-0.5">Performance Alerts</div>
+                <div className="text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none sm:text-sm">Receive alerts when performance metrics change significantly</div>
               </div>
-              <Switch
-                checked={notificationSettings.performanceAlerts}
-                onCheckedChange={() => toggleNotification('performanceAlerts')}
-              />
+              <div className="shrink-0 flex items-center">
+                <Switch
+                  checked={notificationSettings.performanceAlerts}
+                  onCheckedChange={() => toggleNotification('performanceAlerts')}
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
-              <div>
-                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Team Mentions</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Get notified when team members mention you</div>
+            <div className="flex items-center justify-between gap-3 p-3 sm:p-4 bg-muted/60 rounded-lg border border-border min-h-[3.5rem] sm:min-h-0">
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="text-sm font-medium text-foreground truncate sm:mb-0.5">Team Mentions</div>
+                <div className="text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none sm:text-sm">Get notified when team members mention you</div>
               </div>
-              <Switch
-                checked={notificationSettings.teamMentions}
-                onCheckedChange={() => toggleNotification('teamMentions')}
-              />
+              <div className="shrink-0 flex items-center">
+                <Switch
+                  checked={notificationSettings.teamMentions}
+                  onCheckedChange={() => toggleNotification('teamMentions')}
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
-              <div>
-                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Weekly Reports</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Receive weekly summary of campaign performance</div>
+            <div className="flex items-center justify-between gap-3 p-3 sm:p-4 bg-muted/60 rounded-lg border border-border min-h-[3.5rem] sm:min-h-0">
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="text-sm font-medium text-foreground truncate sm:mb-0.5">Weekly Reports</div>
+                <div className="text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none sm:text-sm">Receive weekly summary of campaign performance</div>
               </div>
-              <Switch
-                checked={notificationSettings.weeklyReports}
-                onCheckedChange={() => toggleNotification('weeklyReports')}
-              />
+              <div className="shrink-0 flex items-center">
+                <Switch
+                  checked={notificationSettings.weeklyReports}
+                  onCheckedChange={() => toggleNotification('weeklyReports')}
+                />
+              </div>
             </div>
           </div>
         </CardContent>
