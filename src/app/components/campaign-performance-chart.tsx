@@ -55,10 +55,10 @@ export function CampaignPerformanceChart({
 
   const chartXAxisProps = useMemo(
     () => ({
-      stroke: "#64748b",
+      stroke: "hsl(var(--muted-foreground))",
       fontSize: 11,
       tickLine: false,
-      axisLine: { stroke: "#ffffff08" },
+      axisLine: { stroke: "hsl(var(--border))" },
       minTickGap: isMobile ? 18 : 8,
       interval: isMobile ? ("preserveStartEnd" as const) : ("preserveEnd" as const),
     }),
@@ -67,8 +67,8 @@ export function CampaignPerformanceChart({
 
   const chartTooltipStyle = useMemo(
     () => ({
-      backgroundColor: "#0D0D0D",
-      border: "1px solid rgba(255,255,255,0.08)",
+      backgroundColor: "hsl(var(--card))",
+      border: "1px solid hsl(var(--border))",
       borderRadius: "12px",
       fontSize: "12px",
       padding: "10px 12px",
@@ -108,10 +108,10 @@ export function CampaignPerformanceChart({
   ) => (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={chartData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
         <XAxis dataKey="date" {...chartXAxisProps} />
         <YAxis
-          stroke="#64748b"
+          stroke="hsl(var(--muted-foreground))"
           fontSize={11}
           tickLine={false}
           axisLine={false}
@@ -136,7 +136,7 @@ export function CampaignPerformanceChart({
     <>
       {/* Chart Range Selector */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Timeframe
         </span>
         <div className="flex flex-wrap gap-2">
@@ -153,7 +153,7 @@ export function CampaignPerformanceChart({
               className={`h-10 px-3 rounded-full border text-xs font-semibold tracking-wide transition-colors ${
                 chartRange === range.value
                   ? "bg-primary text-black border-primary"
-                  : "bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"
+                  : "bg-muted/40 border-border text-foreground hover:bg-muted/60"
               }`}
             >
               {range.label}
@@ -170,31 +170,31 @@ export function CampaignPerformanceChart({
         }
         className="lg:hidden"
       >
-        <TabsList className="grid w-full max-w-[360px] sm:max-w-none grid-cols-4 gap-1 h-11 bg-white/[0.03] border border-white/[0.08] p-1 mx-auto sm:mx-0 overflow-y-hidden">
+        <TabsList className="grid w-full max-w-[360px] sm:max-w-none grid-cols-4 gap-1 h-11 bg-muted/40 border border-border p-1 mx-auto sm:mx-0 overflow-y-hidden">
           <TabsTrigger
             value="views"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+            className="flex items-center gap-1.5 data-[state=active]:bg-muted h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <Eye className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Views</span>
           </TabsTrigger>
           <TabsTrigger
             value="likes"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+            className="flex items-center gap-1.5 data-[state=active]:bg-muted h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <Heart className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Likes</span>
           </TabsTrigger>
           <TabsTrigger
             value="comments"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+            className="flex items-center gap-1.5 data-[state=active]:bg-muted h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <MessageCircle className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Comments</span>
           </TabsTrigger>
           <TabsTrigger
             value="shares"
-            className="flex items-center gap-1.5 data-[state=active]:bg-white/[0.08] h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
+            className="flex items-center gap-1.5 data-[state=active]:bg-muted h-10 text-xs sm:text-sm px-3 whitespace-nowrap"
           >
             <Share2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Shares</span>
@@ -202,14 +202,14 @@ export function CampaignPerformanceChart({
         </TabsList>
 
         <TabsContent value="views" className="mt-4 animate-in fade-in-50 duration-200">
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-4 sm:p-6">
               <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                   <Eye className="w-4 h-4 text-primary" />
                   Views Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
               </div>
               {renderChart("views", "#0ea5e9", 280)}
             </CardContent>
@@ -217,14 +217,14 @@ export function CampaignPerformanceChart({
         </TabsContent>
 
         <TabsContent value="likes" className="mt-4 animate-in fade-in-50 duration-200">
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-4 sm:p-6">
               <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                   <Heart className="w-4 h-4 text-pink-400" />
                   Likes Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
               </div>
               {renderChart("likes", "#ec4899", 280)}
             </CardContent>
@@ -232,14 +232,14 @@ export function CampaignPerformanceChart({
         </TabsContent>
 
         <TabsContent value="comments" className="mt-4 animate-in fade-in-50 duration-200">
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-4 sm:p-6">
               <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                   <MessageCircle className="w-4 h-4 text-red-600 dark:text-cyan-400" />
                   Comments Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
               </div>
               {renderChart("comments", "#06b6d4", 280)}
             </CardContent>
@@ -247,14 +247,14 @@ export function CampaignPerformanceChart({
         </TabsContent>
 
         <TabsContent value="shares" className="mt-4 animate-in fade-in-50 duration-200">
-          <Card className="bg-[#0D0D0D] border-white/[0.08]">
+          <Card className="bg-card border-border">
             <CardContent className="p-4 sm:p-6">
               <div className="mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-purple-400" />
                   Shares Over Time
                 </h3>
-                <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
               </div>
               {renderChart("shares", "#a855f7", 280)}
             </CardContent>
@@ -265,44 +265,44 @@ export function CampaignPerformanceChart({
       {/* Desktop: 2x2 Grid */}
       <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Views Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
             <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">Views Over Time</h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+              <h3 className="text-base font-semibold text-foreground">Views Over Time</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
             </div>
             {renderChart("views", "#0ea5e9", 220)}
           </CardContent>
         </Card>
 
         {/* Likes Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
             <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">Likes Over Time</h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+              <h3 className="text-base font-semibold text-foreground">Likes Over Time</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
             </div>
             {renderChart("likes", "#ec4899", 220)}
           </CardContent>
         </Card>
 
         {/* Comments Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
             <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">Comments Over Time</h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+              <h3 className="text-base font-semibold text-foreground">Comments Over Time</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
             </div>
             {renderChart("comments", "#06b6d4", 220)}
           </CardContent>
         </Card>
 
         {/* Shares Over Time */}
-        <Card className="bg-[#0D0D0D] border-white/[0.08]">
+        <Card className="bg-card border-border">
           <CardContent className="p-6">
             <div className="mb-4">
-              <h3 className="text-base font-semibold text-white">Shares Over Time</h3>
-              <p className="text-sm text-slate-400 mt-0.5">{chartRangeLabel}</p>
+              <h3 className="text-base font-semibold text-foreground">Shares Over Time</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{chartRangeLabel}</p>
             </div>
             {renderChart("shares", "#a855f7", 220)}
           </CardContent>

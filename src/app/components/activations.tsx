@@ -443,7 +443,7 @@ export function Activations({ onNavigate }: ActivationsProps) {
               </div>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
             {paginatedActivations.map((a: ActivationWithSubmissionCount) => {
               const coverGradient = getCampaignCoverGradient(a.id || a.title);
               return (

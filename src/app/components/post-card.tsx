@@ -76,104 +76,62 @@ export const PostCard = React.memo(
       return (
         <Card className="bg-card border-border hover:border-border/80 transition-colors">
           <CardContent className="p-2.5">
-            {/* Compact header: inline name + platform icon */}
             <div className="flex items-center justify-between gap-1">
-              <div className="min-w-0 flex-1">
-                <span className="text-xs font-medium text-foreground truncate block">
-                  {creatorName}
-                </span>
-                <span className="text-[10px] text-muted-foreground truncate block">
-                  @{creatorHandle}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                {platformIcon && (
-                  <PlatformIcon platform={platformIcon} size="sm" />
-                )}
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 {post.rank && (
-                  <span className="text-[9px] font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-1.5 py-0.5">
+                  <span className="text-[9px] font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-1.5 py-0.5 shrink-0">
                     #{post.rank}
                   </span>
                 )}
+                <div className="min-w-0">
+                  <span className="text-xs font-medium text-foreground truncate block">
+                    {creatorName}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground truncate block">
+                    @{creatorHandle}
+                  </span>
+                </div>
               </div>
-            </div>
-
-            {/* Compact metrics */}
-            <div className="mt-1.5">
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Eye className="w-3 h-3 text-primary" />
-                Views
-              </div>
-              <div className="text-lg font-semibold text-foreground leading-tight">
-                {viewsFormatted.value}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-1 mt-1">
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 border border-border px-1.5 py-0.5 text-[10px] text-foreground">
-                <Heart className="w-3 h-3 text-pink-400" />
-                {likesFormatted.value}
-              </span>
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 border border-border px-1.5 py-0.5 text-[10px] text-foreground">
-                <MessageCircle className="w-3 h-3 text-red-600 dark:text-cyan-400" />
-                {commentsFormatted.value}
-              </span>
-            </div>
-
-            {/* Compact actions: icon-only */}
-            <div className="mt-1.5 flex items-center gap-1">
-              {hasPostUrl ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 w-8 p-0 border-border bg-muted/60 hover:bg-muted text-foreground"
-                  asChild
-                >
+              <div className="flex items-center gap-1 shrink-0">
+                {platformIcon && (
+                  <PlatformIcon platform={platformIcon} size="sm" />
+                )}
+                {hasPostUrl ? (
                   <a
                     href={post.post_url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    className="h-7 w-7 rounded-md border border-border bg-muted/60 hover:bg-muted text-foreground flex items-center justify-center transition-colors"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-3 h-3" />
                   </a>
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 w-8 p-0 border-border bg-muted/60 text-muted-foreground"
-                  disabled
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Button>
-              )}
-              {!readOnly && onScrape && (
-                <>
-                  <Button
-                    size="sm"
-                    onClick={() => onScrape(post.id)}
-                    disabled={!hasPostUrl || isScraping}
-                    className={`h-8 w-8 p-0 ${
-                      post.status === "failed" || post.status === "pending"
-                        ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20"
-                        : "bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20"
-                    }`}
-                  >
-                    <RefreshCw
-                      className={`w-3.5 h-3.5 ${isScraping ? "animate-spin" : ""}`}
-                    />
-                  </Button>
-                  {onDelete && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="h-8 w-8 rounded-md border border-border bg-muted/60 text-foreground hover:bg-muted flex items-center justify-center transition-colors"
-                          aria-label="More actions"
-                        >
-                          <MoreHorizontal className="w-3.5 h-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
+                ) : (
+                  <span className="h-7 w-7 rounded-md border border-border bg-muted/60 text-muted-foreground/40 flex items-center justify-center">
+                    <ExternalLink className="w-3 h-3" />
+                  </span>
+                )}
+                {!readOnly && onScrape && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="h-7 w-7 rounded-md border border-border bg-muted/60 text-foreground hover:bg-muted flex items-center justify-center transition-colors"
+                        aria-label="More actions"
+                      >
+                        <MoreHorizontal className="w-3 h-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem
+                        onSelect={() => onScrape(post.id)}
+                        disabled={!hasPostUrl || isScraping}
+                      >
+                        <RefreshCw
+                          className={`w-3.5 h-3.5 ${isScraping ? "animate-spin" : ""}`}
+                        />
+                        Refresh
+                      </DropdownMenuItem>
+                      {onDelete && (
                         <DropdownMenuItem
                           variant="destructive"
                           onSelect={(event) => {
@@ -181,14 +139,33 @@ export const PostCard = React.memo(
                             onDelete(post.id);
                           }}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                           Delete
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </>
-              )}
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-1.5 flex items-baseline justify-between gap-2">
+              <div className="flex items-baseline gap-1.5">
+                <Eye className="w-3 h-3 text-primary self-center" />
+                <span className="text-base font-semibold text-foreground leading-tight">
+                  {viewsFormatted.value}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center gap-0.5">
+                  <Heart className="w-2.5 h-2.5 text-pink-400" />
+                  {likesFormatted.value}
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <MessageCircle className="w-2.5 h-2.5 text-red-600 dark:text-cyan-400" />
+                  {commentsFormatted.value}
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>

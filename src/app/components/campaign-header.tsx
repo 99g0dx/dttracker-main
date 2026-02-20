@@ -56,7 +56,7 @@ export function CampaignHeader({
       {isInternal && parentCampaignId && onBackToParent && (
         <button
           onClick={onBackToParent}
-          className="text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Parent Campaign
@@ -70,7 +70,7 @@ export function CampaignHeader({
             {isInternal && onBack && (
               <button
                 onClick={onBack}
-                className="w-11 h-11 flex-shrink-0 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] flex items-center justify-center transition-colors"
+                className="w-11 h-11 flex-shrink-0 rounded-md bg-muted/40 hover:bg-muted/60 border border-border flex items-center justify-center transition-colors"
                 aria-label="Back to campaigns"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -79,11 +79,11 @@ export function CampaignHeader({
             <div className="min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1] uppercase">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] sm:[-webkit-line-clamp:1] uppercase">
                     {name}
                   </h1>
                   {brandName && (
-                    <p className="text-sm text-slate-400 mt-1 break-words">
+                    <p className="text-sm text-muted-foreground mt-1 break-words">
                       {brandName}
                     </p>
                   )}
@@ -112,7 +112,7 @@ export function CampaignHeader({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="h-11 px-3 rounded-md bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-sm text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                      className="h-11 px-3 rounded-md bg-muted/40 hover:bg-muted/60 border border-border text-sm text-foreground flex items-center justify-center gap-2 transition-colors"
                       aria-label="Campaign actions"
                     >
                       <MoreHorizontal className="w-4 h-4" />
@@ -121,12 +121,12 @@ export function CampaignHeader({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="w-52 bg-black text-white border-white/[0.08]"
+                    className="w-52 bg-card text-foreground border-border"
                   >
                     {onEdit && (
                       <DropdownMenuItem
                         onSelect={onEdit}
-                        className="text-white [&_svg]:text-white"
+                        className="text-foreground [&_svg]:text-foreground"
                       >
                         <Edit2 className="w-4 h-4" />
                         Edit Campaign
@@ -151,7 +151,7 @@ export function CampaignHeader({
       </div>
 
       {/* Cover Image Hero Section */}
-      <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/9] max-h-[240px] sm:max-h-[300px] rounded-xl overflow-hidden border border-white/[0.08] shadow-lg shadow-black/20">
+      <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/9] max-h-[240px] sm:max-h-[300px] rounded-xl overflow-hidden border border-border shadow-lg">
         {coverImageUrl ? (
           <>
             <img
@@ -198,7 +198,7 @@ export function CampaignHeader({
           </div>
         )}
         {/* Enhanced gradient overlay for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
         {/* Text content with improved spacing and typography */}
         <div className="absolute bottom-6 left-6 right-6">
           <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg uppercase">

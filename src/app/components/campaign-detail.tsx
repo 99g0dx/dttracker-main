@@ -24,6 +24,8 @@ import {
   Share2,
   Users,
   X,
+  Info,
+  FileText,
 } from "lucide-react";
 import { StatusBadge } from "./status-badge";
 import {
@@ -1692,7 +1694,7 @@ Example User,@example,x,https://x.com/example/status/9876543210,2024-01-18,,,,
             </div>
           )}
           {/* Enhanced gradient overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/90 via-[#0D0D0D]/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
           {/* Text content with improved spacing and typography */}
           <div className="absolute bottom-6 left-6 right-6">
             <h2 className="text-xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg uppercase">
@@ -2538,6 +2540,34 @@ Example User,@example,x,https://x.com/example/status/9876543210,2024-01-18,,,,
                 </p>
               </div>
               <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-end sm:gap-3 md:w-auto">
+                {!localStorage.getItem("dttracker-posts-guide-dismissed") && (
+                  <div className="order-last sm:order-none w-full sm:w-auto">
+                    <div
+                      id="posts-guide-banner"
+                      className="group relative w-full text-left p-3 rounded-lg border border-primary/20 bg-primary/5"
+                    >
+                      <button
+                        className="absolute top-2 right-2 p-0.5 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => {
+                          localStorage.setItem("dttracker-posts-guide-dismissed", "true");
+                          const el = document.getElementById("posts-guide-banner");
+                          if (el) el.style.display = "none";
+                        }}
+                        aria-label="Dismiss guide"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="flex items-start gap-2.5 pr-5">
+                        <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                        <div className="space-y-1 text-xs">
+                          <p className="font-medium text-foreground">How to add posts</p>
+                          <p className="text-muted-foreground"><strong className="text-foreground">1–2 posts:</strong> Click <strong className="text-primary">+ Add Post</strong> and paste the URL.</p>
+                          <p className="text-muted-foreground"><strong className="text-foreground">3–6 posts:</strong> Go to <strong className="text-primary">Actions → Import posts CSV</strong> to bulk upload (max 6 posts).</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <button
                   onClick={() => {
                     if (!ensureCanEdit()) return;
@@ -3450,18 +3480,62 @@ Example User,@example,x,https://x.com/example/status/9876543210,2024-01-18,,,,
               )}
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground mb-1">
-                No posts found
-              </h3>
-              <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                {searchQuery
-                  ? "Try adjusting your search query"
-                  : "Get started by adding posts manually or importing from CSV"}
-              </p>
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              {searchQuery ? (
+                <>
+                  <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
+                    <Search className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground mb-1">
+                    No posts found
+                  </h3>
+                  <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
+                    Try adjusting your search query
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center mb-4">
+                    <FileText className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground mb-1">
+                    No posts yet
+                  </h3>
+                  <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
+                    Add posts to track their performance and engagement metrics.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 max-w-lg w-full">
+                    <button
+                      onClick={() => {
+                        if (!ensureCanEdit()) return;
+                        setShowAddPostDialog(true);
+                      }}
+                      disabled={!canEditThisCampaign}
+                      className="p-4 rounded-lg border border-border bg-muted/40 hover:bg-muted/60 text-left transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-5 h-5 text-primary mb-2" />
+                      <p className="text-sm font-medium text-foreground">Add Post</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Best for 1–2 posts. Paste the post URL and we&apos;ll scrape the data.
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!ensureCanEdit()) return;
+                        handleImportPosts();
+                      }}
+                      disabled={!canEditThisCampaign}
+                      className="p-4 rounded-lg border border-border bg-muted/40 hover:bg-muted/60 text-left transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-5 h-5 text-primary mb-2" />
+                      <p className="text-sm font-medium text-foreground">Import CSV</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Best for 3–6 posts. Upload a CSV file with up to 6 post URLs at once.
+                      </p>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </CardContent>

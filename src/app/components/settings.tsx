@@ -968,16 +968,16 @@ export function Settings({ onNavigate }: SettingsProps) {
               <Bell className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-foreground">Notification Preferences</h3>
-              <p className="text-sm text-muted-foreground">Manage how you receive notifications</p>
+              <h3 className="text-sm sm:text-base font-semibold text-foreground">Notification Preferences</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">Manage how you receive notifications</p>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-foreground mb-1">Campaign Updates</div>
-                <div className="text-sm text-muted-foreground">Get notified when campaigns are created or updated</div>
+                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Campaign Updates</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Get notified when campaigns are created or updated</div>
               </div>
               <Switch
                 checked={notificationSettings.campaignUpdates}
@@ -985,10 +985,10 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-foreground mb-1">Performance Alerts</div>
-                <div className="text-sm text-muted-foreground">Receive alerts when performance metrics change significantly</div>
+                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Performance Alerts</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Receive alerts when performance metrics change significantly</div>
               </div>
               <Switch
                 checked={notificationSettings.performanceAlerts}
@@ -996,10 +996,10 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-foreground mb-1">Team Mentions</div>
-                <div className="text-sm text-muted-foreground">Get notified when team members mention you</div>
+                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Team Mentions</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Get notified when team members mention you</div>
               </div>
               <Switch
                 checked={notificationSettings.teamMentions}
@@ -1007,10 +1007,10 @@ export function Settings({ onNavigate }: SettingsProps) {
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border">
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/60 rounded-lg border border-border">
               <div>
-                <div className="font-medium text-foreground mb-1">Weekly Reports</div>
-                <div className="text-sm text-muted-foreground">Receive weekly summary of campaign performance</div>
+                <div className="text-sm font-medium text-foreground mb-0.5 sm:mb-1">Weekly Reports</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Receive weekly summary of campaign performance</div>
               </div>
               <Switch
                 checked={notificationSettings.weeklyReports}
