@@ -196,6 +196,19 @@ export function emailLinkText(text: string, url: string): string {
 </p>`;
 }
 
+/**
+ * Renders a "copy this link" section for auth emails.
+ * hrefUrl   — the intermediary copy-link page URL (dobbletap.com/auth/copy-link?url=...)
+ * friendlyUrl — the clean display text shown to the user
+ * Clicking the link navigates to the copy-link page which copies the real
+ * Supabase verify URL to clipboard and shows an "Open link" button.
+ */
+export function emailCopyLinkBox(hrefUrl: string, friendlyUrl: string): string {
+  return `<p class="text-muted" style="color: ${LIGHT.TEXT_MUTED}; font-size: 13px; margin-top: 16px; text-align: center;">
+  Or copy this link: <a href="${hrefUrl}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;" target="_blank" rel="noopener">${friendlyUrl}</a>
+</p>`;
+}
+
 export function emailRow(label: string, value: string): string {
   return `<tr>
   <td style="padding: 8px 0; color: ${LIGHT.TEXT_SECONDARY}; font-size: 14px; vertical-align: top; width: 120px;">${label}</td>

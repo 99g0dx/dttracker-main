@@ -16,7 +16,6 @@ import {
   emailHeading,
   emailSubtext,
   emailButton,
-  emailLinkText,
   emailStyles,
 } from "../_shared/email-template.ts";
 
@@ -164,7 +163,6 @@ serve(async (req) => {
         ${emailHeading(heading)}
         ${emailSubtext(bodyText)}
         ${emailButton(buttonText, verifyUrl)}
-        ${emailLinkText("Or copy this link", verifyUrl)}
         <p style="color: ${emailStyles.TEXT_MUTED}; font-size: 13px; text-align: center; margin-top: 24px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
 ${emailFooter()}`;
 

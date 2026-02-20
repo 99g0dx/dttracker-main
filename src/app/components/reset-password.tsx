@@ -169,8 +169,8 @@ export function ResetPassword() {
               {sessionError
                 ? `Unable to verify reset link: ${sessionError}`
                 : hasRecoveryParams
-                ? "This reset link is invalid or expired."
-                : "Open the reset link from your email to continue."}
+                ? "This reset link has expired. Please request a new one."
+                : "This reset link has expired. Please request a new one."}
             </div>
             <Button
               onClick={() => navigate("/login")}
