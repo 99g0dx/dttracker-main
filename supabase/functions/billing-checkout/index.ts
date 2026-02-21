@@ -86,11 +86,9 @@ serve(async (req) => {
       throw new Error('Paystack is not configured')
     }
 
-    // Convert USD cents to kobo (NGN)
-    // Paystack expects amount in kobo (smallest currency unit)
-    // We'll let Paystack handle the conversion at their current rate
-    // For now, we pass USD amount and Paystack converts it
-    const amountInCents = plan.price_amount // USD cents (4900 = $49)
+    // plan.price_amount is stored in USD cents (e.g. 4900 = $49.00).
+    // Paystack USD transactions accept the amount in cents directly — do not multiply.
+    const amountInCents = plan.price_amount // USD cents (e.g. 4900 = $49.00)
 
     // Initialize transaction with Paystack
     const paystackResponse = await fetch(`${PAYSTACK_API_URL}/transaction/initialize`, {
@@ -101,7 +99,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         email: email,
-        amount: amountInCents * 100, // Paystack expects amount in kobo, but we're using USD
+        amount: amountInCents, // Already in cents — Paystack USD accepts cents directly
         currency: 'USD', // Let Paystack handle conversion
         reference: reference,
         callback_url: callback_url || `${req.headers.get('origin')}/billing/success`,

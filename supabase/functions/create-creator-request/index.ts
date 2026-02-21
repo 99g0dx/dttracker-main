@@ -23,16 +23,38 @@ serve(async (req) => {
   }
 
   try {
-    const { request_id } = await req.json();
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SYNC_API_KEY = Deno.env.get('SYNC_API_KEY') ?? '';
+    const authHeader = req.headers.get('Authorization');
+
+    // Require either a valid user JWT or the internal SYNC_API_KEY
+    let isAuthorized = false;
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    if (SYNC_API_KEY && authHeader === `Bearer ${SYNC_API_KEY}`) {
+      isAuthorized = true;
+    } else if (authHeader) {
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      if (!userError && user) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { request_id } = await req.json();
 
     if (!request_id) {
       throw new Error('Request ID is required');
     }
-
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
     const { data: request, error: requestError } = await supabase
       .from('creator_requests')

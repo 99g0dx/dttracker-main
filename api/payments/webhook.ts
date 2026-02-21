@@ -1,9 +1,27 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage } from 'http';
 
 /**
- * Proxy webhook requests from dttracker.app to Supabase Edge Function
- * This allows using a custom domain for the Paystack webhook URL
+ * Proxy webhook requests from dttracker.app to Supabase Edge Function.
+ * Body parsing is disabled so we can forward the exact raw bytes that
+ * Paystack signed — re-stringifying a parsed body breaks HMAC verification.
  */
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+function readRawBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only allow POST requests (webhooks)
   if (req.method !== 'POST') {
@@ -14,15 +32,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const webhookUrl = `${SUPABASE_URL}/functions/v1/paystack-webhook`;
 
   try {
-    // Get the raw body for signature verification
-    const rawBody = JSON.stringify(req.body);
+    // Read the raw body bytes — body parser is disabled so this is the original bytes
+    // that Paystack HMAC-signed. Do NOT parse and re-stringify, as that would break
+    // signature verification in the Supabase Edge Function.
+    const rawBody = await readRawBody(req);
 
-    // Forward the request to Supabase Edge Function
+    // Forward the request to Supabase Edge Function with the original signature header
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Forward the Paystack signature header for verification
         'x-paystack-signature': req.headers['x-paystack-signature'] as string || '',
       },
       body: rawBody,

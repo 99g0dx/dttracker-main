@@ -204,31 +204,46 @@ serve(async (req) => {
             .update({ payment_amount: paymentAmount })
             .eq("id", resolvedSubmissionId);
 
-          const { error: releaseError } = await supabase.rpc("release_sm_panel_payment", {
-            p_submission_id: resolvedSubmissionId,
-            p_payment_amount: paymentAmount,
-          });
-          if (releaseError) {
-            console.error(
-              "dobbletap-webhook-verification-completed: release_sm_panel_payment error",
-              releaseError,
+          // Guard against double-pay: check if payment was already released.
+          // The RPC also guards via paid_at, but this avoids a redundant DB call.
+          const { data: submissionCheck } = await supabase
+            .from("activation_submissions")
+            .select("status, paid_at")
+            .eq("id", resolvedSubmissionId)
+            .single();
+
+          if (submissionCheck?.status === "approved" && submissionCheck?.paid_at != null) {
+            console.warn(
+              "dobbletap-webhook-verification-completed: Payment already released, skipping RPC",
+              { submissionId: resolvedSubmissionId },
             );
           } else {
-            // Update activation progress: spent_amount
-            const { data: act } = await supabase
-              .from("activations")
-              .select("spent_amount")
-              .eq("id", submissionRow.activation_id)
-              .single();
-            if (act) {
-              const newSpent = (Number(act.spent_amount) || 0) + paymentAmount;
-              await supabase
+            const { error: releaseError } = await supabase.rpc("release_sm_panel_payment", {
+              p_submission_id: resolvedSubmissionId,
+              p_payment_amount: paymentAmount,
+            });
+            if (releaseError) {
+              console.error(
+                "dobbletap-webhook-verification-completed: release_sm_panel_payment error",
+                releaseError,
+              );
+            } else {
+              // Update activation progress: spent_amount
+              const { data: act } = await supabase
                 .from("activations")
-                .update({
-                  spent_amount: newSpent,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", submissionRow.activation_id);
+                .select("spent_amount")
+                .eq("id", submissionRow.activation_id)
+                .single();
+              if (act) {
+                const newSpent = (Number(act.spent_amount) || 0) + paymentAmount;
+                await supabase
+                  .from("activations")
+                  .update({
+                    spent_amount: newSpent,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", submissionRow.activation_id);
+              }
             }
           }
         }

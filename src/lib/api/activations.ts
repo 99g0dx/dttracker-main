@@ -673,15 +673,29 @@ export async function rejectSubmission(
       return { data: null, error: new Error("Not authenticated") };
     }
 
+    // reject_sm_panel_submission atomically:
+    //   1. Marks submission as rejected
+    //   2. Returns the reserved payment amount from locked_balance to available balance
+    //   3. Decrements activations.spent_amount
+    const { error: rpcError } = await supabase.rpc("reject_sm_panel_submission", {
+      p_submission_id: submissionId,
+    });
+
+    if (rpcError) {
+      console.error("rejectSubmission: RPC error", rpcError);
+      return { data: null, error: rpcError };
+    }
+
+    // Stamp reviewed_by (kept in the frontend call to avoid passing user_id into SECURITY DEFINER)
+    await supabase
+      .from("activation_submissions")
+      .update({ reviewed_by: user.id })
+      .eq("id", submissionId);
+
     const { data, error } = await supabase
       .from("activation_submissions")
-      .update({
-        status: "rejected",
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
-      })
-      .eq("id", submissionId)
       .select()
+      .eq("id", submissionId)
       .single();
 
     if (error) return { data: null, error };
@@ -882,14 +896,11 @@ export async function closeActivation(
       return cancelActivation(activationId);
     }
 
-    // Contest: direct status update
-    const { error } = await supabase
-      .from("activations")
-      .update({
-        status: "cancelled",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", activationId);
+    // Contest: use dedicated cancel RPC which refunds remaining locked budget
+    // and sets status = 'cancelled' atomically.
+    const { error } = await supabase.rpc("cancel_contest_activation", {
+      p_activation_id: activationId,
+    });
 
     if (error) return { data: null, error };
     return { data: undefined, error: null };

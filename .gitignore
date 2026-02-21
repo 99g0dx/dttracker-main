@@ -18,6 +18,7 @@ dist-ssr
 # Environment variables
 .env
 .env.*
+.env.local
 !.env.example
 
 # Next.js

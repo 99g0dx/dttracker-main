@@ -37,18 +37,26 @@ serve(async (req) => {
       throw new Error("Missing Supabase configuration");
     }
 
-    if (triggerToken) {
-      const headerToken = req.headers.get("x-scrape-trigger-token") ?? "";
-      const authHeader = req.headers.get("Authorization") ?? "";
-      const bearerToken = authHeader.replace("Bearer ", "");
-      const isAuthorized =
-        headerToken === triggerToken || bearerToken === supabaseServiceKey;
-      if (!isAuthorized) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
-        );
-      }
+    // Auth is always required. If SCRAPE_TRIGGER_TOKEN is not configured,
+    // reject all requests — do not allow unauthenticated access.
+    if (!triggerToken) {
+      console.error("scrape-job-worker: SCRAPE_TRIGGER_TOKEN is not set — rejecting all requests");
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized — server misconfigured" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
+    }
+
+    const headerToken = req.headers.get("x-scrape-trigger-token") ?? "";
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const bearerToken = authHeader.replace("Bearer ", "");
+    const isAuthorized =
+      headerToken === triggerToken || bearerToken === supabaseServiceKey;
+    if (!isAuthorized) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

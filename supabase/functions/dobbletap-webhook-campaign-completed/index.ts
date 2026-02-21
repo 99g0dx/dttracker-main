@@ -70,8 +70,9 @@ serve(async (req) => {
       .select()
       .single();
 
-    // Update submission with completion data
-    const { data: submission, error: submissionError } = await supabase
+    // Update all submissions for this activation (campaign) with completion data.
+    // data.creatorCampaignId is the activation-level ID — query by activation_id.
+    const { data: submissions, error: submissionError } = await supabase
       .from('activation_submissions')
       .update({
         completion_status: data.status,
@@ -82,21 +83,22 @@ serve(async (req) => {
         failure_reason: data.failureReason || null,
         status: data.status === 'completed' ? 'approved' : 'rejected',
       })
-      .eq('dobble_tap_submission_id', data.creatorCampaignId)
-      .select()
-      .maybeSingle();
+      .eq('activation_id', data.creatorCampaignId)
+      .select();
 
     if (submissionError) {
-      console.error('dobbletap-webhook-campaign-completed: Failed to update submission', submissionError);
+      console.error('dobbletap-webhook-campaign-completed: Failed to update submissions', submissionError);
       throw submissionError;
     }
 
+    const submission = submissions?.[0] ?? null;
+
     if (!submission) {
-      console.warn('dobbletap-webhook-campaign-completed: Submission not found', {
-        campaignId: data.creatorCampaignId,
+      console.warn('dobbletap-webhook-campaign-completed: No submissions found for activation', {
+        activationId: data.creatorCampaignId,
       });
       return new Response(JSON.stringify({
-        error: 'Submission not found',
+        error: 'No submissions found for activation',
         event_id: webhookEvent?.id,
         status: 'submission_not_found',
       }), {

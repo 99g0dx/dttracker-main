@@ -285,6 +285,7 @@ export async function createTeamInvite(
             "send-team-invite",
             {
               body: {
+                workspaceId: targetWorkspaceId,
                 email: invite.email,
                 inviteToken: inviteToken,
                 inviterName: inviterName,

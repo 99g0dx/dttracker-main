@@ -57,13 +57,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
         const list = (memberships || []) as { workspace_id: string; workspaces: { owner_user_id: string } | null }[];
         const owned = list.find((m) => m.workspaces?.owner_user_id === user.id);
-        const workspaceId = owned?.workspace_id ?? list[0]?.workspace_id ?? user.id;
+        const workspaceId = owned?.workspace_id ?? list[0]?.workspace_id ?? null;
         if (!cancelled) {
+          if (!workspaceId) {
+            console.error("WorkspaceContext: No workspace found for user", user.id);
+          }
           setActiveWorkspaceIdState(workspaceId);
         }
-      } catch {
+      } catch (err) {
+        console.error("WorkspaceContext: Failed to resolve workspace", err);
         if (!cancelled) {
-          setActiveWorkspaceIdState(user.id);
+          setActiveWorkspaceIdState(null);
         }
       }
     };

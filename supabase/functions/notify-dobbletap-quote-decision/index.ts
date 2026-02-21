@@ -121,7 +121,15 @@ serve(async (req) => {
     console.log('Sending webhook to Dobbletap:', webhookPayload);
 
     // Send webhook to Dobbletap
-    const DOBBLETAP_WEBHOOK_URL = 'https://qetwrowpllnkucyxoojp.supabase.co/functions/v1/make-server-8061e72e/webhooks/dttracker/quote-decision';
+    const DOBBLE_TAP_API = Deno.env.get('DOBBLE_TAP_API') ?? '';
+    if (!DOBBLE_TAP_API) {
+      console.error('notify-dobbletap-quote-decision: DOBBLE_TAP_API env var is not set');
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const DOBBLETAP_WEBHOOK_URL = `${DOBBLE_TAP_API}/webhooks/dttracker/quote-decision`;
     const SYNC_API_KEY = Deno.env.get('SYNC_API_KEY') ?? '';
 
     const webhookResponse = await fetch(DOBBLETAP_WEBHOOK_URL, {

@@ -113,7 +113,10 @@ async function resolveWorkspaceId(): Promise<WorkspaceLookup> {
     .limit(1)
     .maybeSingle();
 
-  return { workspaceId: legacyMember?.workspace_id || user.id, error: null };
+  if (!legacyMember?.workspace_id) {
+    return { workspaceId: "", error: new Error("No workspace found — please contact support.") };
+  }
+  return { workspaceId: legacyMember.workspace_id, error: null };
 }
 
 // Default catalog for when edge function isn't available

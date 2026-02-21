@@ -101,9 +101,10 @@ const DEFAULT_FEATURES: Record<string, Feature[]> = {
 export function getEffectivePlanSlug(billing: BillingSummary | null | undefined): string {
   if (!billing) return 'free';
 
-  // If paid or trialing, use the subscription's plan
+  // If paid or trialing, use the subscription's plan tier
+  // SubscriptionRecord uses `tier`, not `plan_slug`; PlanCatalogEntry uses `tier`, not `slug`
   if (billing.is_paid || billing.is_trialing) {
-    return billing.subscription?.plan_slug || billing.plan?.slug || 'pro';
+    return billing.subscription?.tier || billing.plan?.tier || 'pro';
   }
 
   // Default to starter/free plan

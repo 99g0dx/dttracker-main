@@ -124,11 +124,14 @@ serve(async (req) => {
       })
     }
 
-    // For active subscriptions, schedule cancellation at period end
+    // For active subscriptions, schedule cancellation at period end.
+    // Keep status as 'active' — the user retains access until the period ends.
+    // The Paystack subscription.disable webhook will set status to 'canceled'
+    // when the actual billing period expires.
     const { data: updatedSubscription, error: updateError } = await supabaseAdmin
       .from('workspace_subscriptions')
       .update({
-        status: 'canceled',
+        status: 'active',
         cancel_at_period_end: true,
         canceled_at: now.toISOString(),
       })

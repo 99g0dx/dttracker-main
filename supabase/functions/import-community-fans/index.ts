@@ -126,6 +126,23 @@ serve(async (req) => {
       });
     }
 
+    // Verify the authenticated user is an active member of the target workspace.
+    // This prevents any authenticated user from importing fans into an arbitrary workspace.
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('user_id', user.id)
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!membership) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!csvData) {
       return new Response(JSON.stringify({ error: 'csvData required' }), {
         status: 400,

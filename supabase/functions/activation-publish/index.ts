@@ -40,16 +40,15 @@ serve(async (req) => {
     }
 
     // Allow both JWT and API key authentication
-    let userId = null;
+    let userId: string | null = null;
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    // Try API key auth first (for testing)
+    // Service API key path (internal service calls only)
     if (syncApiKey && authHeader === `Bearer ${syncApiKey}`) {
-      console.log("Using API key authentication (test mode)");
-      // API key authenticated - skip user validation
-      userId = null; // Will be set from activation data
+      console.log("Using API key authentication");
+      // userId stays null — permitted for internal service calls
     } else {
-      // Try JWT auth - but don't fail for test mode activations
+      // JWT path: must have a valid user. Reject immediately if not.
       const {
         data: { user },
         error: userError,
@@ -57,12 +56,15 @@ serve(async (req) => {
 
       if (userError || !user) {
         console.warn("JWT validation failed:", userError);
-        // Don't fail immediately - check if it's a test mode activation
-        // We'll validate this later after fetching the activation
-        userId = null;
-      } else {
-        userId = user.id;
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
+      userId = user.id;
     }
 
     const body = await req.json();
@@ -101,19 +103,6 @@ serve(async (req) => {
     const totalBudget = Number(activation.total_budget) || 0;
     const workspaceId = activation.workspace_id;
     const testMode = activation.test_mode === true;
-
-    // If JWT validation failed and it's not a test mode activation, reject
-    if (!userId && !testMode) {
-      return new Response(
-        JSON.stringify({
-          error: "Unauthorized - Invalid JWT and not test mode",
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
 
     // Allow zero budget for test mode activations
     if (totalBudget <= 0 && !testMode) {

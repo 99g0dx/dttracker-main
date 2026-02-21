@@ -272,7 +272,7 @@ export async function parseCSV(
             comments,
             shares,
             engagement_rate: Number(engagementRate.toFixed(2)),
-            status: views > 0 ? "scraped" : "manual",
+            status: "pending",
           });
         }
 

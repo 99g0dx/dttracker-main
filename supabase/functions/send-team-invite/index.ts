@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import {
   emailHeader, emailFooter, emailHeading, emailSubtext,
   emailButton, emailInfoBox, emailLabel, emailValue, emailLinkText,
@@ -12,6 +13,7 @@ const corsHeaders = {
 };
 
 interface InviteEmailData {
+  workspaceId: string;
   email: string;
   inviteToken: string;
   inviterName: string | null;
@@ -36,8 +38,54 @@ serve(async (req) => {
   }
 
   try {
+    // 1. Require a valid JWT
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const authHeader = req.headers.get("Authorization");
+
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body: InviteEmailData = await req.json();
-    const { email, inviteToken, inviterName, role, message, inviteUrl } = body;
+    const { workspaceId, email, inviteToken, inviterName, role, message, inviteUrl } = body;
+
+    // 2. Require workspaceId and verify the caller is an active workspace member
+    if (!workspaceId) {
+      return new Response(JSON.stringify({ error: "workspaceId required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: membership } = await supabaseAdmin
+      .from("workspace_members")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .eq("workspace_id", workspaceId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!membership) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!email || !inviteToken || !inviteUrl) {
       return new Response(

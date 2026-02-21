@@ -117,6 +117,10 @@ serve(async (req) => {
 
     // Process first; only log to billing_events after success so Paystack retries can credit the wallet if processing failed
 
+    // Track whether billing_events was already inserted in a branch,
+    // to prevent the generic catch-all insert from creating a duplicate row.
+    let billingEventInserted = false;
+
     // Handle different event types
     switch (event) {
       case "charge.success": {
@@ -249,6 +253,7 @@ serve(async (req) => {
               // Log but don't fail if billing_events insert fails
               console.error("Failed to insert billing event (non-critical):", err);
             });
+            billingEventInserted = true;
 
             console.log(
               `Wallet funded for workspace ${workspaceId}, amount ₦${amountNgn}`
@@ -391,23 +396,24 @@ serve(async (req) => {
         console.log("Unhandled event type:", event);
     }
 
-    // Log event only after successful processing so Paystack retries can credit wallet if processing failed earlier
-    const { data: billingEvent, error: eventError } = await supabaseAdmin
-      .from("billing_events")
-      .insert({
-        workspace_id: workspaceId,
-        event_source: "paystack",
-        event_type: event,
-        paystack_event_id: eventId,
-        reference: reference,
-        payload: payload,
-        processed_at: now.toISOString(),
-      })
-      .select()
-      .single();
+    // Log event only after successful processing so Paystack retries can credit wallet if processing failed earlier.
+    // Skip if a branch already inserted billing_events (e.g. wallet_fund) to avoid duplicate rows.
+    if (!billingEventInserted) {
+      const { error: eventError } = await supabaseAdmin
+        .from("billing_events")
+        .insert({
+          workspace_id: workspaceId,
+          event_source: "paystack",
+          event_type: event,
+          paystack_event_id: eventId,
+          reference: reference,
+          payload: payload,
+          processed_at: now.toISOString(),
+        });
 
-    if (eventError) {
-      console.error("Failed to log billing event:", eventError);
+      if (eventError) {
+        console.error("Failed to log billing event:", eventError);
+      }
     }
 
     return new Response(JSON.stringify({ received: true }), {

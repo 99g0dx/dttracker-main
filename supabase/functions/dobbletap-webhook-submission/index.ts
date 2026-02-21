@@ -75,7 +75,9 @@ serve(async (req) => {
     );
 
     // 4. Check idempotency
-    const idempotencyKey = `${data.creatorCampaignId}-${eventType}-${timestamp}`;
+    // Key must be stable across retries: use campaign+asset+eventType.
+    // Timestamp intentionally excluded — it changes on each retry, defeating idempotency.
+    const idempotencyKey = `${data.creatorCampaignId}-${data.assetId}-${eventType}`;
 
     const { data: existingEvent } = await supabase
       .from("webhook_events")
