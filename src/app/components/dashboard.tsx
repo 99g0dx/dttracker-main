@@ -790,7 +790,7 @@ useEffect(() => {
           <div className="relative" ref={dateDropdownRef}>
             <button 
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-              className="h-11 sm:h-10 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center gap-2 transition-colors"
+              className="h-11 min-h-[44px] px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex items-center gap-2 transition-colors"
             >
               <CalendarIcon className="w-4 h-4" />
               <span className="hidden sm:inline">{formatDateRange(dateRange)}</span>
@@ -1100,7 +1100,7 @@ useEffect(() => {
               {/* Filters Button */}
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="h-11 sm:h-10 px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex flex-wrap items-center gap-2 transition-colors w-fit"
+                className="h-11 min-h-[44px] px-3 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-sm text-foreground flex flex-wrap items-center gap-2 transition-colors w-fit"
               >
                 <FilterIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
@@ -1119,7 +1119,7 @@ useEffect(() => {
                   placeholder="Search campaigns..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 sm:h-10 pl-9 pr-3 bg-muted/60 border border-border rounded-md text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
+                  className="h-11 min-h-[44px] pl-9 pr-3 bg-muted/60 border border-border rounded-md text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-full"
                 />
               </div>
             </div>

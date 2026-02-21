@@ -154,9 +154,9 @@ export function NotificationsCenter() {
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="relative w-8 h-8 rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center transition-colors"
+        className="relative h-11 min-h-[44px] w-11 min-w-[44px] rounded-md bg-muted/60 hover:bg-muted/80 border border-border text-foreground flex items-center justify-center transition-colors"
       >
-        <Bell className="w-5 h-5 text-current" />
+        <Bell className="w-4 h-4 text-current" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs font-semibold rounded-full flex items-center justify-center">
             {unreadCount > 9 ? "9+" : unreadCount}

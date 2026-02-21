@@ -242,10 +242,10 @@ export function Activations({ onNavigate }: ActivationsProps) {
         </div>
         <Button
           onClick={() => onNavigate("/activations/create")}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
           disabled={!activeWorkspaceId || !canWrite}
         >
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="w-4 h-4" />
           Create
         </Button>
       </div>
@@ -365,9 +365,9 @@ export function Activations({ onNavigate }: ActivationsProps) {
             {canWrite && (
               <Button
                 onClick={() => onNavigate("/activations/create")}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4" />
                 Create Activation
               </Button>
             )}
