@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+    'authorization, x-client-info, apikey, content-type, x-sync-api-key',
 };
 
 serve(async (req) => {
@@ -14,9 +14,9 @@ serve(async (req) => {
 
   try {
     const syncApiKey = Deno.env.get('SYNC_API_KEY') ?? '';
-    const authHeader = req.headers.get('Authorization');
+    const incomingSyncKey = req.headers.get('x-sync-api-key');
 
-    if (!syncApiKey || authHeader !== `Bearer ${syncApiKey}`) {
+    if (!syncApiKey || incomingSyncKey !== syncApiKey) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -101,6 +101,12 @@ serve(async (req) => {
           errors.push({ creator_id: dobbleTapCreatorId, error: updateError.message });
           continue;
         }
+
+        // Remove from all workspace rosters so it no longer appears in My Network
+        await supabase
+          .from('workspace_creators')
+          .delete()
+          .eq('creator_id', creator.id);
 
         results.push({
           dobble_tap_creator_id: dobbleTapCreatorId,

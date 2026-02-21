@@ -780,6 +780,8 @@ export async function listWithStats(
           location
         `
         )
+        .eq("status", "active")
+        .eq("profile_status", "live")
         .order("name", { ascending: true });
 
       // Exclude creators already in the user's network.

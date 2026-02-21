@@ -53,14 +53,19 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/wallet-fund/index.ts"
 
+[functions.creator-remove-from-dobbletap]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/creator-remove-from-dobbletap/index.ts"
+
 [functions.creator-sync-from-dobbletap]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 entrypoint = "./functions/creator-sync-from-dobbletap/index.ts"
 
 [functions.creator-stats-sync-from-dobbletap]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 entrypoint = "./functions/creator-stats-sync-from-dobbletap/index.ts"
 
 [functions.activation-submission-webhook]
