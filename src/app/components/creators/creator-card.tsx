@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Heart, ExternalLink } from 'lucide-react';
-import { PlatformIcon, getPlatformLabel } from '../ui/PlatformIcon';
+import { PlatformIcon, getPlatformLabel, normalizePlatform } from '../ui/PlatformIcon';
 import { CreatorHandleLink } from '../ui/creator-handle-link';
 import { FollowersIcon, LocationIcon, EngagementIcon } from '../ui/platform-custom-icons';
 import type { CreatorWithSocialAndStats } from '../../../lib/types/database';
@@ -42,8 +42,11 @@ export function CreatorCard({
 }: CreatorCardProps) {
   const photo =
     (creator as any).profile_photo || (creator as any).profile_url || null;
-  const primaryAccount =
-    (creator as any).creator_social_accounts?.[0] || creator;
+  const sortedAccounts = [...((creator as any).creator_social_accounts ?? [])].sort(
+    (a: any, b: any) => (b.followers ?? 0) - (a.followers ?? 0)
+  );
+  const primaryAccount = sortedAccounts[0] || creator;
+  const secondaryAccounts = sortedAccounts.slice(1);
   const handle = primaryAccount?.handle || creator.handle;
   const followers =
     primaryAccount?.followers ?? creator.follower_count ?? 0;
@@ -122,7 +125,7 @@ export function CreatorCard({
           <div className="min-w-0 flex-1">
             <CreatorHandleLink
               handle={handle || creator.handle}
-              platform={creator.platform}
+              platform={normalizePlatform((primaryAccount as any).platform || creator.platform)}
               className="font-semibold text-foreground truncate block hover:underline text-xs min-[400px]:text-sm mb-0.5"
             />
             <p className="text-[10px] min-[400px]:text-xs sm:text-sm text-muted-foreground truncate">
@@ -132,8 +135,8 @@ export function CreatorCard({
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 text-[9px] min-[400px]:text-[10px] sm:text-xs text-muted-foreground mb-2 sm:mb-2.5 lg:mb-3">
-          <PlatformIcon platform={creator.platform} size="sm" />
-          <span className="font-medium truncate">{getPlatformLabel(creator.platform)}</span>
+          <PlatformIcon platform={normalizePlatform((primaryAccount as any).platform || creator.platform)} size="sm" />
+          <span className="font-medium truncate">{getPlatformLabel(normalizePlatform((primaryAccount as any).platform || creator.platform))}</span>
           {creator.niche && (
             <>
               <span className="hidden lg:inline">•</span>
@@ -165,6 +168,20 @@ export function CreatorCard({
             </div>
           )}
         </div>
+
+        {secondaryAccounts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2.5 sm:mb-3">
+            {secondaryAccounts.map((sa: any) => (
+              <span
+                key={sa.platform}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 border border-border/50 text-[9px] min-[400px]:text-[10px] sm:text-xs text-muted-foreground"
+              >
+                <PlatformIcon platform={normalizePlatform(sa.platform)} size="sm" />
+                <span className="truncate max-w-[80px]">{sa.handle}</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row flex-wrap gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 lg:pt-3 border-t border-border/60">
           {onViewProfile && !isManual && (

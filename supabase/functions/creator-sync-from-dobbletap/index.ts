@@ -71,10 +71,26 @@ serve(async (req) => {
           phone,
           verificationStatus,
           profilePhoto,
+          avatar_url,
           profileStatus,
           bio,
           location,
+          categories,
         } = creatorData;
+
+        // Accept avatar_url (new) or profilePhoto (legacy) for profile_photo
+        const resolvedProfilePhoto = avatar_url || profilePhoto || null;
+
+        // Map categories array → niche string
+        const niche = Array.isArray(categories) && categories.length > 0
+          ? categories.join(', ')
+          : null;
+
+        // Dominant follower count = max across all social accounts (fallback to top-level)
+        const socialAccountsRaw = creatorData.socialAccounts;
+        const dominantFollowerCount = Array.isArray(socialAccountsRaw) && socialAccountsRaw.length > 0
+          ? Math.max(followerCount || 0, ...socialAccountsRaw.map((sa: any) => sa.followers || 0))
+          : followerCount || 0;
 
         if (!dobbleTapCreatorId) {
           errors.push({
@@ -92,10 +108,12 @@ serve(async (req) => {
           continue;
         }
 
-        // Normalize handle
+        // Normalize handle — DB trigger strips @ and lowercases on every write,
+        // so dbHandle is what the DB actually stores; normalizedHandle is for display/social accounts
         const normalizedHandle = handle.startsWith('@') ? handle : `@${handle}`;
+        const dbHandle = normalizedHandle.replace(/^@+/, '').toLowerCase();
         const creatorPlatform = platform || 'tiktok';
-        const name = handle.replace(/^@/, '');
+        const name = dbHandle;
 
         // Check if creator already exists by dobble_tap_user_id
         let { data: creator, error: creatorError } = await supabase
@@ -118,7 +136,7 @@ serve(async (req) => {
             .from('creators')
             .select('id')
             .eq('platform', creatorPlatform)
-            .eq('handle', normalizedHandle)
+            .eq('handle', dbHandle)
             .maybeSingle();
 
           if (lookupError) {
@@ -134,15 +152,17 @@ serve(async (req) => {
             creator = existingByHandle;
             const updateData: Record<string, any> = {
                 dobble_tap_user_id: dobbleTapCreatorId,
+                platform: creatorPlatform,
                 handle: normalizedHandle,
                 name,
-                profile_photo: profilePhoto || null,
+                profile_photo: resolvedProfilePhoto,
                 bio: bio || null,
                 location: location || null,
+                niche: niche,
                 status: verificationStatus === 'verified' ? 'active' : 'inactive',
                 last_active_at: now,
                 updated_at: now,
-                follower_count: followerCount || 0,
+                follower_count: dominantFollowerCount,
                 email: email || null,
                 phone: phone || null,
               };
@@ -161,11 +181,12 @@ serve(async (req) => {
                 name,
                 handle: normalizedHandle,
                 platform: creatorPlatform,
-                follower_count: followerCount || 0,
+                follower_count: dominantFollowerCount,
                 avg_engagement: 0,
-                profile_photo: profilePhoto || null,
+                profile_photo: resolvedProfilePhoto,
                 bio: bio || null,
                 location: location || null,
+                niche: niche,
                 email: email || null,
                 phone: phone || null,
                 status: verificationStatus === 'verified' ? 'active' : 'inactive',
@@ -192,17 +213,19 @@ serve(async (req) => {
         } else {
           // Update existing creator (including handle/name from Dobbletap)
           const existingUpdateData: Record<string, any> = {
+              platform: creatorPlatform,
               handle: normalizedHandle,
               name,
-              profile_photo: profilePhoto || null,
+              profile_photo: resolvedProfilePhoto,
               bio: bio || null,
               location: location || null,
+              niche: niche,
               email: email || null,
               phone: phone || null,
               status: verificationStatus === 'verified' ? 'active' : 'inactive',
               last_active_at: now,
               updated_at: now,
-              follower_count: followerCount || 0,
+              follower_count: dominantFollowerCount,
             };
           if (profileStatus === 'live' || profileStatus === 'draft') {
             existingUpdateData.profile_status = profileStatus;

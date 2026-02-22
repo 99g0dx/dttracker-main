@@ -777,7 +777,10 @@ export async function listWithStats(
           follower_count,
           avg_engagement,
           niche,
-          location
+          location,
+          profile_photo,
+          creator_social_accounts (*),
+          creator_stats (*)
         `
         )
         .eq("status", "active")

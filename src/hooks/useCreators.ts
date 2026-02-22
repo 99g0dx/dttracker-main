@@ -244,7 +244,7 @@ export function useCreateCreator() {
  */
 export function useCreatorsWithStats(
   networkFilter?: "my_network" | "all",
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; staleTime?: number }
 ) {
   const { activeWorkspaceId } = useWorkspace();
   return useQuery({
@@ -263,7 +263,7 @@ export function useCreatorsWithStats(
       }
       return result.data || [];
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: options?.staleTime ?? 10 * 60 * 1000, // default 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     enabled: options?.enabled ?? true,
     refetchOnWindowFocus: false,

@@ -167,6 +167,7 @@ export function Creators({ onNavigate }: CreatorsProps) {
   const { data: discoverData = [], isLoading: discoverLoading } =
     useCreatorsWithStats("all", {
       enabled: shouldFetch && activeCreatorTab === "discover",
+      staleTime: 0, // Always fetch fresh data when Discover tab is activated
     });
   const { data: favoritesData = [], isLoading: favoritesLoading } =
     useFavoritesCreators();
