@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Bell, Check, TrendingUp, Users, Megaphone, X } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { cn } from "./ui/utils";
+import { formatRelativeTime } from "../../lib/utils/notifications";
 
 interface Notification {
   id: number;
@@ -14,7 +15,8 @@ interface Notification {
     | "bulk_scraped";
   title: string;
   message: string;
-  time: string;
+  /** Timestamp (ms) for relative time; legacy items may be string "Just now" */
+  time: number | string;
   read: boolean;
 }
 
@@ -24,7 +26,7 @@ const defaultNotifications: Notification[] = [
     type: "campaign",
     title: "Welcome to DTTracker",
     message: "Get started by creating your first campaign",
-    time: "Just now",
+    time: typeof Date.now === "function" ? Date.now() : "Just now",
     read: false,
   },
 ];
@@ -131,19 +133,16 @@ export function NotificationsCenter() {
     }
   }, [isOpen]);
 
-  // Update time dynamically
-  const getRelativeTime = (timeStr: string) => {
-    if (timeStr === "Just now") return timeStr;
+  // Re-render periodically so relative times update (e.g. "Just now" -> "1 min ago")
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
-    // Try to parse the time if it's in a specific format
-    const match = timeStr.match(
-      /(\d+)\s+(second|minute|hour|day|week|month)s?\s+ago/
-    );
-    if (match) {
-      return timeStr;
-    }
-
-    return timeStr;
+  const getRelativeTime = (time: number | string): string => {
+    if (typeof time === "number") return formatRelativeTime(time);
+    return time;
   };
 
   return (

@@ -130,6 +130,26 @@ serve(async (req) => {
       }
     }
 
+    // Look up workspace tier for this campaign to assign correct queue priority
+    const TIER_PRIORITY: Record<string, number> = { agency: 10, pro: 5, starter: 2, free: 0 };
+    let queuePriority = 0; // default: free tier
+    try {
+      const { data: campaignRow } = await supabase
+        .from("campaigns")
+        .select("workspace_id")
+        .eq("id", campaignId)
+        .single();
+      if (campaignRow?.workspace_id) {
+        const { data: plan } = await supabase.rpc("get_workspace_plan", {
+          target_workspace_id: campaignRow.workspace_id,
+        });
+        const tier = plan?.tier ?? "free";
+        queuePriority = TIER_PRIORITY[tier] ?? 0;
+      }
+    } catch (e) {
+      console.warn("Could not determine workspace tier, using default priority:", e);
+    }
+
     // Fetch all posts for the campaign using service role client
     // Include posts that are pending, scraped, failed, or scraping (we'll filter stuck ones)
     // Note: last_scraped_at may not exist in older databases, so we'll handle it gracefully
@@ -354,33 +374,32 @@ serve(async (req) => {
             `📋 Reset ${remainingInBatch.length} posts to pending status`
           );
 
-          // Chain: fire another run to process the next batch (if under limit)
-          if (chainDepth < MAX_CHAIN_DEPTH) {
-            console.log(
-              `🔗 Chaining run (depth ${chainDepth + 1}/${MAX_CHAIN_DEPTH})`
-            );
-            fetch(scrapePostUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: authHeader
-                  ? authHeader
-                  : `Bearer ${supabaseServiceKey}`,
-                apikey: supabaseServiceKey,
-              },
-              body: JSON.stringify({
-                campaignId,
-                chainDepth: chainDepth + 1,
-              }),
-            }).catch((err) =>
-              console.error("Chained scrape-all-posts request failed:", err)
-            );
+          // Enqueue remaining posts into the scrape_jobs queue instead of chaining.
+          // The cron worker picks them up within 2 min at a controlled rate (3 parallel),
+          // avoiding back-to-back API hammering.
+          const nowIso = new Date().toISOString();
+          let enqueuedCount = 0;
+          for (const postId of remainingInBatch) {
+            const post = batch.find((p) => p.id === postId);
+            if (!post) continue;
+            const { error: insertErr } = await supabase.from("scrape_jobs").insert({
+              platform: post.platform,
+              job_type: "post",
+              reference_type: "post",
+              reference_id: post.id,
+              input: { postId: post.id, postUrl: post.post_url, platform: post.platform },
+              priority: queuePriority,
+              scheduled_for: nowIso,
+              status: "queued",
+            });
+            if (!insertErr || insertErr.code === "23505") enqueuedCount++;
           }
+          console.log(`📬 Enqueued ${enqueuedCount} timeout-remaining posts into scrape_jobs queue`);
         }
 
         result.errors.push({
           postId: "timeout",
-          message: `Processing stopped early due to execution time limit. ${processedCount} posts processed, ${remainingInBatch.length} reset to pending${chainDepth < MAX_CHAIN_DEPTH ? ", next batch chained." : "."}`,
+          message: `Processing stopped early due to execution time limit. ${processedCount} posts processed, ${remainingInBatch.length} enqueued for background processing.`,
         });
         break;
       }
@@ -560,6 +579,31 @@ serve(async (req) => {
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
+    }
+
+    // Enqueue any overflow posts (beyond the first 6) into the queue so they're
+    // picked up by the cron worker within ~2 min at a controlled pace.
+    // This replaces back-to-back chaining which could hammer the scraper API.
+    const overflowPosts = postsToScrape.slice(BATCH_SIZE);
+    if (overflowPosts.length > 0) {
+      const nowIso = new Date().toISOString();
+      let overflowEnqueued = 0;
+      for (const post of overflowPosts) {
+        const { error: insertErr } = await supabase.from("scrape_jobs").insert({
+          platform: post.platform,
+          job_type: "post",
+          reference_type: "post",
+          reference_id: post.id,
+          input: { postId: post.id, postUrl: post.post_url, platform: post.platform },
+          priority: queuePriority,
+          scheduled_for: nowIso,
+          status: "queued",
+        });
+        if (!insertErr || insertErr.code === "23505") overflowEnqueued++;
+      }
+      console.log(
+        `📬 Enqueued ${overflowEnqueued} overflow posts (beyond batch of ${BATCH_SIZE}) into scrape_jobs queue`
+      );
     }
 
     const totalTime = Date.now() - startTime;

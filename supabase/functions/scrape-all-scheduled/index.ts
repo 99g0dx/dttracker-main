@@ -417,10 +417,69 @@ serve(async (req) => {
       }
     }
 
-    const totalJobsEnqueued = jobsEnqueued + submissionJobsEnqueued;
+    // ========== Part 3: Initial Scrape Recovery (never-scraped pending posts) ==========
+    // Finds posts stuck as status="pending" with no scrape ever attempted — typically
+    // posts left behind when scrape-all-posts timed out after a CSV bulk import.
+    // Enqueued at priority -1 so they never crowd out regular re-scrapes.
+    const MAX_INITIAL_SCRAPE_RECOVERY = 20;
+    let recoveryJobsEnqueued = 0;
+
+    if (campaignIds.length > 0) {
+      const { data: neverScrapedPosts, error: recoveryFetchError } = await supabase
+        .from("posts")
+        .select("id, post_url, platform, campaign_id, created_at")
+        .in("campaign_id", campaignIds)
+        .not("post_url", "is", null)
+        .eq("status", "pending")
+        .or("initial_scrape_attempted.is.null,initial_scrape_attempted.eq.false")
+        .or("initial_scrape_completed.is.null,initial_scrape_completed.eq.false")
+        .order("created_at", { ascending: true }) // oldest-first = FIFO fairness
+        .limit(MAX_INITIAL_SCRAPE_RECOVERY);
+
+      if (recoveryFetchError) {
+        console.error("Initial scrape recovery fetch error:", recoveryFetchError);
+      } else if (neverScrapedPosts && neverScrapedPosts.length > 0) {
+        console.log(
+          `Initial scrape recovery: ${neverScrapedPosts.length} never-scraped pending posts found`
+        );
+        const nowIso = now.toISOString();
+
+        for (const post of neverScrapedPosts as any[]) {
+          const jobRow = {
+            platform: post.platform,
+            job_type: "post",
+            reference_type: "post",
+            reference_id: post.id,
+            input: { postId: post.id, postUrl: post.post_url, platform: post.platform },
+            priority: -1, // lowest priority — processed only after all normal re-scrapes
+            scheduled_for: nowIso,
+            status: "queued",
+          };
+
+          const { error: insertErr } = await supabase.from("scrape_jobs").insert(jobRow);
+
+          if (insertErr) {
+            if (insertErr.code === "23505") {
+              // Job already in queue from another path — skip silently
+            } else {
+              console.error(
+                `Recovery: failed to enqueue post ${post.id}:`,
+                insertErr.message
+              );
+            }
+          } else {
+            recoveryJobsEnqueued++;
+          }
+        }
+
+        console.log(`Initial scrape recovery: enqueued ${recoveryJobsEnqueued} jobs`);
+      }
+    }
+
+    const totalJobsEnqueued = jobsEnqueued + submissionJobsEnqueued + recoveryJobsEnqueued;
 
     console.log(
-      `=== Auto-Scraping Complete === Post jobs enqueued: ${jobsEnqueued}, Submission jobs enqueued: ${submissionJobsEnqueued}, Total: ${totalJobsEnqueued}`
+      `=== Auto-Scraping Complete === Post jobs enqueued: ${jobsEnqueued}, Submission jobs enqueued: ${submissionJobsEnqueued}, Recovery jobs enqueued: ${recoveryJobsEnqueued}, Total: ${totalJobsEnqueued}`
     );
 
     return new Response(
@@ -429,6 +488,7 @@ serve(async (req) => {
         jobs_enqueued: totalJobsEnqueued,
         post_jobs_enqueued: jobsEnqueued,
         submission_jobs_enqueued: submissionJobsEnqueued,
+        recovery_jobs_enqueued: recoveryJobsEnqueued,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

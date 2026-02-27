@@ -7,14 +7,15 @@ export interface Notification {
   type: 'campaign' | 'performance' | 'team' | 'post_scraped' | 'top_performer' | 'bulk_scraped';
   title: string;
   message: string;
-  time: string;
+  /** Stored as timestamp (ms) for relative time; legacy items may be string "Just now" */
+  time: number | string;
   read: boolean;
 }
 
 /**
- * Format timestamp to relative time
+ * Format timestamp (ms) to relative time for display
  */
-function formatTime(timestamp: number): string {
+export function formatRelativeTime(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
   const seconds = Math.floor(diff / 1000);
@@ -46,11 +47,12 @@ export function addNotification(notification: Omit<Notification, 'id' | 'time' |
     const saved = localStorage.getItem('dttracker-notifications');
     const existing: Notification[] = saved ? JSON.parse(saved) : [];
 
-    // Create new notification
+    // Create new notification with timestamp for accurate relative time
+    const now = Date.now();
     const newNotification: Notification = {
-      id: Date.now(),
+      id: now,
       ...notification,
-      time: 'Just now',
+      time: now,
       read: false,
     };
 

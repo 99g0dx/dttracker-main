@@ -611,11 +611,12 @@ export function Settings({ onNavigate }: SettingsProps) {
 
   const addNotification = (notification: any) => {
     if (typeof window !== 'undefined') {
+      const now = Date.now();
       const notifications = JSON.parse(localStorage.getItem('dttracker-notifications') || '[]');
       const newNotification = {
-        id: Date.now(),
+        id: now,
         ...notification,
-        time: 'Just now',
+        time: now,
         read: false,
       };
       localStorage.setItem('dttracker-notifications', JSON.stringify([newNotification, ...notifications]));

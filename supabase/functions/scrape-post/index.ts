@@ -2062,6 +2062,11 @@ serve(async (req) => {
         scrape_count: ((post as { scrape_count?: number }).scrape_count ?? 0) + 1,
         // Per-post tracking: mark as successful
         last_success_at: now,
+        // Mark initial scrape as completed — covers all code paths (queue worker,
+        // scrape-all-posts, direct calls). Idempotent if already true.
+        initial_scrape_attempted: true,
+        initial_scrape_completed: true,
+        initial_scrape_failed: false, // clear any prior failure flag on successful scrape
         metrics: {
           views: scrapedMetrics.views,
           likes: scrapedMetrics.likes,
